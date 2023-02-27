@@ -50,7 +50,7 @@ for (root, dirs, files) in walkdir(data_folder)
         try
             filename = joinpath(data_folder, data_file)
             
-            outfile = string("tier2_", split(data_file, "_")[2])
+            outfile = string("dsp_", split(data_file, "_")[2])
             outfilename = joinpath(out_data_folder, outfile)
 
             processFile(filename, outfilename, decay_times)

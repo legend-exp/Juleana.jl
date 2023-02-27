@@ -1,60 +1,20 @@
-using RadiationDetectorDSP
-using Plots
-using LegendHDF5IO
-using Unitful
-using RadiationDetectorSignals
-using Statistics
-using GLM
-using LinearRegression
-using InverseFunctions
-using ArraysOfArrays
-using TypedTables
-using BenchmarkTools
-using LaTeXStrings
-using Measures
-using HDF5
-using ProgressBars
-using FilePathsBase
-using Formatting
-using Base
-using ConfParser
-using IntervalSets
-using ThreadsX
-using DataFrames
-using ElasticArrays
-using Distributions
-using StatsPlots
-using StatsBase
-
+include("../utils/packages.jl")
 include("../utils/loader.jl")
 include("../utils/saver.jl")
 
-tier2_folder = "/mnt/atlas01/users/henkes/l60_r025/julia/cal/tier2/"
-tier3_folder = "/mnt/atlas01/users/henkes/l60_r025/julia/cal/tier3/"
+config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
 
-config_file = "/home/ga26tel/legend/julia/l60/configs/config_l60_r025.json"
+stringsToLoad = [1,2,7,8]
+period, run, preName, cal = 1, 25, "l60", true
+dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts = prepareHit(config_folder, period=period, run=run, preName=preName, cal=cal, stringsToLoad=stringsToLoad)
 
-figure_folder = "/home/ga26tel/legend/julia/l60/figures/"
+cuts_figure_folder = joinpath(figure_folder, "cuts")
+checkFolder(cuts_figure_folder, true)
 
-string_numbers = [1, 2, 7, 8]
-
-data_strings = Dict{Int, Any}()
+# Create cuts TypedTables
 qc_cuts = TypedTables.Table(channel=Int[], blmeancut = Bool[], blsigmacut = Bool[], blslopecut = Bool[], 
         timestamp = Float64[]u"s", eventID_fadc = Int[]
         )
-
-for string_number in string_numbers
-    printfmtln("Loading string number: {}", string_number)
-    println()
-    println()
-
-    # Load config file
-    channel_dict = configLoader_string(string_number, config_file)
-    channel_list, label_listExt, label_list = channel_dict["channel_list"], channel_dict["label_listExt"], channel_dict["label_list"]
-
-    dsp_data = runLoader(channel_list, tier2_folder)
-    data_strings[string_number] = [dsp_data, channel_list, label_listExt, label_list]
-end
 
 # Baseline cuts
 for string_number in string_numbers
@@ -62,12 +22,18 @@ for string_number in string_numbers
     printfmtln("Processing string number: {}", string_number)
     println()
     println()
+    println("Check figure folder")
+    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
+    println()
+    println()
 
     dsp_data, channel_list, label_listExt, label_list = data_strings[string_number]
 
+    font_size = 14
+
     blmean_plots = repeat([plot(1)], length(channel_list))
     blstd_plots = repeat([plot(1)], length(channel_list))
-    blslope_plots = repeat([plot(1)], length(channel_list))
+    blslope_plots = [plot(u"ns^-1", Unitful.NoUnits, size=(1000, 800), xlabel="Baseline Slope", ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size) for i in 1:length(channel_list)]
 
     for (i, ch) in enumerate(channel_list)
         blmean_ch  = dsp_data[ch].blmean
@@ -121,7 +87,7 @@ for string_number in string_numbers
 
         # Slope
         xlim_factor, slope_cut_factor = 1, 0.2
-        blslope_plots[i] = stephist(blslope_ch, label="Bl Slope", title=format("Channel g{:>03d}", ch), xlim=(median(blslope_ch)-xlim_factor*std(blslope_ch), median(blslope_ch)+xlim_factor*std(blslope_ch)), normalize=:pdf, nbins=convert(Int, round(length(blslope_ch)/30)))
+        stephist!(blslope_plots[i], blslope_ch, label="Bl Slope", title=format("Channel g{:>03d}", ch), xlim=(median(blslope_ch)-xlim_factor*std(blslope_ch), median(blslope_ch)+xlim_factor*std(blslope_ch)), normalize=:pdf, nbins=convert(Int, round(length(blslope_ch)/30)))
         blslope_unit = unit(blslope_ch[1])
         hists = fit(Histogram, blslope_ch/blslope_unit, nbins=convert(Int, round(length(blslope_ch)/30)))
         cts_argmax = mapslices(argmax, hists.weights, dims=1)[1]
@@ -131,8 +97,8 @@ for string_number in string_numbers
         cut_high_arg = filter((x) -> hists.weights[x] < slope_cut_factor * cts_max, cts_argmax:length(hists.weights))[1]
         cut_low, cut_high = Array(hists.edges[1])[cut_low_arg]*blslope_unit, Array(hists.edges[1])[cut_high_arg]*blslope_unit
         printfmtln("BL Slope Cut window: [{}, {}]", cut_low, cut_high)
-        vline!([cut_low, cut_high], color=:red, lw=3, label="")
-        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
+        vline!(blslope_plots[i], [cut_low, cut_high], color=:red, lw=3, label="")
+        vspan!(blslope_plots[i], [cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
 
         append!(qc_cuts.blslopecut, (blslope_ch .> cut_low) .& (blslope_ch .< cut_high))
 
@@ -142,24 +108,37 @@ for string_number in string_numbers
     end
 
 
-    plot(blmean_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    xlabel!("Baseline Mean [ADC]")
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_blmean.pdf", string_number))
 
+    bl_mean_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blmean.pdf", string_number))
+    bl_mean_pdf_tmp = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blmean_tmp.pdf", string_number))
 
-    plot(blstd_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    xlabel!("Baseline Std [ADC]")
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_blstd.pdf", string_number))
+    for p in blmean_plots
+        p_save = plot(p, size=(1000, 800), xlabel="Baseline Mean [ADC]", ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(p_save, bl_mean_pdf_tmp)
+        append_pdf!(string(bl_mean_pdf), string(bl_mean_pdf_tmp), cleanup=true)
+    end
 
-    plot(blslope_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    # xlabel!("Baseline Slope")
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_blslope.pdf", string_number))
+    bl_std_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blstd.pdf", string_number))
+    bl_std_pdf_tmp = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blstd_tmp.pdf", string_number))
 
+    for p in blstd_plots
+        p_save = plot(p, size=(1000, 800), xlabel="Baseline Std [ADC]", ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(p_save, bl_std_pdf_tmp)
+        append_pdf!(string(bl_std_pdf), string(bl_std_pdf_tmp), cleanup=true)
+    end
+
+    bl_slope_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blslope.pdf", string_number))
+    bl_slope_pdf_tmp = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blslope_tmp.pdf", string_number))
+    
+    for p in blslope_plots
+        # plot!(p, )
+        savefig(p, bl_slope_pdf_tmp)
+        append_pdf!(string(bl_slope_pdf), string(bl_slope_pdf_tmp), cleanup=true)
+    end
+    break
 
 end
+# current()
 
 
 # Time Plots 
@@ -168,6 +147,10 @@ end
 for string_number in string_numbers
 
     printfmtln("Processing string number: {}", string_number)
+    println()
+    println()
+    println("Check figure folder")
+    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
     println()
     println()
 
@@ -212,25 +195,46 @@ for string_number in string_numbers
         # break
         println()
     end
-    plot(rt1090_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_rt1090.pdf", string_number))
 
-    plot(rt1099_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_rt1099.pdf", string_number))
+    font_size = 14
 
-    plot(rt9099_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_rt9099.pdf", string_number))
+    rt_1090_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt1090.pdf", string_number))
+    rt_1099_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt1099.pdf", string_number))
+    rt_9099_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt9099.pdf", string_number))
+    drifttime_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_drifttime.pdf", string_number))
+    t0_pdf          = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_t0.pdf", string_number))
 
-    plot(drifttime_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_drifttime.pdf", string_number))
+    tmp_pdf        = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_tmp.pdf", string_number))
 
-    plot(t0_plots..., layout=(length(channel_list), 1), size=(1000, 3000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18)
-    ylabel!("Counts")
-    savefig(figure_folder * format("string{}_t0.pdf", string_number))
+    for p in rt1090_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(rt_1090_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in rt1099_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(rt_1099_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in rt9099_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(rt_9099_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in drifttime_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(drifttime_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in t0_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(t0_pdf), string(tmp_pdf), cleanup=true)
+    end
 
     # break
 
@@ -240,6 +244,10 @@ end
 for string_number in string_numbers
 
     printfmtln("Processing string number: {}", string_number)
+    println()
+    println()
+    println("Check figure folder")
+    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
     println()
     println()
 
@@ -265,36 +273,59 @@ for string_number in string_numbers
         # Mean
         xlim_factor = 1
         # blmean_2D_plots[i] = histogram2d(timestamps_ch/unit(timestamps_ch[1]), blmean_ch, nbins=(500, 5000), ylim=(median(blmean_ch)-1000, median(blmean_ch)+1000), title=format("Channel g{:>03d}", ch), color=:plasma, ylabel="Baseline Mean [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-        blmean_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blmean_ch, nbins=(150, 5000), ylim=(median(blmean_ch)-1000, median(blmean_ch)+1000), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Mean [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-
+        blmean_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blmean_ch, nbins=(150, 5000), ylim=(median(blmean_ch)-1000, median(blmean_ch)+1000), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Mean [ADC]", show_empty_bins=true, dpi=100)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
 
         # Std
         # blstd_2D_plots[i] = histogram2d(timestamps_ch/unit(timestamps_ch[1]), blstd_ch, nbins=(500, 5000), ylim=(median(blstd_ch)-1000, median(blstd_ch)+1000), title=format("Channel g{:>03d}", ch), color=:plasma, ylabel="Baseline Std [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-        blstd_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blstd_ch, nbins=(150, 5000), ylim=(0, median(blstd_ch)+50), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Std [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
+        blstd_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blstd_ch, nbins=(150, 5000), ylim=(0, median(blstd_ch)+50), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Std [ADC]", show_empty_bins=true, dpi=100)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
 
         # Slope
         # blslope_2D_plots[i] = histogram2d(timestamps_ch/unit(timestamps_ch[1]), blslope_ch, nbins=(500, 5000), ylim=(median(blslope_ch)-1000, median(blslope_ch)+1000), title=format("Channel g{:>03d}", ch), color=:plasma, ylabel="Baseline Slope [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-        blslope_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blslope_ch, nbins=(150, 5000), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Slope [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
+        blslope_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blslope_ch, nbins=(150, 5000), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Slope [ADC]", show_empty_bins=true, dpi=100)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
 
 
         # break
         println()
     end
 
+    font_size = 14
 
-    plot(blmean_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
-    savefig(figure_folder * format("string{}_blmean-time.png", string_number))
+    blmean_2D_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blmean-time.pdf", string_number))
+    blstd_2D_pdf    = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blstd-time.pdf", string_number))
+    blslope_2D_pdf  = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blslope-time.pdf", string_number))
+    
+    # plot(blmean_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
+    # savefig(blmean_2D_pdf)
 
-    plot(blstd_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
-    savefig(figure_folder * format("string{}_blstd-time.png", string_number))
+    # plot(blstd_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
+    # savefig(blstd_2D_pdf)
 
-    plot(blslope_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
-    savefig(figure_folder * format("string{}_blslope-time.png", string_number))
+    # plot(blslope_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
+    # savefig(blslope_2D_pdf)
 
+    tmp_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_2D_tmp.pdf", string_number))
+
+    for p in blmean_2D_plots
+        plot(p, size=(1000, 800), framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size, dpi=100)
+        savefig(tmp_pdf)
+        append_pdf!(string(blmean_2D_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in blstd_2D_plots
+        plot(p, size=(1000, 800), framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size, dpi=100)
+        savefig(tmp_pdf)
+        append_pdf!(string(blstd_2D_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in blslope_2D_plots
+        plot(p, size=(800, 800), framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size, dpi=100)
+        savefig(tmp_pdf)
+        append_pdf!(string(blslope_2D_pdf), string(tmp_pdf), cleanup=true)
+    end
     # break
     
 end
 # current()
 
 # Save cuts
-saveCuts(tier3_folder, qc_cuts)
+saveCuts(string(cut_folder), qc_cuts)

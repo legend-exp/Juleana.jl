@@ -4,10 +4,11 @@
     },
     "folder": {
       "folder_daq": "/mnt/atlas01/users/henkes/l60_r025/cal/raw/",
-      "folder_raw": "/remote/ceph2/group/legend/henkes/l60/r025/cal/tier1/",
-      "folder_dsp": "/remote/ceph2/group/legend/henkes/l60/r025/julia/cal/dsp/",
-      "folder_hit": "/remote/ceph2/group/legend/henkes/l60/r025/julia/cal/hit/",
-      "folder_figures": "/remote/ceph2/group/legend/henkes/l60/r025/julia/cal/figures/"
+      "folder_raw": "/remote/ceph2/group/legendex/data/l60/r025/cal/tier1/",
+      "folder_dsp": "/remote/ceph2/group/legendex/data/l60/r025/julia/cal/dsp/",
+      "folder_hit": "/remote/ceph2/group/legendex/data/l60/r025/julia/cal/hit/",
+      "folder_cut": "/remote/ceph2/group/legendex/data/l60/r025/julia/cal/cut/",
+      "folder_figures": "/remote/ceph2/group/legendex/data/l60/r025/julia/cal/figures/"
     },
     "tier1": {
       "ch_map_start": "0",
