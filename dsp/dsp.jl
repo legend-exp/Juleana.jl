@@ -1,28 +1,4 @@
-using RadiationDetectorDSP
-using Plots
-using LegendHDF5IO
-using Unitful
-using RadiationDetectorSignals
-using Statistics
-using GLM
-using LinearRegression
-using InverseFunctions
-using ArraysOfArrays
-using TypedTables
-using BenchmarkTools
-using LaTeXStrings
-using Measures
-using HDF5
-using ProgressBars
-using FilePathsBase
-using Formatting
-using Base
-using ConfParser
-using IntervalSets
-using ThreadsX
-using DataFrames
-using ElasticArrays
-
+include("../utils/packages.jl")
 include("../utils/loader.jl")
 include("../utils/utils.jl")
 

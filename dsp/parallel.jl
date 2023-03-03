@@ -35,7 +35,7 @@ addprocs(4, exename=`/home/iwsatlas1/henkes/julia-1.8.5/bin/julia`, exeflags=`-t
     include(joinpath(@__DIR__,"dsp.jl"))
     include(joinpath(@__DIR__,"../utils/loader.jl"))
 
-    config_folder = "/home/iwsatlas1/henkes/legend/julia/julia-dsp/configs/"
+    config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
 
     period, run, preName, cal = 1, 27, "l60", true
     data_folder, out_data_folder, string_numbers, decay_times = prepareDSP(config_folder, period=period, run=run, preName=preName, cal=cal)
