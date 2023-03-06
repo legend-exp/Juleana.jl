@@ -306,6 +306,33 @@ function prepareDSP(configFolder::String; period::Int, run::Int, preName::String
     return (data_folder, out_data_folder, string_numbers, decay_times)
 end
 
+function prepareDSP_FEP(configFolder::String; period::Int, run::Int, preName::String, cal::Bool)
+    config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", preName, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", preName, period, run))
+    config_file = joinpath(configFolder, config_file_rel)
+    conf_dict = JSON.parsefile(config_file; dicttype=Dict, inttype=Int64, use_mmap=true)
+
+    data_folder = PosixPath(conf_dict["folder"]["folder_raw"])
+    out_data_folder = PosixPath(conf_dict["folder"]["folder_fep"])
+
+    checkFolder(data_folder)
+    printfmtln("Using input folder {}", data_folder)
+
+    checkFolder(out_data_folder, true)
+    printfmtln("Using output folder {}", out_data_folder)
+
+    # load config file
+    string_numbers = conf_dict["default"]["strings"]
+
+    printfmtln("Using strings {}", string_numbers)
+
+    decay_times = Dict{Int, Float32}()
+    for string_n in string_numbers
+        conf_string = configLoader_string(string_n, config_file, Dict("tau"=>"tier2"))
+        merge!(decay_times, Dict{Int, Float32}(conf_string["channel_list"] .=> conf_string["additionalKeys"]["tau"]))
+    end
+    return (data_folder, out_data_folder, string_numbers, decay_times)
+end
+
 
 # data_folder, out_data_folder, string_numbers, decay_times = prepareDSP("/home/iwsatlas1/henkes/legend/julia/julia-dsp/configs/", period=1, run=25, preName="l60", cal=true)
 

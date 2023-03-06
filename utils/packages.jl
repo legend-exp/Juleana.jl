@@ -29,3 +29,4 @@ using StatsBase
 using RadiationSpectra
 using SpecialFunctions
 using PDFmerger
+using LegendSpecFits
