@@ -35,7 +35,7 @@ function checkPermissions(path, mode::String) # written like this to allow 'path
     if (typeof(path)==PosixPath)
        global  inputPath = convert(String, path) # if it is, convert the type to a normal String type.
     elseif (typeof(path)==String)
-        println("all good!")
+        # Do nothing, just reassign variable for local type
        global  inputPath = path
     else
         println("Invalid path format given. Please input a String or PosixPath.")
@@ -65,14 +65,14 @@ function checkFolder(folder::PosixPath, create::Bool=false)
     if !exists(folder) #if directory 'folder' does not exist:
         if create #if create is set to true (it is false by default)
             if (checkPermissions(splitdir(folder)[1], "w")==true) # checking parent directory to see if it is writable before attempting to create new folder.
-                println("Create folder $folder")
+                @info "Created folder $folder"
                 mkpath(folder)
             else # If folder does not exist, but we also do not have write permission (or if parent directory does not exist)
-                print("Cannot write to target directory to create $folder directory. Exiting script.")
+                @info "Could not create folder $folder. Exited script with exit(86)."
                 exit(86)
             end
         else
-            println("$folder does not exist, but new directory not created. Exiting script.")
+            @info "$folder did not exist, but new directory not created. Exiting script."
             exit(86)
         end
     end
