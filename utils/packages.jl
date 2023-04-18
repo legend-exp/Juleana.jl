@@ -1,4 +1,5 @@
 using RadiationDetectorDSP
+# using PlotlyJS
 using Plots
 using LegendHDF5IO
 using Unitful
@@ -30,3 +31,13 @@ using RadiationSpectra
 using SpecialFunctions
 using PDFmerger
 using LegendSpecFits
+using Optim
+using LinearAlgebra
+using StructArrays
+using ValueShapes
+using StatsBase
+using Distributions
+using LinearAlgebra
+using BAT
+using Roots
+using LsqFit;

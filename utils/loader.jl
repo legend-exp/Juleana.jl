@@ -439,7 +439,7 @@ function prepareHit(configFolder::String; period::Int, run::Int, preName::String
     end
 
     return (dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts)
-end
+end;
 
 # config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
 
