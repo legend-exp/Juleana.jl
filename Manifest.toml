@@ -2,7 +2,7 @@
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "96f868c812549ca1c2b05452aab4be4881386f32"
+project_hash = "18d2b8c36fa72c82c87e52f0fdd887052eec192a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -872,10 +872,8 @@ uuid = "c9265ca6-b027-5446-b1a4-febfa8dd10b0"
 version = "0.1.3"
 
 [[deps.LegendSpecFits]]
-deps = ["ArgCheck", "ArraysOfArrays", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "InverseFunctions", "IrrationalConstants", "LinearAlgebra", "RadiationSpectra", "Random", "RecipesBase", "Requires", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "Unitful", "ValueShapes"]
-git-tree-sha1 = "6b531b1fea63f04af03428e2e480e7c5f83b4051"
-repo-rev = "florian"
-repo-url = "../packages/LegendSpecFits.jl"
+deps = ["ArgCheck", "ArraysOfArrays", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "IntervalSets", "InverseFunctions", "IrrationalConstants", "LinearAlgebra", "LinearRegression", "LsqFit", "Optim", "Plots", "RadiationSpectra", "Random", "RecipesBase", "Requires", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "Unitful", "ValueShapes"]
+path = "../packages/LegendSpecFits.jl"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
 version = "0.1.0"
 
@@ -1003,6 +1001,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
+
+[[deps.LsqFit]]
+deps = ["Distributions", "ForwardDiff", "LinearAlgebra", "NLSolversBase", "OptimBase", "Random", "StatsBase"]
+git-tree-sha1 = "00f475f85c50584b12268675072663dfed5594b2"
+uuid = "2fda8390-95c7-5789-9bda-21331edee243"
+version = "0.13.0"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
@@ -1180,6 +1184,12 @@ git-tree-sha1 = "1903afc76b7d01719d9c30d3c7d501b61db96721"
 uuid = "429524aa-4258-5aef-a3af-852621145aeb"
 version = "1.7.4"
 
+[[deps.OptimBase]]
+deps = ["NLSolversBase", "Printf", "Reexport"]
+git-tree-sha1 = "9cb1fee807b599b5f803809e85c81b582d2009d6"
+uuid = "87e2bd06-a317-5318-96d9-3ecbac512eee"
+version = "2.0.2"
+
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -1271,6 +1281,12 @@ deps = ["Base64", "Blink", "DelimitedFiles", "JSExpr", "JSON", "Kaleido_jll", "M
 git-tree-sha1 = "7452869933cd5af22f59557390674e8679ab2338"
 uuid = "f0f68f2c-4968-5e81-91da-67840de0976a"
 version = "0.18.10"
+
+[[deps.PlotlyKaleido]]
+deps = ["Base64", "JSON", "Kaleido_jll"]
+git-tree-sha1 = "64b125713e6ec1b5fac6ae1f9624b8b408ec9cb8"
+uuid = "f2990250-8cf9-495f-b13a-cce12b45703c"
+version = "1.0.0"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
@@ -1368,7 +1384,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[deps.RadiationDetectorDSP]]
-deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "CUDA", "ChainRulesCore", "CompositionsBase", "DSP", "DocStringExtensions", "ElasticArrays", "FFTW", "FillArrays", "FunctionChains", "IntervalSets", "InverseFunctions", "KernelAbstractions", "LinearAlgebra", "Parameters", "RadiationDetectorSignals", "Random", "Requires", "SIMD", "Statistics", "StatsBase", "TypedTables", "UnPack", "Unitful"]
+deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "ChainRulesCore", "CompositionsBase", "DSP", "DocStringExtensions", "ElasticArrays", "FFTW", "FillArrays", "FunctionChains", "IntervalSets", "InverseFunctions", "KernelAbstractions", "LinearAlgebra", "Parameters", "RadiationDetectorSignals", "Random", "Requires", "SIMD", "Statistics", "StatsBase", "TypedTables", "UnPack", "Unitful"]
 path = "../packages/RadiationDetectorDSP.jl"
 uuid = "afd6e06f-c550-5763-af36-7391d39e46ec"
 version = "0.1.4"
@@ -1462,9 +1478,9 @@ version = "0.3.0+0"
 
 [[deps.Roots]]
 deps = ["ChainRulesCore", "CommonSolve", "Printf", "Setfield"]
-git-tree-sha1 = "a3db467ce768343235032a1ca0830fc64158dadf"
+git-tree-sha1 = "b45deea4566988994ebb8fb80aa438a295995a6e"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "2.0.8"
+version = "2.0.10"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
