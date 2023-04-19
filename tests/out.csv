@@ -1,0 +1,13 @@
+timerout1 = timerout
+\ ───────────────────────────────────────────────────────────────────────────
+                                   Time                    Allocations      
+                          ───────────────────────   ────────────────────────
+     Tot / % measured:         1006s /  31.7%           11.4GiB /  98.3%    
+
+ Section          ncalls     time    %tot     avg     alloc    %tot      avg
+ ───────────────────────────────────────────────────────────────────────────
+ append data         114     177s   55.6%   1.56s   10.8GiB   96.1%  96.6MiB
+ access HDF5          57     140s   44.0%   2.46s   6.00MiB    0.1%   108KiB
+ Load channel         57    1.06s    0.3%  18.5ms    410MiB    3.6%  7.20MiB
+ search channel      114    137ms    0.0%  1.20ms   26.6MiB    0.2%   239KiB
+ create dict           1   4.10ms    0.0%  4.10ms   27.8KiB    0.0%  27.8KiB

@@ -29,135 +29,6 @@ end
 
 # cuts = cutLoader(channel_list, cut_folder)
 
-function OLD_runLoader(channel_list::Array{Int}, dsp_folder::String)
-    return_dict = Dict{Int, Any}()
-
-    data_folder = PosixPath(dsp_folder)
-    if !exists(data_folder)
-        println("Input directory does not exist, exit script")
-        return return_dict
-    end
-
-    println("Loading channels $channel_list")
-
-    e_grid_rt = 1u"µs":0.5u"µs":12u"µs"
-    e_grid_ft = 1u"µs":0.2u"µs":4u"µs"
-
-    for ch in channel_list
-        return_dict[ch] = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
-        τ_extracted = Float64[]u"µs", t0 = Float64[]u"µs",
-        e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
-        # e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
-        a = Float64[],
-        blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[],
-        pretrace_diff = Float64[], 
-        rt1090 = Float64[]u"ns", rt1099 = Float64[]u"ns", rt9099 = Float64[]u"ns", drift_time = Float64[]u"ns"
-        )
-    end
-
-
-    for (root, dirs, files) in walkdir(data_folder)
-    
-        iter = ProgressBar(files)
-
-        for data_file in iter
-            
-            if splitext(data_file)[2] != ".lh5"
-                printfmtln("File {} is not a HDF5 file, will Skip", data_file)
-                continue
-            end
-    
-            filename = joinpath(data_folder, data_file)
-            println(iter, "Loading file $data_file")
-
-            data = h5open(string(filename), "r")["DSP"]
-            data_legend = LHDataStore(data)
-
-            channels = data["channel"][:]
-            printfmtln("Found {} events", length(channels))
-
-            for ch in channel_list
-                if !(ch in channels)
-                    printfmtln("Channel {} is not in the list of channels to load, will skip", ch)
-                    continue
-                end
-                printfmtln("Loading channel {}", ch)
-                
-                ch_range = searchsortedfirst(channels, ch):searchsortedlast(channels, ch)
-
-                # println(ch_range)
-
-                # ch_tab = TypedTables.Table(channel=channels[ch_range], blmean = data["blmean"][ch_range], blsigma = data["blsigma"][ch_range], blslope = data["blslope"][ch_range]u"ns^-1", bloffset = data["bloffset"][ch_range], 
-                # τ_extracted = data["τ_extracted"][ch_range]u"µs", t0 = data["t0"][ch_range]u"µs",
-                # e_10410 = data["e_10410"][ch_range], enc_10410 = data["enc_10410"][ch_range], e_10210 = data["e_10210"][ch_range], enc_10210 = data["enc_10210"][ch_range], e_848 = data["e_848"][ch_range], enc_848 = data["enc_848"][ch_range], e_434 = data["e_434"][ch_range], enc_434 = data["enc_434"][ch_range],
-                # # e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
-                # a = data["a"][ch_range],
-                # blfc = data["blfc"][ch_range], timestamp = data["timestamp"][ch_range]u"s", eventID_fadc = data["eventID_fadc"][ch_range],
-                # pretrace_diff = data["pretrace_diff"][ch_range], 
-                # rt1090 = data["rt1090"][ch_range]u"ns", rt1099 = data["rt1099"][ch_range]u"ns", rt9099 = data["rt9099"][ch_range]u"ns", drift_time = data["drift_time"][ch_range]u"ns"
-                # )
-
-                # append!(return_dict[ch].channel, channels[ch_range])
-
-
-                # append!(return_dict[ch].blmean,   data["blmean"][ch_range])
-                # append!(return_dict[ch].blsigma,  data["blsigma"][ch_range])
-                # append!(return_dict[ch].blslope,  data["blslope"][ch_range]u"ns^-1")
-                # append!(return_dict[ch].bloffset, data["bloffset"][ch_range])
-                
-                # append!(return_dict[ch].τ_extracted, data["τ_extracted"][ch_range]u"µs")
-                # append!(return_dict[ch].t0, data["t0"][ch_range]u"µs")
-                
-                # append!(return_dict[ch].e_10410,   data["e_10410"][ch_range])
-                # append!(return_dict[ch].enc_10410, data["enc_10410"][ch_range])
-                # append!(return_dict[ch].e_10210,   data["e_10210"][ch_range])
-                # append!(return_dict[ch].enc_10210, data["enc_10210"][ch_range])
-                # append!(return_dict[ch].e_848,     data["e_848"][ch_range])
-                # append!(return_dict[ch].enc_848,   data["enc_848"][ch_range])
-                # append!(return_dict[ch].e_434,     data["e_434"][ch_range])
-                # append!(return_dict[ch].enc_434,   data["enc_434"][ch_range])
-
-                # # for arr in VectorOfSimilarArrays(e_grid)
-                # #     push!(out_t.e_grid, arr)
-                # # end
-
-                # # for arr in VectorOfSimilarArrays(enc_grid)
-                # #     push!(out_t.enc_grid, arr)
-                # # end
-
-
-                # append!(return_dict[ch].a, data["a"][ch_range])
-
-                # append!(return_dict[ch].blfc, data["blfc"][ch_range])
-                # append!(return_dict[ch].timestamp, data["timestamp"][ch_range]u"s")
-                # append!(return_dict[ch].eventID_fadc, data["eventID_fadc"][ch_range])
-
-                # append!(return_dict[ch].pretrace_diff, data["pretrace_diff"][ch_range])
-
-                # append!(return_dict[ch].rt1090, data["rt1090"][ch_range]u"ns")
-                # append!(return_dict[ch].rt1099, data["rt1099"][ch_range]u"ns")
-                # append!(return_dict[ch].rt9099, data["rt9099"][ch_range]u"ns")
-                # append!(return_dict[ch].drift_time, data["drift_time"][ch_range]u"ns")
-
-                append!(return_dict[ch], TypedTables.Table(channel=channels[ch_range], blmean = data["blmean"][ch_range], blsigma = data["blsigma"][ch_range], blslope = data["blslope"][ch_range]u"ns^-1", bloffset = data["bloffset"][ch_range], 
-                τ_extracted = data["τ_extracted"][ch_range]u"µs", t0 = data["t0"][ch_range]u"µs",
-                e_10410 = data["e_10410"][ch_range], enc_10410 = data["enc_10410"][ch_range], e_10210 = data["e_10210"][ch_range], enc_10210 = data["enc_10210"][ch_range], e_848 = data["e_848"][ch_range], enc_848 = data["enc_848"][ch_range], e_434 = data["e_434"][ch_range], enc_434 = data["enc_434"][ch_range],
-                # e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
-                a = data["a"][ch_range],
-                blfc = data["blfc"][ch_range], timestamp = data["timestamp"][ch_range]u"s", eventID_fadc = data["eventID_fadc"][ch_range],
-                pretrace_diff = data["pretrace_diff"][ch_range], 
-                rt1090 = data["rt1090"][ch_range]u"ns", rt1099 = data["rt1099"][ch_range]u"ns", rt9099 = data["rt9099"][ch_range]u"ns", drift_time = data["drift_time"][ch_range]u"ns"
-                ))
-                # break
-            end
-
-            # break
-        end
-    end
-
-    return return_dict
-end
-
 function runLoader(channel_list::Array{Int}, dsp_folder::String, load_grid::Bool = false)
     return_dict = Dict{Int, Any}()
 
@@ -249,35 +120,6 @@ end
 
 # testData = runLoader(channel_list, out_data_folder, false)
 
-function INIconfigLoader_string(det_string::Int, config_file::String)
-
-    conf = ConfParse(config_file)
-    parse_conf!(conf)
-    decay_times = Dict{Int, Float32}()
-
-    det_string_name = format("String {}", det_string)
-
-    channel_list = Int[]
-    label_list = Dict{Int, String}()
-    label_listExt = Dict{Int, String}()
-
-    for (key, vals) in conf._data
-        if startswith(key, "tier3/g")
-            println(vals["label_ext"])
-            if det_string_name in vals["label_ext"]
-                channel = parse(Int, key[end-2:end])
-                append!(channel_list, channel)
-                label_list[channel] = vals["label"]
-                label_listExt[channel] = ["label_ext"]
-                printfmtln("Found detector {} at channel {}", label_listExt[channel], channel)
-                # decay_times[parse(Int, key[end-2:end])] = parse(Float32, vals["tau"][1])    
-            end
-        end
-    end
-
-    return Dict("channel_list"=>channel_list, "label_list"=>label_list, "label_listExt"=>label_listExt)
-
-end
 
 function prepareDSP(configFolder::String; period::Int, run::Int, preName::String, cal::Bool)
     config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", preName, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", preName, period, run))
@@ -439,7 +281,7 @@ function prepareHit(configFolder::String; period::Int, run::Int, preName::String
     end
 
     return (dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts)
-end;
+end
 
 # config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
 

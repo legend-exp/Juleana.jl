@@ -5,14 +5,19 @@ include("../utils/saver.jl")
 config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
 
 stringsToLoad = [1,2,7,8]
+# stringsToLoad = [1]
 period, run, preName, cal = 1, 25, "l60", true
 dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts = prepareHit(config_folder, period=period, run=run, preName=preName, cal=cal, stringsToLoad=stringsToLoad)
 
+string_numbers = stringsToLoad
 cuts_figure_folder = joinpath(figure_folder, "cuts")
 checkFolder(cuts_figure_folder, true)
 
 # Create cuts TypedTables
-qc_cuts = TypedTables.Table(channel=Int[], blmeancut = Bool[], blsigmacut = Bool[], blslopecut = Bool[], 
+qc_cuts = TypedTables.Table(channel=Int[], 
+        blmeancut = Bool[], blsigmacut = Bool[], blslopecut = Bool[], 
+        t0cut = Bool[], rt1090cut = Bool[], driftTimecut = Bool[], τ_cut = Bool[],
+        e_434_cut = Bool[], e_848_cut = Bool[], e_10210_cut = Bool[], e_10410_cut = Bool[],
         timestamp = Float64[]u"s", eventID_fadc = Int[]
         )
 
@@ -135,7 +140,7 @@ for string_number in string_numbers
         savefig(p, bl_slope_pdf_tmp)
         append_pdf!(string(bl_slope_pdf), string(bl_slope_pdf_tmp), cleanup=true)
     end
-    break
+    # break
 
 end
 # current()
@@ -162,6 +167,7 @@ for string_number in string_numbers
     rt9099_plots = repeat([plot(1)], length(channel_list))
     drifttime_plots = repeat([plot(1)], length(channel_list))
     t0_plots = repeat([plot(1)], length(channel_list))
+    τ_plots = repeat([plot(1)], length(channel_list))
 
 
     for (i, ch) in enumerate(channel_list)
@@ -170,6 +176,11 @@ for string_number in string_numbers
         rt9099_ch      = dsp_data[ch].rt9099
         drifttime_ch   = dsp_data[ch].drift_time
         t0_ch          = dsp_data[ch].t0
+        τ_ch           = dsp_data[ch].τ_extracted
+        e_434_ch      = dsp_data[ch].e_434
+        e_848_ch      = dsp_data[ch].e_848
+        e_10210_ch    = dsp_data[ch].e_10210
+        e_10410_ch    = dsp_data[ch].e_10410
 
         printfmtln("Channel: {}", ch)
         printfmtln("Number of events: {}", length(rt1090_ch))
@@ -178,20 +189,53 @@ for string_number in string_numbers
         printfmtln("Median of rt9099: {}", median(rt9099_ch))
         printfmtln("Median of drifttime: {}", median(drifttime_ch))
         printfmtln("Median of t0: {}", median(t0_ch))
+        printfmtln("Median of τ: {}", median(τ_ch))
 
-        # xlim_factor, mean_cut_factor = 2, 0.2
         xlim_factor = 1
         rt1090_plots[i]  = stephist(rt1090_ch, label="RT 10-90", title=format("Channel g{:>03d}", ch), xlim=(zero(rt1090_ch[1]), median(rt1090_ch)+xlim_factor*median(rt1090_ch)), normalize=:pdf, nbins=convert(Int, round(length(rt1090_ch)/30)))
-        # rt1090_plots[i]  = stephist(rt1090_ch, label="RT 10-90", title=format("Channel g{:>03d}", ch), xlim=(zero(rt1090_ch[1]), median(rt1090_ch)+xlim_factor*median(rt1090_ch)), nbins=:sturges)
+        cut_low, cut_high = 100u"ns", 1000u"ns"
+        printfmtln("RT1090 Cut window: [{}, {}]", cut_low, cut_high)
+        vline!([cut_low, cut_high], color=:red, lw=3, label="")
+        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
+
+        append!(qc_cuts.rt1090cut, (rt1090_ch .> cut_low) .& (rt1090_ch .< cut_high))
 
         rt9099_plots[i] = stephist(rt9099_ch, label="RT 90-99", title=format("Channel g{:>03d}", ch), xlim=(zero(rt9099_ch[1]), median(rt9099_ch)+xlim_factor*median(rt9099_ch)), normalize=:pdf, nbins=convert(Int, round(length(rt9099_ch)/30)))
 
         rt1099_plots[i] = stephist(rt1099_ch, label="RT 10-99", title=format("Channel g{:>03d}", ch), xlim=(zero(rt1099_ch[1]), median(rt1099_ch)+xlim_factor*median(rt1099_ch)), normalize=:pdf, nbins=convert(Int, round(length(rt1099_ch)/30)))
 
         drifttime_plots[i] = stephist(drifttime_ch, label="Drift Time", title=format("Channel g{:>03d}", ch), xlim=(zero(drifttime_ch[1]), median(drifttime_ch)+xlim_factor*median(drifttime_ch)), normalize=:pdf, nbins=convert(Int, round(length(drifttime_ch)/30)))
+        
+        cut_low, cut_high = 100u"ns", 1000u"ns"
+        printfmtln("Drift Time Cut window: [{}, {}]", cut_low, cut_high)
+        vline!([cut_low, cut_high], color=:red, lw=3, label="")
+        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
 
-        t0_plots[i] = stephist(t0_ch, label="t0", title=format("Channel g{:>03d}", ch), xlim=(45u"µs", 50u"µs"), normalize=:pdf, nbins=convert(Int, round(length(t0_ch)/500)))
+        append!(qc_cuts.driftTimecut, (drifttime_ch .> cut_low) .& (drifttime_ch .< cut_high))
 
+        t0_plots[i] = stephist(t0_ch, label="t0", title=format("Channel g{:>03d}", ch), xlim=(25u"µs", 75u"µs"), normalize=:pdf, nbins=convert(Int, round(length(t0_ch)/500)))
+
+        cut_low, cut_high = 40u"µs", 60u"µs"
+        printfmtln("t0 Cut window: [{}, {}]", cut_low, cut_high)
+        vline!([cut_low, cut_high], color=:red, lw=3, label="")
+        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
+
+        append!(qc_cuts.t0cut, (t0_ch .> cut_low) .& (t0_ch .< cut_high))
+
+        τ_plots[i] = stephist(τ_ch, label="τ", title=format("Channel g{:>03d}", ch), xlim=(250u"µs", 800u"µs"), normalize=:pdf, nbins=convert(Int, round(length(τ_ch)/500)))
+
+        cut_low, cut_high = 200u"µs", 700u"µs"
+        printfmtln("τ Cut window: [{}, {}]", cut_low, cut_high)
+        vline!([cut_low, cut_high], color=:red, lw=3, label="")
+        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
+
+        append!(qc_cuts.τ_cut, (τ_ch .> cut_low) .& (τ_ch .< cut_high))
+
+
+        append!(qc_cuts.e_434_cut, e_434_ch .> zero(e_434_ch[1]))
+        append!(qc_cuts.e_848_cut, e_848_ch .> zero(e_848_ch[1]))
+        append!(qc_cuts.e_10210_cut, e_10210_ch .> zero(e_10210_ch[1]))
+        append!(qc_cuts.e_10410_cut, e_10410_ch .> zero(e_10410_ch[1]))
         # break
         println()
     end
@@ -203,6 +247,7 @@ for string_number in string_numbers
     rt_9099_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt9099.pdf", string_number))
     drifttime_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_drifttime.pdf", string_number))
     t0_pdf          = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_t0.pdf", string_number))
+    τ_pdf           = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_tau.pdf", string_number))
 
     tmp_pdf        = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_tmp.pdf", string_number))
 
@@ -236,6 +281,104 @@ for string_number in string_numbers
         append_pdf!(string(t0_pdf), string(tmp_pdf), cleanup=true)
     end
 
+    for p in τ_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(τ_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    # break
+
+end
+
+for string_number in string_numbers
+
+    printfmtln("Processing string number: {}", string_number)
+    println()
+    println()
+    println("Check figure folder")
+    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
+    println()
+    println()
+
+    dsp_data, channel_list, label_listExt, label_list = data_strings[string_number]
+
+
+    e_434_plots = repeat([plot(1)], length(channel_list))
+    e_848_plots = repeat([plot(1)], length(channel_list))
+    e_10210_plots = repeat([plot(1)], length(channel_list))
+    e_10410_plots = repeat([plot(1)], length(channel_list))
+
+
+    for (i, ch) in enumerate(channel_list)
+
+        e_434_ch      = dsp_data[ch].e_434
+        e_848_ch      = dsp_data[ch].e_848
+        e_10210_ch    = dsp_data[ch].e_10210
+        e_10410_ch    = dsp_data[ch].e_10410
+
+        printfmtln("Channel: {}", ch)
+        printfmtln("Number of events: {}", length(e_434_ch))
+
+        nbins = 10000
+        qc_cuts_ch = qc_cuts[findfirst(qc_cuts.channel .== ch):findlast(qc_cuts.channel .== ch)]
+        qc_ch = ones(Bool, length(qc_cuts_ch.channel))
+        for (col, name) in zip(columns(qc_cuts_ch), columnnames(qc_cuts_ch))
+            if name != :channel && name != :qc && name != :timestamp && name != :eventID_fadc
+                printfmt("Merge {} cut", name)
+                println()
+                qc_ch .= qc_ch .& col
+            end
+        end
+
+        e_434_plots[i]  = stephist(e_434_ch[qc_ch], label="Energy FTP 434 (with QC)", title=format("Channel g{:>03d}", ch), xlim=(zero(e_434_ch[1]), 25000), normalize=:pdf, nbins=nbins, yscale=:log10)
+        stephist!(e_434_ch, label="Energy FTP 434", title=format("Channel g{:>03d}", ch), normalize=:pdf, nbins=nbins, yscale=:log10)
+
+        e_848_plots[i]  = stephist(e_848_ch[qc_ch], label="Energy FTP 848 (with QC)", title=format("Channel g{:>03d}", ch), xlim=(zero(e_848_ch[1]), 25000), normalize=:pdf, nbins=nbins, yscale=:log10)
+        stephist!(e_848_ch, label="Energy FTP 848", title=format("Channel g{:>03d}", ch), normalize=:pdf, nbins=nbins, yscale=:log10)
+
+        e_10210_plots[i]  = stephist(e_10210_ch[qc_ch], label="Energy FTP 10210 (with QC)", title=format("Channel g{:>03d}", ch), xlim=(zero(e_10210_ch[1]), 25000), normalize=:pdf, nbins=nbins, yscale=:log10)
+        stephist!(e_10210_ch, label="Energy FTP 10210", title=format("Channel g{:>03d}", ch), normalize=:pdf, nbins=nbins, yscale=:log10)
+        
+        e_10410_plots[i]  = stephist(e_10410_ch[qc_ch], label="Energy FTP 10410 (with QC)", title=format("Channel g{:>03d}", ch), xlim=(zero(e_10410_ch[1]), 25000), normalize=:pdf, nbins=nbins, yscale=:log10)
+        stephist!(e_10410_ch, label="Energy FTP 10410", title=format("Channel g{:>03d}", ch), normalize=:pdf, nbins=nbins, yscale=:log10)
+
+        # break
+        println()
+    end
+
+    font_size = 14
+
+    e_434_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_e_434.pdf", string_number))
+    e_848_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_e_848.pdf", string_number))
+    e_10210_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_e_10210.pdf", string_number))
+    e_10410_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_e_10410.pdf", string_number))
+
+    tmp_pdf        = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_tmp.pdf", string_number))
+
+    for p in e_434_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(e_434_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in e_848_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(e_848_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in e_10210_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(e_10210_pdf), string(tmp_pdf), cleanup=true)
+    end
+
+    for p in e_10410_plots
+        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
+        savefig(tmp_pdf)
+        append_pdf!(string(e_10410_pdf), string(tmp_pdf), cleanup=true)
+    end
     # break
 
 end
@@ -327,5 +470,14 @@ for string_number in string_numbers
 end
 # current()
 
+# generate QC global cut
+cuts_out = TypedTables.Table(qc_cuts; qc = ones(Bool, length(qc_cuts.channel)))
+for (col, name) in zip(columns(qc_cuts), columnnames(qc_cuts))
+    if name != :channel && name != :qc && name != :timestamp && name != :eventID_fadc
+        printfmt("Merge {} cut", name)
+        println()
+        cuts_out.qc .= cuts_out.qc .& col
+    end
+end
 # Save cuts
-saveCuts(string(cut_folder), qc_cuts)
+saveCuts(string(cut_folder), cuts_out)
