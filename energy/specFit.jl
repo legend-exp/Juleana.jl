@@ -38,7 +38,7 @@ function fitStrings(data_strings::Dict, string_numbers::Array, figure_folder::Po
     end
 end
 
-function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Float64, n_bins::Integer, string_energy_figure_folder::PosixPath, label::String, label_Ext::String)
+function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Float64, n_bins::Integer, string_energy_figure_folder::PosixPath, label::String, label_Ext::String, save_fig::Bool=true)
 
     # get simple calibration by searching for FEP peak with 99% quantile
     h_calsimple, h_uncal, c, fep_guess, peakhists, peakstats = simpleCalibration(Array(e_uncal), th228_lines, window_size=window_size, n_bins=n_bins, calib_type="th228")
@@ -53,7 +53,7 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
     xticks!((0:3000:1.2*fep_guess, ["$i" for i in 0:3000:1.2*fep_guess]))
     xlims!(0, 1.2*fep_guess)
     plot!(legend = :topright, title="Channel $ch ($label_Ext)")
-    savefig(joinpath(string_energy_figure_folder, "uncalibrated_channel_$ch.pdf"))
+    ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "uncalibrated_channel_$ch.pdf")), 0)
 
     # Plot calibrated energy histogram
     plot(LinearAlgebra.normalize(h_calsimple, mode = :density), st = :stepbins, yscale = :log10, label="Energy")
@@ -65,7 +65,7 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
     xlims!(0, 3000)
     xticks!((0:200:3000, ["$i" for i in 0:200:3000]))
     plot!(legend = :topright, title="Channel $ch ($label_Ext)")
-    savefig(joinpath(string_energy_figure_folder, "simpleCalibrated_channel_$ch.pdf"))
+    ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "simpleCalibrated_channel_$ch.pdf")), 0)
 
     # Plot peak histograms
     hist_plots = plot.(LinearAlgebra.normalize.(peakhists, mode = :density), st = :stepbins, yscale = :log10, label="",
@@ -84,7 +84,7 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
         legend=:bottomright, figsize=(1000, 800),
         xlabel="Energy (keV)", ylabel="Counts",
     )
-    savefig(joinpath(string_energy_figure_folder, "peaks_channel_$ch.pdf"))
+    ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "peaks_channel_$ch.pdf")), 0)
 
     try 
         # fit Peaks with Raddford peak shape
@@ -103,7 +103,7 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
             figsize=(1000, 800), legend=:none,
             xlabel="Energy (keV)", ylabel="Counts",
         )
-        savefig(joinpath(string_energy_figure_folder, "peaks_fit_channel_$ch.pdf"))
+        ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "peaks_fit_channel_$ch.pdf")), 0)
 
         # fit calibration function
         calib_vals = Dict(collect(keys(peak_fit_vals)) .=> [val.μ for val in values(peak_fit_vals)]./c)
@@ -114,7 +114,7 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
         plot!(0:0.1:3000, x -> calib_slope* x + calib_intercept, label="Best Fit: $(round(calib_intercept, digits=2)) + x*$(round(calib_slope, digits=2)))", line_width=2, color=:red, subplot=1, xformatter=_->"")
         plot!(collect(keys(calib_vals)), x -> ((calib_slope* x + calib_intercept) - calib_vals[x])/calib_vals[x]*100 , label="Residuals", ylabel="Residuals (%)", line_width=2, color=:red, st=:scatter, subplot=2)
         plot!(legend = :topright, title="Channel $ch ($label_Ext)")
-        savefig(joinpath(string_energy_figure_folder, "calibration_channel_$ch.pdf"))
+        ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "calibration_channel_$ch.pdf")), 0)
 
         # plot resulting FWHM values
         fwhm_vals = Dict(collect(keys(peak_fit_vals)) .=> [val.fwhm for val in values(peak_fit_vals)])
@@ -129,7 +129,7 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
         hline!([fwhm_qbb], label="Qbb/keV: $(round(fwhm_qbb, digits=2))+-$(round(fwhm_qbb_err, digits=2))", color=:green)
         hspan!([fwhm_qbb - fwhm_qbb_err, fwhm_qbb + fwhm_qbb_err], color=:green, alpha=0.2, label="")
         plot!(legend = :topright, title="Channel $ch ($label_Ext)")
-        savefig(joinpath(string_energy_figure_folder, "fwhm_channel_$ch.pdf"))
+        ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "fwhm_channel_$ch.pdf")), 0)
 
         # plot cailbrated energy histogram
         e_cal = (e_uncal .- calib_intercept)./calib_slope
@@ -143,11 +143,14 @@ function fitChannel(e_uncal::Array, ch::Int, th228_lines::Array, window_size::Fl
         xlims!(0, 3000)
         xticks!((0:200:3000, ["$i" for i in 0:200:3000]))
         plot!(legend = :topright, title="Channel $ch ($label_Ext)")
-        savefig(joinpath(string_energy_figure_folder, "calibrated_channel_$ch.pdf"))
-    
+        ifelse(save_fig, savefig(joinpath(string_energy_figure_folder, "calibrated_channel_$ch.pdf")), 0)
+        
+        return calib_slope, calib_intercept, fwhm_qbb, fwhm_qbb_err
     catch e
         println("Error in channel $ch: $e")
         println("Could not calibrate and fit peaks")
+
+        return NaN, NaN, NaN, NaN
     end
 end
 

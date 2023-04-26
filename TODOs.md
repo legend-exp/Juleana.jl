@@ -16,4 +16,17 @@
 
 - Send Danielle papers about PZ deconvolution
 
-Adapt ArraysOfArrays BAT#main BenchmarkTools CUDA CUDAKernels ConfParser DataFrames Distributions ElasticArrays FilePathsBase FillArrays Formatting GLM HDF5 IntervalSets InverseFunctions JSON LaTeXStrings LegendDataTypes LegendHDF5IO LinearRegression Measures PDFmerger PlotlyJS Plots  RadiationDetectorSignals RadiationSpectra#main SpecialFunctions StatsBase StatsPlots ThreadsX TypedTables Unitful
+
+# New stuff to implement till monday presentation
+- CT correction with gradient decent
+   - CT parameter to optimize: FWHM/peak_height
+   - peak_height with optim find min of negative peak
+- A/E implementation with fits to compton bands
+- Finish energy optimization
+- Re-run DSP with Qdrift parameter
+- Implement ZAC filter in DSP chain
+- Implement p-value in peak fits
+- Update loader with better and faster loading from Oli
+- Remove plotting from fit_peaks.jl function
+
+

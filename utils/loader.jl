@@ -29,44 +29,112 @@ end
 
 # cuts = cutLoader(channel_list, cut_folder)
 
-function runLoader(channel_list::Array{Int}, dsp_folder::String, load_grid::Bool = false)
-    return_dict = Dict{Int, Any}()
+# function runLoader(channel_list::Array{Int}, dsp_folder::String, load_grid::Bool = false)
+#     return_dict = Dict{Int, Any}()
+
+#     data_folder = PosixPath(dsp_folder)
+#     if !exists(data_folder)
+#         println("Input directory does not exist, exit script")
+#         return return_dict
+#     end
+
+#     println("Loading channels $channel_list")
+
+#     e_grid_rt = 1u"µs":0.5u"µs":12u"µs"
+#     e_grid_ft = 1u"µs":0.2u"µs":4u"µs"
+
+#     if load_grid
+#         for ch in channel_list
+#             return_dict[ch] = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
+#             τ_extracted = Float64[]u"µs", τ = Float64[]u"µs", t0 = Float64[]u"µs",
+#             e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
+#             e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
+#             a = Float64[],
+#             blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[], e_fc = Float64[],
+#             pretrace_diff = Float64[], 
+#             rt1090 = Float64[]u"ns", rt1099 = Float64[]u"ns", rt9099 = Float64[]u"ns", drift_time = Float64[]u"ns"
+#             )
+#         end
+#     else
+#         for ch in channel_list
+#             return_dict[ch] = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
+#             τ_extracted = Float64[]u"µs", τ = Float64[]u"µs", t0 = Float64[]u"µs",
+#             e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
+#             a = Float64[],
+#             blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[], e_fc = Float64[],
+#             pretrace_diff = Float64[], 
+#             rt1090 = Float64[]u"ns", rt1099 = Float64[]u"ns", rt9099 = Float64[]u"ns", drift_time = Float64[]u"ns"
+#             )
+#         end
+#     end
+
+#     for (root, dirs, files) in walkdir(data_folder)
+    
+#         iter = ProgressBar(files)
+
+#         for data_file in iter
+            
+#             if splitext(data_file)[2] != ".lh5"
+#                 printfmtln("File {} is not a HDF5 file, will Skip", data_file)
+#                 continue
+#             end
+    
+#             filename = joinpath(data_folder, data_file)
+#             println(iter, "Loading file $data_file")
+
+#             # data = h5open(string(filename), "r")["DSP"]
+#             data = LHDataStore(string(filename), "r")["DSP"]
+
+#             channels = data.channel[:]
+#             printfmtln("Found {} events", length(channels))
+
+#             for ch in channel_list
+#                 if !(ch in channels)
+#                     printfmtln("Channel {} is not in the list of channels to load, will skip", ch)
+#                     continue
+#                 end
+                
+#                 # ch_range = searchsortedfirst(channels, ch):searchsortedlast(channels, ch)
+#                 ch_range = findfirst(channels .== ch):findlast(channels .== ch)
+
+#                 printfmtln("Loading channel {} with {} events.", ch, length(ch_range))
+
+#                 if !load_grid
+#                     append!(return_dict[ch], deleteproperties(data[ch_range], (:e_grid, :enc_grid)))
+#                     continue
+#                 end
+#                 append!(return_dict[ch], data[ch_range])
+                
+#             end
+
+#             # break
+#         end
+#     end
+
+#     return return_dict
+# end
+
+# out_data_folder = "/remote/ceph2/group/legendex/data/l60/r025/julia/cal/dsp/"
+
+# channel_list = [6]
+
+# testData = runLoader(channel_list, out_data_folder, false)
+
+function runLoader(dsp_folder::String)
+    return_dict = Dict{Int, TypedTables.Table}()
 
     data_folder = PosixPath(dsp_folder)
     if !exists(data_folder)
         println("Input directory does not exist, exit script")
-        return return_dict
+        return Dict{Int, Any}()
     end
 
-    println("Loading channels $channel_list")
+    println("Loading data from $data_folder")
+
+    first_file = true
 
     e_grid_rt = 1u"µs":0.5u"µs":12u"µs"
     e_grid_ft = 1u"µs":0.2u"µs":4u"µs"
-
-    if load_grid
-        for ch in channel_list
-            return_dict[ch] = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
-            τ_extracted = Float64[]u"µs", τ = Float64[]u"µs", t0 = Float64[]u"µs",
-            e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
-            e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
-            a = Float64[],
-            blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[], e_fc = Float64[],
-            pretrace_diff = Float64[], 
-            rt1090 = Float64[]u"ns", rt1099 = Float64[]u"ns", rt9099 = Float64[]u"ns", drift_time = Float64[]u"ns"
-            )
-        end
-    else
-        for ch in channel_list
-            return_dict[ch] = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
-            τ_extracted = Float64[]u"µs", τ = Float64[]u"µs", t0 = Float64[]u"µs",
-            e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
-            a = Float64[],
-            blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[], e_fc = Float64[],
-            pretrace_diff = Float64[], 
-            rt1090 = Float64[]u"ns", rt1099 = Float64[]u"ns", rt9099 = Float64[]u"ns", drift_time = Float64[]u"ns"
-            )
-        end
-    end
 
     for (root, dirs, files) in walkdir(data_folder)
     
@@ -82,32 +150,27 @@ function runLoader(channel_list::Array{Int}, dsp_folder::String, load_grid::Bool
             filename = joinpath(data_folder, data_file)
             println(iter, "Loading file $data_file")
 
-            # data = h5open(string(filename), "r")["DSP"]
-            data = LHDataStore(string(filename), "r")["DSP"]
+            data = LHDataStore(string(filename), "r")["DSP"][:]
 
-            channels = data.channel[:]
-            printfmtln("Found {} events", length(channels))
+            printfmtln("Found {} events", length(data.channel))
+            
+            data_perCH = consgroupedview(data.channel, data)
 
-            for ch in channel_list
-                if !(ch in channels)
-                    printfmtln("Channel {} is not in the list of channels to load, will skip", ch)
-                    continue
+            if first_file
+                for ch in map(x->first(x.channel), data_perCH)
+                    return_dict[ch] = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
+                    τ_extracted = Float64[]u"µs", τ = Float64[]u"µs", t0 = Float64[]u"µs",
+                    e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
+                    e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
+                    a = Float64[],
+                    blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[], e_fc = Float64[],
+                    pretrace_diff = Float64[], 
+                    rt1090 = Float64[]u"ns", rt1099 = Float64[]u"ns", rt9099 = Float64[]u"ns", drift_time = Float64[]u"ns"
+                    )
                 end
-                
-                # ch_range = searchsortedfirst(channels, ch):searchsortedlast(channels, ch)
-                ch_range = findfirst(channels .== ch):findlast(channels .== ch)
-
-                printfmtln("Loading channel {} with {} events.", ch, length(ch_range))
-
-                if !load_grid
-                    append!(return_dict[ch], deleteproperties(data[ch_range], (:e_grid, :enc_grid)))
-                    continue
-                end
-                append!(return_dict[ch], data[ch_range])
-                
+                first_file = false
             end
-
-            # break
+            mergewith!(append!, return_dict, Dict(map(x->first(x.channel), data_perCH) .=> data_perCH))
         end
     end
 
@@ -118,8 +181,7 @@ end
 
 # channel_list = [6]
 
-# testData = runLoader(channel_list, out_data_folder, false)
-
+# testData = runLoader(out_data_folder)
 
 function prepareDSP(configFolder::String; period::Int, run::Int, preName::String, cal::Bool)
     config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", preName, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", preName, period, run))
@@ -148,13 +210,14 @@ function prepareDSP(configFolder::String; period::Int, run::Int, preName::String
     return (data_folder, out_data_folder, string_numbers, decay_times)
 end
 
-function prepareDSP_FEP(configFolder::String; period::Int, run::Int, preName::String, cal::Bool)
+function prepareDSP_peakSeparation(configFolder::String; period::Int, run::Int, preName::String, cal::Bool)
     config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", preName, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", preName, period, run))
     config_file = joinpath(configFolder, config_file_rel)
     conf_dict = JSON.parsefile(config_file; dicttype=Dict, inttype=Int64, use_mmap=true)
 
     data_folder = PosixPath(conf_dict["folder"]["folder_raw"])
-    out_data_folder = PosixPath(conf_dict["folder"]["folder_fep"])
+    out_data_folder = PosixPath(conf_dict["folder"]["folder_peaks"])
+    figure_folder = PosixPath(conf_dict["folder"]["folder_figures"])
 
     checkFolder(data_folder)
     printfmtln("Using input folder {}", data_folder)
@@ -162,6 +225,12 @@ function prepareDSP_FEP(configFolder::String; period::Int, run::Int, preName::St
     checkFolder(out_data_folder, true)
     printfmtln("Using output folder {}", out_data_folder)
 
+    if !exists(figure_folder)
+        println("Figure directory does not exist, create it")
+        mkpath(figure_folder)
+    end
+    
+    printfmtln("Using figure folder {}", figure_folder)
     # load config file
     string_numbers = conf_dict["default"]["strings"]
 
@@ -172,7 +241,32 @@ function prepareDSP_FEP(configFolder::String; period::Int, run::Int, preName::St
         conf_string = configLoader_string(string_n, config_file, Dict("tau"=>"tier2"))
         merge!(decay_times, Dict{Int, Float32}(conf_string["channel_list"] .=> conf_string["additionalKeys"]["tau"]))
     end
-    return (data_folder, out_data_folder, string_numbers, decay_times)
+
+    # extract daq_energy
+    out_t = TypedTables.Table(channel=Int[], e_fc = Float64[])
+    for (root, dirs, files) in walkdir(data_folder)
+        iter = ProgressBar(files)
+        for data_file in iter
+            
+            if splitext(data_file)[2] != ".lh5"
+                println(iter, format("File {} is not a HDF5 file, will Skip", data_file))
+                continue
+            end
+    
+            filename = joinpath(data_folder, data_file)
+            data = LHDataStore(string(filename))
+            
+            channels     = 6* data["ORFlashCamADCWaveform"].card[:] + data["ORFlashCamADCWaveform"].ch_orca[:]
+            append!(out_t.channel, channels)
+
+            energy_fadc  = data["ORFlashCamADCWaveform"].daqenergy[:]
+            append!(out_t.e_fc, energy_fadc)
+
+            close(data)
+        end
+    end
+            
+    return (data_folder, out_data_folder, figure_folder, string_numbers, decay_times, out_t)
 end
 
 
@@ -228,7 +322,7 @@ end
 # a = configLoader_string(1, config_file)
 
 
-function prepareHit(configFolder::String; period::Int, run::Int, preName::String, cal::Bool, stringsToLoad::Array{Int}, additionalKeys::Dict{String, String}=Dict{String, String}(), load_grid::Bool=false)
+function prepareHit(configFolder::String; period::Int, run::Int, preName::String, cal::Bool, stringsToLoad::Array{Int}, additionalKeys::Dict{String, String}=Dict{String, String}())
     config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", preName, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", preName, period, run))
     config_file = joinpath(configFolder, config_file_rel)
     conf_dict = JSON.parsefile(config_file; dicttype=Dict, inttype=Int64, use_mmap=true)
@@ -260,6 +354,8 @@ function prepareHit(configFolder::String; period::Int, run::Int, preName::String
 
     printfmtln("Using strings {}", stringsToLoad)
     
+    data_channels = runLoader(string(dsp_folder))
+    
     data_strings, qc_cuts = Dict{Int, Any}(), Dict{Int, Any}()
     for string_number in string_numbers
         if !(string_number in stringsToLoad)
@@ -273,12 +369,13 @@ function prepareHit(configFolder::String; period::Int, run::Int, preName::String
     
         channel_dict = configLoader_string(string_number, config_file, additionalKeys)
         channel_list, label_listExt, label_list, additionalKeys_dict = channel_dict["channel_list"], channel_dict["label_listExt"], channel_dict["label_list"], channel_dict["additionalKeys"]
-    
-        dsp_data = runLoader(channel_list, string(dsp_folder), load_grid)
+        
+        dsp_data = filter(((k,v),) -> k in channel_list, data_channels)
         data_strings[string_number] = [dsp_data, channel_list, label_listExt, label_list, additionalKeys_dict]
         
         qc_cuts[string_number] = cutLoader(channel_list, string(cut_folder))
     end
+
 
     return (dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts)
 end

@@ -7,8 +7,9 @@ enc_pickoff = 32u"µs"
 bl_mean_min, bl_mean_max = 0u"µs", 39u"µs"
 pz_fit_min, pz_fit_max = 80u"µs", 110u"µs"
 t0_threshold = 5.0
+# zac_filter_length = 30u"µs"
 
-e_grid_rt = 1u"µs":0.5u"µs":12u"µs"
+e_grid_rt = 7u"µs":0.5u"µs":12u"µs"
 e_grid_ft = 1u"µs":0.2u"µs":4u"µs"
 
 # function processChannel(wvfs_ch::RDWaveform, bl_fc::Vector, ts_ch::Array, evID_ch::Array, ch_ch::Array, efc_ch::Array, out_t::TypedTables.Table, τ::Float32)
@@ -57,30 +58,25 @@ function processChannel(wvfs_ch, bl_fc, ts_ch, evID_ch, ch_ch, efc_ch, out_t::Ty
     drift_time = uconvert.(u"ns", flt_intersec_90RT.(wvfs_ch_pz, wvf_max .* 0.90).x - t0)
 
     # get Q-drift parameter
-    # flt_trunc_qdrift_A1 = IntegrateFilter(t0, t0 .+ 2.5u"µs")
-    # flt_trunc_qdrift_A2 = TruncateFilter(0u"µs"..60u"µs")
+    int_flt = IntegratorFilter(1)
+    wvfs_flt_int = int_flt.(wvfs_ch_pz)
+
+    area1 = SignalEstimator(PolynomialDNI(3, 100u"ns")).(wvfs_flt_int, t0 .+ 2.5u"µs") .- SignalEstimator(PolynomialDNI(3, 100u"ns")).(wvfs_flt_int, t0)
+    area2 = SignalEstimator(PolynomialDNI(3, 100u"ns")).(wvfs_flt_int, t0 .+ 5u"µs")   .- SignalEstimator(PolynomialDNI(3, 100u"ns")).(wvfs_flt_int, t0 .+ 2.5u"µs")
+    qdrift = area2 .- area1
 
     # extract energy and ENC noise param from maximum of filtered wvfs
     uflt_10410 = TrapezoidalChargeFilter(10u"µs", 4u"µs")
-    uflt_10210 = TrapezoidalChargeFilter(10u"µs", 2u"µs")
-    uflt_848   = TrapezoidalChargeFilter(8u"µs", 4u"µs")
-    uflt_434   = TrapezoidalChargeFilter(4u"µs", 3u"µs")
 
     wvfs_flt_10410 = uflt_10410.(wvfs_ch_pz)
     e_10410        = SignalEstimator(PolynomialDNI(3, 100u"ns")).(wvfs_flt_10410, t0 .+ 12u"µs")
     enc_10410      = SignalEstimator(PolynomialDNI(2, 150u"ns")).(wvfs_flt_10410, enc_pickoff)
 
-    wvfs_flt_848   = uflt_848.(wvfs_ch_pz)
-    e_848          = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_flt_848, t0 .+ 10u"µs")
-    enc_848        = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_flt_848, enc_pickoff)
+    uflt_zac10410 = ZACChargeFilter(10u"µs", 4u"µs", 30u"µs")
 
-    wvfs_flt_434   = uflt_434.(wvfs_ch_pz)
-    e_434          = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_flt_434, t0 .+ 5.5u"µs")
-    enc_434        = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_flt_434, enc_pickoff)
-
-    wvfs_flt_10210 = uflt_10210.(wvfs_ch_pz)
-    e_10210        = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_flt_10210, t0 .+ 11u"µs")
-    enc_10210      = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_flt_10210, enc_pickoff)
+    wvfs_flt_zac10410 = uflt_zac10410.(wvfs_ch_pz)
+    e_zac_10410       = SignalEstimator(PolynomialDNI(3, 100u"ns")).(wvfs_flt_zac10410, t0 .+ 12u"µs")
+    enc_zac_10410     = SignalEstimator(PolynomialDNI(2, 150u"ns")).(wvfs_flt_zac10410, enc_pickoff)
 
 
     # get energy grid for efficient optimization
@@ -100,6 +96,25 @@ function processChannel(wvfs_ch, bl_fc, ts_ch, evID_ch, ch_ch, efc_ch, out_t::Ty
 
             e_grid[f, r, :]     = e_rtft
             enc_grid[f, r, :]   = enc_rtft
+        end
+    end
+
+    e_zac_grid   = zeros(Float32, length(e_grid_ft), length(e_grid_rt), length(wvfs_ch_pz))
+    enc_zac_grid = zeros(Float32, length(e_grid_ft), length(e_grid_rt), length(wvfs_ch_pz))
+    for (f, ft) in enumerate(e_grid_ft)
+        for (r, rt) in enumerate(e_grid_rt)
+            if rt < ft
+                continue
+            end
+            uflt_zac_rtft      = ZACChargeFilter(rt, ft, 30.0u"µs")
+            
+            wvfs_zac_flt_rtft  = uflt_zac_rtft.(wvfs_ch_pz)
+
+            e_zac_rtft         = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_zac_flt_rtft, t0 .+ (rt + ft/2))
+            enc_zac_rtft       = SignalEstimator(PolynomialDNI(4, 80u"ns")).(wvfs_zac_flt_rtft, enc_pickoff)
+
+            e_zac_grid[f, r, :]     = e_zac_rtft
+            enc_zac_grid[f, r, :]   = enc_zac_rtft
         end
     end
 
@@ -123,12 +138,11 @@ function processChannel(wvfs_ch, bl_fc, ts_ch, evID_ch, ch_ch, efc_ch, out_t::Ty
     
     append!(out_t.e_10410, e_10410)
     append!(out_t.enc_10410, enc_10410)
-    append!(out_t.e_10210, e_10210)
-    append!(out_t.enc_10210, enc_10210)
-    append!(out_t.e_848, e_848)
-    append!(out_t.enc_848, e_848)
-    append!(out_t.e_434, e_434)
-    append!(out_t.enc_434, enc_434)
+
+    append!(out_t.e_zac_10410, e_zac_10410)
+    append!(out_t.enc_zac_10410, enc_zac_10410)
+
+    append!(out_t.qdrift, qdrift)
 
     for arr in VectorOfSimilarArrays(e_grid)
         push!(out_t.e_grid, arr)
@@ -138,6 +152,13 @@ function processChannel(wvfs_ch, bl_fc, ts_ch, evID_ch, ch_ch, efc_ch, out_t::Ty
         push!(out_t.enc_grid, arr)
     end
 
+    for arr in VectorOfSimilarArrays(e_zac_grid)
+        push!(out_t.e_zac_grid, arr)
+    end
+
+    for arr in VectorOfSimilarArrays(enc_zac_grid)
+        push!(out_t.enc_zac_grid, arr)
+    end
 
     append!(out_t.a, current_max)
 
@@ -196,8 +217,10 @@ function processFile(filename::PosixPath, outfilename::PosixPath, decay_times::D
     # output Table 
     out_t = TypedTables.Table(channel=Int[], blmean = Float64[], blsigma = Float64[], blslope = Float64[]u"ns^-1", bloffset = Float64[], 
     τ_extracted = Float64[]u"µs", τ = Float64[]u"µs", t0 = Float64[]u"µs",
-    e_10410 = Float64[], enc_10410 = Float64[], e_10210 = Float64[], enc_10210 = Float64[], e_848 = Float64[], enc_848 = Float64[], e_434 = Float64[], enc_434 = Float64[],
+    e_10410 = Float64[], enc_10410 = Float64[], e_zac_10410 = Float64[], enc_zac_10410 = Float64[],
+    qdrift = Float64[], 
     e_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
+    e_zac_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)), enc_zac_grid = VectorOfSimilarArrays(ElasticArray{Float32}(undef, length(e_grid_ft), length(e_grid_rt), 0)),
     a = Float64[],
     blfc = Float64[], timestamp = Float64[]u"s", eventID_fadc = Int[], e_fc = Float64[],
     pretrace_diff = Float64[], 
@@ -270,5 +293,5 @@ function dsp(config_folder::String, period::Int, run::Int, preName::String, cal:
 end
 
 # test DSP
-# conf_folder = "/home/iwsatlas1/henkes/legend/julia/julia-dsp/configs/"
-# dsp(conf_folder, 1, 25, "l60", true)
+config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
+dsp(config_folder, 1, 25, "l60", true)
