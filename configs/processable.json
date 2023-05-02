@@ -1,0 +1,640 @@
+{
+    "analysis": {
+        "V02160A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V02160B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05261B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05266A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05266B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05268B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05612A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V07647A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V07647B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00035C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "C000RG1": {
+            "processable": true,
+            "usability": "on"
+        },
+        "C000RG2": {
+            "processable": true,
+            "usability": "on"
+        },
+        "C00ANG3": {
+            "processable": true,
+            "usability": "on"
+        },
+        "C00ANG5": {
+            "processable": true,
+            "usability": "on"
+        },
+        "C00ANG2": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V00074A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V04549A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V07298B": {
+            "processable": false,
+            "usability": "off"
+        },
+        "B00032B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00091C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00574B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00665A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00698A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00712A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00909C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00661B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00574A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00000B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00000C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00061A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00061C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00076C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00079B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00079C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V01386A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "V01403A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "V01404A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "V01406A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V01415A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "V08682B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V08682A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V09372A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V09374A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V09724A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V02162B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V02166B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V04199A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V04545A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05267B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V07646A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V07302B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00089C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00089D": {
+            "processable": true,
+            "usability": "on"
+        },
+        "C00ANG4": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V00048B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V00050A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V00050B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V01387A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05261A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05268A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V07302A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00002A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00089A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00091A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00091D": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00537A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00538A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00573A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00661C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00662C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00664A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00665C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00748B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00909B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00091B": {
+            "processable": false,
+            "usability": "off"
+        },
+        "B00000D": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00002C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00032C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00032D": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00035A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00035B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00061B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00089B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V00048A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V01240A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V01389A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "V05267A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "V05612B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00000A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00002B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "B00032A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00538B": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00573B": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00575A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00574C": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00661A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00662A": {
+            "processable": true,
+            "usability": "on"
+        },
+        "P00662B": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00665B": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00748A": {
+            "processable": false,
+            "usability": "off"
+        },
+        "P00698B": {
+            "processable": false,
+            "usability": "off"
+        },
+        "S060": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S061": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S055": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S054": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S013": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S017": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S074": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S073": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S071": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S070": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S067": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S068": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S056": {
+            "processable": false,
+            "usability": "off"
+        },
+        "S029": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S042": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S041": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S024": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S023": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S030": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S031": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S002": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S003": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S032": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S036": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S028": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S027": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S010": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S008": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S058": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S057": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S022": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S021": {
+            "processable": false,
+            "usability": "off"
+        },
+        "S064": {
+            "processable": false,
+            "usability": "off"
+        },
+        "S065": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S009": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S007": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S046": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S047": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S011": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S012": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S020": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S019": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S026": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S025": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S015": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S033": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S043": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S040": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S048": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S049": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S053": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S052": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S050": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S051": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S045": {
+            "processable": false,
+            "usability": "off"
+        },
+        "S044": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S037": {
+            "processable": true,
+            "usability": "on"
+        },
+        "S035": {
+            "processable": true,
+            "usability": "on"
+        }
+    }
+}

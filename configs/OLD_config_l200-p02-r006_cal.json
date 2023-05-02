@@ -1,0 +1,5842 @@
+{
+  "General" : {
+    "name" : "General",
+    "system" : "general",
+  "folder": {
+    "folder_daq": "/remote/ceph2/group/legendex/data/l200/orca/cal/p02/r006/daq/",
+    "folder_raw": "/remote/ceph2/group/legendex/data/l200/raw/cal/p02/r006/",
+    "folder_dsp": "/remote/ceph2/group/legendex/data/l200/dsp/cal/p02/r006/",
+    "folder_peaks": "/remote/ceph2/group/legendex/data/l200/peaks/cal/p02/r006/",
+    "folder_hit": "/remote/ceph2/group/legendex/data/l200/hit/cal/p02/r006/",
+    "folder_cuts": "/remote/ceph2/group/legendex/data/l200/cuts/cal/p02/r006/",
+    "folder_figures": "/remote/ceph2/group/legendex/data/l200/figures/cal/p02/r006/"
+    }
+  },
+    "BSLN01": {
+      "name": "BSLN01",
+      "system": "bsln",
+      "rate_in_Hz": 0.1,
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 0,
+          "address": "0x110",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 0,
+        "rawid": 1027200
+      }
+    },
+    "PULS01": {
+      "name": "PULS01",
+      "system": "puls",
+      "rate_in_Hz": 0.5,
+      "amplitude_in_keV": 1000,
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 0,
+          "address": "0x110",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 1,
+        "rawid": 1027201
+      }
+    },
+    "MUON01": {
+      "name": "MUON01",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 0,
+          "address": "0x110",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 2,
+        "rawid": 1027202
+      }
+    },
+    "PULS01ANA": {
+      "name": "PULS01ANA",
+      "system": "puls",
+      "rate_in_Hz": 0.5,
+      "amplitude_in_keV": 1000,
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 0,
+          "address": "0x110",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 3,
+        "rawid": 1027203
+      }
+    },
+    "V02160A": {
+      "name": "V02160A",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 1,
+          "address": "0x410",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 4,
+        "rawid": 1104000
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 0
+        }
+      }
+    },
+    "V02160B": {
+      "name": "V02160B",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 1,
+          "address": "0x410",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 5,
+        "rawid": 1104001
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 1
+        }
+      }
+    },
+    "V05261B": {
+      "name": "V05261B",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 1,
+          "address": "0x410",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 6,
+        "rawid": 1104002
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 2
+        }
+      }
+    },
+    "V05266A": {
+      "name": "V05266A",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 1,
+          "address": "0x410",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 7,
+        "rawid": 1104003
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 3
+        }
+      }
+    },
+    "V05266B": {
+      "name": "V05266B",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 1,
+          "address": "0x410",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 8,
+        "rawid": 1104004
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 4
+        }
+      }
+    },
+    "V05268B": {
+      "name": "V05268B",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 6
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 1,
+          "address": "0x420",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 9,
+        "rawid": 1104005
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 5
+        }
+      }
+    },
+    "V05612A": {
+      "name": "V05612A",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 7
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 2,
+          "address": "0x410",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 10,
+        "rawid": 1105600
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C3",
+          "channel": 6
+        }
+      }
+    },
+    "DUMMY00": {
+      "name": "DUMMY00",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 2,
+          "address": "0x420",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 11,
+        "rawid": 1105601
+      }
+    },
+    "V07647A": {
+      "name": "V07647A",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 8
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 2,
+          "address": "0x420",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 12,
+        "rawid": 1105602
+      },
+      "voltage": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B4",
+          "channel": 1
+        }
+      }
+    },
+    "V07647B": {
+      "name": "V07647B",
+      "system": "geds",
+      "location": {
+        "string": 1,
+        "position": 9
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 2,
+          "address": "0x420",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 13,
+        "rawid": 1105603
+      },
+      "voltage": {
+        "card": {
+          "id": 7,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B4",
+          "channel": 2
+        }
+      }
+    },
+    "DUMMY01": {
+      "name": "DUMMY01",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 2,
+          "address": "0x420",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 14,
+        "rawid": 1105604
+      }
+    },
+    "DUMMY02": {
+      "name": "DUMMY02",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 2,
+          "address": "0x420",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 15,
+        "rawid": 1105605
+      }
+    },
+    "DUMMY03": {
+      "name": "DUMMY03",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 3,
+          "address": "0x430",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 16,
+        "rawid": 1107200
+      }
+    },
+    "DUMMY04": {
+      "name": "DUMMY04",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 3,
+          "address": "0x430",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 17,
+        "rawid": 1107201
+      }
+    },
+    "B00035C": {
+      "name": "B00035C",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 3,
+          "address": "0x430",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 18,
+        "rawid": 1107202
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 0
+        }
+      }
+    },
+    "C000RG1": {
+      "name": "C000RG1",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 3,
+          "address": "0x430",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 19,
+        "rawid": 1107203
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 1
+        }
+      }
+    },
+    "C000RG2": {
+      "name": "C000RG2",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 3,
+          "address": "0x430",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 20,
+        "rawid": 1107204
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 2
+        }
+      }
+    },
+    "C00ANG3": {
+      "name": "C00ANG3",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 3,
+          "address": "0x430",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 21,
+        "rawid": 1107205
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 3
+        }
+      }
+    },
+    "C00ANG5": {
+      "name": "C00ANG5",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 4,
+          "address": "0x440",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 22,
+        "rawid": 1108800
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 4
+        }
+      }
+    },
+    "C00ANG2": {
+      "name": "C00ANG2",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 6
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 4,
+          "address": "0x440",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 23,
+        "rawid": 1108801
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 5
+        }
+      }
+    },
+    "V00074A": {
+      "name": "V00074A",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 7
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 4,
+          "address": "0x440",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 24,
+        "rawid": 1108802
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A4",
+          "channel": 6
+        }
+      }
+    },
+    "V04549A": {
+      "name": "V04549A",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 8
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 4,
+          "address": "0x440",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 25,
+        "rawid": 1108803
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A5",
+          "channel": 0
+        }
+      }
+    },
+    "V07298B": {
+      "name": "V07298B",
+      "system": "geds",
+      "location": {
+        "string": 2,
+        "position": 9
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 4,
+          "address": "0x440",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 26,
+        "rawid": 1108804
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A5",
+          "channel": 1
+        }
+      }
+    },
+    "DUMMY05": {
+      "name": "DUMMY05",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 4,
+          "address": "0x440",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 27,
+        "rawid": 1108805
+      }
+    },
+    "DUMMY06": {
+      "name": "DUMMY06",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 5,
+          "address": "0x450",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 28,
+        "rawid": 1110400
+      }
+    },
+    "DUMMY07": {
+      "name": "DUMMY07",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 5,
+          "address": "0x450",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 29,
+        "rawid": 1110401
+      }
+    },
+    "B00032B": {
+      "name": "B00032B",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 5,
+          "address": "0x450",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 30,
+        "rawid": 1110402
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A5",
+          "channel": 5
+        }
+      }
+    },
+    "B00091C": {
+      "name": "B00091C",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 5,
+          "address": "0x450",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 31,
+        "rawid": 1110403
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A5",
+          "channel": 6
+        }
+      }
+    },
+    "P00574B": {
+      "name": "P00574B",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 5,
+          "address": "0x450",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 32,
+        "rawid": 1110404
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 0
+        }
+      }
+    },
+    "P00665A": {
+      "name": "P00665A",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 5,
+          "address": "0x460",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 33,
+        "rawid": 1110405
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 1
+        }
+      }
+    },
+    "P00698A": {
+      "name": "P00698A",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 6,
+          "address": "0x460",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 34,
+        "rawid": 1112000
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 2
+        }
+      }
+    },
+    "P00712A": {
+      "name": "P00712A",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 6
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 6,
+          "address": "0x460",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 35,
+        "rawid": 1112001
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 3
+        }
+      }
+    },
+    "P00909C": {
+      "name": "P00909C",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 7
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 6,
+          "address": "0x460",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 36,
+        "rawid": 1112002
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 4
+        }
+      }
+    },
+    "P00661B": {
+      "name": "P00661B",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 8
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 6,
+          "address": "0x460",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 37,
+        "rawid": 1112003
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 5
+        }
+      }
+    },
+    "P00574A": {
+      "name": "P00574A",
+      "system": "geds",
+      "location": {
+        "string": 3,
+        "position": 9
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 6,
+          "address": "0x450",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 38,
+        "rawid": 1112004
+      },
+      "voltage": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B5",
+          "channel": 6
+        }
+      }
+    },
+    "B00000B": {
+      "name": "B00000B",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 6,
+          "address": "0x460",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 39,
+        "rawid": 1112005
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 0
+        }
+      }
+    },
+    "B00000C": {
+      "name": "B00000C",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 7,
+          "address": "0x470",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 40,
+        "rawid": 1113600
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 1
+        }
+      }
+    },
+    "B00061A": {
+      "name": "B00061A",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 7,
+          "address": "0x470",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 41,
+        "rawid": 1113601
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 2
+        }
+      }
+    },
+    "B00061C": {
+      "name": "B00061C",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 7,
+          "address": "0x470",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 42,
+        "rawid": 1113602
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 3
+        }
+      }
+    },
+    "B00076C": {
+      "name": "B00076C",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 7,
+          "address": "0x470",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 43,
+        "rawid": 1113603
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 4
+        }
+      }
+    },
+    "B00079B": {
+      "name": "B00079B",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 6
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 7,
+          "address": "0x470",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 44,
+        "rawid": 1113604
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 5
+        }
+      }
+    },
+    "B00079C": {
+      "name": "B00079C",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 7
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 7,
+          "address": "0x470",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 45,
+        "rawid": 1113605
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C5",
+          "channel": 6
+        }
+      }
+    },
+    "V01386A": {
+      "name": "V01386A",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 8
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 8,
+          "address": "0x480",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 46,
+        "rawid": 1115200
+      },
+      "voltage": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D5",
+          "channel": 0
+        }
+      }
+    },
+    "V01403A": {
+      "name": "V01403A",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 9
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 8,
+          "address": "0x480",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 47,
+        "rawid": 1115201
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D5",
+          "channel": 1
+        }
+      }
+    },
+    "V01404A": {
+      "name": "V01404A",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 10
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 8,
+          "address": "0x480",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 48,
+        "rawid": 1115202
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D5",
+          "channel": 2
+        }
+      }
+    },
+    "V01406A": {
+      "name": "V01406A",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 11
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 8,
+          "address": "0x480",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 49,
+        "rawid": 1115203
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D5",
+          "channel": 3
+        }
+      }
+    },
+    "V01415A": {
+      "name": "V01415A",
+      "system": "geds",
+      "location": {
+        "string": 4,
+        "position": 12
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 8,
+          "address": "0x480",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 50,
+        "rawid": 1115204
+      },
+      "voltage": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D5",
+          "channel": 4
+        }
+      }
+    },
+    "DUMMY08": {
+      "name": "DUMMY08",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 8,
+          "address": "0x480",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 51,
+        "rawid": 1115205
+      }
+    },
+    "DUMMY09": {
+      "name": "DUMMY09",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 9,
+          "address": "0x490",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 52,
+        "rawid": 1116800
+      }
+    },
+    "V08682B": {
+      "name": "V08682B",
+      "system": "geds",
+      "location": {
+        "string": 5,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 9,
+          "address": "0x490",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 53,
+        "rawid": 1116801
+      },
+      "voltage": {
+        "card": {
+          "id": 7,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D4",
+          "channel": 0
+        }
+      }
+    },
+    "V08682A": {
+      "name": "V08682A",
+      "system": "geds",
+      "location": {
+        "string": 5,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 9,
+          "address": "0x490",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 54,
+        "rawid": 1116802
+      },
+      "voltage": {
+        "card": {
+          "id": 7,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D4",
+          "channel": 1
+        }
+      }
+    },
+    "V09372A": {
+      "name": "V09372A",
+      "system": "geds",
+      "location": {
+        "string": 5,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 9,
+          "address": "0x490",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 55,
+        "rawid": 1116803
+      },
+      "voltage": {
+        "card": {
+          "id": 7,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D4",
+          "channel": 2
+        }
+      }
+    },
+    "V09374A": {
+      "name": "V09374A",
+      "system": "geds",
+      "location": {
+        "string": 5,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 9,
+          "address": "0x490",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 56,
+        "rawid": 1116804
+      },
+      "voltage": {
+        "card": {
+          "id": 7,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D4",
+          "channel": 3
+        }
+      }
+    },
+    "V09724A": {
+      "name": "V09724A",
+      "system": "geds",
+      "location": {
+        "string": 5,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 9,
+          "address": "0x490",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 57,
+        "rawid": 1116805
+      },
+      "voltage": {
+        "card": {
+          "id": 7,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D4",
+          "channel": 4
+        }
+      }
+    },
+    "DUMMY10": {
+      "name": "DUMMY10",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 10,
+          "address": "0x4a0",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 58,
+        "rawid": 1118400
+      }
+    },
+    "DUMMY11": {
+      "name": "DUMMY11",
+      "system": "auxs",
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 10,
+          "address": "0x4a0",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 59,
+        "rawid": 1118401
+      }
+    },
+    "V02162B": {
+      "name": "V02162B",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 10,
+          "address": "0x4a0",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 60,
+        "rawid": 1118402
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 0
+        }
+      }
+    },
+    "V02166B": {
+      "name": "V02166B",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 10,
+          "address": "0x4a0",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 61,
+        "rawid": 1118403
+      },
+      "voltage": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 1
+        }
+      }
+    },
+    "V04199A": {
+      "name": "V04199A",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 10,
+          "address": "0x4a0",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 62,
+        "rawid": 1118404
+      },
+      "voltage": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 2
+        }
+      }
+    },
+    "V04545A": {
+      "name": "V04545A",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 10,
+          "address": "0x4a0",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 63,
+        "rawid": 1118405
+      },
+      "voltage": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 3
+        }
+      }
+    },
+    "V05267B": {
+      "name": "V05267B",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 11,
+          "address": "0x4b0",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 64,
+        "rawid": 1120000
+      },
+      "voltage": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 4
+        }
+      }
+    },
+    "V07646A": {
+      "name": "V07646A",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 6
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 11,
+          "address": "0x4b0",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 65,
+        "rawid": 1120001
+      },
+      "voltage": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 5
+        }
+      }
+    },
+    "V07302B": {
+      "name": "V07302B",
+      "system": "geds",
+      "location": {
+        "string": 7,
+        "position": 7
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 11,
+          "address": "0x4b0",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 66,
+        "rawid": 1120002
+      },
+      "voltage": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "D2",
+          "channel": 6
+        }
+      }
+    },
+    "B00089C": {
+      "name": "B00089C",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 1
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 11,
+          "address": "0x4b0",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 67,
+        "rawid": 1120003
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 0
+        }
+      }
+    },
+    "B00089D": {
+      "name": "B00089D",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 2
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 11,
+          "address": "0x4b0",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 68,
+        "rawid": 1120004
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 1
+        }
+      }
+    },
+    "C00ANG4": {
+      "name": "C00ANG4",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 3
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 11,
+          "address": "0x4b0",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 69,
+        "rawid": 1120005
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 2
+        }
+      }
+    },
+    "V00048B": {
+      "name": "V00048B",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 4
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 12,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 70,
+        "rawid": 1121600
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 3
+        }
+      }
+    },
+    "V00050A": {
+      "name": "V00050A",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 5
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 12,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 71,
+        "rawid": 1121601
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 4
+        }
+      }
+    },
+    "V00050B": {
+      "name": "V00050B",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 6
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 12,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 72,
+        "rawid": 1121602
+      },
+      "voltage": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 5
+        }
+      }
+    },
+    "V01387A": {
+      "name": "V01387A",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 7
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 12,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 73,
+        "rawid": 1121603
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "E2",
+          "channel": 6
+        }
+      }
+    },
+    "V05261A": {
+      "name": "V05261A",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 8
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 12,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 74,
+        "rawid": 1121604
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "F2",
+          "channel": 0
+        }
+      }
+    },
+    "V05268A": {
+      "name": "V05268A",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 9
+      },
+      "daq": {
+        "crate": 0,
+        "card": {
+          "id": 12,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 75,
+        "rawid": 1121605
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "F2",
+          "channel": 1
+        }
+      }
+    },
+    "V07302A": {
+      "name": "V07302A",
+      "system": "geds",
+      "location": {
+        "string": 8,
+        "position": 10
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 1,
+          "address": "0x4c0",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 76,
+        "rawid": 1078400
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "F2",
+          "channel": 2
+        }
+      }
+    },
+    "DUMMY12": {
+      "name": "DUMMY12",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 1,
+          "address": "0x310",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 77,
+        "rawid": 1078401
+      }
+    },
+    "DUMMY13": {
+      "name": "DUMMY13",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 1,
+          "address": "0x310",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 78,
+        "rawid": 1078402
+      }
+    },
+    "DUMMY14": {
+      "name": "DUMMY14",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 1,
+          "address": "0x310",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 79,
+        "rawid": 1078403
+      }
+    },
+    "DUMMY15": {
+      "name": "DUMMY15",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 1,
+          "address": "0x310",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 80,
+        "rawid": 1078404
+      }
+    },
+    "B00002A": {
+      "name": "B00002A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 1
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 1,
+          "address": "0x310",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 81,
+        "rawid": 1078405
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 0
+        }
+      }
+    },
+    "B00089A": {
+      "name": "B00089A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 2
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 2,
+          "address": "0x310",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 82,
+        "rawid": 1080000
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 1
+        }
+      }
+    },
+    "B00091A": {
+      "name": "B00091A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 3
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 2,
+          "address": "0x320",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 83,
+        "rawid": 1080001
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 2
+        }
+      }
+    },
+    "B00091D": {
+      "name": "B00091D",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 4
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 2,
+          "address": "0x320",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 84,
+        "rawid": 1080002
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 3
+        }
+      }
+    },
+    "P00537A": {
+      "name": "P00537A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 5
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 2,
+          "address": "0x320",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 85,
+        "rawid": 1080003
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 4
+        }
+      }
+    },
+    "P00538A": {
+      "name": "P00538A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 6
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 2,
+          "address": "0x320",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 86,
+        "rawid": 1080004
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 5
+        }
+      }
+    },
+    "P00573A": {
+      "name": "P00573A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 7
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 2,
+          "address": "0x320",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 87,
+        "rawid": 1080005
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C1",
+          "channel": 6
+        }
+      }
+    },
+    "P00661C": {
+      "name": "P00661C",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 8
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 3,
+          "address": "0x320",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 88,
+        "rawid": 1081600
+      },
+      "voltage": {
+        "card": {
+          "id": 8,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 0
+        }
+      }
+    },
+    "P00662C": {
+      "name": "P00662C",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 9
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 3,
+          "address": "0x330",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 89,
+        "rawid": 1081601
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 1
+        }
+      }
+    },
+    "P00664A": {
+      "name": "P00664A",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 10
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 3,
+          "address": "0x330",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 90,
+        "rawid": 1081602
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 2
+        }
+      }
+    },
+    "P00665C": {
+      "name": "P00665C",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 11
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 3,
+          "address": "0x330",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 91,
+        "rawid": 1081603
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 3
+        }
+      }
+    },
+    "P00748B": {
+      "name": "P00748B",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 12
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 3,
+          "address": "0x330",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 92,
+        "rawid": 1081604
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 4
+        }
+      }
+    },
+    "P00909B": {
+      "name": "P00909B",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 13
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 3,
+          "address": "0x330",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 93,
+        "rawid": 1081605
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 5
+        }
+      }
+    },
+    "B00091B": {
+      "name": "B00091B",
+      "system": "geds",
+      "location": {
+        "string": 9,
+        "position": 14
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 4,
+          "address": "0x330",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 94,
+        "rawid": 1083200
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A1",
+          "channel": 6
+        }
+      }
+    },
+    "B00000D": {
+      "name": "B00000D",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 1
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 4,
+          "address": "0x340",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 95,
+        "rawid": 1083201
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 0
+        }
+      }
+    },
+    "B00002C": {
+      "name": "B00002C",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 2
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 4,
+          "address": "0x340",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 96,
+        "rawid": 1083202
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 1
+        }
+      }
+    },
+    "B00032C": {
+      "name": "B00032C",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 3
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 4,
+          "address": "0x340",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 97,
+        "rawid": 1083203
+      },
+      "voltage": {
+        "card": {
+          "id": 9,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 2
+        }
+      }
+    },
+    "B00032D": {
+      "name": "B00032D",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 4
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 4,
+          "address": "0x340",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 98,
+        "rawid": 1083204
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 3
+        }
+      }
+    },
+    "B00035A": {
+      "name": "B00035A",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 5
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 4,
+          "address": "0x340",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 99,
+        "rawid": 1083205
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 4
+        }
+      }
+    },
+    "B00035B": {
+      "name": "B00035B",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 6
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 5,
+          "address": "0x340",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 100,
+        "rawid": 1084800
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 5
+        }
+      }
+    },
+    "B00061B": {
+      "name": "B00061B",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 7
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 5,
+          "address": "0x350",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 101,
+        "rawid": 1084801
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "C2",
+          "channel": 6
+        }
+      }
+    },
+    "B00089B": {
+      "name": "B00089B",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 8
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 5,
+          "address": "0x350",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 102,
+        "rawid": 1084802
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B1",
+          "channel": 0
+        }
+      }
+    },
+    "V00048A": {
+      "name": "V00048A",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 9
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 5,
+          "address": "0x350",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 103,
+        "rawid": 1084803
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B1",
+          "channel": 1
+        }
+      }
+    },
+    "V01240A": {
+      "name": "V01240A",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 10
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 5,
+          "address": "0x350",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 104,
+        "rawid": 1084804
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B1",
+          "channel": 2
+        }
+      }
+    },
+    "V01389A": {
+      "name": "V01389A",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 11
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 5,
+          "address": "0x350",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 105,
+        "rawid": 1084805
+      },
+      "voltage": {
+        "card": {
+          "id": 10,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B1",
+          "channel": 3
+        }
+      }
+    },
+    "V05267A": {
+      "name": "V05267A",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 12
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 6,
+          "address": "0x350",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 106,
+        "rawid": 1086400
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B1",
+          "channel": 4
+        }
+      }
+    },
+    "V05612B": {
+      "name": "V05612B",
+      "system": "geds",
+      "location": {
+        "string": 10,
+        "position": 13
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 6,
+          "address": "0x360",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 107,
+        "rawid": 1086401
+      },
+      "voltage": {
+        "card": {
+          "id": 11,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B1",
+          "channel": 5
+        }
+      }
+    },
+    "DUMMY16": {
+      "name": "DUMMY16",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 6,
+          "address": "0x360",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 108,
+        "rawid": 1086402
+      }
+    },
+    "B00000A": {
+      "name": "B00000A",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 1
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 6,
+          "address": "0x360",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 109,
+        "rawid": 1086403
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 0
+        }
+      }
+    },
+    "B00002B": {
+      "name": "B00002B",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 2
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 6,
+          "address": "0x360",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 110,
+        "rawid": 1086404
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 1
+        }
+      }
+    },
+    "B00032A": {
+      "name": "B00032A",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 3
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 6,
+          "address": "0x360",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 111,
+        "rawid": 1086405
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 2,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 2
+        }
+      }
+    },
+    "P00538B": {
+      "name": "P00538B",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 4
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 7,
+          "address": "0x360",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 112,
+        "rawid": 1088000
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 3,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 3
+        }
+      }
+    },
+    "P00573B": {
+      "name": "P00573B",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 5
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 7,
+          "address": "0x370",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 113,
+        "rawid": 1088001
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 4,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 4
+        }
+      }
+    },
+    "P00575A": {
+      "name": "P00575A",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 6
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 7,
+          "address": "0x370",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 114,
+        "rawid": 1088002
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 5
+        }
+      }
+    },
+    "P00574C": {
+      "name": "P00574C",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 7
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 7,
+          "address": "0x370",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 115,
+        "rawid": 1088003
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "A3",
+          "channel": 6
+        }
+      }
+    },
+    "P00661A": {
+      "name": "P00661A",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 8
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 7,
+          "address": "0x370",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 116,
+        "rawid": 1088004
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 5,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B2",
+          "channel": 0
+        }
+      }
+    },
+    "DUMMY17": {
+      "name": "DUMMY17",
+      "system": "auxs",
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 7,
+          "address": "0x380",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 117,
+        "rawid": 1088005
+      }
+    },
+    "P00662A": {
+      "name": "P00662A",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 9
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 8,
+          "address": "0x370",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 118,
+        "rawid": 1089600
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 6,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B2",
+          "channel": 2
+        }
+      }
+    },
+    "P00662B": {
+      "name": "P00662B",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 10
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 8,
+          "address": "0x370",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 119,
+        "rawid": 1089601
+      },
+      "voltage": {
+        "card": {
+          "id": 12,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B2",
+          "channel": 3
+        }
+      }
+    },
+    "P00665B": {
+      "name": "P00665B",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 11
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 8,
+          "address": "0x380",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 120,
+        "rawid": 1089602
+      },
+      "voltage": {
+        "card": {
+          "id": 13,
+          "serialno": null
+        },
+        "channel": 0,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B2",
+          "channel": 4
+        }
+      }
+    },
+    "P00748A": {
+      "name": "P00748A",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 12
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 8,
+          "address": "0x380",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 121,
+        "rawid": 1089603
+      },
+      "voltage": {
+        "card": {
+          "id": 13,
+          "serialno": null
+        },
+        "channel": 1,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B2",
+          "channel": 5
+        }
+      }
+    },
+    "P00698B": {
+      "name": "P00698B",
+      "system": "geds",
+      "location": {
+        "string": 11,
+        "position": 13
+      },
+      "daq": {
+        "crate": 1,
+        "card": {
+          "id": 8,
+          "address": "0x380",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 122,
+        "rawid": 1089604
+      },
+      "voltage": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 7,
+        "filter": {
+          "id": null,
+          "channel": null
+        }
+      },
+      "electronics": {
+        "cc4": {
+          "id": "B2",
+          "channel": 6
+        }
+      }
+    },
+    "S060": {
+      "name": "S060",
+      "system": "spms",
+      "location": {
+        "fiber": "IB015016",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 1,
+          "address": "0x210",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 123,
+        "rawid": 1052802
+      },
+      "electronics": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 2,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 3
+        }
+      }
+    },
+    "S061": {
+      "name": "S061",
+      "system": "spms",
+      "location": {
+        "fiber": "IB015016",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 1,
+          "address": "0x210",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 124,
+        "rawid": 1052803
+      },
+      "electronics": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 3,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 4
+        }
+      }
+    },
+    "S055": {
+      "name": "S055",
+      "system": "spms",
+      "location": {
+        "fiber": "OB005006",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 1,
+          "address": "0x210",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 125,
+        "rawid": 1052804
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 0,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 1
+        }
+      }
+    },
+    "S054": {
+      "name": "S054",
+      "system": "spms",
+      "location": {
+        "fiber": "OB005006",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 1,
+          "address": "0x210",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 126,
+        "rawid": 1052805
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 1,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 2
+        }
+      }
+    },
+    "S013": {
+      "name": "S013",
+      "system": "spms",
+      "location": {
+        "fiber": "OB007008",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 2,
+          "address": "0x220",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 127,
+        "rawid": 1054400
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 2,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 3
+        }
+      }
+    },
+    "S017": {
+      "name": "S017",
+      "system": "spms",
+      "location": {
+        "fiber": "OB007008",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 2,
+          "address": "0x220",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 128,
+        "rawid": 1054401
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 3,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 4
+        }
+      }
+    },
+    "S074": {
+      "name": "S074",
+      "system": "spms",
+      "location": {
+        "fiber": "IB017018",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 2,
+          "address": "0x220",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 129,
+        "rawid": 1054402
+      },
+      "electronics": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 8,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 9
+        }
+      }
+    },
+    "S073": {
+      "name": "S073",
+      "system": "spms",
+      "location": {
+        "fiber": "IB017018",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 2,
+          "address": "0x220",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 130,
+        "rawid": 1054403
+      },
+      "electronics": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 9,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 10
+        }
+      }
+    },
+    "S071": {
+      "name": "S071",
+      "system": "spms",
+      "location": {
+        "fiber": "IB001002",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 2,
+          "address": "0x220",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 131,
+        "rawid": 1054404
+      },
+      "electronics": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 10,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 11
+        }
+      }
+    },
+    "S070": {
+      "name": "S070",
+      "system": "spms",
+      "location": {
+        "fiber": "IB001002",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 2,
+          "address": "0x220",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 132,
+        "rawid": 1054405
+      },
+      "electronics": {
+        "card": {
+          "id": 0,
+          "serialno": null
+        },
+        "channel": 11,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 12
+        }
+      }
+    },
+    "S067": {
+      "name": "S067",
+      "system": "spms",
+      "location": {
+        "fiber": "OB021022",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 3,
+          "address": "0x230",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 133,
+        "rawid": 1056000
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 0,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 13
+        }
+      }
+    },
+    "S068": {
+      "name": "S068",
+      "system": "spms",
+      "location": {
+        "fiber": "OB021022",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 3,
+          "address": "0x230",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 134,
+        "rawid": 1056001
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 1,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 14
+        }
+      }
+    },
+    "S056": {
+      "name": "S056",
+      "system": "spms",
+      "location": {
+        "fiber": "IB003004",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 3,
+          "address": "0x230",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 135,
+        "rawid": 1056002
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 2,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 1,
+          "pinpair": 15
+        }
+      }
+    },
+    "S029": {
+      "name": "S029",
+      "system": "spms",
+      "location": {
+        "fiber": "IB003004",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 3,
+          "address": "0x230",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 136,
+        "rawid": 1056003
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 3,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 1
+        }
+      }
+    },
+    "S042": {
+      "name": "S042",
+      "system": "spms",
+      "location": {
+        "fiber": "OB023024",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 3,
+          "address": "0x230",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 137,
+        "rawid": 1056004
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 4,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 2
+        }
+      }
+    },
+    "S041": {
+      "name": "S041",
+      "system": "spms",
+      "location": {
+        "fiber": "OB023024",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 3,
+          "address": "0x230",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 138,
+        "rawid": 1056005
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 5,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 3
+        }
+      }
+    },
+    "S024": {
+      "name": "S024",
+      "system": "spms",
+      "location": {
+        "fiber": "IB005006",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 4,
+          "address": "0x240",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 139,
+        "rawid": 1057600
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 6,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 4
+        }
+      }
+    },
+    "S023": {
+      "name": "S023",
+      "system": "spms",
+      "location": {
+        "fiber": "IB005006",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 4,
+          "address": "0x240",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 140,
+        "rawid": 1057601
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 7,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 5
+        }
+      }
+    },
+    "S030": {
+      "name": "S030",
+      "system": "spms",
+      "location": {
+        "fiber": "OB009010",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 4,
+          "address": "0x240",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 141,
+        "rawid": 1057602
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 4,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 5
+        }
+      }
+    },
+    "S031": {
+      "name": "S031",
+      "system": "spms",
+      "location": {
+        "fiber": "OB009010",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 4,
+          "address": "0x240",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 142,
+        "rawid": 1057603
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 5,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 6
+        }
+      }
+    },
+    "S002": {
+      "name": "S002",
+      "system": "spms",
+      "location": {
+        "fiber": "IB007008",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 4,
+          "address": "0x240",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 143,
+        "rawid": 1057604
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 10,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 8
+        }
+      }
+    },
+    "S003": {
+      "name": "S003",
+      "system": "spms",
+      "location": {
+        "fiber": "IB007008",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 4,
+          "address": "0x240",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 144,
+        "rawid": 1057605
+      },
+      "electronics": {
+        "card": {
+          "id": 1,
+          "serialno": null
+        },
+        "channel": 11,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 9
+        }
+      }
+    },
+    "S032": {
+      "name": "S032",
+      "system": "spms",
+      "location": {
+        "fiber": "IB009010",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 5,
+          "address": "0x250",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 145,
+        "rawid": 1059200
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 0,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 10
+        }
+      }
+    },
+    "S036": {
+      "name": "S036",
+      "system": "spms",
+      "location": {
+        "fiber": "IB009010",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 5,
+          "address": "0x250",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 146,
+        "rawid": 1059201
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 1,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 2,
+          "pinpair": 11
+        }
+      }
+    },
+    "S028": {
+      "name": "S028",
+      "system": "spms",
+      "location": {
+        "fiber": "OB011012",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 5,
+          "address": "0x250",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 147,
+        "rawid": 1059202
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 6,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 7
+        }
+      }
+    },
+    "S027": {
+      "name": "S027",
+      "system": "spms",
+      "location": {
+        "fiber": "OB011012",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 5,
+          "address": "0x250",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 148,
+        "rawid": 1059203
+      },
+      "electronics": {
+        "card": {
+          "id": 5,
+          "serialno": null
+        },
+        "channel": 7,
+        "cable": "ge",
+        "flange": "Right",
+        "dsub": {
+          "id": 0,
+          "pinpair": 8
+        }
+      }
+    },
+    "S010": {
+      "name": "S010",
+      "system": "spms",
+      "location": {
+        "fiber": "OB019020",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 5,
+          "address": "0x250",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 149,
+        "rawid": 1059204
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 0,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 1
+        }
+      }
+    },
+    "S008": {
+      "name": "S008",
+      "system": "spms",
+      "location": {
+        "fiber": "OB019020",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 5,
+          "address": "0x250",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 150,
+        "rawid": 1059205
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 1,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 2
+        }
+      }
+    },
+    "S058": {
+      "name": "S058",
+      "system": "spms",
+      "location": {
+        "fiber": "IB011012",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 6,
+          "address": "0x260",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 151,
+        "rawid": 1060800
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 6,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 1
+        }
+      }
+    },
+    "S057": {
+      "name": "S057",
+      "system": "spms",
+      "location": {
+        "fiber": "IB011012",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 6,
+          "address": "0x260",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 152,
+        "rawid": 1060801
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 7,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 2
+        }
+      }
+    },
+    "S022": {
+      "name": "S022",
+      "system": "spms",
+      "location": {
+        "fiber": "IB013014",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 6,
+          "address": "0x260",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 153,
+        "rawid": 1060802
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 8,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 3
+        }
+      }
+    },
+    "S021": {
+      "name": "S021",
+      "system": "spms",
+      "location": {
+        "fiber": "IB013014",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 6,
+          "address": "0x260",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 154,
+        "rawid": 1060803
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 9,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 4
+        }
+      }
+    },
+    "S064": {
+      "name": "S064",
+      "system": "spms",
+      "location": {
+        "fiber": "OB025026",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 6,
+          "address": "0x260",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 155,
+        "rawid": 1060804
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 10,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 5
+        }
+      }
+    },
+    "S065": {
+      "name": "S065",
+      "system": "spms",
+      "location": {
+        "fiber": "OB025026",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 6,
+          "address": "0x260",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 156,
+        "rawid": 1060805
+      },
+      "electronics": {
+        "card": {
+          "id": 2,
+          "serialno": null
+        },
+        "channel": 11,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 6
+        }
+      }
+    },
+    "S009": {
+      "name": "S009",
+      "system": "spms",
+      "location": {
+        "fiber": "OB027028",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 7,
+          "address": "0x270",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 157,
+        "rawid": 1062400
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 0,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 7
+        }
+      }
+    },
+    "S007": {
+      "name": "S007",
+      "system": "spms",
+      "location": {
+        "fiber": "OB027028",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 7,
+          "address": "0x270",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 158,
+        "rawid": 1062401
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 1,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 8
+        }
+      }
+    },
+    "S046": {
+      "name": "S046",
+      "system": "spms",
+      "location": {
+        "fiber": "OB017018",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 7,
+          "address": "0x270",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 159,
+        "rawid": 1062402
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 2,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 3
+        }
+      }
+    },
+    "S047": {
+      "name": "S047",
+      "system": "spms",
+      "location": {
+        "fiber": "OB017018",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 7,
+          "address": "0x270",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 160,
+        "rawid": 1062403
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 3,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 4
+        }
+      }
+    },
+    "S011": {
+      "name": "S011",
+      "system": "spms",
+      "location": {
+        "fiber": "OB015016",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 7,
+          "address": "0x270",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 161,
+        "rawid": 1062404
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 4,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 5
+        }
+      }
+    },
+    "S012": {
+      "name": "S012",
+      "system": "spms",
+      "location": {
+        "fiber": "OB015016",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 7,
+          "address": "0x270",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 162,
+        "rawid": 1062405
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 5,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 6
+        }
+      }
+    },
+    "S020": {
+      "name": "S020",
+      "system": "spms",
+      "location": {
+        "fiber": "OB029030",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 8,
+          "address": "0x280",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 163,
+        "rawid": 1064000
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 6,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 13
+        }
+      }
+    },
+    "S019": {
+      "name": "S019",
+      "system": "spms",
+      "location": {
+        "fiber": "OB029030",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 8,
+          "address": "0x280",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 164,
+        "rawid": 1064001
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 7,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 14
+        }
+      }
+    },
+    "S026": {
+      "name": "S026",
+      "system": "spms",
+      "location": {
+        "fiber": "OB031032",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 8,
+          "address": "0x280",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 165,
+        "rawid": 1064002
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 8,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 3,
+          "pinpair": 15
+        }
+      }
+    },
+    "S025": {
+      "name": "S025",
+      "system": "spms",
+      "location": {
+        "fiber": "OB031032",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 8,
+          "address": "0x280",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 166,
+        "rawid": 1064003
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 9,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 1
+        }
+      }
+    },
+    "S015": {
+      "name": "S015",
+      "system": "spms",
+      "location": {
+        "fiber": "OB033034",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 8,
+          "address": "0x280",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 167,
+        "rawid": 1064004
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 10,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 2
+        }
+      }
+    },
+    "S033": {
+      "name": "S033",
+      "system": "spms",
+      "location": {
+        "fiber": "OB033034",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 8,
+          "address": "0x280",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 168,
+        "rawid": 1064005
+      },
+      "electronics": {
+        "card": {
+          "id": 3,
+          "serialno": null
+        },
+        "channel": 11,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 3
+        }
+      }
+    },
+    "S043": {
+      "name": "S043",
+      "system": "spms",
+      "location": {
+        "fiber": "OB013014",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 9,
+          "address": "0x290",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 169,
+        "rawid": 1065600
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 6,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 7
+        }
+      }
+    },
+    "S040": {
+      "name": "S040",
+      "system": "spms",
+      "location": {
+        "fiber": "OB013014",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 9,
+          "address": "0x290",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 170,
+        "rawid": 1065601
+      },
+      "electronics": {
+        "card": {
+          "id": 6,
+          "serialno": null
+        },
+        "channel": 7,
+        "cable": "ge",
+        "flange": "Left",
+        "dsub": {
+          "id": 0,
+          "pinpair": 8
+        }
+      }
+    },
+    "S048": {
+      "name": "S048",
+      "system": "spms",
+      "location": {
+        "fiber": "OB035036",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 9,
+          "address": "0x290",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 171,
+        "rawid": 1065602
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 2,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 6
+        }
+      }
+    },
+    "S049": {
+      "name": "S049",
+      "system": "spms",
+      "location": {
+        "fiber": "OB035036",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 9,
+          "address": "0x290",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 172,
+        "rawid": 1065603
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 3,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 7
+        }
+      }
+    },
+    "S053": {
+      "name": "S053",
+      "system": "spms",
+      "location": {
+        "fiber": "OB037038",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 9,
+          "address": "0x290",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 173,
+        "rawid": 1065604
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 4,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 8
+        }
+      }
+    },
+    "S052": {
+      "name": "S052",
+      "system": "spms",
+      "location": {
+        "fiber": "OB037038",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 9,
+          "address": "0x290",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 174,
+        "rawid": 1065605
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 5,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 9
+        }
+      }
+    },
+    "S050": {
+      "name": "S050",
+      "system": "spms",
+      "location": {
+        "fiber": "OB039040",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 10,
+          "address": "0x2A0",
+          "serialno": null
+        },
+        "channel": 0,
+        "fcid": 175,
+        "rawid": 1067200
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 6,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 10
+        }
+      }
+    },
+    "S051": {
+      "name": "S051",
+      "system": "spms",
+      "location": {
+        "fiber": "OB039040",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 10,
+          "address": "0x2A0",
+          "serialno": null
+        },
+        "channel": 1,
+        "fcid": 176,
+        "rawid": 1067201
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 7,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 11
+        }
+      }
+    },
+    "S045": {
+      "name": "S045",
+      "system": "spms",
+      "location": {
+        "fiber": "OB001002",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 10,
+          "address": "0x2A0",
+          "serialno": null
+        },
+        "channel": 2,
+        "fcid": 177,
+        "rawid": 1067202
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 8,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 12
+        }
+      }
+    },
+    "S044": {
+      "name": "S044",
+      "system": "spms",
+      "location": {
+        "fiber": "OB001002",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 10,
+          "address": "0x2A0",
+          "serialno": null
+        },
+        "channel": 3,
+        "fcid": 178,
+        "rawid": 1067203
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 9,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 13
+        }
+      }
+    },
+    "S037": {
+      "name": "S037",
+      "system": "spms",
+      "location": {
+        "fiber": "OB003004",
+        "position": "top"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 10,
+          "address": "0x2A0",
+          "serialno": null
+        },
+        "channel": 4,
+        "fcid": 179,
+        "rawid": 1067204
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 10,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 14
+        }
+      }
+    },
+    "S035": {
+      "name": "S035",
+      "system": "spms",
+      "location": {
+        "fiber": "OB003004",
+        "position": "bottom"
+      },
+      "daq": {
+        "crate": 2,
+        "card": {
+          "id": 10,
+          "address": "0x2A0",
+          "serialno": null
+        },
+        "channel": 5,
+        "fcid": 180,
+        "rawid": 1067205
+      },
+      "electronics": {
+        "card": {
+          "id": 4,
+          "serialno": null
+        },
+        "channel": 11,
+        "cable": "spm",
+        "flange": "top",
+        "dsub": {
+          "id": 4,
+          "pinpair": 15
+        }
+      }
+    }
+  }

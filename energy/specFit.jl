@@ -10,7 +10,7 @@ function fitStrings(data_strings::Dict, string_numbers::Array, figure_folder::Po
     for string_number in string_numbers
         println("Processing String $string_number")
         println()
-        println()
+        println() 
         println("Check figure folder")
         string_energy_figure_folder = joinpath(energy_figure_folder, format("string{}", string_number))
         checkFolder(string_energy_figure_folder, true)

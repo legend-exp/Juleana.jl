@@ -70,10 +70,20 @@ function fitChannel(e_uncal::Array, ch::Int, ft::String, th228_lines::Array, win
     end
 end
 
-optimnization_figure_folder = joinpath(figure_folder, "optimization")
-checkFolder(optimnization_figure_folder, true)
+cal = true
+period = 2
+calrun = 6
+config_folder = p"/home/iwsatlas1/henkes/l200/l200-p02-analysis/configs/"
+experiment = "l200"
 
-string_number = 1
+channel_list, label_dict, label_list_ext, string_dict, folder_dict = loadMeta(config_folder, period=period, run=calrun, experiment=experiment, cal=cal)
+
+optimization_figure_folder = joinpath(folder_dict["folder_figures"], "optimization")
+checkFolder(PosixPath(optimization_figure_folder), true)
+
+# load decay times for PZ correction
+decay_times = loadValues(collect(values(label_dict)), "tau", config_folder, period=period, run=calrun, experiment=experiment, cal=cal)
+
 
 # energy grids
 e_grid_rt = 1u"µs":0.5u"µs":12u"µs"
