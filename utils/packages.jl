@@ -15,6 +15,7 @@ using LaTeXStrings
 using Measures
 using HDF5
 using ProgressBars
+using ProgressMeter
 using FilePathsBase
 using Formatting
 using Base

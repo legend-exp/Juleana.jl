@@ -1,68 +1,11 @@
 include("packages.jl")
 include("utils.jl")
 
-# function cutLoader(channel_list::Array{Int}, cut_folder::String)
-#     in_data_folder = PosixPath(cut_folder)
-#     cutfile = joinpath(in_data_folder, "cuts.h5")
-
-#     printfmtln("Loading cut file {}", cutfile)
-#     return_dict = Dict{Int, Table}()
-
-#     if !exists(cutfile)
-#         println("No QC cuts found")
-#         return return_dict
-#     end
-#     cuts_table = LHDataStore(string(cutfile), "r")["QC"]
-#     channels = cuts_table.channel[:]
-#     for ch in channel_list
-#         ch_range = findfirst(channels .== ch):findlast(channels .== ch)
-#         printfmtln("Loading cuts for channel {} with {} events", ch, length(ch_range))
-#         return_dict[ch] = cuts_table[ch_range]
-#     end
-#     # close(cuts_table)
-#     return return_dict
-# end
-
-# out_data_folder = "/remote/ceph2/group/legendex/data/l60/r025/julia/cal/dsp/"
-
-# channel_list = [6]
-
-# testData = runLoader(out_data_folder)
-
-function prepareDSP(configFolder::String; period::Int, run::Int, preName::String, cal::Bool)
-    config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", preName, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", preName, period, run))
-    config_file = joinpath(configFolder, config_file_rel)
-    conf_dict = JSON.parsefile(config_file; dicttype=Dict, inttype=Int64, use_mmap=true)
-
-    data_folder = PosixPath(conf_dict["folder"]["folder_raw"])
-    out_data_folder = PosixPath(conf_dict["folder"]["folder_dsp"])
-
-    checkFolder(data_folder)
-    printfmtln("Using input folder {}", data_folder)
-
-    checkFolder(out_data_folder, true)
-    printfmtln("Using output folder {}", out_data_folder)
-
-    # load config file
-    string_numbers = conf_dict["default"]["strings"]
-
-    printfmtln("Using strings {}", string_numbers)
-
-    decay_times = Dict{Int, Float32}()
-    for string_n in string_numbers
-        conf_string = configLoader_string(string_n, config_file, Dict("tau"=>"tier2"))
-        merge!(decay_times, Dict{Int, Float32}(conf_string["channel_list"] .=> conf_string["additionalKeys"]["tau"]))
-    end
-    return (data_folder, out_data_folder, string_numbers, decay_times)
-end
-
-# data_folder, out_data_folder, string_numbers, decay_times = prepareDSP("/home/iwsatlas1/henkes/legend/julia/julia-dsp/configs/", period=1, run=25, preName="l60", cal=true)
-
-cal = true
-period = 2
-lrun = 6
-config_folder = p"/home/iwsatlas1/henkes/l200/l200-p02-analysis/configs/"
-experiment = "l200"
+# cal = true
+# period = 2
+# lrun = 6
+# config_folder = p"/home/iwsatlas1/henkes/l200/l200-p02-analysis/configs/"
+# experiment = "l200"
 # config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", experiment, period, lrun), format("config_{}-p{:02d}-r{:03d}_phy.json", experiment, period, lrun))
 # config_file = joinpath(config_folder, config_file_rel)
 # conf_dict = JSON.parsefile(string(config_file); dicttype=Dict, inttype=Int64, use_mmap=true)
@@ -78,7 +21,6 @@ experiment = "l200"
 #     JSON.print(f, conf_dict, 4)
 # end
 
-# channel_list, label_dict, label_list_ext, string_dict, folder_dict = loadMeta(config_folder, period=period, run=lrun, experiment=experiment, cal=cal)
 function loadMeta(config_folder::PosixPath; period::Int, run::Int, experiment::String, cal::Bool)
     config_file_rel = ifelse(cal, format("config_{}-p{:02d}-r{:03d}_cal.json", experiment, period, run), format("config_{}-p{:02d}-r{:03d}_phy.json", experiment, period, run))
     config_file = joinpath(config_folder, config_file_rel)
@@ -122,11 +64,60 @@ function loadValues(keys_list::Array, load_key::String, config_folder::PosixPath
     return_dict = Dict{String, Any}()
     for (key, vals) in conf_dict
         if key in keys_list
-            return_dict[key] = vals[load_key]
+            try
+                return_dict[key] = vals[load_key]
+            catch
+                println("No $load_key for $key")
+            end
         end
     end
 
     return return_dict
+end
+
+
+
+function moveBrokenFiles(dsp_folder::String)
+    broken_folder = joinpath(dsp_folder, "broken")
+    checkFolder(PosixPath(broken_folder), true)
+    hdf5_files = filter(f -> endswith(f, ".lh5"), readdir(dsp_folder))
+        status = @showprogress "Move data..." for data_file in hdf5_files
+            filename = joinpath(dsp_folder, data_file)
+            try
+                data = LHDataStore(filename, "r")
+                close(data)
+            catch e
+                @warn "$e : File $filename"
+                println("Moving file to broken folder.")
+                mv(filename, joinpath(broken_folder, data_file))
+                continue
+            end
+        end
+end
+
+function loadDSP(dsp_folder::String, channel_list::Array{String})
+    data_dict = Dict{String, TypedTables.Table}()
+    first_file = Dict{String, Bool}(ch => true for ch in channel_list)
+    hdf5_files = filter(f -> endswith(f, ".lh5"), readdir(dsp_folder))
+        status = @showprogress "Load data..." for data_file in hdf5_files
+            filename = joinpath(dsp_folder, data_file)
+            
+            data = LHDataStore(filename, "r")
+            for ch in channel_list
+                try 
+                    if first_file[ch]
+                        data_dict[ch] = data[ch][:]
+                        first_file[ch] = false
+                    else
+                        data_dict[ch] = append!(data_dict[ch], data[ch][:])
+                    end
+                catch e
+                    @warn "$e : Channel $ch error in file $filename"
+                end
+            end
+            close(data)
+        end
+    return data_dict
 end
 
 function prepareHit(configFolder::String; period::Int, run::Int, preName::String, cal::Bool, stringsToLoad::Array{Int}, additionalKeys::Dict{String, String}=Dict{String, String}())
@@ -186,11 +177,3 @@ function prepareHit(configFolder::String; period::Int, run::Int, preName::String
 
     return (dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts)
 end
-
-# config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
-
-# period, run, preName, cal = 1, 25, "l60", true
-# dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts = prepareHit(config_folder, period=period, run=run, preName=preName, cal=cal, stringsToLoad=[1])
-
-
-
