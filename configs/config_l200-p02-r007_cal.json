@@ -26,18 +26,18 @@
             },
             "rawid": 1104003
         },
-        "fwhm_qbb": 3.0079474,
-        "fwhm_qbb_err": 0.1906387,
-        "tau": 462.94,
+        "fwhm_qbb": 2.809933,
+        "fwhm_qbb_err": 0.22595775,
+        "tau": 463.03,
         "system": "geds",
-        "trap_rt": 8.6,
+        "trap_rt": 10.8,
         "name": "V05266A",
         "location": {
             "string": 1,
             "position": 4
         },
-        "m_calib": 6.8164,
-        "fwhm_bifep": 2.912415,
+        "m_calib": 6.8131747,
+        "fwhm_bifep": 2.422368,
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -45,8 +45,8 @@
             }
         },
         "trap_ft": 2.0,
-        "n_calib": -0.7252355,
-        "fwhm_sep": 4.938066,
+        "n_calib": -2.062515,
+        "fwhm_sep": 4.0908914,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -58,8 +58,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.1046937,
-        "fwhm_fep": 3.2700818,
+        "fwhm_dep": 1.9027094,
+        "fwhm_fep": 3.1305287,
         "processable": true
     },
     "S029": {
@@ -106,27 +106,27 @@
             },
             "rawid": 1120002
         },
-        "fwhm_qbb": 2.214083,
-        "fwhm_qbb_err": 0.018544728,
-        "tau": 455.38,
+        "fwhm_qbb": 2.1447916,
+        "fwhm_qbb_err": 0.069760814,
+        "tau": 452.54,
         "system": "geds",
-        "trap_rt": 10.3,
+        "trap_rt": 10.2,
         "name": "V07302B",
         "location": {
             "string": 7,
             "position": 7
         },
-        "m_calib": 6.584157,
-        "fwhm_bifep": 1.9895985,
+        "m_calib": 6.5842996,
+        "fwhm_bifep": 1.8087039,
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "D2"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -1.4062828,
-        "fwhm_sep": 3.177711,
+        "trap_ft": 4.0,
+        "n_calib": -1.397711,
+        "fwhm_sep": 3.064935,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -138,8 +138,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.905877,
-        "fwhm_fep": 2.4829895,
+        "fwhm_dep": 2.0156834,
+        "fwhm_fep": 2.4582057,
         "processable": true
     },
     "V00048A": {
@@ -154,18 +154,18 @@
             },
             "rawid": 1084803
         },
-        "fwhm_qbb": 2.1500173,
-        "fwhm_qbb_err": 0.03143741,
-        "tau": 512.45,
+        "fwhm_qbb": 2.1970928,
+        "fwhm_qbb_err": 0.02930222,
+        "tau": 509.09,
         "system": "geds",
-        "trap_rt": 10.0,
+        "trap_rt": 9.2,
         "name": "V00048A",
         "location": {
             "string": 10,
             "position": 9
         },
-        "m_calib": 6.546566,
-        "fwhm_bifep": 1.917215,
+        "m_calib": 6.5489783,
+        "fwhm_bifep": 2.033762,
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -173,8 +173,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.36228362,
-        "fwhm_sep": 3.0762103,
+        "n_calib": -0.5641937,
+        "fwhm_sep": 3.188057,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -186,8 +186,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.900391,
-        "fwhm_fep": 2.3972147,
+        "fwhm_dep": 1.9937792,
+        "fwhm_fep": 2.4031868,
         "processable": true
     },
     "V05267A": {
@@ -202,27 +202,27 @@
             },
             "rawid": 1086400
         },
-        "fwhm_qbb": 3.1814027,
-        "fwhm_qbb_err": 0.17093094,
-        "tau": 504.71,
+        "fwhm_qbb": 3.3269598,
+        "fwhm_qbb_err": 0.108214214,
+        "tau": 503.69,
         "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 10.7,
         "name": "V05267A",
         "location": {
             "string": 10,
             "position": 12
         },
-        "m_calib": 6.383446,
-        "fwhm_bifep": 2.4903119,
+        "m_calib": 6.3850656,
+        "fwhm_bifep": 3.0039518,
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "B1"
             }
         },
-        "trap_ft": 2.0,
-        "n_calib": -2.5031745,
-        "fwhm_sep": 4.113214,
+        "trap_ft": 2.2,
+        "n_calib": -2.769665,
+        "fwhm_sep": 4.3584685,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -234,8 +234,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.8686228,
-        "fwhm_fep": 3.8072994,
+        "fwhm_dep": 2.4739606,
+        "fwhm_fep": 3.7837405,
         "processable": true
     },
     "V05266B": {
@@ -250,18 +250,18 @@
             },
             "rawid": 1104004
         },
-        "fwhm_qbb": 2.3817205,
-        "fwhm_qbb_err": 0.07056767,
-        "tau": 526.4,
+        "fwhm_qbb": 2.428746,
+        "fwhm_qbb_err": 0.0344127,
+        "tau": 523.15,
         "system": "geds",
-        "trap_rt": 9.4,
+        "trap_rt": 8.4,
         "name": "V05266B",
         "location": {
             "string": 1,
             "position": 5
         },
-        "m_calib": 6.1756845,
-        "fwhm_bifep": 2.0239732,
+        "m_calib": 6.178121,
+        "fwhm_bifep": 2.2354908,
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -269,8 +269,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.8654089,
-        "fwhm_sep": 3.4356074,
+        "n_calib": -2.0730927,
+        "fwhm_sep": 3.3706107,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -282,8 +282,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.2876842,
-        "fwhm_fep": 2.7234201,
+        "fwhm_dep": 2.2036965,
+        "fwhm_fep": 2.6962912,
         "processable": true
     },
     "S073": {
@@ -321,13 +321,13 @@
     "General": {
         "name": "General",
         "folder": {
-            "folder_peaks": "/remote/ceph/group/legendex/data/l200/peaks/cal/p02/r006/",
-            "folder_daq": "/remote/ceph/group/legendex/data/l200/orca/cal/p02/r006/daq/",
-            "folder_raw": "/remote/ceph/group/legendex/data/l200/raw/cal/p02/r006/",
-            "folder_dsp": "/remote/ceph/group/legendex/data/l200/dsp/cal/p02/r006/",
-            "folder_figures": "/remote/ceph/group/legendex/data/l200/figures/cal/p02/r006/",
-            "folder_cuts": "/remote/ceph/group/legendex/data/l200/cuts/cal/p02/r006/",
-            "folder_hit": "/remote/ceph/group/legendex/data/l200/hit/cal/p02/r006/"
+            "folder_peaks": "/remote/ceph/group/legendex/data/l200/peaks/cal/p02/r007/",
+            "folder_daq": "/remote/ceph/group/legendex/data/l200/orca/cal/p02/r007/daq/",
+            "folder_raw": "/remote/ceph/group/legendex/data/l200/raw/cal/p02/r007/",
+            "folder_dsp": "/remote/ceph/group/legendex/data/l200/dsp/cal/p02/r007/",
+            "folder_figures": "/remote/ceph/group/legendex/data/l200/figures/cal/p02/r007/",
+            "folder_cuts": "/remote/ceph/group/legendex/data/l200/cuts/cal/p02/r007/",
+            "folder_hit": "/remote/ceph/group/legendex/data/l200/hit/cal/p02/r007/"
         },
         "system": "general"
     },
@@ -343,27 +343,27 @@
             },
             "rawid": 1120004
         },
-        "fwhm_qbb": 1.9385514,
-        "fwhm_qbb_err": 0.105399854,
-        "tau": 504.38,
+        "fwhm_qbb": 2.0864775,
+        "fwhm_qbb_err": 0.08498815,
+        "tau": 501.36,
         "system": "geds",
-        "trap_rt": 9.1,
+        "trap_rt": 11.8,
         "name": "B00089D",
         "location": {
             "string": 8,
             "position": 2
         },
-        "m_calib": 6.5325584,
-        "fwhm_bifep": 1.5547148,
+        "m_calib": 6.528952,
+        "fwhm_bifep": 2.070137,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "E2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -0.31466308,
-        "fwhm_sep": 3.2637029,
+        "trap_ft": 2.0,
+        "n_calib": -0.5134144,
+        "fwhm_sep": 2.7733755,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -375,8 +375,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.7802585,
-        "fwhm_fep": 2.2678196,
+        "fwhm_dep": 1.7585088,
+        "fwhm_fep": 2.2313704,
         "processable": true
     },
     "S064": {
@@ -487,18 +487,18 @@
             },
             "rawid": 1104001
         },
-        "fwhm_qbb": 2.1549988,
-        "fwhm_qbb_err": 0.01907242,
-        "tau": 481.77,
+        "fwhm_qbb": 2.1497796,
+        "fwhm_qbb_err": 0.027377978,
+        "tau": 480.57,
         "system": "geds",
-        "trap_rt": 8.4,
+        "trap_rt": 9.6,
         "name": "V02160B",
         "location": {
             "string": 1,
             "position": 2
         },
-        "m_calib": 6.680215,
-        "fwhm_bifep": 1.9526151,
+        "m_calib": 6.678489,
+        "fwhm_bifep": 1.9292743,
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -506,8 +506,8 @@
             }
         },
         "trap_ft": 3.4,
-        "n_calib": 0.20182046,
-        "fwhm_sep": 3.2589264,
+        "n_calib": 0.15745956,
+        "fwhm_sep": 3.3201666,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -519,8 +519,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0910468,
-        "fwhm_fep": 2.3797164,
+        "fwhm_dep": 1.9589345,
+        "fwhm_fep": 2.38402,
         "processable": true
     },
     "S027": {
@@ -582,18 +582,18 @@
             },
             "rawid": 1083203
         },
-        "fwhm_qbb": 2.10622,
-        "fwhm_qbb_err": 0.034826573,
-        "tau": 470.68,
+        "fwhm_qbb": 2.0083117,
+        "fwhm_qbb_err": 0.11799012,
+        "tau": 466.49,
         "system": "geds",
-        "trap_rt": 10.1,
+        "trap_rt": 8.6,
         "name": "B00032C",
         "location": {
             "string": 10,
             "position": 3
         },
-        "m_calib": 6.567877,
-        "fwhm_bifep": 1.837421,
+        "m_calib": 6.5714693,
+        "fwhm_bifep": 1.5962131,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -601,8 +601,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.31207898,
-        "fwhm_sep": 2.9514503,
+        "n_calib": -0.8448884,
+        "fwhm_sep": 3.1903763,
         "voltage": {
             "channel": 7,
             "filter": {
@@ -614,8 +614,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.1562738,
-        "fwhm_fep": 2.387187,
+        "fwhm_dep": 1.9793668,
+        "fwhm_fep": 2.3456566,
         "processable": true
     },
     "V07646A": {
@@ -630,18 +630,18 @@
             },
             "rawid": 1120001
         },
-        "fwhm_qbb": 2.5045507,
-        "fwhm_qbb_err": 0.03670745,
-        "tau": 461.75,
+        "fwhm_qbb": 2.7481437,
+        "fwhm_qbb_err": 0.24679331,
+        "tau": 460.48,
         "system": "geds",
-        "trap_rt": 10.0,
+        "trap_rt": 12.0,
         "name": "V07646A",
         "location": {
             "string": 7,
             "position": 6
         },
-        "m_calib": 6.7850146,
-        "fwhm_bifep": 2.3456883,
+        "m_calib": 6.782167,
+        "fwhm_bifep": 2.9985166,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -649,8 +649,8 @@
             }
         },
         "trap_ft": 2.4,
-        "n_calib": -4.6137705,
-        "fwhm_sep": 3.7483683,
+        "n_calib": -4.375452,
+        "fwhm_sep": 3.7994974,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -662,8 +662,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.642314,
-        "fwhm_fep": 2.7331865,
+        "fwhm_dep": 2.4626396,
+        "fwhm_fep": 2.758862,
         "processable": true
     },
     "S048": {
@@ -742,18 +742,18 @@
             },
             "rawid": 1081601
         },
-        "fwhm_qbb": 2.4180193,
-        "fwhm_qbb_err": 0.021221459,
-        "tau": 439.67,
+        "fwhm_qbb": 2.5329242,
+        "fwhm_qbb_err": 0.04806899,
+        "tau": 435.93,
         "system": "geds",
-        "trap_rt": 7.2,
+        "trap_rt": 7.5,
         "name": "P00662C",
         "location": {
             "string": 9,
             "position": 9
         },
-        "m_calib": 6.5964046,
-        "fwhm_bifep": 2.1292713,
+        "m_calib": 6.596237,
+        "fwhm_bifep": 2.374895,
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -761,8 +761,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.0195315,
-        "fwhm_sep": 3.5541935,
+        "n_calib": -1.6598283,
+        "fwhm_sep": 3.7003536,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -774,8 +774,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.4647324,
-        "fwhm_fep": 2.7485464,
+        "fwhm_dep": 2.8240857,
+        "fwhm_fep": 2.7988997,
         "processable": true
     },
     "S010": {
@@ -891,27 +891,27 @@
             },
             "rawid": 1086405
         },
-        "fwhm_qbb": 2.2087893,
-        "fwhm_qbb_err": 0.052799534,
-        "tau": 459.25,
+        "fwhm_qbb": 2.3615003,
+        "fwhm_qbb_err": 0.17442743,
+        "tau": 458.85,
         "system": "geds",
-        "trap_rt": 7.8,
+        "trap_rt": 7.3,
         "name": "B00032A",
         "location": {
             "string": 11,
             "position": 3
         },
-        "m_calib": 6.957197,
-        "fwhm_bifep": 1.9245508,
+        "m_calib": 6.958682,
+        "fwhm_bifep": 2.508328,
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "A3"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -1.280594,
-        "fwhm_sep": 3.2578433,
+        "trap_ft": 3.4,
+        "n_calib": -2.0237026,
+        "fwhm_sep": 2.8823202,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -923,8 +923,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.1507628,
-        "fwhm_fep": 2.4849758,
+        "fwhm_dep": 2.2914317,
+        "fwhm_fep": 2.4074678,
         "processable": true
     },
     "P00665C": {
@@ -939,27 +939,27 @@
             },
             "rawid": 1081603
         },
-        "fwhm_qbb": 6.4439125,
-        "fwhm_qbb_err": 0.88184154,
-        "tau": 495.7,
+        "fwhm_qbb": 8.659398,
+        "fwhm_qbb_err": 1.513553,
+        "tau": 495.26,
         "system": "geds",
-        "trap_rt": 8.6,
+        "trap_rt": 7.0,
         "name": "P00665C",
         "location": {
             "string": 9,
             "position": 11
         },
-        "m_calib": 5.0599437,
-        "fwhm_bifep": 5.0055213,
+        "m_calib": 5.0647063,
+        "fwhm_bifep": 6.8154235,
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "A1"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.97480744,
-        "fwhm_sep": 7.702661,
+        "trap_ft": 2.6,
+        "n_calib": -0.0035810848,
+        "fwhm_sep": 9.734609,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -971,8 +971,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 6.1596847,
-        "fwhm_fep": 8.43292,
+        "fwhm_dep": 8.4541025,
+        "fwhm_fep": 11.617382,
         "processable": true
     },
     "V01240A": {
@@ -987,9 +987,9 @@
             },
             "rawid": 1084804
         },
-        "fwhm_qbb": 2.7015266,
-        "fwhm_qbb_err": 0.041415684,
-        "tau": 518.12,
+        "fwhm_qbb": 2.7135985,
+        "fwhm_qbb_err": 0.048009682,
+        "tau": 515.13,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "V01240A",
@@ -997,8 +997,8 @@
             "string": 10,
             "position": 10
         },
-        "m_calib": 6.4030046,
-        "fwhm_bifep": 2.3838675,
+        "m_calib": 6.4032025,
+        "fwhm_bifep": 2.3795898,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -1006,8 +1006,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.44525585,
-        "fwhm_sep": 3.7811587,
+        "n_calib": -0.45312962,
+        "fwhm_sep": 3.8868191,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -1019,8 +1019,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.1080623,
-        "fwhm_fep": 3.0362482,
+        "fwhm_dep": 3.112808,
+        "fwhm_fep": 3.0678127,
         "processable": true
     },
     "S015": {
@@ -1099,27 +1099,27 @@
             },
             "rawid": 1110403
         },
-        "fwhm_qbb": 2.1468647,
-        "fwhm_qbb_err": 0.02086168,
-        "tau": 510.29,
+        "fwhm_qbb": 2.1507864,
+        "fwhm_qbb_err": 0.042787686,
+        "tau": 510.97,
         "system": "geds",
-        "trap_rt": 10.8,
+        "trap_rt": 11.3,
         "name": "B00091C",
         "location": {
             "string": 3,
             "position": 2
         },
-        "m_calib": 6.8011136,
-        "fwhm_bifep": 1.9280363,
+        "m_calib": 6.801075,
+        "fwhm_bifep": 1.9732449,
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "A5"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -0.4347671,
-        "fwhm_sep": 2.6066756,
+        "trap_ft": 2.8,
+        "n_calib": -0.33511955,
+        "fwhm_sep": 3.4351404,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -1131,8 +1131,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9761201,
-        "fwhm_fep": 2.4262948,
+        "fwhm_dep": 2.0761926,
+        "fwhm_fep": 2.4048254,
         "processable": true
     },
     "V02162B": {
@@ -1147,27 +1147,27 @@
             },
             "rawid": 1118402
         },
-        "fwhm_qbb": 2.476963,
-        "fwhm_qbb_err": 0.11629473,
-        "tau": 443.68,
+        "fwhm_qbb": 2.445553,
+        "fwhm_qbb_err": 0.043414358,
+        "tau": 445.94,
         "system": "geds",
-        "trap_rt": 11.7,
+        "trap_rt": 11.4,
         "name": "V02162B",
         "location": {
             "string": 7,
             "position": 1
         },
-        "m_calib": 7.2801113,
-        "fwhm_bifep": 2.211543,
+        "m_calib": 7.28042,
+        "fwhm_bifep": 2.2932475,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "D2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -5.7166233,
-        "fwhm_sep": 3.3761337,
+        "trap_ft": 2.2,
+        "n_calib": -5.493353,
+        "fwhm_sep": 3.5668333,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -1179,8 +1179,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.1559632,
-        "fwhm_fep": 2.694953,
+        "fwhm_dep": 2.3896482,
+        "fwhm_fep": 2.6344235,
         "processable": true
     },
     "S044": {
@@ -1274,18 +1274,18 @@
             },
             "rawid": 1121600
         },
-        "fwhm_qbb": 2.7454634,
-        "fwhm_qbb_err": 0.2494712,
-        "tau": 491.43,
+        "fwhm_qbb": 2.6066887,
+        "fwhm_qbb_err": 0.16688123,
+        "tau": 489.66,
         "system": "geds",
-        "trap_rt": 7.7,
+        "trap_rt": 8.4,
         "name": "V00048B",
         "location": {
             "string": 8,
             "position": 4
         },
-        "m_calib": 6.373281,
-        "fwhm_bifep": 3.0188766,
+        "m_calib": 6.3720016,
+        "fwhm_bifep": 2.711697,
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -1293,8 +1293,8 @@
             }
         },
         "trap_ft": 2.4,
-        "n_calib": -4.002551,
-        "fwhm_sep": 3.9789004,
+        "n_calib": -3.425596,
+        "fwhm_sep": 3.2421935,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -1306,8 +1306,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.6480558,
-        "fwhm_fep": 2.7224267,
+        "fwhm_dep": 2.3700216,
+        "fwhm_fep": 2.6828108,
         "processable": true
     },
     "V08682B": {
@@ -1322,27 +1322,27 @@
             },
             "rawid": 1116801
         },
-        "fwhm_qbb": 2.9936585,
-        "fwhm_qbb_err": 0.052165736,
-        "tau": 470.49,
+        "fwhm_qbb": 2.9538682,
+        "fwhm_qbb_err": 0.03501937,
+        "tau": 468.07,
         "system": "geds",
-        "trap_rt": 11.7,
+        "trap_rt": 7.1,
         "name": "V08682B",
         "location": {
             "string": 5,
             "position": 1
         },
-        "m_calib": 6.830438,
-        "fwhm_bifep": 2.9209287,
+        "m_calib": 6.8400106,
+        "fwhm_bifep": 2.8805747,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "D4"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -1.3854555,
-        "fwhm_sep": 3.9667766,
+        "trap_ft": 3.4,
+        "n_calib": -0.6005636,
+        "fwhm_sep": 3.6247044,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -1354,8 +1354,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.9953785,
-        "fwhm_fep": 3.1708233,
+        "fwhm_dep": 2.4061015,
+        "fwhm_fep": 3.1114857,
         "processable": true
     },
     "B00089B": {
@@ -1370,27 +1370,27 @@
             },
             "rawid": 1084802
         },
-        "fwhm_qbb": 1.971609,
-        "fwhm_qbb_err": 0.066079624,
-        "tau": 441.29,
+        "fwhm_qbb": 2.0331914,
+        "fwhm_qbb_err": 0.05847096,
+        "tau": 443.0,
         "system": "geds",
-        "trap_rt": 9.4,
+        "trap_rt": 9.0,
         "name": "B00089B",
         "location": {
             "string": 10,
             "position": 8
         },
-        "m_calib": 7.363781,
-        "fwhm_bifep": 1.6738075,
+        "m_calib": 7.362299,
+        "fwhm_bifep": 1.8190523,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "B1"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": -3.746997,
-        "fwhm_sep": 3.1256561,
+        "trap_ft": 4.0,
+        "n_calib": -3.1586087,
+        "fwhm_sep": 3.7626579,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -1402,8 +1402,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9390384,
-        "fwhm_fep": 2.2460294,
+        "fwhm_dep": 1.8601198,
+        "fwhm_fep": 2.305397,
         "processable": true
     },
     "B00089C": {
@@ -1418,27 +1418,27 @@
             },
             "rawid": 1120003
         },
-        "fwhm_qbb": 2.0943775,
-        "fwhm_qbb_err": 0.04937016,
-        "tau": 431.45,
+        "fwhm_qbb": 2.1834867,
+        "fwhm_qbb_err": 0.022108201,
+        "tau": 429.27,
         "system": "geds",
-        "trap_rt": 9.5,
+        "trap_rt": 7.0,
         "name": "B00089C",
         "location": {
             "string": 8,
             "position": 1
         },
-        "m_calib": 6.5579305,
-        "fwhm_bifep": 2.019058,
+        "m_calib": 6.562481,
+        "fwhm_bifep": 2.0151088,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "E2"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": 0.20273507,
-        "fwhm_sep": 3.5112398,
+        "trap_ft": 3.0,
+        "n_calib": 0.4386597,
+        "fwhm_sep": 3.063481,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -1450,8 +1450,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.8866266,
-        "fwhm_fep": 2.2647383,
+        "fwhm_dep": 1.9513892,
+        "fwhm_fep": 2.41725,
         "processable": true
     },
     "S007": {
@@ -1498,18 +1498,18 @@
             },
             "rawid": 1108802
         },
-        "fwhm_qbb": 2.5438032,
-        "fwhm_qbb_err": 0.07384882,
-        "tau": 450.59,
+        "fwhm_qbb": 2.39954,
+        "fwhm_qbb_err": 0.062456388,
+        "tau": 452.54,
         "system": "geds",
-        "trap_rt": 10.0,
+        "trap_rt": 9.1,
         "name": "V00074A",
         "location": {
             "string": 2,
             "position": 7
         },
-        "m_calib": 7.008632,
-        "fwhm_bifep": 2.4774249,
+        "m_calib": 7.010355,
+        "fwhm_bifep": 2.1211,
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -1517,8 +1517,8 @@
             }
         },
         "trap_ft": 3.8,
-        "n_calib": -2.7982495,
-        "fwhm_sep": 3.2035072,
+        "n_calib": -2.8798225,
+        "fwhm_sep": 3.7609403,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -1530,8 +1530,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.5442772,
-        "fwhm_fep": 2.729385,
+        "fwhm_dep": 1.9671361,
+        "fwhm_fep": 2.7265446,
         "processable": true
     },
     "B00061A": {
@@ -1546,27 +1546,27 @@
             },
             "rawid": 1113601
         },
-        "fwhm_qbb": 2.1836777,
-        "fwhm_qbb_err": 0.110892564,
-        "tau": 479.46,
+        "fwhm_qbb": 2.2735243,
+        "fwhm_qbb_err": 0.06483825,
+        "tau": 478.21,
         "system": "geds",
-        "trap_rt": 11.8,
+        "trap_rt": 10.9,
         "name": "B00061A",
         "location": {
             "string": 4,
             "position": 3
         },
-        "m_calib": 6.4290814,
-        "fwhm_bifep": 1.7361279,
+        "m_calib": 6.429948,
+        "fwhm_bifep": 1.9402299,
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "C5"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": -1.3877141,
-        "fwhm_sep": 3.2253234,
+        "trap_ft": 4.0,
+        "n_calib": -1.2904127,
+        "fwhm_sep": 3.5234888,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -1578,8 +1578,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.2789416,
-        "fwhm_fep": 2.5736964,
+        "fwhm_dep": 2.104268,
+        "fwhm_fep": 2.5956213,
         "processable": true
     },
     "P00575A": {
@@ -1594,9 +1594,9 @@
             },
             "rawid": 1088002
         },
-        "fwhm_qbb": 3.078199,
-        "fwhm_qbb_err": 0.11704357,
-        "tau": 833.28,
+        "fwhm_qbb": 3.2015333,
+        "fwhm_qbb_err": 0.097797245,
+        "tau": 842.75,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "P00575A",
@@ -1604,8 +1604,8 @@
             "string": 11,
             "position": 6
         },
-        "m_calib": 5.568425,
-        "fwhm_bifep": 2.570108,
+        "m_calib": 5.5680594,
+        "fwhm_bifep": 2.6910021,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -1613,8 +1613,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.34168243,
-        "fwhm_sep": 3.6914003,
+        "n_calib": -0.5120254,
+        "fwhm_sep": 4.502065,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -1626,8 +1626,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.5017605,
-        "fwhm_fep": 3.6096992,
+        "fwhm_dep": 2.8440566,
+        "fwhm_fep": 3.714864,
         "processable": true
     },
     "DUMMY05": {
@@ -1689,27 +1689,27 @@
             },
             "rawid": 1084800
         },
-        "fwhm_qbb": 2.0680003,
-        "fwhm_qbb_err": 0.03000074,
-        "tau": 476.21,
+        "fwhm_qbb": 2.06958,
+        "fwhm_qbb_err": 0.04278382,
+        "tau": 473.63,
         "system": "geds",
-        "trap_rt": 7.8,
+        "trap_rt": 9.4,
         "name": "B00035B",
         "location": {
             "string": 10,
             "position": 6
         },
-        "m_calib": 6.527286,
-        "fwhm_bifep": 1.8231269,
+        "m_calib": 6.525037,
+        "fwhm_bifep": 1.7934003,
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -0.79495883,
-        "fwhm_sep": 3.2282133,
+        "trap_ft": 4.0,
+        "n_calib": -0.81213725,
+        "fwhm_sep": 3.0877333,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -1721,8 +1721,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0901158,
-        "fwhm_fep": 2.3345594,
+        "fwhm_dep": 2.011433,
+        "fwhm_fep": 2.3486695,
         "processable": true
     },
     "S047": {
@@ -1769,27 +1769,27 @@
             },
             "rawid": 1112001
         },
-        "fwhm_qbb": 4.7689342,
-        "fwhm_qbb_err": 0.63441366,
-        "tau": 468.99,
+        "fwhm_qbb": 5.0388474,
+        "fwhm_qbb_err": 0.68333226,
+        "tau": 468.81,
         "system": "geds",
-        "trap_rt": 10.1,
+        "trap_rt": 11.3,
         "name": "P00712A",
         "location": {
             "string": 3,
             "position": 6
         },
-        "m_calib": 5.4223447,
-        "fwhm_bifep": 4.2413774,
+        "m_calib": 5.4184985,
+        "fwhm_bifep": 4.94131,
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "B5"
             }
         },
-        "trap_ft": 3.0,
-        "n_calib": -1.3218284,
-        "fwhm_sep": 6.7117414,
+        "trap_ft": 3.2,
+        "n_calib": -1.5303605,
+        "fwhm_sep": 6.90409,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -1801,8 +1801,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 4.4381523,
-        "fwhm_fep": 6.4889283,
+        "fwhm_dep": 6.185378,
+        "fwhm_fep": 6.558359,
         "processable": true
     },
     "S068": {
@@ -1881,18 +1881,18 @@
             },
             "rawid": 1086401
         },
-        "fwhm_qbb": 3.5860093,
-        "fwhm_qbb_err": 0.056123126,
-        "tau": 450.19,
+        "fwhm_qbb": 3.573315,
+        "fwhm_qbb_err": 0.045570258,
+        "tau": 450.02,
         "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 12.0,
         "name": "V05612B",
         "location": {
             "string": 10,
             "position": 13
         },
-        "m_calib": 6.7604074,
-        "fwhm_bifep": 3.138579,
+        "m_calib": 6.760604,
+        "fwhm_bifep": 3.305987,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -1900,8 +1900,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.0156448,
-        "fwhm_sep": 4.96552,
+        "n_calib": -2.0607278,
+        "fwhm_sep": 5.136996,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -1913,8 +1913,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.9946926,
-        "fwhm_fep": 4.073169,
+        "fwhm_dep": 3.4930048,
+        "fwhm_fep": 3.9564342,
         "processable": true
     },
     "C00ANG5": {
@@ -1951,11 +1951,11 @@
                 "id": "A4"
             }
         },
-        "trap_ft": 2.0,
+        "trap_ft": 1.0,
         "processable": true,
-        "tau": 441.27,
+        "tau": 443.52,
         "system": "geds",
-        "trap_rt": 11.6
+        "trap_rt": 8.6
     },
     "BSLN01": {
         "name": "BSLN01",
@@ -1987,9 +1987,9 @@
         },
         "fwhm_qbb": null,
         "fwhm_qbb_err": null,
-        "tau": 537.93,
+        "tau": 536.98,
         "system": "geds",
-        "trap_rt": 7.5,
+        "trap_rt": 7.0,
         "name": "V01387A",
         "location": {
             "string": 8,
@@ -2003,7 +2003,7 @@
                 "id": "E2"
             }
         },
-        "trap_ft": 4.0,
+        "trap_ft": 1.2,
         "n_calib": null,
         "fwhm_sep": 0.0,
         "voltage": {
@@ -2033,27 +2033,27 @@
             },
             "rawid": 1112002
         },
-        "fwhm_qbb": 7.92978,
-        "fwhm_qbb_err": 0.49820846,
-        "tau": 495.53,
+        "fwhm_qbb": null,
+        "fwhm_qbb_err": null,
+        "tau": 493.19,
         "system": "geds",
-        "trap_rt": 10.8,
+        "trap_rt": 10.0,
         "name": "P00909C",
         "location": {
             "string": 3,
             "position": 7
         },
-        "m_calib": 4.712012,
-        "fwhm_bifep": 7.862973,
+        "m_calib": null,
+        "fwhm_bifep": 0.0,
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "B5"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -5.7411966,
-        "fwhm_sep": 10.045586,
+        "trap_ft": 2.2,
+        "n_calib": null,
+        "fwhm_sep": 0.0,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -2065,8 +2065,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 5.111221,
-        "fwhm_fep": 8.721383,
+        "fwhm_dep": 0.0,
+        "fwhm_fep": 0.0,
         "processable": true
     },
     "PULS01ANA": {
@@ -2152,11 +2152,11 @@
                 "id": "A4"
             }
         },
-        "trap_ft": 2.0,
+        "trap_ft": 1.0,
         "processable": true,
-        "tau": 531.16,
+        "tau": 534.19,
         "system": "geds",
-        "trap_rt": 12.0
+        "trap_rt": 9.8
     },
     "S055": {
         "name": "S055",
@@ -2335,27 +2335,27 @@
             },
             "rawid": 1113603
         },
-        "fwhm_qbb": 2.100094,
-        "fwhm_qbb_err": 0.017904032,
-        "tau": 518.94,
+        "fwhm_qbb": 2.1076467,
+        "fwhm_qbb_err": 0.024176324,
+        "tau": 516.63,
         "system": "geds",
-        "trap_rt": 9.5,
+        "trap_rt": 11.6,
         "name": "B00076C",
         "location": {
             "string": 4,
             "position": 5
         },
-        "m_calib": 6.431707,
-        "fwhm_bifep": 1.9318678,
+        "m_calib": 6.429535,
+        "fwhm_bifep": 1.951258,
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "C5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -3.8889277,
-        "fwhm_sep": 3.0344615,
+        "trap_ft": 3.6,
+        "n_calib": -3.9312685,
+        "fwhm_sep": 3.0948427,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -2367,8 +2367,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9723176,
-        "fwhm_fep": 2.3300154,
+        "fwhm_dep": 1.9729502,
+        "fwhm_fep": 2.3288426,
         "processable": true
     },
     "S030": {
@@ -2415,18 +2415,18 @@
             },
             "rawid": 1120000
         },
-        "fwhm_qbb": 2.5974138,
-        "fwhm_qbb_err": 0.07432101,
-        "tau": 510.54,
+        "fwhm_qbb": 2.632358,
+        "fwhm_qbb_err": 0.078302465,
+        "tau": 510.64,
         "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 11.7,
         "name": "V05267B",
         "location": {
             "string": 7,
             "position": 5
         },
-        "m_calib": 6.4355426,
-        "fwhm_bifep": 2.2423222,
+        "m_calib": 6.4430523,
+        "fwhm_bifep": 2.2385812,
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -2434,8 +2434,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.3062387,
-        "fwhm_sep": 3.6904948,
+        "n_calib": 13.37278,
+        "fwhm_sep": 3.4536316,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -2447,8 +2447,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.9088562,
-        "fwhm_fep": 2.9307516,
+        "fwhm_dep": 2.1740975,
+        "fwhm_fep": 3.0311558,
         "processable": true
     },
     "DUMMY07": {
@@ -2510,9 +2510,9 @@
             },
             "rawid": 1080004
         },
-        "fwhm_qbb": 2.6682215,
-        "fwhm_qbb_err": 0.020881224,
-        "tau": 548.94,
+        "fwhm_qbb": 2.7553399,
+        "fwhm_qbb_err": 0.12776175,
+        "tau": 550.65,
         "system": "geds",
         "trap_rt": 7.1,
         "name": "P00538A",
@@ -2520,8 +2520,8 @@
             "string": 9,
             "position": 6
         },
-        "m_calib": 5.501941,
-        "fwhm_bifep": 2.4593964,
+        "m_calib": 5.5025845,
+        "fwhm_bifep": 2.754192,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -2529,8 +2529,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": 0.89730626,
-        "fwhm_sep": 4.6215215,
+        "n_calib": 0.11009686,
+        "fwhm_sep": 3.8997438,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -2542,8 +2542,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.06289,
-        "fwhm_fep": 2.9503295,
+        "fwhm_dep": 3.2733407,
+        "fwhm_fep": 2.949358,
         "processable": true
     },
     "P00662A": {
@@ -2558,9 +2558,9 @@
             },
             "rawid": 1089600
         },
-        "fwhm_qbb": 2.6949434,
-        "fwhm_qbb_err": 0.08921398,
-        "tau": 465.04,
+        "fwhm_qbb": 2.6599863,
+        "fwhm_qbb_err": 0.046584494,
+        "tau": 469.88,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "P00662A",
@@ -2568,8 +2568,8 @@
             "string": 11,
             "position": 9
         },
-        "m_calib": 5.339109,
-        "fwhm_bifep": 2.3556633,
+        "m_calib": 5.3393545,
+        "fwhm_bifep": 2.3853123,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -2577,8 +2577,8 @@
             }
         },
         "trap_ft": 3.8,
-        "n_calib": -2.5552855,
-        "fwhm_sep": 3.7133346,
+        "n_calib": -3.1896873,
+        "fwhm_sep": 4.327679,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -2590,8 +2590,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.7838907,
-        "fwhm_fep": 3.0829399,
+        "fwhm_dep": 2.9550316,
+        "fwhm_fep": 3.016131,
         "processable": true
     },
     "C000RG2": {
@@ -2606,27 +2606,27 @@
             },
             "rawid": 1107204
         },
-        "fwhm_qbb": 5.5560427,
-        "fwhm_qbb_err": 0.081133656,
-        "tau": 469.21,
+        "fwhm_qbb": 5.6391253,
+        "fwhm_qbb_err": 0.07105277,
+        "tau": 478.52,
         "system": "geds",
-        "trap_rt": 9.3,
+        "trap_rt": 7.7,
         "name": "C000RG2",
         "location": {
             "string": 2,
             "position": 3
         },
-        "m_calib": 2.700415,
-        "fwhm_bifep": 5.1933637,
+        "m_calib": 2.700072,
+        "fwhm_bifep": 5.3607116,
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "A4"
             }
         },
-        "trap_ft": 1.2,
-        "n_calib": -3.6684883,
-        "fwhm_sep": 7.101522,
+        "trap_ft": 1.4,
+        "n_calib": -3.1365829,
+        "fwhm_sep": 5.860076,
         "voltage": {
             "channel": 7,
             "filter": {
@@ -2638,8 +2638,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 5.2151985,
-        "fwhm_fep": 5.922395,
+        "fwhm_dep": 6.204921,
+        "fwhm_fep": 5.935124,
         "processable": true
     },
     "B00079B": {
@@ -2654,27 +2654,27 @@
             },
             "rawid": 1113604
         },
-        "fwhm_qbb": 2.183699,
-        "fwhm_qbb_err": 0.095886566,
-        "tau": 414.04,
+        "fwhm_qbb": 2.2096229,
+        "fwhm_qbb_err": 0.08119192,
+        "tau": 410.91,
         "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 10.5,
         "name": "B00079B",
         "location": {
             "string": 4,
             "position": 6
         },
-        "m_calib": 6.675645,
-        "fwhm_bifep": 1.7675917,
+        "m_calib": 6.6797023,
+        "fwhm_bifep": 1.8222263,
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "C5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.70677,
-        "fwhm_sep": 3.4346447,
+        "trap_ft": 3.2,
+        "n_calib": -1.1562676,
+        "fwhm_sep": 3.2217362,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -2686,8 +2686,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0100873,
-        "fwhm_fep": 2.5603743,
+        "fwhm_dep": 2.1092217,
+        "fwhm_fep": 2.5742853,
         "processable": true
     },
     "S028": {
@@ -2734,18 +2734,18 @@
             },
             "rawid": 1107202
         },
-        "fwhm_qbb": 2.2131114,
-        "fwhm_qbb_err": 0.118338816,
-        "tau": 409.23,
+        "fwhm_qbb": 1.9097996,
+        "fwhm_qbb_err": 0.12567165,
+        "tau": 410.37,
         "system": "geds",
-        "trap_rt": 10.5,
+        "trap_rt": 11.6,
         "name": "B00035C",
         "location": {
             "string": 2,
             "position": 1
         },
-        "m_calib": 6.9869475,
-        "fwhm_bifep": 2.238388,
+        "m_calib": 6.985165,
+        "fwhm_bifep": 1.4868948,
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -2753,8 +2753,8 @@
             }
         },
         "trap_ft": 3.8,
-        "n_calib": -2.3920264,
-        "fwhm_sep": 2.7079632,
+        "n_calib": -2.3384748,
+        "fwhm_sep": 2.8139353,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -2766,8 +2766,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0701747,
-        "fwhm_fep": 2.357169,
+        "fwhm_dep": 2.1227636,
+        "fwhm_fep": 2.2807295,
         "processable": true
     },
     "C00ANG4": {
@@ -2804,11 +2804,11 @@
                 "id": "E2"
             }
         },
-        "trap_ft": 2.0,
+        "trap_ft": 1.0,
         "processable": true,
-        "tau": 445.64,
+        "tau": 448.9,
         "system": "geds",
-        "trap_rt": 12.0
+        "trap_rt": 11.8
     },
     "B00002C": {
         "daq": {
@@ -2822,27 +2822,27 @@
             },
             "rawid": 1083202
         },
-        "fwhm_qbb": 1.9907992,
-        "fwhm_qbb_err": 0.069150284,
-        "tau": 453.03,
+        "fwhm_qbb": 1.9951984,
+        "fwhm_qbb_err": 0.058898177,
+        "tau": 454.87,
         "system": "geds",
-        "trap_rt": 11.8,
+        "trap_rt": 10.5,
         "name": "B00002C",
         "location": {
             "string": 10,
             "position": 2
         },
-        "m_calib": 7.0401034,
-        "fwhm_bifep": 1.6734499,
+        "m_calib": 7.0415125,
+        "fwhm_bifep": 1.6961809,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C2"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -3.6532588,
-        "fwhm_sep": 2.897265,
+        "trap_ft": 3.6,
+        "n_calib": -3.4189167,
+        "fwhm_sep": 2.968473,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -2854,8 +2854,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.002921,
-        "fwhm_fep": 2.2810993,
+        "fwhm_dep": 1.8399665,
+        "fwhm_fep": 2.2855256,
         "processable": true
     },
     "DUMMY16": {
@@ -2969,9 +2969,9 @@
             },
             "rawid": 1080001
         },
-        "fwhm_qbb": 2.1973586,
-        "fwhm_qbb_err": 0.07231466,
-        "tau": 507.24,
+        "fwhm_qbb": 2.1901624,
+        "fwhm_qbb_err": 0.06968951,
+        "tau": 507.72,
         "system": "geds",
         "trap_rt": 7.7,
         "name": "B00091A",
@@ -2979,17 +2979,17 @@
             "string": 9,
             "position": 3
         },
-        "m_calib": 7.0002937,
-        "fwhm_bifep": 2.1653,
+        "m_calib": 6.998419,
+        "fwhm_bifep": 2.1512346,
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "C1"
             }
         },
-        "trap_ft": 2.6,
-        "n_calib": -1.9306784,
-        "fwhm_sep": 3.2462695,
+        "trap_ft": 3.4,
+        "n_calib": -1.3320438,
+        "fwhm_sep": 3.289942,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -3001,8 +3001,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.1517508,
-        "fwhm_fep": 2.350391,
+        "fwhm_dep": 2.1726353,
+        "fwhm_fep": 2.3405726,
         "processable": true
     },
     "B00091B": {
@@ -3091,18 +3091,18 @@
             },
             "rawid": 1121604
         },
-        "fwhm_qbb": 2.8855808,
-        "fwhm_qbb_err": 0.07698875,
-        "tau": 464.81,
+        "fwhm_qbb": 3.1317973,
+        "fwhm_qbb_err": 0.06288944,
+        "tau": 465.38,
         "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 9.5,
         "name": "V05261A",
         "location": {
             "string": 8,
             "position": 8
         },
-        "m_calib": 6.7744503,
-        "fwhm_bifep": 2.433062,
+        "m_calib": 6.7780724,
+        "fwhm_bifep": 2.7035885,
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -3110,8 +3110,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.5483055,
-        "fwhm_sep": 3.7649133,
+        "n_calib": -4.270524,
+        "fwhm_sep": 4.1423025,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -3123,8 +3123,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.1394193,
-        "fwhm_fep": 3.344411,
+        "fwhm_dep": 3.3417351,
+        "fwhm_fep": 3.5962884,
         "processable": true
     },
     "V01403A": {
@@ -3176,27 +3176,27 @@
             },
             "rawid": 1086404
         },
-        "fwhm_qbb": 2.040516,
-        "fwhm_qbb_err": 0.0649231,
-        "tau": 427.77,
+        "fwhm_qbb": 1.9238173,
+        "fwhm_qbb_err": 0.12066301,
+        "tau": 425.27,
         "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 11.4,
         "name": "B00002B",
         "location": {
             "string": 11,
             "position": 2
         },
-        "m_calib": 6.660869,
-        "fwhm_bifep": 1.843919,
+        "m_calib": 6.6613483,
+        "fwhm_bifep": 1.5006821,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "A3"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": 0.43158326,
-        "fwhm_sep": 3.4745104,
+        "trap_ft": 2.6,
+        "n_calib": 0.0019091059,
+        "fwhm_sep": 3.4071517,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -3208,8 +3208,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0171092,
-        "fwhm_fep": 2.2827458,
+        "fwhm_dep": 1.9980526,
+        "fwhm_fep": 2.2597039,
         "processable": true
     },
     "S041": {
@@ -3367,18 +3367,18 @@
             },
             "rawid": 1113605
         },
-        "fwhm_qbb": 2.1433136,
-        "fwhm_qbb_err": 0.09566435,
-        "tau": 431.89,
+        "fwhm_qbb": 2.2076752,
+        "fwhm_qbb_err": 0.04668997,
+        "tau": 430.29,
         "system": "geds",
-        "trap_rt": 11.3,
+        "trap_rt": 11.1,
         "name": "B00079C",
         "location": {
             "string": 4,
             "position": 7
         },
-        "m_calib": 6.559085,
-        "fwhm_bifep": 1.7344728,
+        "m_calib": 6.5602665,
+        "fwhm_bifep": 1.9602376,
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -3386,8 +3386,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.387373,
-        "fwhm_sep": 3.445014,
+        "n_calib": -2.763099,
+        "fwhm_sep": 3.5044148,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -3399,8 +3399,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.135042,
-        "fwhm_fep": 2.5164669,
+        "fwhm_dep": 1.9750483,
+        "fwhm_fep": 2.4954586,
         "processable": true
     },
     "V04199A": {
@@ -3415,18 +3415,18 @@
             },
             "rawid": 1118404
         },
-        "fwhm_qbb": 2.590223,
-        "fwhm_qbb_err": 0.13102658,
-        "tau": 433.2,
+        "fwhm_qbb": 2.7491302,
+        "fwhm_qbb_err": 0.34449738,
+        "tau": 431.57,
         "system": "geds",
-        "trap_rt": 10.6,
+        "trap_rt": 11.2,
         "name": "V04199A",
         "location": {
             "string": 7,
             "position": 3
         },
-        "m_calib": 6.5695662,
-        "fwhm_bifep": 2.6139534,
+        "m_calib": 6.5692825,
+        "fwhm_bifep": 3.2305415,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -3434,8 +3434,8 @@
             }
         },
         "trap_ft": 2.8,
-        "n_calib": -4.1889687,
-        "fwhm_sep": 4.148846,
+        "n_calib": -4.329217,
+        "fwhm_sep": 3.268395,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -3447,8 +3447,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.6898863,
-        "fwhm_fep": 2.6949,
+        "fwhm_dep": 3.6542468,
+        "fwhm_fep": 2.61382,
         "processable": true
     },
     "V09374A": {
@@ -3463,18 +3463,18 @@
             },
             "rawid": 1116804
         },
-        "fwhm_qbb": 2.5520792,
-        "fwhm_qbb_err": 0.05868331,
-        "tau": 444.8,
+        "fwhm_qbb": 2.6531289,
+        "fwhm_qbb_err": 0.07504551,
+        "tau": 444.81,
         "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 11.9,
         "name": "V09374A",
         "location": {
             "string": 5,
             "position": 4
         },
-        "m_calib": 6.984134,
-        "fwhm_bifep": 2.3264587,
+        "m_calib": 6.9819155,
+        "fwhm_bifep": 2.6483724,
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -3482,8 +3482,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.1209447,
-        "fwhm_sep": 3.650245,
+        "n_calib": -2.3691752,
+        "fwhm_sep": 3.757561,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -3495,8 +3495,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.4629936,
-        "fwhm_fep": 2.8029134,
+        "fwhm_dep": 2.3941736,
+        "fwhm_fep": 2.7863905,
         "processable": true
     },
     "S051": {
@@ -3644,27 +3644,27 @@
             },
             "rawid": 1108803
         },
-        "fwhm_qbb": 2.5848248,
-        "fwhm_qbb_err": 0.20692074,
-        "tau": 478.14,
+        "fwhm_qbb": 2.609131,
+        "fwhm_qbb_err": 0.22829436,
+        "tau": 474.07,
         "system": "geds",
-        "trap_rt": 11.5,
+        "trap_rt": 11.8,
         "name": "V04549A",
         "location": {
             "string": 2,
             "position": 8
         },
-        "m_calib": 6.5328674,
-        "fwhm_bifep": 2.0201764,
+        "m_calib": 6.5340977,
+        "fwhm_bifep": 1.9807168,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "A5"
             }
         },
-        "trap_ft": 2.2,
-        "n_calib": -0.9034595,
-        "fwhm_sep": 3.7041216,
+        "trap_ft": 2.4,
+        "n_calib": -1.004886,
+        "fwhm_sep": 3.9622836,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -3676,8 +3676,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.2494643,
-        "fwhm_fep": 3.059386,
+        "fwhm_dep": 2.0075982,
+        "fwhm_fep": 3.0431623,
         "processable": true
     },
     "DUMMY03": {
@@ -3707,18 +3707,18 @@
             },
             "rawid": 1110404
         },
-        "fwhm_qbb": 2.5850089,
-        "fwhm_qbb_err": 0.055819713,
-        "tau": 483.72,
+        "fwhm_qbb": 2.503833,
+        "fwhm_qbb_err": 0.058252003,
+        "tau": 487.33,
         "system": "geds",
-        "trap_rt": 7.0,
+        "trap_rt": 10.0,
         "name": "P00574B",
         "location": {
             "string": 3,
             "position": 3
         },
-        "m_calib": 5.5424876,
-        "fwhm_bifep": 2.2657156,
+        "m_calib": 5.5373693,
+        "fwhm_bifep": 2.2391605,
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -3726,8 +3726,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": 0.5057955,
-        "fwhm_sep": 3.6956372,
+        "n_calib": 0.52178574,
+        "fwhm_sep": 4.027541,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -3739,8 +3739,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.8148222,
-        "fwhm_fep": 2.9475222,
+        "fwhm_dep": 2.9746678,
+        "fwhm_fep": 2.8313062,
         "processable": true
     },
     "B00061B": {
@@ -3755,27 +3755,27 @@
             },
             "rawid": 1084801
         },
-        "fwhm_qbb": 2.180025,
-        "fwhm_qbb_err": 0.020132616,
-        "tau": 423.88,
+        "fwhm_qbb": 2.0864582,
+        "fwhm_qbb_err": 0.055571783,
+        "tau": 424.44,
         "system": "geds",
-        "trap_rt": 9.8,
+        "trap_rt": 9.2,
         "name": "B00061B",
         "location": {
             "string": 10,
             "position": 7
         },
-        "m_calib": 7.0977607,
-        "fwhm_bifep": 1.972186,
+        "m_calib": 7.0992994,
+        "fwhm_bifep": 1.796614,
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.0,
-        "n_calib": -1.5679567,
-        "fwhm_sep": 3.3123126,
+        "trap_ft": 2.8,
+        "n_calib": -1.059675,
+        "fwhm_sep": 3.1556168,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -3787,8 +3787,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.8438413,
-        "fwhm_fep": 2.4332576,
+        "fwhm_dep": 1.917366,
+        "fwhm_fep": 2.3884554,
         "processable": true
     },
     "S023": {
@@ -3835,18 +3835,18 @@
             },
             "rawid": 1105600
         },
-        "fwhm_qbb": 3.7437057,
-        "fwhm_qbb_err": 0.287018,
+        "fwhm_qbb": 4.069055,
+        "fwhm_qbb_err": 0.35266587,
         "tau": 449.46,
         "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 11.5,
         "name": "V05612A",
         "location": {
             "string": 1,
             "position": 7
         },
-        "m_calib": 6.5367255,
-        "fwhm_bifep": 3.3995917,
+        "m_calib": 6.5378036,
+        "fwhm_bifep": 4.249251,
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -3854,8 +3854,8 @@
             }
         },
         "trap_ft": 2.0,
-        "n_calib": -3.6590915,
-        "fwhm_sep": 4.6363244,
+        "n_calib": -3.5809908,
+        "fwhm_sep": 4.844613,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -3867,8 +3867,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.676943,
-        "fwhm_fep": 4.1988845,
+        "fwhm_dep": 1.8841287,
+        "fwhm_fep": 4.293172,
         "processable": true
     },
     "V07647B": {
@@ -3883,18 +3883,18 @@
             },
             "rawid": 1105603
         },
-        "fwhm_qbb": 2.5128002,
-        "fwhm_qbb_err": 0.14181545,
-        "tau": 534.19,
+        "fwhm_qbb": 2.4197202,
+        "fwhm_qbb_err": 0.05104932,
+        "tau": 539.9,
         "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 11.3,
         "name": "V07647B",
         "location": {
             "string": 1,
             "position": 9
         },
-        "m_calib": 4.5932775,
-        "fwhm_bifep": 2.0038607,
+        "m_calib": 4.5931063,
+        "fwhm_bifep": 2.1353593,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -3902,8 +3902,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.0070264,
-        "fwhm_sep": 4.4636154,
+        "n_calib": -2.1970124,
+        "fwhm_sep": 3.7500618,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -3915,8 +3915,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.6708794,
-        "fwhm_fep": 2.9365199,
+        "fwhm_dep": 2.9706717,
+        "fwhm_fep": 2.7051637,
         "processable": true
     },
     "DUMMY08": {
@@ -3946,18 +3946,18 @@
             },
             "rawid": 1116803
         },
-        "fwhm_qbb": 3.287031,
-        "fwhm_qbb_err": 0.4059655,
-        "tau": 419.85,
+        "fwhm_qbb": 3.226656,
+        "fwhm_qbb_err": 0.27997625,
+        "tau": 420.35,
         "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 9.9,
         "name": "V09372A",
         "location": {
             "string": 5,
             "position": 3
         },
-        "m_calib": 7.048378,
-        "fwhm_bifep": 3.9222484,
+        "m_calib": 7.050929,
+        "fwhm_bifep": 3.6028543,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -3965,8 +3965,8 @@
             }
         },
         "trap_ft": 3.0,
-        "n_calib": -5.4786854,
-        "fwhm_sep": 3.591779,
+        "n_calib": -5.1461387,
+        "fwhm_sep": 3.92432,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -3978,8 +3978,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.335235,
-        "fwhm_fep": 3.073774,
+        "fwhm_dep": 3.7208557,
+        "fwhm_fep": 3.1349092,
         "processable": true
     },
     "V04545A": {
@@ -3994,9 +3994,9 @@
             },
             "rawid": 1118405
         },
-        "fwhm_qbb": 3.8700466,
-        "fwhm_qbb_err": 0.41589034,
-        "tau": 453.36,
+        "fwhm_qbb": 3.6939275,
+        "fwhm_qbb_err": 0.12828271,
+        "tau": 454.39,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "V04545A",
@@ -4004,8 +4004,8 @@
             "string": 7,
             "position": 4
         },
-        "m_calib": 6.600489,
-        "fwhm_bifep": 4.5024905,
+        "m_calib": 6.6005783,
+        "fwhm_bifep": 3.6244013,
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -4013,8 +4013,8 @@
             }
         },
         "trap_ft": 2.8,
-        "n_calib": -8.309909,
-        "fwhm_sep": 4.5271072,
+        "n_calib": -8.135312,
+        "fwhm_sep": 4.115835,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -4026,8 +4026,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 4.280201,
-        "fwhm_fep": 3.6675372,
+        "fwhm_dep": 5.39504,
+        "fwhm_fep": 3.8386636,
         "processable": true
     },
     "S074": {
@@ -4106,18 +4106,18 @@
             },
             "rawid": 1121602
         },
-        "fwhm_qbb": 2.5148206,
-        "fwhm_qbb_err": 0.0680753,
-        "tau": 455.93,
+        "fwhm_qbb": 2.485768,
+        "fwhm_qbb_err": 0.031762347,
+        "tau": 457.31,
         "system": "geds",
-        "trap_rt": 8.2,
+        "trap_rt": 7.6,
         "name": "V00050B",
         "location": {
             "string": 8,
             "position": 6
         },
-        "m_calib": 5.263449,
-        "fwhm_bifep": 2.1571534,
+        "m_calib": 5.26461,
+        "fwhm_bifep": 2.2430983,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -4125,8 +4125,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.6046659,
-        "fwhm_sep": 3.8126552,
+        "n_calib": -1.4634848,
+        "fwhm_sep": 3.515184,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -4138,8 +4138,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.0862114,
-        "fwhm_fep": 2.8680189,
+        "fwhm_dep": 2.8179743,
+        "fwhm_fep": 2.755984,
         "processable": true
     },
     "V05261B": {
@@ -4154,27 +4154,27 @@
             },
             "rawid": 1104002
         },
-        "fwhm_qbb": null,
-        "fwhm_qbb_err": null,
-        "tau": 559.65,
+        "fwhm_qbb": 2.8629751,
+        "fwhm_qbb_err": 0.16053216,
+        "tau": 559.21,
         "system": "geds",
-        "trap_rt": 7.5,
+        "trap_rt": 9.3,
         "name": "V05261B",
         "location": {
             "string": 1,
             "position": 3
         },
-        "m_calib": null,
-        "fwhm_bifep": 0.0,
+        "m_calib": 6.135173,
+        "fwhm_bifep": 2.470162,
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "C3"
             }
         },
-        "trap_ft": 1.6,
-        "n_calib": null,
-        "fwhm_sep": 0.0,
+        "trap_ft": 2.6,
+        "n_calib": -7.148934,
+        "fwhm_sep": 3.4021356,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -4186,8 +4186,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 0.0,
-        "fwhm_fep": 0.0,
+        "fwhm_dep": 2.879299,
+        "fwhm_fep": 3.1528668,
         "processable": true
     },
     "V01404A": {
@@ -4239,18 +4239,18 @@
             },
             "rawid": 1116805
         },
-        "fwhm_qbb": 2.549734,
-        "fwhm_qbb_err": 0.028871927,
-        "tau": 479.41,
+        "fwhm_qbb": 2.6079175,
+        "fwhm_qbb_err": 0.03890066,
+        "tau": 478.04,
         "system": "geds",
-        "trap_rt": 10.6,
+        "trap_rt": 11.5,
         "name": "V09724A",
         "location": {
             "string": 5,
             "position": 5
         },
-        "m_calib": 6.482877,
-        "fwhm_bifep": 2.332747,
+        "m_calib": 6.482022,
+        "fwhm_bifep": 2.4025085,
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -4258,8 +4258,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.4831548,
-        "fwhm_sep": 3.3750288,
+        "n_calib": -1.6899724,
+        "fwhm_sep": 3.571566,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -4271,8 +4271,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.6612284,
-        "fwhm_fep": 2.784051,
+        "fwhm_dep": 2.4823802,
+        "fwhm_fep": 2.833237,
         "processable": true
     },
     "P00537A": {
@@ -4356,27 +4356,27 @@
             },
             "rawid": 1110402
         },
-        "fwhm_qbb": 2.0030568,
-        "fwhm_qbb_err": 0.03940372,
-        "tau": 505.32,
+        "fwhm_qbb": 2.009684,
+        "fwhm_qbb_err": 0.04923799,
+        "tau": 502.54,
         "system": "geds",
-        "trap_rt": 8.3,
+        "trap_rt": 11.9,
         "name": "B00032B",
         "location": {
             "string": 3,
             "position": 1
         },
-        "m_calib": 6.5414343,
-        "fwhm_bifep": 1.7501498,
+        "m_calib": 6.5365386,
+        "fwhm_bifep": 1.7808346,
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "A5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.48412746,
-        "fwhm_sep": 3.3020763,
+        "trap_ft": 3.2,
+        "n_calib": 0.28970584,
+        "fwhm_sep": 2.8657968,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -4388,8 +4388,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.8848301,
-        "fwhm_fep": 2.264703,
+        "fwhm_dep": 1.8565509,
+        "fwhm_fep": 2.2844446,
         "processable": true
     },
     "V08682A": {
@@ -4404,27 +4404,27 @@
             },
             "rawid": 1116802
         },
-        "fwhm_qbb": 2.9080281,
-        "fwhm_qbb_err": 0.062767096,
-        "tau": 453.59,
+        "fwhm_qbb": 2.976649,
+        "fwhm_qbb_err": 0.05343661,
+        "tau": 454.72,
         "system": "geds",
-        "trap_rt": 10.6,
+        "trap_rt": 11.1,
         "name": "V08682A",
         "location": {
             "string": 5,
             "position": 2
         },
-        "m_calib": 6.834118,
-        "fwhm_bifep": 2.601756,
+        "m_calib": 6.83321,
+        "fwhm_bifep": 2.8252854,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "D4"
             }
         },
-        "trap_ft": 3.0,
-        "n_calib": -3.9484098,
-        "fwhm_sep": 3.8958797,
+        "trap_ft": 3.2,
+        "n_calib": -4.758793,
+        "fwhm_sep": 3.9636555,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -4436,8 +4436,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.7856207,
-        "fwhm_fep": 3.1947463,
+        "fwhm_dep": 3.2510073,
+        "fwhm_fep": 3.1625202,
         "processable": true
     },
     "S009": {
@@ -4590,27 +4590,27 @@
             },
             "rawid": 1113600
         },
-        "fwhm_qbb": 2.0505466,
-        "fwhm_qbb_err": 0.032183968,
-        "tau": 465.09,
+        "fwhm_qbb": null,
+        "fwhm_qbb_err": null,
+        "tau": 466.39,
         "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 8.9,
         "name": "B00000C",
         "location": {
             "string": 4,
             "position": 2
         },
-        "m_calib": 6.852438,
-        "fwhm_bifep": 1.8068596,
+        "m_calib": null,
+        "fwhm_bifep": 0.0,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C5"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -2.0135865,
-        "fwhm_sep": 3.0033536,
+        "trap_ft": 1.0,
+        "n_calib": null,
+        "fwhm_sep": 0.0,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -4622,8 +4622,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.8619618,
-        "fwhm_fep": 2.3218837,
+        "fwhm_dep": 0.0,
+        "fwhm_fep": 0.0,
         "processable": true
     },
     "S070": {
@@ -4670,9 +4670,9 @@
             },
             "rawid": 1078405
         },
-        "fwhm_qbb": 2.225008,
-        "fwhm_qbb_err": 0.04897535,
-        "tau": 426.76,
+        "fwhm_qbb": 2.1549454,
+        "fwhm_qbb_err": 0.051157936,
+        "tau": 427.67,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "B00002A",
@@ -4680,17 +4680,17 @@
             "string": 9,
             "position": 1
         },
-        "m_calib": 6.9884744,
-        "fwhm_bifep": 2.0345874,
+        "m_calib": 6.987507,
+        "fwhm_bifep": 1.9107122,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C1"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -2.2099786,
-        "fwhm_sep": 3.4212916,
+        "trap_ft": 3.0,
+        "n_calib": -1.7249691,
+        "fwhm_sep": 3.3838513,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -4702,8 +4702,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0169544,
-        "fwhm_fep": 2.4572928,
+        "fwhm_dep": 1.8604643,
+        "fwhm_fep": 2.4253635,
         "processable": true
     },
     "V00050A": {
@@ -4718,18 +4718,18 @@
             },
             "rawid": 1121601
         },
-        "fwhm_qbb": 2.1341288,
-        "fwhm_qbb_err": 0.01885617,
-        "tau": 458.28,
+        "fwhm_qbb": 2.2139683,
+        "fwhm_qbb_err": 0.05530727,
+        "tau": 456.11,
         "system": "geds",
-        "trap_rt": 11.7,
+        "trap_rt": 10.2,
         "name": "V00050A",
         "location": {
             "string": 8,
             "position": 5
         },
-        "m_calib": 6.6321764,
-        "fwhm_bifep": 1.9320995,
+        "m_calib": 6.635117,
+        "fwhm_bifep": 2.126716,
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -4737,8 +4737,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.7967808,
-        "fwhm_sep": 3.3290567,
+        "n_calib": -2.4604433,
+        "fwhm_sep": 3.1363618,
         "voltage": {
             "channel": 7,
             "filter": {
@@ -4750,8 +4750,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.1359553,
-        "fwhm_fep": 2.3616576,
+        "fwhm_dep": 1.8032875,
+        "fwhm_fep": 2.3768485,
         "processable": true
     },
     "V01415A": {
@@ -4904,27 +4904,27 @@
             },
             "rawid": 1086403
         },
-        "fwhm_qbb": 1.9718273,
-        "fwhm_qbb_err": 0.11137248,
-        "tau": 421.53,
+        "fwhm_qbb": 1.8718148,
+        "fwhm_qbb_err": 0.13358505,
+        "tau": 420.18,
         "system": "geds",
-        "trap_rt": 10.4,
+        "trap_rt": 8.9,
         "name": "B00000A",
         "location": {
             "string": 11,
             "position": 1
         },
-        "m_calib": 6.9301047,
-        "fwhm_bifep": 1.5698807,
+        "m_calib": 6.933622,
+        "fwhm_bifep": 1.4258108,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "A3"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": 0.30595776,
-        "fwhm_sep": 3.591624,
+        "trap_ft": 2.6,
+        "n_calib": 0.49864972,
+        "fwhm_sep": 3.4426737,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -4936,8 +4936,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.8982328,
-        "fwhm_fep": 2.3018832,
+        "fwhm_dep": 1.9351304,
+        "fwhm_fep": 2.250818,
         "processable": true
     },
     "S045": {
@@ -5016,27 +5016,27 @@
             },
             "rawid": 1083201
         },
-        "fwhm_qbb": 2.1005158,
-        "fwhm_qbb_err": 0.026953967,
-        "tau": 508.2,
+        "fwhm_qbb": 2.0718625,
+        "fwhm_qbb_err": 0.028011043,
+        "tau": 508.05,
         "system": "geds",
-        "trap_rt": 10.8,
+        "trap_rt": 8.5,
         "name": "B00000D",
         "location": {
             "string": 10,
             "position": 1
         },
-        "m_calib": 6.709047,
-        "fwhm_bifep": 1.8831656,
+        "m_calib": 6.712584,
+        "fwhm_bifep": 1.8941364,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -2.0989902,
-        "fwhm_sep": 3.0415075,
+        "trap_ft": 3.0,
+        "n_calib": -1.5121313,
+        "fwhm_sep": 3.0552335,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -5048,8 +5048,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.0041087,
-        "fwhm_fep": 2.337722,
+        "fwhm_dep": 2.1622,
+        "fwhm_fep": 2.2995992,
         "processable": true
     },
     "DUMMY11": {
@@ -5079,9 +5079,9 @@
             },
             "rawid": 1080005
         },
-        "fwhm_qbb": 2.685924,
-        "fwhm_qbb_err": 0.017956607,
-        "tau": 454.15,
+        "fwhm_qbb": 2.5362692,
+        "fwhm_qbb_err": 0.08568925,
+        "tau": 454.97,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "P00573A",
@@ -5089,8 +5089,8 @@
             "string": 9,
             "position": 7
         },
-        "m_calib": 5.9098363,
-        "fwhm_bifep": 2.3961484,
+        "m_calib": 5.909875,
+        "fwhm_bifep": 2.1131027,
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -5098,8 +5098,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.9449886,
-        "fwhm_sep": 3.342194,
+        "n_calib": -0.6124089,
+        "fwhm_sep": 3.671462,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -5111,8 +5111,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.299135,
-        "fwhm_fep": 3.0473657,
+        "fwhm_dep": 3.8724494,
+        "fwhm_fep": 2.9681525,
         "processable": true
     },
     "V01406A": {
@@ -5127,9 +5127,9 @@
             },
             "rawid": 1115203
         },
-        "fwhm_qbb": 6.3703628,
-        "fwhm_qbb_err": 0.44143468,
-        "tau": 554.13,
+        "fwhm_qbb": 7.6941547,
+        "fwhm_qbb_err": 0.3882878,
+        "tau": 557.22,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "V01406A",
@@ -5137,17 +5137,17 @@
             "string": 4,
             "position": 11
         },
-        "m_calib": 4.363473,
-        "fwhm_bifep": 5.052033,
+        "m_calib": 4.3999395,
+        "fwhm_bifep": 6.6361246,
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "D5"
             }
         },
-        "trap_ft": 1.4,
-        "n_calib": -6.2610426,
-        "fwhm_sep": 7.436971,
+        "trap_ft": 1.6,
+        "n_calib": -4.762728,
+        "fwhm_sep": 8.205311,
         "voltage": {
             "channel": 2,
             "filter": {
@@ -5159,8 +5159,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.7619734,
-        "fwhm_fep": 7.367498,
+        "fwhm_dep": 6.6259594,
+        "fwhm_fep": 9.418084,
         "processable": true
     },
     "C00ANG2": {
@@ -5197,11 +5197,11 @@
                 "id": "A4"
             }
         },
-        "trap_ft": 2.0,
+        "trap_ft": 1.0,
         "processable": true,
-        "tau": 510.7,
+        "tau": 517.04,
         "system": "geds",
-        "trap_rt": 10.0
+        "trap_rt": 11.8
     },
     "S022": {
         "name": "S022",
@@ -5316,27 +5316,27 @@
             },
             "rawid": 1112000
         },
-        "fwhm_qbb": 2.6972296,
-        "fwhm_qbb_err": 0.16599678,
-        "tau": 466.74,
+        "fwhm_qbb": 2.8987176,
+        "fwhm_qbb_err": 0.20336847,
+        "tau": 468.98,
         "system": "geds",
-        "trap_rt": 9.2,
+        "trap_rt": 9.4,
         "name": "P00698A",
         "location": {
             "string": 3,
             "position": 5
         },
-        "m_calib": 5.8180337,
-        "fwhm_bifep": 2.0444195,
+        "m_calib": 5.818222,
+        "fwhm_bifep": 2.6700547,
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "B5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.53763247,
-        "fwhm_sep": 3.2744796,
+        "trap_ft": 3.6,
+        "n_calib": -0.35548916,
+        "fwhm_sep": 3.3031096,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5348,8 +5348,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.6679566,
-        "fwhm_fep": 3.1598136,
+        "fwhm_dep": 2.8217242,
+        "fwhm_fep": 3.0688884,
         "processable": true
     },
     "P00661C": {
@@ -5364,9 +5364,9 @@
             },
             "rawid": 1081600
         },
-        "fwhm_qbb": 3.671945,
-        "fwhm_qbb_err": 0.2861883,
-        "tau": 468.76,
+        "fwhm_qbb": 3.3814743,
+        "fwhm_qbb_err": 0.13716282,
+        "tau": 469.21,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "P00661C",
@@ -5374,8 +5374,8 @@
             "string": 9,
             "position": 8
         },
-        "m_calib": 5.834326,
-        "fwhm_bifep": 3.2831063,
+        "m_calib": 5.834911,
+        "fwhm_bifep": 3.0142057,
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -5383,8 +5383,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.2175092,
-        "fwhm_sep": 4.875778,
+        "n_calib": -1.7562902,
+        "fwhm_sep": 4.533444,
         "voltage": {
             "channel": 7,
             "filter": {
@@ -5396,8 +5396,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 4.0321608,
-        "fwhm_fep": 3.9961455,
+        "fwhm_dep": 3.8899593,
+        "fwhm_fep": 3.6884542,
         "processable": true
     },
     "DUMMY12": {
@@ -5442,27 +5442,27 @@
             },
             "rawid": 1080000
         },
-        "fwhm_qbb": 1.9752556,
-        "fwhm_qbb_err": 0.105034314,
-        "tau": 463.71,
+        "fwhm_qbb": 2.076744,
+        "fwhm_qbb_err": 0.038436163,
+        "tau": 464.65,
         "system": "geds",
-        "trap_rt": 8.0,
+        "trap_rt": 9.5,
         "name": "B00089A",
         "location": {
             "string": 9,
             "position": 2
         },
-        "m_calib": 7.02109,
-        "fwhm_bifep": 1.592558,
+        "m_calib": 7.017342,
+        "fwhm_bifep": 1.8359618,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C1"
             }
         },
-        "trap_ft": 2.2,
-        "n_calib": -1.4797481,
-        "fwhm_sep": 3.192034,
+        "trap_ft": 2.0,
+        "n_calib": -1.4070508,
+        "fwhm_sep": 3.4257047,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -5474,8 +5474,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9028157,
-        "fwhm_fep": 2.3136387,
+        "fwhm_dep": 2.0626585,
+        "fwhm_fep": 2.3399575,
         "processable": true
     },
     "P00748B": {
@@ -5490,27 +5490,27 @@
             },
             "rawid": 1081604
         },
-        "fwhm_qbb": 7.0067525,
-        "fwhm_qbb_err": 0.82637537,
-        "tau": 579.26,
+        "fwhm_qbb": null,
+        "fwhm_qbb_err": null,
+        "tau": 592.01,
         "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.0,
         "name": "P00748B",
         "location": {
             "string": 9,
             "position": 12
         },
-        "m_calib": 4.0290914,
-        "fwhm_bifep": 5.9203796,
+        "m_calib": null,
+        "fwhm_bifep": 0.0,
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "A1"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": -5.7381907,
-        "fwhm_sep": 9.584075,
+        "trap_ft": 1.4,
+        "n_calib": null,
+        "fwhm_sep": 0.0,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -5522,8 +5522,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 6.248514,
-        "fwhm_fep": 8.843925,
+        "fwhm_dep": 0.0,
+        "fwhm_fep": 0.0,
         "processable": true
     },
     "PULS01": {
@@ -5570,27 +5570,27 @@
             },
             "rawid": 1083204
         },
-        "fwhm_qbb": 2.174646,
-        "fwhm_qbb_err": 0.06452254,
-        "tau": 431.82,
+        "fwhm_qbb": 2.107264,
+        "fwhm_qbb_err": 0.016483212,
+        "tau": 431.77,
         "system": "geds",
-        "trap_rt": 9.5,
+        "trap_rt": 10.4,
         "name": "B00032D",
         "location": {
             "string": 10,
             "position": 4
         },
-        "m_calib": 6.8999815,
-        "fwhm_bifep": 2.1007452,
+        "m_calib": 6.8975835,
+        "fwhm_bifep": 1.8775685,
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": -0.41067845,
-        "fwhm_sep": 3.048218,
+        "trap_ft": 4.0,
+        "n_calib": -0.6571619,
+        "fwhm_sep": 3.3124928,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5602,8 +5602,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9838997,
-        "fwhm_fep": 2.3615828,
+        "fwhm_dep": 2.0300968,
+        "fwhm_fep": 2.367153,
         "processable": true
     },
     "P00661B": {
@@ -5618,18 +5618,18 @@
             },
             "rawid": 1112003
         },
-        "fwhm_qbb": 2.3934083,
-        "fwhm_qbb_err": 0.06316537,
-        "tau": 434.82,
+        "fwhm_qbb": 2.2805037,
+        "fwhm_qbb_err": 0.04763596,
+        "tau": 436.54,
         "system": "geds",
-        "trap_rt": 7.9,
+        "trap_rt": 10.9,
         "name": "P00661B",
         "location": {
             "string": 3,
             "position": 8
         },
-        "m_calib": 6.035073,
-        "fwhm_bifep": 2.2787364,
+        "m_calib": 6.0300775,
+        "fwhm_bifep": 1.9507458,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -5637,8 +5637,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.0267941,
-        "fwhm_sep": 3.1800058,
+        "n_calib": -0.8203192,
+        "fwhm_sep": 3.6452627,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -5650,8 +5650,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.6116796,
-        "fwhm_fep": 2.6281905,
+        "fwhm_dep": 2.1589909,
+        "fwhm_fep": 2.6253371,
         "processable": true
     },
     "S053": {
@@ -5698,18 +5698,18 @@
             },
             "rawid": 1113602
         },
-        "fwhm_qbb": 2.10255,
-        "fwhm_qbb_err": 0.037439816,
-        "tau": 473.61,
+        "fwhm_qbb": 2.0204868,
+        "fwhm_qbb_err": 0.054457493,
+        "tau": 473.15,
         "system": "geds",
-        "trap_rt": 10.2,
+        "trap_rt": 12.0,
         "name": "B00061C",
         "location": {
             "string": 4,
             "position": 4
         },
-        "m_calib": 6.7654614,
-        "fwhm_bifep": 1.9824432,
+        "m_calib": 6.762722,
+        "fwhm_bifep": 1.7382027,
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -5717,8 +5717,8 @@
             }
         },
         "trap_ft": 3.2,
-        "n_calib": -0.9629252,
-        "fwhm_sep": 3.3201,
+        "n_calib": -1.049362,
+        "fwhm_sep": 3.1306388,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -5730,8 +5730,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9113756,
-        "fwhm_fep": 2.3007693,
+        "fwhm_dep": 1.8776234,
+        "fwhm_fep": 2.3007734,
         "processable": true
     },
     "DUMMY15": {
@@ -5761,18 +5761,18 @@
             },
             "rawid": 1081605
         },
-        "fwhm_qbb": 2.3631086,
-        "fwhm_qbb_err": 0.058203503,
-        "tau": 532.26,
+        "fwhm_qbb": 2.1502798,
+        "fwhm_qbb_err": 0.19481996,
+        "tau": 532.62,
         "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.0,
         "name": "P00909B",
         "location": {
             "string": 9,
             "position": 13
         },
-        "m_calib": 5.6865177,
-        "fwhm_bifep": 2.2324796,
+        "m_calib": 5.687163,
+        "fwhm_bifep": 1.5555937,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -5780,8 +5780,8 @@
             }
         },
         "trap_ft": 3.8,
-        "n_calib": -2.2778566,
-        "fwhm_sep": 3.5211565,
+        "n_calib": -2.0191455,
+        "fwhm_sep": 3.4138627,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -5793,8 +5793,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.4514751,
-        "fwhm_fep": 2.6028717,
+        "fwhm_dep": 2.3030667,
+        "fwhm_fep": 2.6396778,
         "processable": true
     },
     "S003": {
@@ -5841,27 +5841,27 @@
             },
             "rawid": 1104000
         },
-        "fwhm_qbb": 2.1813376,
-        "fwhm_qbb_err": 0.040499378,
-        "tau": 520.29,
+        "fwhm_qbb": 2.1718824,
+        "fwhm_qbb_err": 0.069125,
+        "tau": 515.86,
         "system": "geds",
-        "trap_rt": 10.3,
+        "trap_rt": 7.9,
         "name": "V02160A",
         "location": {
             "string": 1,
             "position": 1
         },
-        "m_calib": 6.4636426,
-        "fwhm_bifep": 1.9438105,
+        "m_calib": 6.4679356,
+        "fwhm_bifep": 1.842057,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C3"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": -0.6709028,
-        "fwhm_sep": 3.380194,
+        "trap_ft": 3.4,
+        "n_calib": -0.8394331,
+        "fwhm_sep": 3.149566,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5873,8 +5873,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9499673,
-        "fwhm_fep": 2.4295712,
+        "fwhm_dep": 2.0992696,
+        "fwhm_fep": 2.4846961,
         "processable": true
     },
     "B00000B": {
@@ -5889,27 +5889,27 @@
             },
             "rawid": 1112005
         },
-        "fwhm_qbb": 2.136589,
-        "fwhm_qbb_err": 0.05986973,
-        "tau": 483.3,
+        "fwhm_qbb": 2.001306,
+        "fwhm_qbb_err": 0.079655156,
+        "tau": 484.42,
         "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 9.0,
         "name": "B00000B",
         "location": {
             "string": 4,
             "position": 1
         },
-        "m_calib": 7.200943,
-        "fwhm_bifep": 2.055842,
+        "m_calib": 7.206076,
+        "fwhm_bifep": 1.6448728,
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C5"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -1.9565916,
-        "fwhm_sep": 3.09024,
+        "trap_ft": 3.4,
+        "n_calib": -1.955992,
+        "fwhm_sep": 2.865346,
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5921,8 +5921,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.8793406,
-        "fwhm_fep": 2.3266568,
+        "fwhm_dep": 1.8247367,
+        "fwhm_fep": 2.3301055,
         "processable": true
     },
     "S057": {
@@ -6048,18 +6048,18 @@
             },
             "rawid": 1105602
         },
-        "fwhm_qbb": 2.819694,
-        "fwhm_qbb_err": 0.066214316,
-        "tau": 498.89,
+        "fwhm_qbb": 2.7834861,
+        "fwhm_qbb_err": 0.05564589,
+        "tau": 501.11,
         "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 10.9,
         "name": "V07647A",
         "location": {
             "string": 1,
             "position": 8
         },
-        "m_calib": 6.8937798,
-        "fwhm_bifep": 2.51032,
+        "m_calib": 6.8956833,
+        "fwhm_bifep": 2.4752607,
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -6067,8 +6067,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": 0.3783535,
-        "fwhm_sep": 4.0731497,
+        "n_calib": -0.12257888,
+        "fwhm_sep": 4.0026965,
         "voltage": {
             "channel": 7,
             "filter": {
@@ -6080,8 +6080,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.7680964,
-        "fwhm_fep": 3.1370735,
+        "fwhm_dep": 3.501424,
+        "fwhm_fep": 3.095344,
         "processable": true
     },
     "V05268B": {
@@ -6096,18 +6096,18 @@
             },
             "rawid": 1104005
         },
-        "fwhm_qbb": 3.6428132,
-        "fwhm_qbb_err": 0.017652113,
-        "tau": 445.87,
+        "fwhm_qbb": 3.5422537,
+        "fwhm_qbb_err": 0.101784885,
+        "tau": 447.93,
         "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.3,
         "name": "V05268B",
         "location": {
             "string": 1,
             "position": 6
         },
-        "m_calib": 6.6741853,
-        "fwhm_bifep": 3.5287802,
+        "m_calib": 6.6737075,
+        "fwhm_bifep": 3.1799612,
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -6115,8 +6115,8 @@
             }
         },
         "trap_ft": 3.2,
-        "n_calib": -2.496765,
-        "fwhm_sep": 4.4430637,
+        "n_calib": -2.8675294,
+        "fwhm_sep": 4.291401,
         "voltage": {
             "channel": 5,
             "filter": {
@@ -6128,8 +6128,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.6579413,
-        "fwhm_fep": 3.8231325,
+        "fwhm_dep": 3.8407278,
+        "fwhm_fep": 3.8319335,
         "processable": true
     },
     "V07302A": {
@@ -6144,18 +6144,18 @@
             },
             "rawid": 1078400
         },
-        "fwhm_qbb": 2.296592,
-        "fwhm_qbb_err": 0.013852822,
-        "tau": 447.73,
+        "fwhm_qbb": 2.3220108,
+        "fwhm_qbb_err": 0.023734566,
+        "tau": 447.5,
         "system": "geds",
-        "trap_rt": 7.2,
+        "trap_rt": 7.1,
         "name": "V07302A",
         "location": {
             "string": 8,
             "position": 10
         },
-        "m_calib": 7.013428,
-        "fwhm_bifep": 2.1082158,
+        "m_calib": 7.013963,
+        "fwhm_bifep": 2.1944892,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -6163,8 +6163,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.729848,
-        "fwhm_sep": 3.2085419,
+        "n_calib": -1.9059943,
+        "fwhm_sep": 3.3836274,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -6176,8 +6176,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.3521872,
-        "fwhm_fep": 2.5261004,
+        "fwhm_dep": 2.2230082,
+        "fwhm_fep": 2.5195875,
         "processable": true
     },
     "C000RG1": {
@@ -6192,27 +6192,27 @@
             },
             "rawid": 1107203
         },
-        "fwhm_qbb": 6.213388,
-        "fwhm_qbb_err": 0.11846139,
-        "tau": 528.34,
+        "fwhm_qbb": 5.698014,
+        "fwhm_qbb_err": 0.17712529,
+        "tau": 532.61,
         "system": "geds",
-        "trap_rt": 11.8,
+        "trap_rt": 11.7,
         "name": "C000RG1",
         "location": {
             "string": 2,
             "position": 2
         },
-        "m_calib": 2.351405,
-        "fwhm_bifep": 5.6811137,
+        "m_calib": 2.350113,
+        "fwhm_bifep": 5.876599,
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "A4"
             }
         },
-        "trap_ft": 1.4,
-        "n_calib": -1.8872069,
-        "fwhm_sep": 7.217863,
+        "trap_ft": 1.6,
+        "n_calib": -1.9825046,
+        "fwhm_sep": 6.146748,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -6224,8 +6224,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 6.613128,
-        "fwhm_fep": 6.842645,
+        "fwhm_dep": 4.1922064,
+        "fwhm_fep": 5.7901273,
         "processable": true
     },
     "P00573B": {
@@ -6240,27 +6240,27 @@
             },
             "rawid": 1088001
         },
-        "fwhm_qbb": 2.808265,
-        "fwhm_qbb_err": 0.08395806,
-        "tau": 549.46,
+        "fwhm_qbb": null,
+        "fwhm_qbb_err": null,
+        "tau": 549.56,
         "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.0,
         "name": "P00573B",
         "location": {
             "string": 11,
             "position": 5
         },
-        "m_calib": 5.26252,
-        "fwhm_bifep": 2.3641543,
+        "m_calib": null,
+        "fwhm_bifep": 0.0,
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "A3"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -1.3869588,
-        "fwhm_sep": 4.2471895,
+        "trap_ft": 1.0,
+        "n_calib": null,
+        "fwhm_sep": 0.0,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -6272,8 +6272,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.543473,
-        "fwhm_fep": 3.259111,
+        "fwhm_dep": 0.0,
+        "fwhm_fep": 0.0,
         "processable": true
     },
     "B00035A": {
@@ -6288,27 +6288,27 @@
             },
             "rawid": 1083205
         },
-        "fwhm_qbb": 2.0522656,
-        "fwhm_qbb_err": 0.05667009,
-        "tau": 465.68,
+        "fwhm_qbb": 2.0874314,
+        "fwhm_qbb_err": 0.028944435,
+        "tau": 466.65,
         "system": "geds",
-        "trap_rt": 9.9,
+        "trap_rt": 8.1,
         "name": "B00035A",
         "location": {
             "string": 10,
             "position": 5
         },
-        "m_calib": 6.9464784,
-        "fwhm_bifep": 1.739646,
+        "m_calib": 6.9497347,
+        "fwhm_bifep": 1.8491071,
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.8,
-        "n_calib": -2.0956419,
-        "fwhm_sep": 3.016297,
+        "trap_ft": 4.0,
+        "n_calib": -2.412399,
+        "fwhm_sep": 3.03589,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -6320,8 +6320,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.062558,
-        "fwhm_fep": 2.3565834,
+        "fwhm_dep": 1.9855217,
+        "fwhm_fep": 2.3543618,
         "processable": true
     },
     "S050": {
@@ -6383,18 +6383,18 @@
             },
             "rawid": 1088003
         },
-        "fwhm_qbb": 2.8016143,
-        "fwhm_qbb_err": 0.06236371,
-        "tau": 500.29,
+        "fwhm_qbb": 2.5138557,
+        "fwhm_qbb_err": 0.25940472,
+        "tau": 500.91,
         "system": "geds",
-        "trap_rt": 7.7,
+        "trap_rt": 7.0,
         "name": "P00574C",
         "location": {
             "string": 11,
             "position": 7
         },
-        "m_calib": 5.4926023,
-        "fwhm_bifep": 2.4072518,
+        "m_calib": 5.4942,
+        "fwhm_bifep": 1.7493817,
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -6402,8 +6402,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.2255826,
-        "fwhm_sep": 4.373499,
+        "n_calib": -1.6047283,
+        "fwhm_sep": 4.4073453,
         "voltage": {
             "channel": 6,
             "filter": {
@@ -6415,8 +6415,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.7884011,
-        "fwhm_fep": 3.1769679,
+        "fwhm_dep": 3.2788324,
+        "fwhm_fep": 3.0737195,
         "processable": true
     },
     "S032": {
@@ -6594,27 +6594,27 @@
             },
             "rawid": 1112004
         },
-        "fwhm_qbb": 2.5191445,
-        "fwhm_qbb_err": 0.08522394,
-        "tau": 428.81,
+        "fwhm_qbb": 2.5913584,
+        "fwhm_qbb_err": 0.103525124,
+        "tau": 428.62,
         "system": "geds",
-        "trap_rt": 9.8,
+        "trap_rt": 9.9,
         "name": "P00574A",
         "location": {
             "string": 3,
             "position": 9
         },
-        "m_calib": 5.4756317,
-        "fwhm_bifep": 2.0924819,
+        "m_calib": 5.47682,
+        "fwhm_bifep": 2.0774903,
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "B5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.13528843,
-        "fwhm_sep": 3.5469127,
+        "trap_ft": 3.2,
+        "n_calib": -0.41774994,
+        "fwhm_sep": 4.071813,
         "voltage": {
             "channel": 4,
             "filter": {
@@ -6626,8 +6626,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.8878925,
-        "fwhm_fep": 2.960532,
+        "fwhm_dep": 3.2250605,
+        "fwhm_fep": 3.0646334,
         "processable": true
     },
     "S071": {
@@ -6674,18 +6674,18 @@
             },
             "rawid": 1118403
         },
-        "fwhm_qbb": 2.1357644,
-        "fwhm_qbb_err": 0.010726205,
-        "tau": 429.06,
+        "fwhm_qbb": 2.1716647,
+        "fwhm_qbb_err": 0.031224076,
+        "tau": 430.84,
         "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 11.0,
         "name": "V02166B",
         "location": {
             "string": 7,
             "position": 2
         },
-        "m_calib": 7.110055,
-        "fwhm_bifep": 1.9711176,
+        "m_calib": 7.1100345,
+        "fwhm_bifep": 2.0394506,
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -6693,8 +6693,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.75645953,
-        "fwhm_sep": 3.0572474,
+        "n_calib": -0.8545283,
+        "fwhm_sep": 2.9892125,
         "voltage": {
             "channel": 7,
             "filter": {
@@ -6706,8 +6706,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 1.9526744,
-        "fwhm_fep": 2.357161,
+        "fwhm_dep": 2.0158274,
+        "fwhm_fep": 2.3658676,
         "processable": true
     },
     "P00664A": {
@@ -6722,9 +6722,9 @@
             },
             "rawid": 1081602
         },
-        "fwhm_qbb": 3.003037,
-        "fwhm_qbb_err": 0.17797637,
-        "tau": 509.11,
+        "fwhm_qbb": 2.877215,
+        "fwhm_qbb_err": 0.2795909,
+        "tau": 519.76,
         "system": "geds",
         "trap_rt": 7.0,
         "name": "P00664A",
@@ -6732,8 +6732,8 @@
             "string": 9,
             "position": 10
         },
-        "m_calib": 5.7355695,
-        "fwhm_bifep": 2.3667507,
+        "m_calib": 5.734602,
+        "fwhm_bifep": 2.0367785,
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -6741,8 +6741,8 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.4363406,
-        "fwhm_sep": 3.8956416,
+        "n_calib": -3.5195389,
+        "fwhm_sep": 4.256754,
         "voltage": {
             "channel": 1,
             "filter": {
@@ -6754,8 +6754,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 3.5373135,
-        "fwhm_fep": 3.5126257,
+        "fwhm_dep": 3.3375988,
+        "fwhm_fep": 3.508993,
         "processable": true
     },
     "P00665A": {
@@ -6807,18 +6807,18 @@
             },
             "rawid": 1121605
         },
-        "fwhm_qbb": 2.7385716,
-        "fwhm_qbb_err": 0.07103018,
-        "tau": 562.16,
+        "fwhm_qbb": 2.8199854,
+        "fwhm_qbb_err": 0.04723764,
+        "tau": 563.96,
         "system": "geds",
-        "trap_rt": 10.7,
+        "trap_rt": 10.2,
         "name": "V05268A",
         "location": {
             "string": 8,
             "position": 9
         },
-        "m_calib": 6.067691,
-        "fwhm_bifep": 2.5305028,
+        "m_calib": 6.0684476,
+        "fwhm_bifep": 2.6860716,
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -6826,8 +6826,8 @@
             }
         },
         "trap_ft": 2.2,
-        "n_calib": -3.3776722,
-        "fwhm_sep": 4.23652,
+        "n_calib": -4.165939,
+        "fwhm_sep": 3.6589053,
         "voltage": {
             "channel": 3,
             "filter": {
@@ -6839,8 +6839,8 @@
                 "serialno": null
             }
         },
-        "fwhm_dep": 2.7184708,
-        "fwhm_fep": 3.004372,
+        "fwhm_dep": 2.7588956,
+        "fwhm_fep": 3.0372713,
         "processable": true
     }
 }

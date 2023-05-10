@@ -6,38 +6,32 @@
             "channel": 4,
             "fcid": 14,
             "card": {
-                "serialno": null,
+                "address": "0x420",
                 "id": 2,
-                "address": "0x420"
+                "serialno": null
             },
             "rawid": 1105604
         },
         "system": "auxs"
     },
     "V05266A": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 7,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x410"
-            },
-            "rawid": 1104003
-        },
-        "fwhm_qbb": 3.0079474,
-        "fwhm_qbb_err": 0.1906387,
-        "tau": 462.94,
-        "system": "geds",
-        "trap_rt": 8.6,
+        "trap_rt": 7.7,
         "name": "V05266A",
         "location": {
             "string": 1,
             "position": 4
         },
-        "m_calib": 6.8164,
-        "fwhm_bifep": 2.912415,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 7,
+            "card": {
+                "address": "0x410",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1104003
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -45,8 +39,9 @@
             }
         },
         "trap_ft": 2.0,
-        "n_calib": -0.7252355,
-        "fwhm_sep": 4.938066,
+        "processable": true,
+        "tau": 462.72,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -57,10 +52,7 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.1046937,
-        "fwhm_fep": 3.2700818,
-        "processable": true
+        }
     },
     "S029": {
         "name": "S029",
@@ -73,9 +65,9 @@
             "channel": 3,
             "fcid": 136,
             "card": {
-                "serialno": null,
+                "address": "0x230",
                 "id": 3,
-                "address": "0x230"
+                "serialno": null
             },
             "rawid": 1056003
         },
@@ -95,29 +87,23 @@
         "system": "spms"
     },
     "V07302B": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 66,
-            "card": {
-                "serialno": null,
-                "id": 11,
-                "address": "0x4b0"
-            },
-            "rawid": 1120002
-        },
-        "fwhm_qbb": 2.214083,
-        "fwhm_qbb_err": 0.018544728,
-        "tau": 455.38,
-        "system": "geds",
-        "trap_rt": 10.3,
+        "trap_rt": 11.8,
         "name": "V07302B",
         "location": {
             "string": 7,
             "position": 7
         },
-        "m_calib": 6.584157,
-        "fwhm_bifep": 1.9895985,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 66,
+            "card": {
+                "address": "0x4b0",
+                "id": 11,
+                "serialno": null
+            },
+            "rawid": 1120002
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -125,8 +111,9 @@
             }
         },
         "trap_ft": 3.6,
-        "n_calib": -1.4062828,
-        "fwhm_sep": 3.177711,
+        "processable": true,
+        "tau": 452.2,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -137,35 +124,26 @@
                 "id": 4,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.905877,
-        "fwhm_fep": 2.4829895,
-        "processable": true
+        }
     },
     "V00048A": {
-        "daq": {
-            "crate": 1,
-            "channel": 3,
-            "fcid": 103,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x350"
-            },
-            "rawid": 1084803
-        },
-        "fwhm_qbb": 2.1500173,
-        "fwhm_qbb_err": 0.03143741,
-        "tau": 512.45,
-        "system": "geds",
-        "trap_rt": 10.0,
+        "trap_rt": 9.9,
         "name": "V00048A",
         "location": {
             "string": 10,
             "position": 9
         },
-        "m_calib": 6.546566,
-        "fwhm_bifep": 1.917215,
+        "daq": {
+            "crate": 1,
+            "channel": 3,
+            "fcid": 103,
+            "card": {
+                "address": "0x350",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1084803
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -173,8 +151,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.36228362,
-        "fwhm_sep": 3.0762103,
+        "processable": true,
+        "tau": 509.08,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -185,44 +164,36 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.900391,
-        "fwhm_fep": 2.3972147,
-        "processable": true
+        }
     },
     "V05267A": {
-        "daq": {
-            "crate": 1,
-            "channel": 0,
-            "fcid": 106,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x350"
-            },
-            "rawid": 1086400
-        },
-        "fwhm_qbb": 3.1814027,
-        "fwhm_qbb_err": 0.17093094,
-        "tau": 504.71,
-        "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 11.8,
         "name": "V05267A",
         "location": {
             "string": 10,
             "position": 12
         },
-        "m_calib": 6.383446,
-        "fwhm_bifep": 2.4903119,
+        "daq": {
+            "crate": 1,
+            "channel": 0,
+            "fcid": 106,
+            "card": {
+                "address": "0x350",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1086400
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "B1"
             }
         },
-        "trap_ft": 2.0,
-        "n_calib": -2.5031745,
-        "fwhm_sep": 4.113214,
+        "trap_ft": 1.4,
+        "processable": true,
+        "tau": 503.28,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -233,35 +204,26 @@
                 "id": 11,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.8686228,
-        "fwhm_fep": 3.8072994,
-        "processable": true
+        }
     },
     "V05266B": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 8,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x410"
-            },
-            "rawid": 1104004
-        },
-        "fwhm_qbb": 2.3817205,
-        "fwhm_qbb_err": 0.07056767,
-        "tau": 526.4,
-        "system": "geds",
-        "trap_rt": 9.4,
+        "trap_rt": 7.2,
         "name": "V05266B",
         "location": {
             "string": 1,
             "position": 5
         },
-        "m_calib": 6.1756845,
-        "fwhm_bifep": 2.0239732,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 8,
+            "card": {
+                "address": "0x410",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1104004
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -269,8 +231,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.8654089,
-        "fwhm_sep": 3.4356074,
+        "processable": true,
+        "tau": 522.53,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -281,10 +244,7 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.2876842,
-        "fwhm_fep": 2.7234201,
-        "processable": true
+        }
     },
     "S073": {
         "name": "S073",
@@ -297,9 +257,9 @@
             "channel": 3,
             "fcid": 130,
             "card": {
-                "serialno": null,
+                "address": "0x220",
                 "id": 2,
-                "address": "0x220"
+                "serialno": null
             },
             "rawid": 1054403
         },
@@ -321,49 +281,44 @@
     "General": {
         "name": "General",
         "folder": {
-            "folder_peaks": "/remote/ceph/group/legendex/data/l200/peaks/cal/p02/r006/",
-            "folder_daq": "/remote/ceph/group/legendex/data/l200/orca/cal/p02/r006/daq/",
-            "folder_raw": "/remote/ceph/group/legendex/data/l200/raw/cal/p02/r006/",
-            "folder_dsp": "/remote/ceph/group/legendex/data/l200/dsp/cal/p02/r006/",
-            "folder_figures": "/remote/ceph/group/legendex/data/l200/figures/cal/p02/r006/",
-            "folder_cuts": "/remote/ceph/group/legendex/data/l200/cuts/cal/p02/r006/",
-            "folder_hit": "/remote/ceph/group/legendex/data/l200/hit/cal/p02/r006/"
+            "folder_peaks": "/remote/ceph/group/legendex/data/l200/peaks/cal/p02/r013/",
+            "folder_daq": "/remote/ceph/group/legendex/data/l200/orca/cal/p02/r013/daq/",
+            "folder_raw": "/remote/ceph/group/legendex/data/l200/raw/cal/p02/r013/",
+            "folder_dsp": "/remote/ceph/group/legendex/data/l200/dsp/cal/p02/r013/",
+            "folder_figures": "/remote/ceph/group/legendex/data/l200/figures/cal/p02/r013/",
+            "folder_cuts": "/remote/ceph/group/legendex/data/l200/cuts/cal/p02/r013/",
+            "folder_hit": "/remote/ceph/group/legendex/data/l200/hit/cal/p02/r013/"
         },
         "system": "general"
     },
     "B00089D": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 68,
-            "card": {
-                "serialno": null,
-                "id": 11,
-                "address": "0x4b0"
-            },
-            "rawid": 1120004
-        },
-        "fwhm_qbb": 1.9385514,
-        "fwhm_qbb_err": 0.105399854,
-        "tau": 504.38,
-        "system": "geds",
-        "trap_rt": 9.1,
+        "trap_rt": 11.9,
         "name": "B00089D",
         "location": {
             "string": 8,
             "position": 2
         },
-        "m_calib": 6.5325584,
-        "fwhm_bifep": 1.5547148,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 68,
+            "card": {
+                "address": "0x4b0",
+                "id": 11,
+                "serialno": null
+            },
+            "rawid": 1120004
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "E2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -0.31466308,
-        "fwhm_sep": 3.2637029,
+        "trap_ft": 2.0,
+        "processable": true,
+        "tau": 500.89,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -374,10 +329,7 @@
                 "id": 11,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.7802585,
-        "fwhm_fep": 2.2678196,
-        "processable": true
+        }
     },
     "S064": {
         "name": "S064",
@@ -390,9 +342,9 @@
             "channel": 4,
             "fcid": 155,
             "card": {
-                "serialno": null,
+                "address": "0x260",
                 "id": 6,
-                "address": "0x260"
+                "serialno": null
             },
             "rawid": 1060804
         },
@@ -422,9 +374,9 @@
             "channel": 1,
             "fcid": 170,
             "card": {
-                "serialno": null,
+                "address": "0x290",
                 "id": 9,
-                "address": "0x290"
+                "serialno": null
             },
             "rawid": 1065601
         },
@@ -454,9 +406,9 @@
             "channel": 2,
             "fcid": 135,
             "card": {
-                "serialno": null,
+                "address": "0x230",
                 "id": 3,
-                "address": "0x230"
+                "serialno": null
             },
             "rawid": 1056002
         },
@@ -476,38 +428,33 @@
         "system": "spms"
     },
     "V02160B": {
-        "daq": {
-            "crate": 0,
-            "channel": 1,
-            "fcid": 5,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x410"
-            },
-            "rawid": 1104001
-        },
-        "fwhm_qbb": 2.1549988,
-        "fwhm_qbb_err": 0.01907242,
-        "tau": 481.77,
-        "system": "geds",
-        "trap_rt": 8.4,
+        "trap_rt": 7.3,
         "name": "V02160B",
         "location": {
             "string": 1,
             "position": 2
         },
-        "m_calib": 6.680215,
-        "fwhm_bifep": 1.9526151,
+        "daq": {
+            "crate": 0,
+            "channel": 1,
+            "fcid": 5,
+            "card": {
+                "address": "0x410",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1104001
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C3"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": 0.20182046,
-        "fwhm_sep": 3.2589264,
+        "trap_ft": 3.2,
+        "processable": true,
+        "tau": 480.44,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -518,10 +465,7 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0910468,
-        "fwhm_fep": 2.3797164,
-        "processable": true
+        }
     },
     "S027": {
         "name": "S027",
@@ -534,9 +478,9 @@
             "channel": 3,
             "fcid": 148,
             "card": {
-                "serialno": null,
+                "address": "0x250",
                 "id": 5,
-                "address": "0x250"
+                "serialno": null
             },
             "rawid": 1059203
         },
@@ -562,47 +506,42 @@
             "channel": 0,
             "fcid": 28,
             "card": {
-                "serialno": null,
+                "address": "0x450",
                 "id": 5,
-                "address": "0x450"
+                "serialno": null
             },
             "rawid": 1110400
         },
         "system": "auxs"
     },
     "B00032C": {
-        "daq": {
-            "crate": 1,
-            "channel": 3,
-            "fcid": 97,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x340"
-            },
-            "rawid": 1083203
-        },
-        "fwhm_qbb": 2.10622,
-        "fwhm_qbb_err": 0.034826573,
-        "tau": 470.68,
-        "system": "geds",
-        "trap_rt": 10.1,
+        "trap_rt": 9.8,
         "name": "B00032C",
         "location": {
             "string": 10,
             "position": 3
         },
-        "m_calib": 6.567877,
-        "fwhm_bifep": 1.837421,
+        "daq": {
+            "crate": 1,
+            "channel": 3,
+            "fcid": 97,
+            "card": {
+                "address": "0x340",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1083203
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "C2"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.31207898,
-        "fwhm_sep": 2.9514503,
+        "trap_ft": 3.0,
+        "processable": true,
+        "tau": 466.04,
+        "system": "geds",
         "voltage": {
             "channel": 7,
             "filter": {
@@ -613,35 +552,26 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.1562738,
-        "fwhm_fep": 2.387187,
-        "processable": true
+        }
     },
     "V07646A": {
-        "daq": {
-            "crate": 0,
-            "channel": 1,
-            "fcid": 65,
-            "card": {
-                "serialno": null,
-                "id": 11,
-                "address": "0x4b0"
-            },
-            "rawid": 1120001
-        },
-        "fwhm_qbb": 2.5045507,
-        "fwhm_qbb_err": 0.03670745,
-        "tau": 461.75,
-        "system": "geds",
-        "trap_rt": 10.0,
+        "trap_rt": 11.7,
         "name": "V07646A",
         "location": {
             "string": 7,
             "position": 6
         },
-        "m_calib": 6.7850146,
-        "fwhm_bifep": 2.3456883,
+        "daq": {
+            "crate": 0,
+            "channel": 1,
+            "fcid": 65,
+            "card": {
+                "address": "0x4b0",
+                "id": 11,
+                "serialno": null
+            },
+            "rawid": 1120001
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -649,8 +579,9 @@
             }
         },
         "trap_ft": 2.4,
-        "n_calib": -4.6137705,
-        "fwhm_sep": 3.7483683,
+        "processable": true,
+        "tau": 460.0,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -661,10 +592,7 @@
                 "id": 4,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.642314,
-        "fwhm_fep": 2.7331865,
-        "processable": true
+        }
     },
     "S048": {
         "name": "S048",
@@ -677,9 +605,9 @@
             "channel": 2,
             "fcid": 171,
             "card": {
-                "serialno": null,
+                "address": "0x290",
                 "id": 9,
-                "address": "0x290"
+                "serialno": null
             },
             "rawid": 1065602
         },
@@ -709,9 +637,9 @@
             "channel": 3,
             "fcid": 142,
             "card": {
-                "serialno": null,
+                "address": "0x240",
                 "id": 4,
-                "address": "0x240"
+                "serialno": null
             },
             "rawid": 1057603
         },
@@ -731,29 +659,23 @@
         "system": "spms"
     },
     "P00662C": {
-        "daq": {
-            "crate": 1,
-            "channel": 1,
-            "fcid": 89,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x330"
-            },
-            "rawid": 1081601
-        },
-        "fwhm_qbb": 2.4180193,
-        "fwhm_qbb_err": 0.021221459,
-        "tau": 439.67,
-        "system": "geds",
-        "trap_rt": 7.2,
+        "trap_rt": 7.4,
         "name": "P00662C",
         "location": {
             "string": 9,
             "position": 9
         },
-        "m_calib": 6.5964046,
-        "fwhm_bifep": 2.1292713,
+        "daq": {
+            "crate": 1,
+            "channel": 1,
+            "fcid": 89,
+            "card": {
+                "address": "0x330",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1081601
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -761,8 +683,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.0195315,
-        "fwhm_sep": 3.5541935,
+        "processable": true,
+        "tau": 435.45,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -773,10 +696,7 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.4647324,
-        "fwhm_fep": 2.7485464,
-        "processable": true
+        }
     },
     "S010": {
         "name": "S010",
@@ -789,9 +709,9 @@
             "channel": 4,
             "fcid": 149,
             "card": {
-                "serialno": null,
+                "address": "0x250",
                 "id": 5,
-                "address": "0x250"
+                "serialno": null
             },
             "rawid": 1059204
         },
@@ -821,9 +741,9 @@
             "channel": 0,
             "fcid": 46,
             "card": {
-                "serialno": null,
+                "address": "0x480",
                 "id": 8,
-                "address": "0x480"
+                "serialno": null
             },
             "rawid": 1115200
         },
@@ -858,9 +778,9 @@
             "channel": 1,
             "fcid": 128,
             "card": {
-                "serialno": null,
+                "address": "0x220",
                 "id": 2,
-                "address": "0x220"
+                "serialno": null
             },
             "rawid": 1054401
         },
@@ -880,38 +800,33 @@
         "system": "spms"
     },
     "B00032A": {
-        "daq": {
-            "crate": 1,
-            "channel": 5,
-            "fcid": 111,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x360"
-            },
-            "rawid": 1086405
-        },
-        "fwhm_qbb": 2.2087893,
-        "fwhm_qbb_err": 0.052799534,
-        "tau": 459.25,
-        "system": "geds",
-        "trap_rt": 7.8,
+        "trap_rt": 7.2,
         "name": "B00032A",
         "location": {
             "string": 11,
             "position": 3
         },
-        "m_calib": 6.957197,
-        "fwhm_bifep": 1.9245508,
+        "daq": {
+            "crate": 1,
+            "channel": 5,
+            "fcid": 111,
+            "card": {
+                "address": "0x360",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1086405
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "A3"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -1.280594,
-        "fwhm_sep": 3.2578433,
+        "trap_ft": 4.0,
+        "processable": true,
+        "tau": 458.25,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -922,44 +837,36 @@
                 "id": 5,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.1507628,
-        "fwhm_fep": 2.4849758,
-        "processable": true
+        }
     },
     "P00665C": {
-        "daq": {
-            "crate": 1,
-            "channel": 3,
-            "fcid": 91,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x330"
-            },
-            "rawid": 1081603
-        },
-        "fwhm_qbb": 6.4439125,
-        "fwhm_qbb_err": 0.88184154,
-        "tau": 495.7,
-        "system": "geds",
-        "trap_rt": 8.6,
+        "trap_rt": 7.4,
         "name": "P00665C",
         "location": {
             "string": 9,
             "position": 11
         },
-        "m_calib": 5.0599437,
-        "fwhm_bifep": 5.0055213,
+        "daq": {
+            "crate": 1,
+            "channel": 3,
+            "fcid": 91,
+            "card": {
+                "address": "0x330",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1081603
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "A1"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.97480744,
-        "fwhm_sep": 7.702661,
+        "trap_ft": 1.4,
+        "processable": true,
+        "tau": 494.72,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -970,35 +877,26 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 6.1596847,
-        "fwhm_fep": 8.43292,
-        "processable": true
+        }
     },
     "V01240A": {
-        "daq": {
-            "crate": 1,
-            "channel": 4,
-            "fcid": 104,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x350"
-            },
-            "rawid": 1084804
-        },
-        "fwhm_qbb": 2.7015266,
-        "fwhm_qbb_err": 0.041415684,
-        "tau": 518.12,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "V01240A",
         "location": {
             "string": 10,
             "position": 10
         },
-        "m_calib": 6.4030046,
-        "fwhm_bifep": 2.3838675,
+        "daq": {
+            "crate": 1,
+            "channel": 4,
+            "fcid": 104,
+            "card": {
+                "address": "0x350",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1084804
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -1006,8 +904,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.44525585,
-        "fwhm_sep": 3.7811587,
+        "processable": true,
+        "tau": 514.85,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -1018,10 +917,7 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.1080623,
-        "fwhm_fep": 3.0362482,
-        "processable": true
+        }
     },
     "S015": {
         "name": "S015",
@@ -1034,9 +930,9 @@
             "channel": 4,
             "fcid": 167,
             "card": {
-                "serialno": null,
+                "address": "0x280",
                 "id": 8,
-                "address": "0x280"
+                "serialno": null
             },
             "rawid": 1064004
         },
@@ -1066,9 +962,9 @@
             "channel": 0,
             "fcid": 139,
             "card": {
-                "serialno": null,
+                "address": "0x240",
                 "id": 4,
-                "address": "0x240"
+                "serialno": null
             },
             "rawid": 1057600
         },
@@ -1088,38 +984,33 @@
         "system": "spms"
     },
     "B00091C": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 31,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x450"
-            },
-            "rawid": 1110403
-        },
-        "fwhm_qbb": 2.1468647,
-        "fwhm_qbb_err": 0.02086168,
-        "tau": 510.29,
-        "system": "geds",
-        "trap_rt": 10.8,
+        "trap_rt": 12.0,
         "name": "B00091C",
         "location": {
             "string": 3,
             "position": 2
         },
-        "m_calib": 6.8011136,
-        "fwhm_bifep": 1.9280363,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 31,
+            "card": {
+                "address": "0x450",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1110403
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "A5"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -0.4347671,
-        "fwhm_sep": 2.6066756,
+        "trap_ft": 3.8,
+        "processable": true,
+        "tau": 510.61,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -1130,44 +1021,36 @@
                 "id": 1,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9761201,
-        "fwhm_fep": 2.4262948,
-        "processable": true
+        }
     },
     "V02162B": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 60,
-            "card": {
-                "serialno": null,
-                "id": 10,
-                "address": "0x4a0"
-            },
-            "rawid": 1118402
-        },
-        "fwhm_qbb": 2.476963,
-        "fwhm_qbb_err": 0.11629473,
-        "tau": 443.68,
-        "system": "geds",
-        "trap_rt": 11.7,
+        "trap_rt": 11.6,
         "name": "V02162B",
         "location": {
             "string": 7,
             "position": 1
         },
-        "m_calib": 7.2801113,
-        "fwhm_bifep": 2.211543,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 60,
+            "card": {
+                "address": "0x4a0",
+                "id": 10,
+                "serialno": null
+            },
+            "rawid": 1118402
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "D2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -5.7166233,
-        "fwhm_sep": 3.3761337,
+        "trap_ft": 2.2,
+        "processable": true,
+        "tau": 445.5,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -1178,10 +1061,7 @@
                 "id": 3,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.1559632,
-        "fwhm_fep": 2.694953,
-        "processable": true
+        }
     },
     "S044": {
         "name": "S044",
@@ -1194,9 +1074,9 @@
             "channel": 3,
             "fcid": 178,
             "card": {
-                "serialno": null,
+                "address": "0x2A0",
                 "id": 10,
-                "address": "0x2A0"
+                "serialno": null
             },
             "rawid": 1067203
         },
@@ -1226,9 +1106,9 @@
             "channel": 0,
             "fcid": 151,
             "card": {
-                "serialno": null,
+                "address": "0x260",
                 "id": 6,
-                "address": "0x260"
+                "serialno": null
             },
             "rawid": 1060800
         },
@@ -1254,47 +1134,42 @@
             "channel": 5,
             "fcid": 15,
             "card": {
-                "serialno": null,
+                "address": "0x420",
                 "id": 2,
-                "address": "0x420"
+                "serialno": null
             },
             "rawid": 1105605
         },
         "system": "auxs"
     },
     "V00048B": {
-        "daq": {
-            "crate": 0,
-            "channel": 0,
-            "fcid": 70,
-            "card": {
-                "serialno": null,
-                "id": 12,
-                "address": "0x4c0"
-            },
-            "rawid": 1121600
-        },
-        "fwhm_qbb": 2.7454634,
-        "fwhm_qbb_err": 0.2494712,
-        "tau": 491.43,
-        "system": "geds",
-        "trap_rt": 7.7,
+        "trap_rt": 7.6,
         "name": "V00048B",
         "location": {
             "string": 8,
             "position": 4
         },
-        "m_calib": 6.373281,
-        "fwhm_bifep": 3.0188766,
+        "daq": {
+            "crate": 0,
+            "channel": 0,
+            "fcid": 70,
+            "card": {
+                "address": "0x4c0",
+                "id": 12,
+                "serialno": null
+            },
+            "rawid": 1121600
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "E2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -4.002551,
-        "fwhm_sep": 3.9789004,
+        "trap_ft": 4.0,
+        "processable": true,
+        "tau": 489.18,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -1305,44 +1180,36 @@
                 "id": 11,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.6480558,
-        "fwhm_fep": 2.7224267,
-        "processable": true
+        }
     },
     "V08682B": {
-        "daq": {
-            "crate": 0,
-            "channel": 1,
-            "fcid": 53,
-            "card": {
-                "serialno": null,
-                "id": 9,
-                "address": "0x490"
-            },
-            "rawid": 1116801
-        },
-        "fwhm_qbb": 2.9936585,
-        "fwhm_qbb_err": 0.052165736,
-        "tau": 470.49,
-        "system": "geds",
-        "trap_rt": 11.7,
+        "trap_rt": 12.0,
         "name": "V08682B",
         "location": {
             "string": 5,
             "position": 1
         },
-        "m_calib": 6.830438,
-        "fwhm_bifep": 2.9209287,
+        "daq": {
+            "crate": 0,
+            "channel": 1,
+            "fcid": 53,
+            "card": {
+                "address": "0x490",
+                "id": 9,
+                "serialno": null
+            },
+            "rawid": 1116801
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "D4"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -1.3854555,
-        "fwhm_sep": 3.9667766,
+        "trap_ft": 3.0,
+        "processable": true,
+        "tau": 466.83,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -1353,44 +1220,36 @@
                 "id": 7,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.9953785,
-        "fwhm_fep": 3.1708233,
-        "processable": true
+        }
     },
     "B00089B": {
-        "daq": {
-            "crate": 1,
-            "channel": 2,
-            "fcid": 102,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x350"
-            },
-            "rawid": 1084802
-        },
-        "fwhm_qbb": 1.971609,
-        "fwhm_qbb_err": 0.066079624,
-        "tau": 441.29,
-        "system": "geds",
-        "trap_rt": 9.4,
+        "trap_rt": 10.1,
         "name": "B00089B",
         "location": {
             "string": 10,
             "position": 8
         },
-        "m_calib": 7.363781,
-        "fwhm_bifep": 1.6738075,
+        "daq": {
+            "crate": 1,
+            "channel": 2,
+            "fcid": 102,
+            "card": {
+                "address": "0x350",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1084802
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "B1"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": -3.746997,
-        "fwhm_sep": 3.1256561,
+        "trap_ft": 2.8,
+        "processable": true,
+        "tau": 442.49,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -1401,44 +1260,36 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9390384,
-        "fwhm_fep": 2.2460294,
-        "processable": true
+        }
     },
     "B00089C": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 67,
-            "card": {
-                "serialno": null,
-                "id": 11,
-                "address": "0x4b0"
-            },
-            "rawid": 1120003
-        },
-        "fwhm_qbb": 2.0943775,
-        "fwhm_qbb_err": 0.04937016,
-        "tau": 431.45,
-        "system": "geds",
-        "trap_rt": 9.5,
+        "trap_rt": 9.0,
         "name": "B00089C",
         "location": {
             "string": 8,
             "position": 1
         },
-        "m_calib": 6.5579305,
-        "fwhm_bifep": 2.019058,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 67,
+            "card": {
+                "address": "0x4b0",
+                "id": 11,
+                "serialno": null
+            },
+            "rawid": 1120003
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "E2"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": 0.20273507,
-        "fwhm_sep": 3.5112398,
+        "trap_ft": 2.6,
+        "processable": true,
+        "tau": 428.93,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -1449,10 +1300,7 @@
                 "id": 11,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.8866266,
-        "fwhm_fep": 2.2647383,
-        "processable": true
+        }
     },
     "S007": {
         "name": "S007",
@@ -1465,9 +1313,9 @@
             "channel": 1,
             "fcid": 158,
             "card": {
-                "serialno": null,
+                "address": "0x270",
                 "id": 7,
-                "address": "0x270"
+                "serialno": null
             },
             "rawid": 1062401
         },
@@ -1487,29 +1335,23 @@
         "system": "spms"
     },
     "V00074A": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 24,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x440"
-            },
-            "rawid": 1108802
-        },
-        "fwhm_qbb": 2.5438032,
-        "fwhm_qbb_err": 0.07384882,
-        "tau": 450.59,
-        "system": "geds",
-        "trap_rt": 10.0,
+        "trap_rt": 9.3,
         "name": "V00074A",
         "location": {
             "string": 2,
             "position": 7
         },
-        "m_calib": 7.008632,
-        "fwhm_bifep": 2.4774249,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 24,
+            "card": {
+                "address": "0x440",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1108802
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -1517,8 +1359,9 @@
             }
         },
         "trap_ft": 3.8,
-        "n_calib": -2.7982495,
-        "fwhm_sep": 3.2035072,
+        "processable": true,
+        "tau": 452.16,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -1529,44 +1372,36 @@
                 "id": 3,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.5442772,
-        "fwhm_fep": 2.729385,
-        "processable": true
+        }
     },
     "B00061A": {
-        "daq": {
-            "crate": 0,
-            "channel": 1,
-            "fcid": 41,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x470"
-            },
-            "rawid": 1113601
-        },
-        "fwhm_qbb": 2.1836777,
-        "fwhm_qbb_err": 0.110892564,
-        "tau": 479.46,
-        "system": "geds",
-        "trap_rt": 11.8,
+        "trap_rt": 10.5,
         "name": "B00061A",
         "location": {
             "string": 4,
             "position": 3
         },
-        "m_calib": 6.4290814,
-        "fwhm_bifep": 1.7361279,
+        "daq": {
+            "crate": 0,
+            "channel": 1,
+            "fcid": 41,
+            "card": {
+                "address": "0x470",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1113601
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "C5"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": -1.3877141,
-        "fwhm_sep": 3.2253234,
+        "trap_ft": 3.0,
+        "processable": true,
+        "tau": 477.65,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -1577,35 +1412,26 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.2789416,
-        "fwhm_fep": 2.5736964,
-        "processable": true
+        }
     },
     "P00575A": {
-        "daq": {
-            "crate": 1,
-            "channel": 2,
-            "fcid": 114,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x370"
-            },
-            "rawid": 1088002
-        },
-        "fwhm_qbb": 3.078199,
-        "fwhm_qbb_err": 0.11704357,
-        "tau": 833.28,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "P00575A",
         "location": {
             "string": 11,
             "position": 6
         },
-        "m_calib": 5.568425,
-        "fwhm_bifep": 2.570108,
+        "daq": {
+            "crate": 1,
+            "channel": 2,
+            "fcid": 114,
+            "card": {
+                "address": "0x370",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1088002
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -1613,8 +1439,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.34168243,
-        "fwhm_sep": 3.6914003,
+        "processable": true,
+        "tau": 836.56,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -1625,10 +1452,7 @@
                 "id": 5,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.5017605,
-        "fwhm_fep": 3.6096992,
-        "processable": true
+        }
     },
     "DUMMY05": {
         "name": "DUMMY05",
@@ -1637,9 +1461,9 @@
             "channel": 5,
             "fcid": 27,
             "card": {
-                "serialno": null,
+                "address": "0x440",
                 "id": 4,
-                "address": "0x440"
+                "serialno": null
             },
             "rawid": 1108805
         },
@@ -1656,9 +1480,9 @@
             "channel": 3,
             "fcid": 166,
             "card": {
-                "serialno": null,
+                "address": "0x280",
                 "id": 8,
-                "address": "0x280"
+                "serialno": null
             },
             "rawid": 1064003
         },
@@ -1678,38 +1502,33 @@
         "system": "spms"
     },
     "B00035B": {
-        "daq": {
-            "crate": 1,
-            "channel": 0,
-            "fcid": 100,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x340"
-            },
-            "rawid": 1084800
-        },
-        "fwhm_qbb": 2.0680003,
-        "fwhm_qbb_err": 0.03000074,
-        "tau": 476.21,
-        "system": "geds",
-        "trap_rt": 7.8,
+        "trap_rt": 8.7,
         "name": "B00035B",
         "location": {
             "string": 10,
             "position": 6
         },
-        "m_calib": 6.527286,
-        "fwhm_bifep": 1.8231269,
+        "daq": {
+            "crate": 1,
+            "channel": 0,
+            "fcid": 100,
+            "card": {
+                "address": "0x340",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1084800
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -0.79495883,
-        "fwhm_sep": 3.2282133,
+        "trap_ft": 4.0,
+        "processable": true,
+        "tau": 472.8,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -1720,10 +1539,7 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0901158,
-        "fwhm_fep": 2.3345594,
-        "processable": true
+        }
     },
     "S047": {
         "name": "S047",
@@ -1736,9 +1552,9 @@
             "channel": 3,
             "fcid": 160,
             "card": {
-                "serialno": null,
+                "address": "0x270",
                 "id": 7,
-                "address": "0x270"
+                "serialno": null
             },
             "rawid": 1062403
         },
@@ -1758,38 +1574,33 @@
         "system": "spms"
     },
     "P00712A": {
-        "daq": {
-            "crate": 0,
-            "channel": 1,
-            "fcid": 35,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x460"
-            },
-            "rawid": 1112001
-        },
-        "fwhm_qbb": 4.7689342,
-        "fwhm_qbb_err": 0.63441366,
-        "tau": 468.99,
-        "system": "geds",
-        "trap_rt": 10.1,
+        "trap_rt": 11.5,
         "name": "P00712A",
         "location": {
             "string": 3,
             "position": 6
         },
-        "m_calib": 5.4223447,
-        "fwhm_bifep": 4.2413774,
+        "daq": {
+            "crate": 0,
+            "channel": 1,
+            "fcid": 35,
+            "card": {
+                "address": "0x460",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1112001
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "B5"
             }
         },
-        "trap_ft": 3.0,
-        "n_calib": -1.3218284,
-        "fwhm_sep": 6.7117414,
+        "trap_ft": 4.0,
+        "processable": true,
+        "tau": 468.29,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -1800,10 +1611,7 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 4.4381523,
-        "fwhm_fep": 6.4889283,
-        "processable": true
+        }
     },
     "S068": {
         "name": "S068",
@@ -1816,9 +1624,9 @@
             "channel": 1,
             "fcid": 134,
             "card": {
-                "serialno": null,
+                "address": "0x230",
                 "id": 3,
-                "address": "0x230"
+                "serialno": null
             },
             "rawid": 1056001
         },
@@ -1848,9 +1656,9 @@
             "channel": 3,
             "fcid": 124,
             "card": {
-                "serialno": null,
+                "address": "0x210",
                 "id": 1,
-                "address": "0x210"
+                "serialno": null
             },
             "rawid": 1052803
         },
@@ -1870,29 +1678,23 @@
         "system": "spms"
     },
     "V05612B": {
-        "daq": {
-            "crate": 1,
-            "channel": 1,
-            "fcid": 107,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x360"
-            },
-            "rawid": 1086401
-        },
-        "fwhm_qbb": 3.5860093,
-        "fwhm_qbb_err": 0.056123126,
-        "tau": 450.19,
-        "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 11.3,
         "name": "V05612B",
         "location": {
             "string": 10,
             "position": 13
         },
-        "m_calib": 6.7604074,
-        "fwhm_bifep": 3.138579,
+        "daq": {
+            "crate": 1,
+            "channel": 1,
+            "fcid": 107,
+            "card": {
+                "address": "0x360",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1086401
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -1900,8 +1702,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.0156448,
-        "fwhm_sep": 4.96552,
+        "processable": true,
+        "tau": 450.06,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -1912,23 +1715,10 @@
                 "id": 11,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.9946926,
-        "fwhm_fep": 4.073169,
-        "processable": true
+        }
     },
     "C00ANG5": {
-        "voltage": {
-            "channel": 1,
-            "filter": {
-                "channel": null,
-                "id": null
-            },
-            "card": {
-                "id": 3,
-                "serialno": null
-            }
-        },
+        "trap_rt": 11.6,
         "name": "C00ANG5",
         "location": {
             "string": 2,
@@ -1939,9 +1729,9 @@
             "channel": 0,
             "fcid": 22,
             "card": {
-                "serialno": null,
+                "address": "0x440",
                 "id": 4,
-                "address": "0x440"
+                "serialno": null
             },
             "rawid": 1108800
         },
@@ -1953,9 +1743,19 @@
         },
         "trap_ft": 2.0,
         "processable": true,
-        "tau": 441.27,
+        "tau": 443.04,
         "system": "geds",
-        "trap_rt": 11.6
+        "voltage": {
+            "channel": 1,
+            "filter": {
+                "channel": null,
+                "id": null
+            },
+            "card": {
+                "id": 3,
+                "serialno": null
+            }
+        }
     },
     "BSLN01": {
         "name": "BSLN01",
@@ -1964,9 +1764,9 @@
             "channel": 0,
             "fcid": 0,
             "card": {
-                "serialno": null,
+                "address": "0x110",
                 "id": 0,
-                "address": "0x110"
+                "serialno": null
             },
             "rawid": 1027200
         },
@@ -1974,38 +1774,33 @@
         "system": "bsln"
     },
     "V01387A": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 73,
-            "card": {
-                "serialno": null,
-                "id": 12,
-                "address": "0x4c0"
-            },
-            "rawid": 1121603
-        },
-        "fwhm_qbb": null,
-        "fwhm_qbb_err": null,
-        "tau": 537.93,
-        "system": "geds",
-        "trap_rt": 7.5,
+        "trap_rt": 7.3,
         "name": "V01387A",
         "location": {
             "string": 8,
             "position": 7
         },
-        "m_calib": null,
-        "fwhm_bifep": 0.0,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 73,
+            "card": {
+                "address": "0x4c0",
+                "id": 12,
+                "serialno": null
+            },
+            "rawid": 1121603
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "E2"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": null,
-        "fwhm_sep": 0.0,
+        "trap_ft": 2.2,
+        "processable": true,
+        "tau": 533.78,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -2016,44 +1811,36 @@
                 "id": 12,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 0.0,
-        "fwhm_fep": 0.0,
-        "processable": true
+        }
     },
     "P00909C": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 36,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x460"
-            },
-            "rawid": 1112002
-        },
-        "fwhm_qbb": 7.92978,
-        "fwhm_qbb_err": 0.49820846,
-        "tau": 495.53,
-        "system": "geds",
-        "trap_rt": 10.8,
+        "trap_rt": 11.4,
         "name": "P00909C",
         "location": {
             "string": 3,
             "position": 7
         },
-        "m_calib": 4.712012,
-        "fwhm_bifep": 7.862973,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 36,
+            "card": {
+                "address": "0x460",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1112002
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "B5"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -5.7411966,
-        "fwhm_sep": 10.045586,
+        "trap_ft": 3.2,
+        "processable": true,
+        "tau": 487.41,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -2064,10 +1851,7 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 5.111221,
-        "fwhm_fep": 8.721383,
-        "processable": true
+        }
     },
     "PULS01ANA": {
         "name": "PULS01ANA",
@@ -2076,9 +1860,9 @@
             "channel": 3,
             "fcid": 3,
             "card": {
-                "serialno": null,
+                "address": "0x110",
                 "id": 0,
-                "address": "0x110"
+                "serialno": null
             },
             "rawid": 1027203
         },
@@ -2097,9 +1881,9 @@
             "channel": 0,
             "fcid": 169,
             "card": {
-                "serialno": null,
+                "address": "0x290",
                 "id": 9,
-                "address": "0x290"
+                "serialno": null
             },
             "rawid": 1065600
         },
@@ -2119,17 +1903,7 @@
         "system": "spms"
     },
     "C00ANG3": {
-        "voltage": {
-            "channel": 0,
-            "filter": {
-                "channel": null,
-                "id": null
-            },
-            "card": {
-                "id": 3,
-                "serialno": null
-            }
-        },
+        "trap_rt": 11.5,
         "name": "C00ANG3",
         "location": {
             "string": 2,
@@ -2140,9 +1914,9 @@
             "channel": 5,
             "fcid": 21,
             "card": {
-                "serialno": null,
+                "address": "0x430",
                 "id": 3,
-                "address": "0x430"
+                "serialno": null
             },
             "rawid": 1107205
         },
@@ -2154,9 +1928,19 @@
         },
         "trap_ft": 2.0,
         "processable": true,
-        "tau": 531.16,
+        "tau": 534.36,
         "system": "geds",
-        "trap_rt": 12.0
+        "voltage": {
+            "channel": 0,
+            "filter": {
+                "channel": null,
+                "id": null
+            },
+            "card": {
+                "id": 3,
+                "serialno": null
+            }
+        }
     },
     "S055": {
         "name": "S055",
@@ -2169,9 +1953,9 @@
             "channel": 4,
             "fcid": 125,
             "card": {
-                "serialno": null,
+                "address": "0x210",
                 "id": 1,
-                "address": "0x210"
+                "serialno": null
             },
             "rawid": 1052804
         },
@@ -2201,9 +1985,9 @@
             "channel": 5,
             "fcid": 174,
             "card": {
-                "serialno": null,
+                "address": "0x290",
                 "id": 9,
-                "address": "0x290"
+                "serialno": null
             },
             "rawid": 1065605
         },
@@ -2233,9 +2017,9 @@
             "channel": 0,
             "fcid": 133,
             "card": {
-                "serialno": null,
+                "address": "0x230",
                 "id": 3,
-                "address": "0x230"
+                "serialno": null
             },
             "rawid": 1056000
         },
@@ -2265,9 +2049,9 @@
             "channel": 4,
             "fcid": 116,
             "card": {
-                "serialno": null,
+                "address": "0x370",
                 "id": 7,
-                "address": "0x370"
+                "serialno": null
             },
             "rawid": 1088004
         },
@@ -2302,9 +2086,9 @@
             "channel": 5,
             "fcid": 150,
             "card": {
-                "serialno": null,
+                "address": "0x250",
                 "id": 5,
-                "address": "0x250"
+                "serialno": null
             },
             "rawid": 1059205
         },
@@ -2324,29 +2108,23 @@
         "system": "spms"
     },
     "B00076C": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 43,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x470"
-            },
-            "rawid": 1113603
-        },
-        "fwhm_qbb": 2.100094,
-        "fwhm_qbb_err": 0.017904032,
-        "tau": 518.94,
-        "system": "geds",
-        "trap_rt": 9.5,
+        "trap_rt": 11.1,
         "name": "B00076C",
         "location": {
             "string": 4,
             "position": 5
         },
-        "m_calib": 6.431707,
-        "fwhm_bifep": 1.9318678,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 43,
+            "card": {
+                "address": "0x470",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1113603
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -2354,8 +2132,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.8889277,
-        "fwhm_sep": 3.0344615,
+        "processable": true,
+        "tau": 515.74,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -2366,10 +2145,7 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9723176,
-        "fwhm_fep": 2.3300154,
-        "processable": true
+        }
     },
     "S030": {
         "name": "S030",
@@ -2382,9 +2158,9 @@
             "channel": 2,
             "fcid": 141,
             "card": {
-                "serialno": null,
+                "address": "0x240",
                 "id": 4,
-                "address": "0x240"
+                "serialno": null
             },
             "rawid": 1057602
         },
@@ -2404,38 +2180,33 @@
         "system": "spms"
     },
     "V05267B": {
-        "daq": {
-            "crate": 0,
-            "channel": 0,
-            "fcid": 64,
-            "card": {
-                "serialno": null,
-                "id": 11,
-                "address": "0x4b0"
-            },
-            "rawid": 1120000
-        },
-        "fwhm_qbb": 2.5974138,
-        "fwhm_qbb_err": 0.07432101,
-        "tau": 510.54,
-        "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 11.9,
         "name": "V05267B",
         "location": {
             "string": 7,
             "position": 5
         },
-        "m_calib": 6.4355426,
-        "fwhm_bifep": 2.2423222,
+        "daq": {
+            "crate": 0,
+            "channel": 0,
+            "fcid": 64,
+            "card": {
+                "address": "0x4b0",
+                "id": 11,
+                "serialno": null
+            },
+            "rawid": 1120000
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "D2"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -2.3062387,
-        "fwhm_sep": 3.6904948,
+        "trap_ft": 2.8,
+        "processable": true,
+        "tau": 510.38,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -2446,10 +2217,7 @@
                 "id": 4,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.9088562,
-        "fwhm_fep": 2.9307516,
-        "processable": true
+        }
     },
     "DUMMY07": {
         "name": "DUMMY07",
@@ -2458,9 +2226,9 @@
             "channel": 1,
             "fcid": 29,
             "card": {
-                "serialno": null,
+                "address": "0x450",
                 "id": 5,
-                "address": "0x450"
+                "serialno": null
             },
             "rawid": 1110401
         },
@@ -2477,9 +2245,9 @@
             "channel": 0,
             "fcid": 163,
             "card": {
-                "serialno": null,
+                "address": "0x280",
                 "id": 8,
-                "address": "0x280"
+                "serialno": null
             },
             "rawid": 1064000
         },
@@ -2499,29 +2267,23 @@
         "system": "spms"
     },
     "P00538A": {
-        "daq": {
-            "crate": 1,
-            "channel": 4,
-            "fcid": 86,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x320"
-            },
-            "rawid": 1080004
-        },
-        "fwhm_qbb": 2.6682215,
-        "fwhm_qbb_err": 0.020881224,
-        "tau": 548.94,
-        "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.0,
         "name": "P00538A",
         "location": {
             "string": 9,
             "position": 6
         },
-        "m_calib": 5.501941,
-        "fwhm_bifep": 2.4593964,
+        "daq": {
+            "crate": 1,
+            "channel": 4,
+            "fcid": 86,
+            "card": {
+                "address": "0x320",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1080004
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -2529,8 +2291,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": 0.89730626,
-        "fwhm_sep": 4.6215215,
+        "processable": true,
+        "tau": 550.88,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -2541,44 +2304,36 @@
                 "id": 8,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.06289,
-        "fwhm_fep": 2.9503295,
-        "processable": true
+        }
     },
     "P00662A": {
-        "daq": {
-            "crate": 1,
-            "channel": 0,
-            "fcid": 118,
-            "card": {
-                "serialno": null,
-                "id": 8,
-                "address": "0x370"
-            },
-            "rawid": 1089600
-        },
-        "fwhm_qbb": 2.6949434,
-        "fwhm_qbb_err": 0.08921398,
-        "tau": 465.04,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "P00662A",
         "location": {
             "string": 11,
             "position": 9
         },
-        "m_calib": 5.339109,
-        "fwhm_bifep": 2.3556633,
+        "daq": {
+            "crate": 1,
+            "channel": 0,
+            "fcid": 118,
+            "card": {
+                "address": "0x370",
+                "id": 8,
+                "serialno": null
+            },
+            "rawid": 1089600
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "B2"
             }
         },
-        "trap_ft": 3.8,
-        "n_calib": -2.5552855,
-        "fwhm_sep": 3.7133346,
+        "trap_ft": 4.0,
+        "processable": true,
+        "tau": 470.66,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -2589,44 +2344,36 @@
                 "id": 12,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.7838907,
-        "fwhm_fep": 3.0829399,
-        "processable": true
+        }
     },
     "C000RG2": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 20,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x430"
-            },
-            "rawid": 1107204
-        },
-        "fwhm_qbb": 5.5560427,
-        "fwhm_qbb_err": 0.081133656,
-        "tau": 469.21,
-        "system": "geds",
-        "trap_rt": 9.3,
+        "trap_rt": 8.4,
         "name": "C000RG2",
         "location": {
             "string": 2,
             "position": 3
         },
-        "m_calib": 2.700415,
-        "fwhm_bifep": 5.1933637,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 20,
+            "card": {
+                "address": "0x430",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1107204
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "A4"
             }
         },
-        "trap_ft": 1.2,
-        "n_calib": -3.6684883,
-        "fwhm_sep": 7.101522,
+        "trap_ft": 1.6,
+        "processable": true,
+        "tau": 478.27,
+        "system": "geds",
         "voltage": {
             "channel": 7,
             "filter": {
@@ -2637,44 +2384,36 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 5.2151985,
-        "fwhm_fep": 5.922395,
-        "processable": true
+        }
     },
     "B00079B": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 44,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x470"
-            },
-            "rawid": 1113604
-        },
-        "fwhm_qbb": 2.183699,
-        "fwhm_qbb_err": 0.095886566,
-        "tau": 414.04,
-        "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 9.9,
         "name": "B00079B",
         "location": {
             "string": 4,
             "position": 6
         },
-        "m_calib": 6.675645,
-        "fwhm_bifep": 1.7675917,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 44,
+            "card": {
+                "address": "0x470",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1113604
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "C5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.70677,
-        "fwhm_sep": 3.4346447,
+        "trap_ft": 1.0,
+        "processable": true,
+        "tau": 410.28,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -2685,10 +2424,7 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0100873,
-        "fwhm_fep": 2.5603743,
-        "processable": true
+        }
     },
     "S028": {
         "name": "S028",
@@ -2701,9 +2437,9 @@
             "channel": 2,
             "fcid": 147,
             "card": {
-                "serialno": null,
+                "address": "0x250",
                 "id": 5,
-                "address": "0x250"
+                "serialno": null
             },
             "rawid": 1059202
         },
@@ -2723,29 +2459,23 @@
         "system": "spms"
     },
     "B00035C": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 18,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x430"
-            },
-            "rawid": 1107202
-        },
-        "fwhm_qbb": 2.2131114,
-        "fwhm_qbb_err": 0.118338816,
-        "tau": 409.23,
-        "system": "geds",
-        "trap_rt": 10.5,
+        "trap_rt": 11.9,
         "name": "B00035C",
         "location": {
             "string": 2,
             "position": 1
         },
-        "m_calib": 6.9869475,
-        "fwhm_bifep": 2.238388,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 18,
+            "card": {
+                "address": "0x430",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1107202
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -2753,8 +2483,9 @@
             }
         },
         "trap_ft": 3.8,
-        "n_calib": -2.3920264,
-        "fwhm_sep": 2.7079632,
+        "processable": true,
+        "tau": 409.87,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -2765,23 +2496,10 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0701747,
-        "fwhm_fep": 2.357169,
-        "processable": true
+        }
     },
     "C00ANG4": {
-        "voltage": {
-            "channel": 5,
-            "filter": {
-                "channel": null,
-                "id": null
-            },
-            "card": {
-                "id": 11,
-                "serialno": null
-            }
-        },
+        "trap_rt": 12.0,
         "name": "C00ANG4",
         "location": {
             "string": 8,
@@ -2792,9 +2510,9 @@
             "channel": 5,
             "fcid": 69,
             "card": {
-                "serialno": null,
+                "address": "0x4b0",
                 "id": 11,
-                "address": "0x4b0"
+                "serialno": null
             },
             "rawid": 1120005
         },
@@ -2806,43 +2524,48 @@
         },
         "trap_ft": 2.0,
         "processable": true,
-        "tau": 445.64,
+        "tau": 448.86,
         "system": "geds",
-        "trap_rt": 12.0
+        "voltage": {
+            "channel": 5,
+            "filter": {
+                "channel": null,
+                "id": null
+            },
+            "card": {
+                "id": 11,
+                "serialno": null
+            }
+        }
     },
     "B00002C": {
-        "daq": {
-            "crate": 1,
-            "channel": 2,
-            "fcid": 96,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x340"
-            },
-            "rawid": 1083202
-        },
-        "fwhm_qbb": 1.9907992,
-        "fwhm_qbb_err": 0.069150284,
-        "tau": 453.03,
-        "system": "geds",
-        "trap_rt": 11.8,
+        "trap_rt": 11.4,
         "name": "B00002C",
         "location": {
             "string": 10,
             "position": 2
         },
-        "m_calib": 7.0401034,
-        "fwhm_bifep": 1.6734499,
+        "daq": {
+            "crate": 1,
+            "channel": 2,
+            "fcid": 96,
+            "card": {
+                "address": "0x340",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1083202
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C2"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -3.6532588,
-        "fwhm_sep": 2.897265,
+        "trap_ft": 3.2,
+        "processable": true,
+        "tau": 454.37,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -2853,10 +2576,7 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.002921,
-        "fwhm_fep": 2.2810993,
-        "processable": true
+        }
     },
     "DUMMY16": {
         "name": "DUMMY16",
@@ -2865,9 +2585,9 @@
             "channel": 2,
             "fcid": 108,
             "card": {
-                "serialno": null,
+                "address": "0x360",
                 "id": 6,
-                "address": "0x360"
+                "serialno": null
             },
             "rawid": 1086402
         },
@@ -2880,9 +2600,9 @@
             "channel": 3,
             "fcid": 79,
             "card": {
-                "serialno": null,
+                "address": "0x310",
                 "id": 1,
-                "address": "0x310"
+                "serialno": null
             },
             "rawid": 1078403
         },
@@ -2899,9 +2619,9 @@
             "channel": 5,
             "fcid": 126,
             "card": {
-                "serialno": null,
+                "address": "0x210",
                 "id": 1,
-                "address": "0x210"
+                "serialno": null
             },
             "rawid": 1052805
         },
@@ -2931,9 +2651,9 @@
             "channel": 4,
             "fcid": 26,
             "card": {
-                "serialno": null,
+                "address": "0x440",
                 "id": 4,
-                "address": "0x440"
+                "serialno": null
             },
             "rawid": 1108804
         },
@@ -2958,38 +2678,33 @@
         }
     },
     "B00091A": {
-        "daq": {
-            "crate": 1,
-            "channel": 1,
-            "fcid": 83,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x320"
-            },
-            "rawid": 1080001
-        },
-        "fwhm_qbb": 2.1973586,
-        "fwhm_qbb_err": 0.07231466,
-        "tau": 507.24,
-        "system": "geds",
-        "trap_rt": 7.7,
+        "trap_rt": 7.0,
         "name": "B00091A",
         "location": {
             "string": 9,
             "position": 3
         },
-        "m_calib": 7.0002937,
-        "fwhm_bifep": 2.1653,
+        "daq": {
+            "crate": 1,
+            "channel": 1,
+            "fcid": 83,
+            "card": {
+                "address": "0x320",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1080001
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "C1"
             }
         },
-        "trap_ft": 2.6,
-        "n_calib": -1.9306784,
-        "fwhm_sep": 3.2462695,
+        "trap_ft": 3.0,
+        "processable": true,
+        "tau": 507.11,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -3000,10 +2715,7 @@
                 "id": 8,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.1517508,
-        "fwhm_fep": 2.350391,
-        "processable": true
+        }
     },
     "B00091B": {
         "name": "B00091B",
@@ -3016,9 +2728,9 @@
             "channel": 0,
             "fcid": 94,
             "card": {
-                "serialno": null,
+                "address": "0x330",
                 "id": 4,
-                "address": "0x330"
+                "serialno": null
             },
             "rawid": 1083200
         },
@@ -3053,9 +2765,9 @@
             "channel": 2,
             "fcid": 120,
             "card": {
-                "serialno": null,
+                "address": "0x380",
                 "id": 8,
-                "address": "0x380"
+                "serialno": null
             },
             "rawid": 1089602
         },
@@ -3080,29 +2792,23 @@
         }
     },
     "V05261A": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 74,
-            "card": {
-                "serialno": null,
-                "id": 12,
-                "address": "0x4c0"
-            },
-            "rawid": 1121604
-        },
-        "fwhm_qbb": 2.8855808,
-        "fwhm_qbb_err": 0.07698875,
-        "tau": 464.81,
-        "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 9.5,
         "name": "V05261A",
         "location": {
             "string": 8,
             "position": 8
         },
-        "m_calib": 6.7744503,
-        "fwhm_bifep": 2.433062,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 74,
+            "card": {
+                "address": "0x4c0",
+                "id": 12,
+                "serialno": null
+            },
+            "rawid": 1121604
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -3110,8 +2816,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.5483055,
-        "fwhm_sep": 3.7649133,
+        "processable": true,
+        "tau": 464.77,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -3122,10 +2829,7 @@
                 "id": 12,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.1394193,
-        "fwhm_fep": 3.344411,
-        "processable": true
+        }
     },
     "V01403A": {
         "name": "V01403A",
@@ -3138,9 +2842,9 @@
             "channel": 1,
             "fcid": 47,
             "card": {
-                "serialno": null,
+                "address": "0x480",
                 "id": 8,
-                "address": "0x480"
+                "serialno": null
             },
             "rawid": 1115201
         },
@@ -3165,38 +2869,33 @@
         }
     },
     "B00002B": {
-        "daq": {
-            "crate": 1,
-            "channel": 4,
-            "fcid": 110,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x360"
-            },
-            "rawid": 1086404
-        },
-        "fwhm_qbb": 2.040516,
-        "fwhm_qbb_err": 0.0649231,
-        "tau": 427.77,
-        "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 10.5,
         "name": "B00002B",
         "location": {
             "string": 11,
             "position": 2
         },
-        "m_calib": 6.660869,
-        "fwhm_bifep": 1.843919,
+        "daq": {
+            "crate": 1,
+            "channel": 4,
+            "fcid": 110,
+            "card": {
+                "address": "0x360",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1086404
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "A3"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": 0.43158326,
-        "fwhm_sep": 3.4745104,
+        "trap_ft": 2.8,
+        "processable": true,
+        "tau": 424.58,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -3207,10 +2906,7 @@
                 "id": 5,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0171092,
-        "fwhm_fep": 2.2827458,
-        "processable": true
+        }
     },
     "S041": {
         "name": "S041",
@@ -3223,9 +2919,9 @@
             "channel": 5,
             "fcid": 138,
             "card": {
-                "serialno": null,
+                "address": "0x230",
                 "id": 3,
-                "address": "0x230"
+                "serialno": null
             },
             "rawid": 1056005
         },
@@ -3255,9 +2951,9 @@
             "channel": 2,
             "fcid": 123,
             "card": {
-                "serialno": null,
+                "address": "0x210",
                 "id": 1,
-                "address": "0x210"
+                "serialno": null
             },
             "rawid": 1052802
         },
@@ -3287,9 +2983,9 @@
             "channel": 3,
             "fcid": 172,
             "card": {
-                "serialno": null,
+                "address": "0x290",
                 "id": 9,
-                "address": "0x290"
+                "serialno": null
             },
             "rawid": 1065603
         },
@@ -3315,9 +3011,9 @@
             "channel": 1,
             "fcid": 11,
             "card": {
-                "serialno": null,
+                "address": "0x420",
                 "id": 2,
-                "address": "0x420"
+                "serialno": null
             },
             "rawid": 1105601
         },
@@ -3334,9 +3030,9 @@
             "channel": 2,
             "fcid": 165,
             "card": {
-                "serialno": null,
+                "address": "0x280",
                 "id": 8,
-                "address": "0x280"
+                "serialno": null
             },
             "rawid": 1064002
         },
@@ -3356,29 +3052,23 @@
         "system": "spms"
     },
     "B00079C": {
-        "daq": {
-            "crate": 0,
-            "channel": 5,
-            "fcid": 45,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x470"
-            },
-            "rawid": 1113605
-        },
-        "fwhm_qbb": 2.1433136,
-        "fwhm_qbb_err": 0.09566435,
-        "tau": 431.89,
-        "system": "geds",
-        "trap_rt": 11.3,
+        "trap_rt": 12.0,
         "name": "B00079C",
         "location": {
             "string": 4,
             "position": 7
         },
-        "m_calib": 6.559085,
-        "fwhm_bifep": 1.7344728,
+        "daq": {
+            "crate": 0,
+            "channel": 5,
+            "fcid": 45,
+            "card": {
+                "address": "0x470",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1113605
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -3386,8 +3076,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.387373,
-        "fwhm_sep": 3.445014,
+        "processable": true,
+        "tau": 429.73,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -3398,44 +3089,36 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.135042,
-        "fwhm_fep": 2.5164669,
-        "processable": true
+        }
     },
     "V04199A": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 62,
-            "card": {
-                "serialno": null,
-                "id": 10,
-                "address": "0x4a0"
-            },
-            "rawid": 1118404
-        },
-        "fwhm_qbb": 2.590223,
-        "fwhm_qbb_err": 0.13102658,
-        "tau": 433.2,
-        "system": "geds",
-        "trap_rt": 10.6,
+        "trap_rt": 10.9,
         "name": "V04199A",
         "location": {
             "string": 7,
             "position": 3
         },
-        "m_calib": 6.5695662,
-        "fwhm_bifep": 2.6139534,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 62,
+            "card": {
+                "address": "0x4a0",
+                "id": 10,
+                "serialno": null
+            },
+            "rawid": 1118404
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "D2"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -4.1889687,
-        "fwhm_sep": 4.148846,
+        "trap_ft": 1.2,
+        "processable": true,
+        "tau": 431.17,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -3446,35 +3129,26 @@
                 "id": 4,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.6898863,
-        "fwhm_fep": 2.6949,
-        "processable": true
+        }
     },
     "V09374A": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 56,
-            "card": {
-                "serialno": null,
-                "id": 9,
-                "address": "0x490"
-            },
-            "rawid": 1116804
-        },
-        "fwhm_qbb": 2.5520792,
-        "fwhm_qbb_err": 0.05868331,
-        "tau": 444.8,
-        "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 12.0,
         "name": "V09374A",
         "location": {
             "string": 5,
             "position": 4
         },
-        "m_calib": 6.984134,
-        "fwhm_bifep": 2.3264587,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 56,
+            "card": {
+                "address": "0x490",
+                "id": 9,
+                "serialno": null
+            },
+            "rawid": 1116804
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -3482,8 +3156,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.1209447,
-        "fwhm_sep": 3.650245,
+        "processable": true,
+        "tau": 444.61,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -3494,10 +3169,7 @@
                 "id": 7,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.4629936,
-        "fwhm_fep": 2.8029134,
-        "processable": true
+        }
     },
     "S051": {
         "name": "S051",
@@ -3510,9 +3182,9 @@
             "channel": 1,
             "fcid": 176,
             "card": {
-                "serialno": null,
+                "address": "0x2A0",
                 "id": 10,
-                "address": "0x2A0"
+                "serialno": null
             },
             "rawid": 1067201
         },
@@ -3542,9 +3214,9 @@
             "channel": 3,
             "fcid": 154,
             "card": {
-                "serialno": null,
+                "address": "0x260",
                 "id": 6,
-                "address": "0x260"
+                "serialno": null
             },
             "rawid": 1060803
         },
@@ -3574,9 +3246,9 @@
             "channel": 1,
             "fcid": 119,
             "card": {
-                "serialno": null,
+                "address": "0x370",
                 "id": 8,
-                "address": "0x370"
+                "serialno": null
             },
             "rawid": 1089601
         },
@@ -3611,9 +3283,9 @@
             "channel": 5,
             "fcid": 168,
             "card": {
-                "serialno": null,
+                "address": "0x280",
                 "id": 8,
-                "address": "0x280"
+                "serialno": null
             },
             "rawid": 1064005
         },
@@ -3633,29 +3305,23 @@
         "system": "spms"
     },
     "V04549A": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 25,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x440"
-            },
-            "rawid": 1108803
-        },
-        "fwhm_qbb": 2.5848248,
-        "fwhm_qbb_err": 0.20692074,
-        "tau": 478.14,
-        "system": "geds",
-        "trap_rt": 11.5,
+        "trap_rt": 12.0,
         "name": "V04549A",
         "location": {
             "string": 2,
             "position": 8
         },
-        "m_calib": 6.5328674,
-        "fwhm_bifep": 2.0201764,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 25,
+            "card": {
+                "address": "0x440",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1108803
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -3663,8 +3329,9 @@
             }
         },
         "trap_ft": 2.2,
-        "n_calib": -0.9034595,
-        "fwhm_sep": 3.7041216,
+        "processable": true,
+        "tau": 473.62,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -3675,10 +3342,7 @@
                 "id": 3,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.2494643,
-        "fwhm_fep": 3.059386,
-        "processable": true
+        }
     },
     "DUMMY03": {
         "name": "DUMMY03",
@@ -3687,47 +3351,42 @@
             "channel": 0,
             "fcid": 16,
             "card": {
-                "serialno": null,
+                "address": "0x430",
                 "id": 3,
-                "address": "0x430"
+                "serialno": null
             },
             "rawid": 1107200
         },
         "system": "auxs"
     },
     "P00574B": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 32,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x450"
-            },
-            "rawid": 1110404
-        },
-        "fwhm_qbb": 2.5850089,
-        "fwhm_qbb_err": 0.055819713,
-        "tau": 483.72,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "P00574B",
         "location": {
             "string": 3,
             "position": 3
         },
-        "m_calib": 5.5424876,
-        "fwhm_bifep": 2.2657156,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 32,
+            "card": {
+                "address": "0x450",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1110404
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "B5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": 0.5057955,
-        "fwhm_sep": 3.6956372,
+        "trap_ft": 3.4,
+        "processable": true,
+        "tau": 487.02,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -3738,44 +3397,36 @@
                 "id": 1,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.8148222,
-        "fwhm_fep": 2.9475222,
-        "processable": true
+        }
     },
     "B00061B": {
-        "daq": {
-            "crate": 1,
-            "channel": 1,
-            "fcid": 101,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x350"
-            },
-            "rawid": 1084801
-        },
-        "fwhm_qbb": 2.180025,
-        "fwhm_qbb_err": 0.020132616,
-        "tau": 423.88,
-        "system": "geds",
-        "trap_rt": 9.8,
+        "trap_rt": 10.5,
         "name": "B00061B",
         "location": {
             "string": 10,
             "position": 7
         },
-        "m_calib": 7.0977607,
-        "fwhm_bifep": 1.972186,
+        "daq": {
+            "crate": 1,
+            "channel": 1,
+            "fcid": 101,
+            "card": {
+                "address": "0x350",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1084801
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.0,
-        "n_calib": -1.5679567,
-        "fwhm_sep": 3.3123126,
+        "trap_ft": 2.4,
+        "processable": true,
+        "tau": 424.13,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -3786,10 +3437,7 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.8438413,
-        "fwhm_fep": 2.4332576,
-        "processable": true
+        }
     },
     "S023": {
         "name": "S023",
@@ -3802,9 +3450,9 @@
             "channel": 1,
             "fcid": 140,
             "card": {
-                "serialno": null,
+                "address": "0x240",
                 "id": 4,
-                "address": "0x240"
+                "serialno": null
             },
             "rawid": 1057601
         },
@@ -3824,38 +3472,33 @@
         "system": "spms"
     },
     "V05612A": {
-        "daq": {
-            "crate": 0,
-            "channel": 0,
-            "fcid": 10,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x410"
-            },
-            "rawid": 1105600
-        },
-        "fwhm_qbb": 3.7437057,
-        "fwhm_qbb_err": 0.287018,
-        "tau": 449.46,
-        "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 11.9,
         "name": "V05612A",
         "location": {
             "string": 1,
             "position": 7
         },
-        "m_calib": 6.5367255,
-        "fwhm_bifep": 3.3995917,
+        "daq": {
+            "crate": 0,
+            "channel": 0,
+            "fcid": 10,
+            "card": {
+                "address": "0x410",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1105600
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
                 "id": "C3"
             }
         },
-        "trap_ft": 2.0,
-        "n_calib": -3.6590915,
-        "fwhm_sep": 4.6363244,
+        "trap_ft": 1.8,
+        "processable": true,
+        "tau": 448.61,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -3866,35 +3509,26 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.676943,
-        "fwhm_fep": 4.1988845,
-        "processable": true
+        }
     },
     "V07647B": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 13,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x420"
-            },
-            "rawid": 1105603
-        },
-        "fwhm_qbb": 2.5128002,
-        "fwhm_qbb_err": 0.14181545,
-        "tau": 534.19,
-        "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 9.0,
         "name": "V07647B",
         "location": {
             "string": 1,
             "position": 9
         },
-        "m_calib": 4.5932775,
-        "fwhm_bifep": 2.0038607,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 13,
+            "card": {
+                "address": "0x420",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1105603
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -3902,8 +3536,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.0070264,
-        "fwhm_sep": 4.4636154,
+        "processable": true,
+        "tau": 536.39,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -3914,10 +3549,7 @@
                 "id": 7,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.6708794,
-        "fwhm_fep": 2.9365199,
-        "processable": true
+        }
     },
     "DUMMY08": {
         "name": "DUMMY08",
@@ -3926,38 +3558,32 @@
             "channel": 5,
             "fcid": 51,
             "card": {
-                "serialno": null,
+                "address": "0x480",
                 "id": 8,
-                "address": "0x480"
+                "serialno": null
             },
             "rawid": 1115205
         },
         "system": "auxs"
     },
     "V09372A": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 55,
-            "card": {
-                "serialno": null,
-                "id": 9,
-                "address": "0x490"
-            },
-            "rawid": 1116803
-        },
-        "fwhm_qbb": 3.287031,
-        "fwhm_qbb_err": 0.4059655,
-        "tau": 419.85,
-        "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 12.0,
         "name": "V09372A",
         "location": {
             "string": 5,
             "position": 3
         },
-        "m_calib": 7.048378,
-        "fwhm_bifep": 3.9222484,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 55,
+            "card": {
+                "address": "0x490",
+                "id": 9,
+                "serialno": null
+            },
+            "rawid": 1116803
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -3965,8 +3591,9 @@
             }
         },
         "trap_ft": 3.0,
-        "n_calib": -5.4786854,
-        "fwhm_sep": 3.591779,
+        "processable": true,
+        "tau": 420.09,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -3977,35 +3604,26 @@
                 "id": 7,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.335235,
-        "fwhm_fep": 3.073774,
-        "processable": true
+        }
     },
     "V04545A": {
-        "daq": {
-            "crate": 0,
-            "channel": 5,
-            "fcid": 63,
-            "card": {
-                "serialno": null,
-                "id": 10,
-                "address": "0x4a0"
-            },
-            "rawid": 1118405
-        },
-        "fwhm_qbb": 3.8700466,
-        "fwhm_qbb_err": 0.41589034,
-        "tau": 453.36,
-        "system": "geds",
-        "trap_rt": 7.0,
+        "trap_rt": 7.1,
         "name": "V04545A",
         "location": {
             "string": 7,
             "position": 4
         },
-        "m_calib": 6.600489,
-        "fwhm_bifep": 4.5024905,
+        "daq": {
+            "crate": 0,
+            "channel": 5,
+            "fcid": 63,
+            "card": {
+                "address": "0x4a0",
+                "id": 10,
+                "serialno": null
+            },
+            "rawid": 1118405
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
@@ -4013,8 +3631,9 @@
             }
         },
         "trap_ft": 2.8,
-        "n_calib": -8.309909,
-        "fwhm_sep": 4.5271072,
+        "processable": true,
+        "tau": 454.87,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -4025,10 +3644,7 @@
                 "id": 4,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 4.280201,
-        "fwhm_fep": 3.6675372,
-        "processable": true
+        }
     },
     "S074": {
         "name": "S074",
@@ -4041,9 +3657,9 @@
             "channel": 2,
             "fcid": 129,
             "card": {
-                "serialno": null,
+                "address": "0x220",
                 "id": 2,
-                "address": "0x220"
+                "serialno": null
             },
             "rawid": 1054402
         },
@@ -4073,9 +3689,9 @@
             "channel": 4,
             "fcid": 161,
             "card": {
-                "serialno": null,
+                "address": "0x270",
                 "id": 7,
-                "address": "0x270"
+                "serialno": null
             },
             "rawid": 1062404
         },
@@ -4095,29 +3711,23 @@
         "system": "spms"
     },
     "V00050B": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 72,
-            "card": {
-                "serialno": null,
-                "id": 12,
-                "address": "0x4c0"
-            },
-            "rawid": 1121602
-        },
-        "fwhm_qbb": 2.5148206,
-        "fwhm_qbb_err": 0.0680753,
-        "tau": 455.93,
-        "system": "geds",
-        "trap_rt": 8.2,
+        "trap_rt": 8.1,
         "name": "V00050B",
         "location": {
             "string": 8,
             "position": 6
         },
-        "m_calib": 5.263449,
-        "fwhm_bifep": 2.1571534,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 72,
+            "card": {
+                "address": "0x4c0",
+                "id": 12,
+                "serialno": null
+            },
+            "rawid": 1121602
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -4125,8 +3735,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.6046659,
-        "fwhm_sep": 3.8126552,
+        "processable": true,
+        "tau": 457.62,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -4137,35 +3748,26 @@
                 "id": 4,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.0862114,
-        "fwhm_fep": 2.8680189,
-        "processable": true
+        }
     },
     "V05261B": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 6,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x410"
-            },
-            "rawid": 1104002
-        },
-        "fwhm_qbb": null,
-        "fwhm_qbb_err": null,
-        "tau": 559.65,
-        "system": "geds",
-        "trap_rt": 7.5,
+        "trap_rt": 8.3,
         "name": "V05261B",
         "location": {
             "string": 1,
             "position": 3
         },
-        "m_calib": null,
-        "fwhm_bifep": 0.0,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 6,
+            "card": {
+                "address": "0x410",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1104002
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -4173,8 +3775,9 @@
             }
         },
         "trap_ft": 1.6,
-        "n_calib": null,
-        "fwhm_sep": 0.0,
+        "processable": true,
+        "tau": 558.72,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -4185,10 +3788,7 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 0.0,
-        "fwhm_fep": 0.0,
-        "processable": true
+        }
     },
     "V01404A": {
         "name": "V01404A",
@@ -4201,9 +3801,9 @@
             "channel": 2,
             "fcid": 48,
             "card": {
-                "serialno": null,
+                "address": "0x480",
                 "id": 8,
-                "address": "0x480"
+                "serialno": null
             },
             "rawid": 1115202
         },
@@ -4228,29 +3828,23 @@
         }
     },
     "V09724A": {
-        "daq": {
-            "crate": 0,
-            "channel": 5,
-            "fcid": 57,
-            "card": {
-                "serialno": null,
-                "id": 9,
-                "address": "0x490"
-            },
-            "rawid": 1116805
-        },
-        "fwhm_qbb": 2.549734,
-        "fwhm_qbb_err": 0.028871927,
-        "tau": 479.41,
-        "system": "geds",
-        "trap_rt": 10.6,
+        "trap_rt": 11.8,
         "name": "V09724A",
         "location": {
             "string": 5,
             "position": 5
         },
-        "m_calib": 6.482877,
-        "fwhm_bifep": 2.332747,
+        "daq": {
+            "crate": 0,
+            "channel": 5,
+            "fcid": 57,
+            "card": {
+                "address": "0x490",
+                "id": 9,
+                "serialno": null
+            },
+            "rawid": 1116805
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -4258,8 +3852,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.4831548,
-        "fwhm_sep": 3.3750288,
+        "processable": true,
+        "tau": 478.23,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -4270,10 +3865,7 @@
                 "id": 7,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.6612284,
-        "fwhm_fep": 2.784051,
-        "processable": true
+        }
     },
     "P00537A": {
         "name": "P00537A",
@@ -4286,9 +3878,9 @@
             "channel": 3,
             "fcid": 85,
             "card": {
-                "serialno": null,
+                "address": "0x320",
                 "id": 2,
-                "address": "0x320"
+                "serialno": null
             },
             "rawid": 1080003
         },
@@ -4323,9 +3915,9 @@
             "channel": 2,
             "fcid": 159,
             "card": {
-                "serialno": null,
+                "address": "0x270",
                 "id": 7,
-                "address": "0x270"
+                "serialno": null
             },
             "rawid": 1062402
         },
@@ -4345,38 +3937,33 @@
         "system": "spms"
     },
     "B00032B": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 30,
-            "card": {
-                "serialno": null,
-                "id": 5,
-                "address": "0x450"
-            },
-            "rawid": 1110402
-        },
-        "fwhm_qbb": 2.0030568,
-        "fwhm_qbb_err": 0.03940372,
-        "tau": 505.32,
-        "system": "geds",
-        "trap_rt": 8.3,
+        "trap_rt": 10.3,
         "name": "B00032B",
         "location": {
             "string": 3,
             "position": 1
         },
-        "m_calib": 6.5414343,
-        "fwhm_bifep": 1.7501498,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 30,
+            "card": {
+                "address": "0x450",
+                "id": 5,
+                "serialno": null
+            },
+            "rawid": 1110402
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "A5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.48412746,
-        "fwhm_sep": 3.3020763,
+        "trap_ft": 3.8,
+        "processable": true,
+        "tau": 502.12,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -4387,44 +3974,36 @@
                 "id": 1,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.8848301,
-        "fwhm_fep": 2.264703,
-        "processable": true
+        }
     },
     "V08682A": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 54,
-            "card": {
-                "serialno": null,
-                "id": 9,
-                "address": "0x490"
-            },
-            "rawid": 1116802
-        },
-        "fwhm_qbb": 2.9080281,
-        "fwhm_qbb_err": 0.062767096,
-        "tau": 453.59,
-        "system": "geds",
-        "trap_rt": 10.6,
+        "trap_rt": 11.1,
         "name": "V08682A",
         "location": {
             "string": 5,
             "position": 2
         },
-        "m_calib": 6.834118,
-        "fwhm_bifep": 2.601756,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 54,
+            "card": {
+                "address": "0x490",
+                "id": 9,
+                "serialno": null
+            },
+            "rawid": 1116802
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "D4"
             }
         },
-        "trap_ft": 3.0,
-        "n_calib": -3.9484098,
-        "fwhm_sep": 3.8958797,
+        "trap_ft": 3.2,
+        "processable": true,
+        "tau": 452.19,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -4435,10 +4014,7 @@
                 "id": 7,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.7856207,
-        "fwhm_fep": 3.1947463,
-        "processable": true
+        }
     },
     "S009": {
         "name": "S009",
@@ -4451,9 +4027,9 @@
             "channel": 0,
             "fcid": 157,
             "card": {
-                "serialno": null,
+                "address": "0x270",
                 "id": 7,
-                "address": "0x270"
+                "serialno": null
             },
             "rawid": 1062400
         },
@@ -4483,9 +4059,9 @@
             "channel": 0,
             "fcid": 112,
             "card": {
-                "serialno": null,
+                "address": "0x360",
                 "id": 7,
-                "address": "0x360"
+                "serialno": null
             },
             "rawid": 1088000
         },
@@ -4520,9 +4096,9 @@
             "channel": 5,
             "fcid": 156,
             "card": {
-                "serialno": null,
+                "address": "0x260",
                 "id": 6,
-                "address": "0x260"
+                "serialno": null
             },
             "rawid": 1060805
         },
@@ -4552,9 +4128,9 @@
             "channel": 3,
             "fcid": 121,
             "card": {
-                "serialno": null,
+                "address": "0x380",
                 "id": 8,
-                "address": "0x380"
+                "serialno": null
             },
             "rawid": 1089603
         },
@@ -4579,38 +4155,33 @@
         }
     },
     "B00000C": {
-        "daq": {
-            "crate": 0,
-            "channel": 0,
-            "fcid": 40,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x470"
-            },
-            "rawid": 1113600
-        },
-        "fwhm_qbb": 2.0505466,
-        "fwhm_qbb_err": 0.032183968,
-        "tau": 465.09,
-        "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 11.2,
         "name": "B00000C",
         "location": {
             "string": 4,
             "position": 2
         },
-        "m_calib": 6.852438,
-        "fwhm_bifep": 1.8068596,
+        "daq": {
+            "crate": 0,
+            "channel": 0,
+            "fcid": 40,
+            "card": {
+                "address": "0x470",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1113600
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C5"
             }
         },
-        "trap_ft": 2.8,
-        "n_calib": -2.0135865,
-        "fwhm_sep": 3.0033536,
+        "trap_ft": 3.6,
+        "processable": true,
+        "tau": 465.93,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -4621,10 +4192,7 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.8619618,
-        "fwhm_fep": 2.3218837,
-        "processable": true
+        }
     },
     "S070": {
         "name": "S070",
@@ -4637,9 +4205,9 @@
             "channel": 5,
             "fcid": 132,
             "card": {
-                "serialno": null,
+                "address": "0x220",
                 "id": 2,
-                "address": "0x220"
+                "serialno": null
             },
             "rawid": 1054405
         },
@@ -4659,38 +4227,33 @@
         "system": "spms"
     },
     "B00002A": {
-        "daq": {
-            "crate": 1,
-            "channel": 5,
-            "fcid": 81,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x310"
-            },
-            "rawid": 1078405
-        },
-        "fwhm_qbb": 2.225008,
-        "fwhm_qbb_err": 0.04897535,
-        "tau": 426.76,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "B00002A",
         "location": {
             "string": 9,
             "position": 1
         },
-        "m_calib": 6.9884744,
-        "fwhm_bifep": 2.0345874,
+        "daq": {
+            "crate": 1,
+            "channel": 5,
+            "fcid": 81,
+            "card": {
+                "address": "0x310",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1078405
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C1"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -2.2099786,
-        "fwhm_sep": 3.4212916,
+        "trap_ft": 2.6,
+        "processable": true,
+        "tau": 427.31,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -4701,35 +4264,26 @@
                 "id": 8,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0169544,
-        "fwhm_fep": 2.4572928,
-        "processable": true
+        }
     },
     "V00050A": {
-        "daq": {
-            "crate": 0,
-            "channel": 1,
-            "fcid": 71,
-            "card": {
-                "serialno": null,
-                "id": 12,
-                "address": "0x4c0"
-            },
-            "rawid": 1121601
-        },
-        "fwhm_qbb": 2.1341288,
-        "fwhm_qbb_err": 0.01885617,
-        "tau": 458.28,
-        "system": "geds",
-        "trap_rt": 11.7,
+        "trap_rt": 10.5,
         "name": "V00050A",
         "location": {
             "string": 8,
             "position": 5
         },
-        "m_calib": 6.6321764,
-        "fwhm_bifep": 1.9320995,
+        "daq": {
+            "crate": 0,
+            "channel": 1,
+            "fcid": 71,
+            "card": {
+                "address": "0x4c0",
+                "id": 12,
+                "serialno": null
+            },
+            "rawid": 1121601
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -4737,8 +4291,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -2.7967808,
-        "fwhm_sep": 3.3290567,
+        "processable": true,
+        "tau": 455.77,
+        "system": "geds",
         "voltage": {
             "channel": 7,
             "filter": {
@@ -4749,10 +4304,7 @@
                 "id": 11,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.1359553,
-        "fwhm_fep": 2.3616576,
-        "processable": true
+        }
     },
     "V01415A": {
         "name": "V01415A",
@@ -4765,9 +4317,9 @@
             "channel": 4,
             "fcid": 50,
             "card": {
-                "serialno": null,
+                "address": "0x480",
                 "id": 8,
-                "address": "0x480"
+                "serialno": null
             },
             "rawid": 1115204
         },
@@ -4802,9 +4354,9 @@
             "channel": 0,
             "fcid": 127,
             "card": {
-                "serialno": null,
+                "address": "0x220",
                 "id": 2,
-                "address": "0x220"
+                "serialno": null
             },
             "rawid": 1054400
         },
@@ -4834,9 +4386,9 @@
             "channel": 2,
             "fcid": 84,
             "card": {
-                "serialno": null,
+                "address": "0x320",
                 "id": 2,
-                "address": "0x320"
+                "serialno": null
             },
             "rawid": 1080002
         },
@@ -4871,9 +4423,9 @@
             "channel": 5,
             "fcid": 180,
             "card": {
-                "serialno": null,
+                "address": "0x2A0",
                 "id": 10,
-                "address": "0x2A0"
+                "serialno": null
             },
             "rawid": 1067205
         },
@@ -4893,38 +4445,33 @@
         "system": "spms"
     },
     "B00000A": {
-        "daq": {
-            "crate": 1,
-            "channel": 3,
-            "fcid": 109,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x360"
-            },
-            "rawid": 1086403
-        },
-        "fwhm_qbb": 1.9718273,
-        "fwhm_qbb_err": 0.11137248,
-        "tau": 421.53,
-        "system": "geds",
-        "trap_rt": 10.4,
+        "trap_rt": 10.0,
         "name": "B00000A",
         "location": {
             "string": 11,
             "position": 1
         },
-        "m_calib": 6.9301047,
-        "fwhm_bifep": 1.5698807,
+        "daq": {
+            "crate": 1,
+            "channel": 3,
+            "fcid": 109,
+            "card": {
+                "address": "0x360",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1086403
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "A3"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": 0.30595776,
-        "fwhm_sep": 3.591624,
+        "trap_ft": 2.6,
+        "processable": true,
+        "tau": 419.65,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -4935,10 +4482,7 @@
                 "id": 5,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.8982328,
-        "fwhm_fep": 2.3018832,
-        "processable": true
+        }
     },
     "S045": {
         "name": "S045",
@@ -4951,9 +4495,9 @@
             "channel": 2,
             "fcid": 177,
             "card": {
-                "serialno": null,
+                "address": "0x2A0",
                 "id": 10,
-                "address": "0x2A0"
+                "serialno": null
             },
             "rawid": 1067202
         },
@@ -4983,9 +4527,9 @@
             "channel": 5,
             "fcid": 162,
             "card": {
-                "serialno": null,
+                "address": "0x270",
                 "id": 7,
-                "address": "0x270"
+                "serialno": null
             },
             "rawid": 1062405
         },
@@ -5005,38 +4549,33 @@
         "system": "spms"
     },
     "B00000D": {
-        "daq": {
-            "crate": 1,
-            "channel": 1,
-            "fcid": 95,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x340"
-            },
-            "rawid": 1083201
-        },
-        "fwhm_qbb": 2.1005158,
-        "fwhm_qbb_err": 0.026953967,
-        "tau": 508.2,
-        "system": "geds",
-        "trap_rt": 10.8,
+        "trap_rt": 8.1,
         "name": "B00000D",
         "location": {
             "string": 10,
             "position": 1
         },
-        "m_calib": 6.709047,
-        "fwhm_bifep": 1.8831656,
+        "daq": {
+            "crate": 1,
+            "channel": 1,
+            "fcid": 95,
+            "card": {
+                "address": "0x340",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1083201
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C2"
             }
         },
-        "trap_ft": 2.4,
-        "n_calib": -2.0989902,
-        "fwhm_sep": 3.0415075,
+        "trap_ft": 3.2,
+        "processable": true,
+        "tau": 507.84,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -5047,10 +4586,7 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.0041087,
-        "fwhm_fep": 2.337722,
-        "processable": true
+        }
     },
     "DUMMY11": {
         "name": "DUMMY11",
@@ -5059,38 +4595,32 @@
             "channel": 1,
             "fcid": 59,
             "card": {
-                "serialno": null,
+                "address": "0x4a0",
                 "id": 10,
-                "address": "0x4a0"
+                "serialno": null
             },
             "rawid": 1118401
         },
         "system": "auxs"
     },
     "P00573A": {
-        "daq": {
-            "crate": 1,
-            "channel": 5,
-            "fcid": 87,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x320"
-            },
-            "rawid": 1080005
-        },
-        "fwhm_qbb": 2.685924,
-        "fwhm_qbb_err": 0.017956607,
-        "tau": 454.15,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "P00573A",
         "location": {
             "string": 9,
             "position": 7
         },
-        "m_calib": 5.9098363,
-        "fwhm_bifep": 2.3961484,
+        "daq": {
+            "crate": 1,
+            "channel": 5,
+            "fcid": 87,
+            "card": {
+                "address": "0x320",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1080005
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -5098,8 +4628,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.9449886,
-        "fwhm_sep": 3.342194,
+        "processable": true,
+        "tau": 454.58,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -5110,44 +4641,36 @@
                 "id": 8,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.299135,
-        "fwhm_fep": 3.0473657,
-        "processable": true
+        }
     },
     "V01406A": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 49,
-            "card": {
-                "serialno": null,
-                "id": 8,
-                "address": "0x480"
-            },
-            "rawid": 1115203
-        },
-        "fwhm_qbb": 6.3703628,
-        "fwhm_qbb_err": 0.44143468,
-        "tau": 554.13,
-        "system": "geds",
-        "trap_rt": 7.0,
+        "trap_rt": 7.1,
         "name": "V01406A",
         "location": {
             "string": 4,
             "position": 11
         },
-        "m_calib": 4.363473,
-        "fwhm_bifep": 5.052033,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 49,
+            "card": {
+                "address": "0x480",
+                "id": 8,
+                "serialno": null
+            },
+            "rawid": 1115203
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "D5"
             }
         },
-        "trap_ft": 1.4,
-        "n_calib": -6.2610426,
-        "fwhm_sep": 7.436971,
+        "trap_ft": 1.2,
+        "processable": true,
+        "tau": 556.05,
+        "system": "geds",
         "voltage": {
             "channel": 2,
             "filter": {
@@ -5158,23 +4681,10 @@
                 "id": 1,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.7619734,
-        "fwhm_fep": 7.367498,
-        "processable": true
+        }
     },
     "C00ANG2": {
-        "voltage": {
-            "channel": 2,
-            "filter": {
-                "channel": null,
-                "id": null
-            },
-            "card": {
-                "id": 3,
-                "serialno": null
-            }
-        },
+        "trap_rt": 11.9,
         "name": "C00ANG2",
         "location": {
             "string": 2,
@@ -5185,9 +4695,9 @@
             "channel": 1,
             "fcid": 23,
             "card": {
-                "serialno": null,
+                "address": "0x440",
                 "id": 4,
-                "address": "0x440"
+                "serialno": null
             },
             "rawid": 1108801
         },
@@ -5199,9 +4709,19 @@
         },
         "trap_ft": 2.0,
         "processable": true,
-        "tau": 510.7,
+        "tau": 518.28,
         "system": "geds",
-        "trap_rt": 10.0
+        "voltage": {
+            "channel": 2,
+            "filter": {
+                "channel": null,
+                "id": null
+            },
+            "card": {
+                "id": 3,
+                "serialno": null
+            }
+        }
     },
     "S022": {
         "name": "S022",
@@ -5214,9 +4734,9 @@
             "channel": 2,
             "fcid": 153,
             "card": {
-                "serialno": null,
+                "address": "0x260",
                 "id": 6,
-                "address": "0x260"
+                "serialno": null
             },
             "rawid": 1060802
         },
@@ -5246,9 +4766,9 @@
             "channel": 4,
             "fcid": 179,
             "card": {
-                "serialno": null,
+                "address": "0x2A0",
                 "id": 10,
-                "address": "0x2A0"
+                "serialno": null
             },
             "rawid": 1067204
         },
@@ -5278,9 +4798,9 @@
             "channel": 5,
             "fcid": 105,
             "card": {
-                "serialno": null,
+                "address": "0x350",
                 "id": 5,
-                "address": "0x350"
+                "serialno": null
             },
             "rawid": 1084805
         },
@@ -5305,38 +4825,33 @@
         }
     },
     "P00698A": {
-        "daq": {
-            "crate": 0,
-            "channel": 0,
-            "fcid": 34,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x460"
-            },
-            "rawid": 1112000
-        },
-        "fwhm_qbb": 2.6972296,
-        "fwhm_qbb_err": 0.16599678,
-        "tau": 466.74,
-        "system": "geds",
-        "trap_rt": 9.2,
+        "trap_rt": 8.3,
         "name": "P00698A",
         "location": {
             "string": 3,
             "position": 5
         },
-        "m_calib": 5.8180337,
-        "fwhm_bifep": 2.0444195,
+        "daq": {
+            "crate": 0,
+            "channel": 0,
+            "fcid": 34,
+            "card": {
+                "address": "0x460",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1112000
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
                 "id": "B5"
             }
         },
-        "trap_ft": 4.0,
-        "n_calib": -0.53763247,
-        "fwhm_sep": 3.2744796,
+        "trap_ft": 3.6,
+        "processable": true,
+        "tau": 468.39,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5347,35 +4862,26 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.6679566,
-        "fwhm_fep": 3.1598136,
-        "processable": true
+        }
     },
     "P00661C": {
-        "daq": {
-            "crate": 1,
-            "channel": 0,
-            "fcid": 88,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x320"
-            },
-            "rawid": 1081600
-        },
-        "fwhm_qbb": 3.671945,
-        "fwhm_qbb_err": 0.2861883,
-        "tau": 468.76,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "P00661C",
         "location": {
             "string": 9,
             "position": 8
         },
-        "m_calib": 5.834326,
-        "fwhm_bifep": 3.2831063,
+        "daq": {
+            "crate": 1,
+            "channel": 0,
+            "fcid": 88,
+            "card": {
+                "address": "0x320",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1081600
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
@@ -5383,8 +4889,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.2175092,
-        "fwhm_sep": 4.875778,
+        "processable": true,
+        "tau": 492.05,
+        "system": "geds",
         "voltage": {
             "channel": 7,
             "filter": {
@@ -5395,10 +4902,7 @@
                 "id": 8,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 4.0321608,
-        "fwhm_fep": 3.9961455,
-        "processable": true
+        }
     },
     "DUMMY12": {
         "name": "DUMMY12",
@@ -5407,9 +4911,9 @@
             "channel": 1,
             "fcid": 77,
             "card": {
-                "serialno": null,
+                "address": "0x310",
                 "id": 1,
-                "address": "0x310"
+                "serialno": null
             },
             "rawid": 1078401
         },
@@ -5422,47 +4926,42 @@
             "channel": 5,
             "fcid": 117,
             "card": {
-                "serialno": null,
+                "address": "0x380",
                 "id": 7,
-                "address": "0x380"
+                "serialno": null
             },
             "rawid": 1088005
         },
         "system": "auxs"
     },
     "B00089A": {
-        "daq": {
-            "crate": 1,
-            "channel": 0,
-            "fcid": 82,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x310"
-            },
-            "rawid": 1080000
-        },
-        "fwhm_qbb": 1.9752556,
-        "fwhm_qbb_err": 0.105034314,
-        "tau": 463.71,
-        "system": "geds",
-        "trap_rt": 8.0,
+        "trap_rt": 7.1,
         "name": "B00089A",
         "location": {
             "string": 9,
             "position": 2
         },
-        "m_calib": 7.02109,
-        "fwhm_bifep": 1.592558,
+        "daq": {
+            "crate": 1,
+            "channel": 0,
+            "fcid": 82,
+            "card": {
+                "address": "0x310",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1080000
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "C1"
             }
         },
-        "trap_ft": 2.2,
-        "n_calib": -1.4797481,
-        "fwhm_sep": 3.192034,
+        "trap_ft": 2.0,
+        "processable": true,
+        "tau": 464.25,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -5473,44 +4972,36 @@
                 "id": 8,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9028157,
-        "fwhm_fep": 2.3136387,
-        "processable": true
+        }
     },
     "P00748B": {
-        "daq": {
-            "crate": 1,
-            "channel": 4,
-            "fcid": 92,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x330"
-            },
-            "rawid": 1081604
-        },
-        "fwhm_qbb": 7.0067525,
-        "fwhm_qbb_err": 0.82637537,
-        "tau": 579.26,
-        "system": "geds",
         "trap_rt": 7.1,
         "name": "P00748B",
         "location": {
             "string": 9,
             "position": 12
         },
-        "m_calib": 4.0290914,
-        "fwhm_bifep": 5.9203796,
+        "daq": {
+            "crate": 1,
+            "channel": 4,
+            "fcid": 92,
+            "card": {
+                "address": "0x330",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1081604
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "A1"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": -5.7381907,
-        "fwhm_sep": 9.584075,
+        "trap_ft": 3.8,
+        "processable": true,
+        "tau": 584.59,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -5521,10 +5012,7 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 6.248514,
-        "fwhm_fep": 8.843925,
-        "processable": true
+        }
     },
     "PULS01": {
         "name": "PULS01",
@@ -5533,9 +5021,9 @@
             "channel": 1,
             "fcid": 1,
             "card": {
-                "serialno": null,
+                "address": "0x110",
                 "id": 0,
-                "address": "0x110"
+                "serialno": null
             },
             "rawid": 1027201
         },
@@ -5550,47 +5038,42 @@
             "channel": 2,
             "fcid": 78,
             "card": {
-                "serialno": null,
+                "address": "0x310",
                 "id": 1,
-                "address": "0x310"
+                "serialno": null
             },
             "rawid": 1078402
         },
         "system": "auxs"
     },
     "B00032D": {
-        "daq": {
-            "crate": 1,
-            "channel": 4,
-            "fcid": 98,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x340"
-            },
-            "rawid": 1083204
-        },
-        "fwhm_qbb": 2.174646,
-        "fwhm_qbb_err": 0.06452254,
-        "tau": 431.82,
-        "system": "geds",
-        "trap_rt": 9.5,
+        "trap_rt": 8.2,
         "name": "B00032D",
         "location": {
             "string": 10,
             "position": 4
         },
-        "m_calib": 6.8999815,
-        "fwhm_bifep": 2.1007452,
+        "daq": {
+            "crate": 1,
+            "channel": 4,
+            "fcid": 98,
+            "card": {
+                "address": "0x340",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1083204
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.4,
-        "n_calib": -0.41067845,
-        "fwhm_sep": 3.048218,
+        "trap_ft": 3.8,
+        "processable": true,
+        "tau": 431.51,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5601,35 +5084,26 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9838997,
-        "fwhm_fep": 2.3615828,
-        "processable": true
+        }
     },
     "P00661B": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 37,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x460"
-            },
-            "rawid": 1112003
-        },
-        "fwhm_qbb": 2.3934083,
-        "fwhm_qbb_err": 0.06316537,
-        "tau": 434.82,
-        "system": "geds",
-        "trap_rt": 7.9,
+        "trap_rt": 7.4,
         "name": "P00661B",
         "location": {
             "string": 3,
             "position": 8
         },
-        "m_calib": 6.035073,
-        "fwhm_bifep": 2.2787364,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 37,
+            "card": {
+                "address": "0x460",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1112003
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -5637,8 +5111,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.0267941,
-        "fwhm_sep": 3.1800058,
+        "processable": true,
+        "tau": 436.22,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -5649,10 +5124,7 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.6116796,
-        "fwhm_fep": 2.6281905,
-        "processable": true
+        }
     },
     "S053": {
         "name": "S053",
@@ -5665,9 +5137,9 @@
             "channel": 4,
             "fcid": 173,
             "card": {
-                "serialno": null,
+                "address": "0x290",
                 "id": 9,
-                "address": "0x290"
+                "serialno": null
             },
             "rawid": 1065604
         },
@@ -5687,38 +5159,33 @@
         "system": "spms"
     },
     "B00061C": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 42,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x470"
-            },
-            "rawid": 1113602
-        },
-        "fwhm_qbb": 2.10255,
-        "fwhm_qbb_err": 0.037439816,
-        "tau": 473.61,
-        "system": "geds",
-        "trap_rt": 10.2,
+        "trap_rt": 10.8,
         "name": "B00061C",
         "location": {
             "string": 4,
             "position": 4
         },
-        "m_calib": 6.7654614,
-        "fwhm_bifep": 1.9824432,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 42,
+            "card": {
+                "address": "0x470",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1113602
+        },
         "electronics": {
             "cc4": {
                 "channel": 3,
                 "id": "C5"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": -0.9629252,
-        "fwhm_sep": 3.3201,
+        "trap_ft": 3.6,
+        "processable": true,
+        "tau": 472.73,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -5729,10 +5196,7 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9113756,
-        "fwhm_fep": 2.3007693,
-        "processable": true
+        }
     },
     "DUMMY15": {
         "name": "DUMMY15",
@@ -5741,47 +5205,42 @@
             "channel": 4,
             "fcid": 80,
             "card": {
-                "serialno": null,
+                "address": "0x310",
                 "id": 1,
-                "address": "0x310"
+                "serialno": null
             },
             "rawid": 1078404
         },
         "system": "auxs"
     },
     "P00909B": {
-        "daq": {
-            "crate": 1,
-            "channel": 5,
-            "fcid": 93,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x330"
-            },
-            "rawid": 1081605
-        },
-        "fwhm_qbb": 2.3631086,
-        "fwhm_qbb_err": 0.058203503,
-        "tau": 532.26,
-        "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.0,
         "name": "P00909B",
         "location": {
             "string": 9,
             "position": 13
         },
-        "m_calib": 5.6865177,
-        "fwhm_bifep": 2.2324796,
+        "daq": {
+            "crate": 1,
+            "channel": 5,
+            "fcid": 93,
+            "card": {
+                "address": "0x330",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1081605
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
                 "id": "A1"
             }
         },
-        "trap_ft": 3.8,
-        "n_calib": -2.2778566,
-        "fwhm_sep": 3.5211565,
+        "trap_ft": 3.4,
+        "processable": true,
+        "tau": 532.35,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -5792,10 +5251,7 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.4514751,
-        "fwhm_fep": 2.6028717,
-        "processable": true
+        }
     },
     "S003": {
         "name": "S003",
@@ -5808,9 +5264,9 @@
             "channel": 5,
             "fcid": 144,
             "card": {
-                "serialno": null,
+                "address": "0x240",
                 "id": 4,
-                "address": "0x240"
+                "serialno": null
             },
             "rawid": 1057605
         },
@@ -5830,38 +5286,33 @@
         "system": "spms"
     },
     "V02160A": {
-        "daq": {
-            "crate": 0,
-            "channel": 0,
-            "fcid": 4,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x410"
-            },
-            "rawid": 1104000
-        },
-        "fwhm_qbb": 2.1813376,
-        "fwhm_qbb_err": 0.040499378,
-        "tau": 520.29,
-        "system": "geds",
-        "trap_rt": 10.3,
+        "trap_rt": 7.4,
         "name": "V02160A",
         "location": {
             "string": 1,
             "position": 1
         },
-        "m_calib": 6.4636426,
-        "fwhm_bifep": 1.9438105,
+        "daq": {
+            "crate": 0,
+            "channel": 0,
+            "fcid": 4,
+            "card": {
+                "address": "0x410",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1104000
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C3"
             }
         },
-        "trap_ft": 3.2,
-        "n_calib": -0.6709028,
-        "fwhm_sep": 3.380194,
+        "trap_ft": 4.0,
+        "processable": true,
+        "tau": 514.92,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5872,44 +5323,36 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9499673,
-        "fwhm_fep": 2.4295712,
-        "processable": true
+        }
     },
     "B00000B": {
-        "daq": {
-            "crate": 0,
-            "channel": 5,
-            "fcid": 39,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x460"
-            },
-            "rawid": 1112005
-        },
-        "fwhm_qbb": 2.136589,
-        "fwhm_qbb_err": 0.05986973,
-        "tau": 483.3,
-        "system": "geds",
-        "trap_rt": 11.6,
+        "trap_rt": 11.8,
         "name": "B00000B",
         "location": {
             "string": 4,
             "position": 1
         },
-        "m_calib": 7.200943,
-        "fwhm_bifep": 2.055842,
+        "daq": {
+            "crate": 0,
+            "channel": 5,
+            "fcid": 39,
+            "card": {
+                "address": "0x460",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1112005
+        },
         "electronics": {
             "cc4": {
                 "channel": 0,
                 "id": "C5"
             }
         },
-        "trap_ft": 3.6,
-        "n_calib": -1.9565916,
-        "fwhm_sep": 3.09024,
+        "trap_ft": 3.8,
+        "processable": true,
+        "tau": 483.98,
+        "system": "geds",
         "voltage": {
             "channel": 0,
             "filter": {
@@ -5920,10 +5363,7 @@
                 "id": 0,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.8793406,
-        "fwhm_fep": 2.3266568,
-        "processable": true
+        }
     },
     "S057": {
         "name": "S057",
@@ -5936,9 +5376,9 @@
             "channel": 1,
             "fcid": 152,
             "card": {
-                "serialno": null,
+                "address": "0x260",
                 "id": 6,
-                "address": "0x260"
+                "serialno": null
             },
             "rawid": 1060801
         },
@@ -5968,9 +5408,9 @@
             "channel": 4,
             "fcid": 137,
             "card": {
-                "serialno": null,
+                "address": "0x230",
                 "id": 3,
-                "address": "0x230"
+                "serialno": null
             },
             "rawid": 1056004
         },
@@ -5996,9 +5436,9 @@
             "channel": 0,
             "fcid": 52,
             "card": {
-                "serialno": null,
+                "address": "0x490",
                 "id": 9,
-                "address": "0x490"
+                "serialno": null
             },
             "rawid": 1116800
         },
@@ -6015,9 +5455,9 @@
             "channel": 1,
             "fcid": 164,
             "card": {
-                "serialno": null,
+                "address": "0x280",
                 "id": 8,
-                "address": "0x280"
+                "serialno": null
             },
             "rawid": 1064001
         },
@@ -6037,29 +5477,23 @@
         "system": "spms"
     },
     "V07647A": {
-        "daq": {
-            "crate": 0,
-            "channel": 2,
-            "fcid": 12,
-            "card": {
-                "serialno": null,
-                "id": 2,
-                "address": "0x420"
-            },
-            "rawid": 1105602
-        },
-        "fwhm_qbb": 2.819694,
-        "fwhm_qbb_err": 0.066214316,
-        "tau": 498.89,
-        "system": "geds",
-        "trap_rt": 12.0,
+        "trap_rt": 11.9,
         "name": "V07647A",
         "location": {
             "string": 1,
             "position": 8
         },
-        "m_calib": 6.8937798,
-        "fwhm_bifep": 2.51032,
+        "daq": {
+            "crate": 0,
+            "channel": 2,
+            "fcid": 12,
+            "card": {
+                "address": "0x420",
+                "id": 2,
+                "serialno": null
+            },
+            "rawid": 1105602
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -6067,8 +5501,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": 0.3783535,
-        "fwhm_sep": 4.0731497,
+        "processable": true,
+        "tau": 502.1,
+        "system": "geds",
         "voltage": {
             "channel": 7,
             "filter": {
@@ -6079,35 +5514,26 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.7680964,
-        "fwhm_fep": 3.1370735,
-        "processable": true
+        }
     },
     "V05268B": {
-        "daq": {
-            "crate": 0,
-            "channel": 5,
-            "fcid": 9,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x420"
-            },
-            "rawid": 1104005
-        },
-        "fwhm_qbb": 3.6428132,
-        "fwhm_qbb_err": 0.017652113,
-        "tau": 445.87,
-        "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.4,
         "name": "V05268B",
         "location": {
             "string": 1,
             "position": 6
         },
-        "m_calib": 6.6741853,
-        "fwhm_bifep": 3.5287802,
+        "daq": {
+            "crate": 0,
+            "channel": 5,
+            "fcid": 9,
+            "card": {
+                "address": "0x420",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1104005
+        },
         "electronics": {
             "cc4": {
                 "channel": 5,
@@ -6115,8 +5541,9 @@
             }
         },
         "trap_ft": 3.2,
-        "n_calib": -2.496765,
-        "fwhm_sep": 4.4430637,
+        "processable": true,
+        "tau": 447.4,
+        "system": "geds",
         "voltage": {
             "channel": 5,
             "filter": {
@@ -6127,35 +5554,26 @@
                 "id": 6,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.6579413,
-        "fwhm_fep": 3.8231325,
-        "processable": true
+        }
     },
     "V07302A": {
-        "daq": {
-            "crate": 1,
-            "channel": 0,
-            "fcid": 76,
-            "card": {
-                "serialno": null,
-                "id": 1,
-                "address": "0x4c0"
-            },
-            "rawid": 1078400
-        },
-        "fwhm_qbb": 2.296592,
-        "fwhm_qbb_err": 0.013852822,
-        "tau": 447.73,
-        "system": "geds",
-        "trap_rt": 7.2,
+        "trap_rt": 7.0,
         "name": "V07302A",
         "location": {
             "string": 8,
             "position": 10
         },
-        "m_calib": 7.013428,
-        "fwhm_bifep": 2.1082158,
+        "daq": {
+            "crate": 1,
+            "channel": 0,
+            "fcid": 76,
+            "card": {
+                "address": "0x4c0",
+                "id": 1,
+                "serialno": null
+            },
+            "rawid": 1078400
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -6163,8 +5581,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.729848,
-        "fwhm_sep": 3.2085419,
+        "processable": true,
+        "tau": 447.53,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -6175,44 +5594,36 @@
                 "id": 12,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.3521872,
-        "fwhm_fep": 2.5261004,
-        "processable": true
+        }
     },
     "C000RG1": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 19,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x430"
-            },
-            "rawid": 1107203
-        },
-        "fwhm_qbb": 6.213388,
-        "fwhm_qbb_err": 0.11846139,
-        "tau": 528.34,
-        "system": "geds",
-        "trap_rt": 11.8,
+        "trap_rt": 10.4,
         "name": "C000RG1",
         "location": {
             "string": 2,
             "position": 2
         },
-        "m_calib": 2.351405,
-        "fwhm_bifep": 5.6811137,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 19,
+            "card": {
+                "address": "0x430",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1107203
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
                 "id": "A4"
             }
         },
-        "trap_ft": 1.4,
-        "n_calib": -1.8872069,
-        "fwhm_sep": 7.217863,
+        "trap_ft": 1.2,
+        "processable": true,
+        "tau": 531.44,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -6223,35 +5634,26 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 6.613128,
-        "fwhm_fep": 6.842645,
-        "processable": true
+        }
     },
     "P00573B": {
-        "daq": {
-            "crate": 1,
-            "channel": 1,
-            "fcid": 113,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x370"
-            },
-            "rawid": 1088001
-        },
-        "fwhm_qbb": 2.808265,
-        "fwhm_qbb_err": 0.08395806,
-        "tau": 549.46,
-        "system": "geds",
-        "trap_rt": 7.1,
+        "trap_rt": 7.2,
         "name": "P00573B",
         "location": {
             "string": 11,
             "position": 5
         },
-        "m_calib": 5.26252,
-        "fwhm_bifep": 2.3641543,
+        "daq": {
+            "crate": 1,
+            "channel": 1,
+            "fcid": 113,
+            "card": {
+                "address": "0x370",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1088001
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
@@ -6259,8 +5661,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.3869588,
-        "fwhm_sep": 4.2471895,
+        "processable": true,
+        "tau": 549.14,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -6271,44 +5674,36 @@
                 "id": 5,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.543473,
-        "fwhm_fep": 3.259111,
-        "processable": true
+        }
     },
     "B00035A": {
-        "daq": {
-            "crate": 1,
-            "channel": 5,
-            "fcid": 99,
-            "card": {
-                "serialno": null,
-                "id": 4,
-                "address": "0x340"
-            },
-            "rawid": 1083205
-        },
-        "fwhm_qbb": 2.0522656,
-        "fwhm_qbb_err": 0.05667009,
-        "tau": 465.68,
-        "system": "geds",
-        "trap_rt": 9.9,
+        "trap_rt": 11.6,
         "name": "B00035A",
         "location": {
             "string": 10,
             "position": 5
         },
-        "m_calib": 6.9464784,
-        "fwhm_bifep": 1.739646,
+        "daq": {
+            "crate": 1,
+            "channel": 5,
+            "fcid": 99,
+            "card": {
+                "address": "0x340",
+                "id": 4,
+                "serialno": null
+            },
+            "rawid": 1083205
+        },
         "electronics": {
             "cc4": {
                 "channel": 4,
                 "id": "C2"
             }
         },
-        "trap_ft": 3.8,
-        "n_calib": -2.0956419,
-        "fwhm_sep": 3.016297,
+        "trap_ft": 3.6,
+        "processable": true,
+        "tau": 466.31,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -6319,10 +5714,7 @@
                 "id": 10,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.062558,
-        "fwhm_fep": 2.3565834,
-        "processable": true
+        }
     },
     "S050": {
         "name": "S050",
@@ -6335,9 +5727,9 @@
             "channel": 0,
             "fcid": 175,
             "card": {
-                "serialno": null,
+                "address": "0x2A0",
                 "id": 10,
-                "address": "0x2A0"
+                "serialno": null
             },
             "rawid": 1067200
         },
@@ -6363,38 +5755,32 @@
             "channel": 0,
             "fcid": 58,
             "card": {
-                "serialno": null,
+                "address": "0x4a0",
                 "id": 10,
-                "address": "0x4a0"
+                "serialno": null
             },
             "rawid": 1118400
         },
         "system": "auxs"
     },
     "P00574C": {
-        "daq": {
-            "crate": 1,
-            "channel": 3,
-            "fcid": 115,
-            "card": {
-                "serialno": null,
-                "id": 7,
-                "address": "0x370"
-            },
-            "rawid": 1088003
-        },
-        "fwhm_qbb": 2.8016143,
-        "fwhm_qbb_err": 0.06236371,
-        "tau": 500.29,
-        "system": "geds",
-        "trap_rt": 7.7,
+        "trap_rt": 7.0,
         "name": "P00574C",
         "location": {
             "string": 11,
             "position": 7
         },
-        "m_calib": 5.4926023,
-        "fwhm_bifep": 2.4072518,
+        "daq": {
+            "crate": 1,
+            "channel": 3,
+            "fcid": 115,
+            "card": {
+                "address": "0x370",
+                "id": 7,
+                "serialno": null
+            },
+            "rawid": 1088003
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -6402,8 +5788,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -1.2255826,
-        "fwhm_sep": 4.373499,
+        "processable": true,
+        "tau": 500.46,
+        "system": "geds",
         "voltage": {
             "channel": 6,
             "filter": {
@@ -6414,10 +5801,7 @@
                 "id": 5,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.7884011,
-        "fwhm_fep": 3.1769679,
-        "processable": true
+        }
     },
     "S032": {
         "name": "S032",
@@ -6430,9 +5814,9 @@
             "channel": 0,
             "fcid": 145,
             "card": {
-                "serialno": null,
+                "address": "0x250",
                 "id": 5,
-                "address": "0x250"
+                "serialno": null
             },
             "rawid": 1059200
         },
@@ -6462,9 +5846,9 @@
             "channel": 4,
             "fcid": 122,
             "card": {
-                "serialno": null,
+                "address": "0x380",
                 "id": 8,
-                "address": "0x380"
+                "serialno": null
             },
             "rawid": 1089604
         },
@@ -6495,9 +5879,9 @@
             "channel": 1,
             "fcid": 17,
             "card": {
-                "serialno": null,
+                "address": "0x430",
                 "id": 3,
-                "address": "0x430"
+                "serialno": null
             },
             "rawid": 1107201
         },
@@ -6510,9 +5894,9 @@
             "channel": 2,
             "fcid": 2,
             "card": {
-                "serialno": null,
+                "address": "0x110",
                 "id": 0,
-                "address": "0x110"
+                "serialno": null
             },
             "rawid": 1027202
         },
@@ -6529,9 +5913,9 @@
             "channel": 1,
             "fcid": 146,
             "card": {
-                "serialno": null,
+                "address": "0x250",
                 "id": 5,
-                "address": "0x250"
+                "serialno": null
             },
             "rawid": 1059201
         },
@@ -6561,9 +5945,9 @@
             "channel": 4,
             "fcid": 143,
             "card": {
-                "serialno": null,
+                "address": "0x240",
                 "id": 4,
-                "address": "0x240"
+                "serialno": null
             },
             "rawid": 1057604
         },
@@ -6583,29 +5967,23 @@
         "system": "spms"
     },
     "P00574A": {
-        "daq": {
-            "crate": 0,
-            "channel": 4,
-            "fcid": 38,
-            "card": {
-                "serialno": null,
-                "id": 6,
-                "address": "0x450"
-            },
-            "rawid": 1112004
-        },
-        "fwhm_qbb": 2.5191445,
-        "fwhm_qbb_err": 0.08522394,
-        "tau": 428.81,
-        "system": "geds",
-        "trap_rt": 9.8,
+        "trap_rt": 11.5,
         "name": "P00574A",
         "location": {
             "string": 3,
             "position": 9
         },
-        "m_calib": 5.4756317,
-        "fwhm_bifep": 2.0924819,
+        "daq": {
+            "crate": 0,
+            "channel": 4,
+            "fcid": 38,
+            "card": {
+                "address": "0x450",
+                "id": 6,
+                "serialno": null
+            },
+            "rawid": 1112004
+        },
         "electronics": {
             "cc4": {
                 "channel": 6,
@@ -6613,8 +5991,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.13528843,
-        "fwhm_sep": 3.5469127,
+        "processable": true,
+        "tau": 428.14,
+        "system": "geds",
         "voltage": {
             "channel": 4,
             "filter": {
@@ -6625,10 +6004,7 @@
                 "id": 2,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.8878925,
-        "fwhm_fep": 2.960532,
-        "processable": true
+        }
     },
     "S071": {
         "name": "S071",
@@ -6641,9 +6017,9 @@
             "channel": 4,
             "fcid": 131,
             "card": {
-                "serialno": null,
+                "address": "0x220",
                 "id": 2,
-                "address": "0x220"
+                "serialno": null
             },
             "rawid": 1054404
         },
@@ -6663,29 +6039,23 @@
         "system": "spms"
     },
     "V02166B": {
-        "daq": {
-            "crate": 0,
-            "channel": 3,
-            "fcid": 61,
-            "card": {
-                "serialno": null,
-                "id": 10,
-                "address": "0x4a0"
-            },
-            "rawid": 1118403
-        },
-        "fwhm_qbb": 2.1357644,
-        "fwhm_qbb_err": 0.010726205,
-        "tau": 429.06,
-        "system": "geds",
-        "trap_rt": 10.9,
+        "trap_rt": 10.6,
         "name": "V02166B",
         "location": {
             "string": 7,
             "position": 2
         },
-        "m_calib": 7.110055,
-        "fwhm_bifep": 1.9711176,
+        "daq": {
+            "crate": 0,
+            "channel": 3,
+            "fcid": 61,
+            "card": {
+                "address": "0x4a0",
+                "id": 10,
+                "serialno": null
+            },
+            "rawid": 1118403
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -6693,8 +6063,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -0.75645953,
-        "fwhm_sep": 3.0572474,
+        "processable": true,
+        "tau": 430.49,
+        "system": "geds",
         "voltage": {
             "channel": 7,
             "filter": {
@@ -6705,35 +6076,26 @@
                 "id": 3,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 1.9526744,
-        "fwhm_fep": 2.357161,
-        "processable": true
+        }
     },
     "P00664A": {
-        "daq": {
-            "crate": 1,
-            "channel": 2,
-            "fcid": 90,
-            "card": {
-                "serialno": null,
-                "id": 3,
-                "address": "0x330"
-            },
-            "rawid": 1081602
-        },
-        "fwhm_qbb": 3.003037,
-        "fwhm_qbb_err": 0.17797637,
-        "tau": 509.11,
-        "system": "geds",
         "trap_rt": 7.0,
         "name": "P00664A",
         "location": {
             "string": 9,
             "position": 10
         },
-        "m_calib": 5.7355695,
-        "fwhm_bifep": 2.3667507,
+        "daq": {
+            "crate": 1,
+            "channel": 2,
+            "fcid": 90,
+            "card": {
+                "address": "0x330",
+                "id": 3,
+                "serialno": null
+            },
+            "rawid": 1081602
+        },
         "electronics": {
             "cc4": {
                 "channel": 2,
@@ -6741,8 +6103,9 @@
             }
         },
         "trap_ft": 4.0,
-        "n_calib": -3.4363406,
-        "fwhm_sep": 3.8956416,
+        "processable": true,
+        "tau": 519.24,
+        "system": "geds",
         "voltage": {
             "channel": 1,
             "filter": {
@@ -6753,10 +6116,7 @@
                 "id": 9,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 3.5373135,
-        "fwhm_fep": 3.5126257,
-        "processable": true
+        }
     },
     "P00665A": {
         "name": "P00665A",
@@ -6769,9 +6129,9 @@
             "channel": 5,
             "fcid": 33,
             "card": {
-                "serialno": null,
+                "address": "0x460",
                 "id": 5,
-                "address": "0x460"
+                "serialno": null
             },
             "rawid": 1110405
         },
@@ -6796,29 +6156,23 @@
         }
     },
     "V05268A": {
-        "daq": {
-            "crate": 0,
-            "channel": 5,
-            "fcid": 75,
-            "card": {
-                "serialno": null,
-                "id": 12,
-                "address": "0x4c0"
-            },
-            "rawid": 1121605
-        },
-        "fwhm_qbb": 2.7385716,
-        "fwhm_qbb_err": 0.07103018,
-        "tau": 562.16,
-        "system": "geds",
-        "trap_rt": 10.7,
+        "trap_rt": 11.8,
         "name": "V05268A",
         "location": {
             "string": 8,
             "position": 9
         },
-        "m_calib": 6.067691,
-        "fwhm_bifep": 2.5305028,
+        "daq": {
+            "crate": 0,
+            "channel": 5,
+            "fcid": 75,
+            "card": {
+                "address": "0x4c0",
+                "id": 12,
+                "serialno": null
+            },
+            "rawid": 1121605
+        },
         "electronics": {
             "cc4": {
                 "channel": 1,
@@ -6826,8 +6180,9 @@
             }
         },
         "trap_ft": 2.2,
-        "n_calib": -3.3776722,
-        "fwhm_sep": 4.23652,
+        "processable": true,
+        "tau": 563.74,
+        "system": "geds",
         "voltage": {
             "channel": 3,
             "filter": {
@@ -6838,9 +6193,6 @@
                 "id": 12,
                 "serialno": null
             }
-        },
-        "fwhm_dep": 2.7184708,
-        "fwhm_fep": 3.004372,
-        "processable": true
+        }
     }
 }
