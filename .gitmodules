@@ -1,0 +1,3 @@
+[submodule "legend-metadata"]
+	path = legend-metadata
+	url = git@github.com:legend-exp/legend-metadata.git

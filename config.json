@@ -1,0 +1,26 @@
+{
+    "setups": {
+        "l200": {
+            "paths": {
+                "metadata": "$_/legend-metadata",
+
+                "tier": "/remote/ceph/group/legendex/data/l200/",
+                "tier/raw": "/remote/ceph/group/legendex/data/l200/raw/",
+                "tier/dsp": "/remote/ceph/group/legendex/data/l200/dsp/",
+                "tier/peaks": "/remote/ceph/group/legendex/data/l200/peaks/",
+                "tier/cuts": "/remote/ceph/group/legendex/data/l200/cuts/",
+                "tier/hit": "/remote/ceph/group/legendex/data/l200/hit/",
+
+                "par": "/remote/ceph/group/legendex/data/l200/par/",
+                "par/dsp": "/remote/ceph/group/legendex/data/l200/par/dsp/",
+                "par/peaks": "/remote/ceph/group/legendex/data/l200/par/peaks/",
+                "par/cuts": "/remote/ceph/group/legendex/data/l200/par/cuts/",
+                "par/hit": "/remote/ceph/group/legendex/data/l200/par/hit/",
+
+
+                "log": "/remote/ceph/group/legendex/data/l200/log/",
+                "plt": "/remote/ceph/group/legendex/data/l200/plt/"
+            }
+        }
+    }
+}
