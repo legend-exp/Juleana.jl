@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "369e5c67d9c1b7d600fc354706517d4a75527d67"
+project_hash = "5c4a275ce7695e7daca6b05cd86298d4d9e71301"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -964,6 +964,12 @@ git-tree-sha1 = "fb6803dafae4a5d62ea5cab204b1e657d9737e7f"
 uuid = "1d6d02ad-be62-4b6b-8a6d-2f90e265016e"
 version = "0.2.0"
 
+[[deps.LegendDSP]]
+deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "FunctionChains", "IntervalSets", "LinearAlgebra", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Unitful"]
+path = "../packages/LegendDSP.jl"
+uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
+version = "0.1.0"
+
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Glob", "JSON", "PropDicts", "PropertyDicts", "Requires", "StructArrays", "Unitful"]
 git-tree-sha1 = "052b4d71c07ad059147f665ceb21ce92b24667d3"
@@ -1583,14 +1589,18 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[deps.RadiationDetectorDSP]]
-deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "ChainRulesCore", "CompositionsBase", "DSP", "DocStringExtensions", "ElasticArrays", "FFTW", "FillArrays", "FunctionChains", "IntervalSets", "InverseFunctions", "KernelAbstractions", "LinearAlgebra", "Parameters", "RadiationDetectorSignals", "Random", "Requires", "SIMD", "Statistics", "StatsBase", "TypedTables", "UnPack", "Unitful"]
-path = "../packages/RadiationDetectorDSP.jl"
+deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "ChainRulesCore", "CompositionsBase", "DSP", "DocStringExtensions", "ElasticArrays", "FFTW", "FillArrays", "FunctionChains", "GPUArraysCore", "IntervalSets", "InverseFunctions", "KernelAbstractions", "LinearAlgebra", "Parameters", "RadiationDetectorSignals", "Random", "Requires", "SIMD", "Statistics", "StatsBase", "StructArrays", "TypedTables", "UnPack", "Unitful"]
+git-tree-sha1 = "65aded99c91aa6954b272505a5cc42a5ab8afaf4"
 uuid = "afd6e06f-c550-5763-af36-7391d39e46ec"
-version = "0.1.4"
-weakdeps = ["CUDA"]
+version = "0.2.1"
 
     [deps.RadiationDetectorDSP.extensions]
     RadiationDetectorDSPCUDAExt = "CUDA"
+    RadiationDetectorDSPJLArraysExt = "JLArrays"
+
+    [deps.RadiationDetectorDSP.weakdeps]
+    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+    JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 
 [[deps.RadiationDetectorSignals]]
 deps = ["ArraysOfArrays", "ElasticArrays", "EncodedArrays", "FillArrays", "IntervalSets", "RecipesBase", "StaticArrays", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "UnsafeArrays"]

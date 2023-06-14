@@ -28,8 +28,6 @@ function processChannel(wvfs_ch)
     # extract decay times
     decay_times_extracted = uconvert.(u"µs", tailstats.(wvfs_ch, pz_fit_min, pz_fit_max))
 
-
-
     return decay_times_extracted
 end
 
