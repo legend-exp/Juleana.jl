@@ -1,0 +1,3 @@
+[submodule "metadata"]
+	path = legend-julia-metadata
+	url = git@github.com:theHenks/legend-julia-metadata.git
