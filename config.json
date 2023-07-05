@@ -2,7 +2,7 @@
     "setups": {
         "l200": {
             "paths": {
-                "metadata": "$_/legend-metadata",
+                "metadata": "$_/legend-julia-metadata",
 
                 "tier": "/remote/ceph/group/legendex/data/l200/",
                 "tier/raw": "/remote/ceph/group/legendex/data/l200/raw/",
