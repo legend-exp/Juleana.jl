@@ -5,7 +5,8 @@ using LegendHDF5IO, LegendDSP, LegendSpecFits
 
 ENV["JULIA_DEBUG"] = Main # enable debug
 
-plotlyjs()
+gr()
+# plotlyjs()
 
 # @info "Loading Legend MetaData"
 l200 = LegendData(:l200)
@@ -14,7 +15,6 @@ l200 = LegendData(:l200)
 # search_disk(DataPeriod, l200.tier[:raw, :cal])
 # search_disk(DataRun, l200.tier[:raw, :cal, period])
 # search_disk(DataRun, l200.tier[:raw, :cal, string(period)])
-
 
 # period = DataPeriod(3)
 # run    = DataRun(1)
