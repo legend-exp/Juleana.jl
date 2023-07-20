@@ -1,15 +1,15 @@
-using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-using Unitful, Formatting, LaTeXStrings
-using Plots
-using LegendHDF5IO, LegendDSP, LegendSpecFits
+# using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
+# using Unitful, Formatting, LaTeXStrings
+# using Plots
+# using LegendHDF5IO, LegendDSP, LegendSpecFits
 
-ENV["JULIA_DEBUG"] = Main # enable debug
+# ENV["JULIA_DEBUG"] = Main # enable debug
 
-gr()
+# gr()
 # plotlyjs()
 
 # @info "Loading Legend MetaData"
-l200 = LegendData(:l200)
+# l200 = LegendData(:l200)
 
 # search_disk(DataCategory, l200.tier[:raw])
 # search_disk(DataPeriod, l200.tier[:raw, :cal])
@@ -19,11 +19,7 @@ l200 = LegendData(:l200)
 # period = DataPeriod(3)
 # run    = DataRun(1)
 
-function process_decay_time(l200::LegendData, periodnumber::Int64, runnumber::Int64)
-    # create period and run objects
-    period = DataPeriod(periodnumber)
-    run    = DataRun(runnumber)
-
+function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun)
     @info "Process decay time for period $period and run $run"
 
     filekey = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)[1]

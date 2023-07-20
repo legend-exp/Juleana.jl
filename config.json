@@ -8,7 +8,7 @@
                 "tier/raw": "/remote/ceph/group/legendex/data/l200/raw/",
                 "tier/dsp": "/remote/ceph/group/legendex/data/l200/dsp/",
                 "tier/peaks": "/remote/ceph/group/legendex/data/l200/peaks/",
-                "tier/cuts": "/remote/ceph/group/legendex/data/l200/cuts/",
+                "tier/qc": "/remote/ceph/group/legendex/data/l200/qc/",
                 "tier/hit": "/remote/ceph/group/legendex/data/l200/hit/",
 
                 "par": "/remote/ceph/group/legendex/data/l200/par/",

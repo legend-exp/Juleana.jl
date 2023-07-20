@@ -1,15 +1,15 @@
-using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-using Unitful, Formatting, LaTeXStrings
-using Plots
-using LegendHDF5IO, LegendDSP, LegendSpecFits
+# using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
+# using Unitful, Formatting, LaTeXStrings
+# using Plots
+# using LegendHDF5IO, LegendDSP, LegendSpecFits
 
-ENV["JULIA_DEBUG"] = Main # enable debug
+# ENV["JULIA_DEBUG"] = Main # enable debug
 
-gr()
-# plotlyjs()
+# gr()
+# # plotlyjs()
 
 # @info "Loading Legend MetaData"
-l200 = LegendData(:l200)
+# l200 = LegendData(:l200)
 
 # search_disk(DataCategory, l200.tier[:raw])
 # search_disk(DataPeriod, l200.tier[:raw, :cal])
@@ -19,11 +19,7 @@ l200 = LegendData(:l200)
 # period = DataPeriod(3)
 # run    = DataRun(1)
 
-function process_filter_optimization(l200::LegendData, periodnumber::Int64, runnumber::Int64)
-    # create period and run objects
-    period = DataPeriod(periodnumber)
-    run    = DataRun(runnumber)
-
+function process_filter_optimization(l200::LegendData, period::DataPeriod, run::DataRun)
     @info "Optimize filter for period $period and run $run"
 
     filekey = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)[1]
@@ -97,9 +93,9 @@ function process_filter_optimization(l200::LegendData, periodnumber::Int64, runn
 
         # save pars to db
         pars_det         = pars_db[det]
-        pars_det.rt      = result.rt
-        pars_det.rt_err  = step(dsp_config.e_grid_rt_trap)
-        pars_det.min_enc = result.min_enc
+        pars_det.trap_rt      = result.rt
+        pars_det.trap_rt_err  = step(dsp_config.e_grid_rt_trap)
+        pars_det.trap_min_enc = result.min_enc
 
         # optimize FT
         @debug "Generate trap FT energy grid"
@@ -113,9 +109,9 @@ function process_filter_optimization(l200::LegendData, periodnumber::Int64, runn
         savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-fwhm_ft_scan.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
 
         # save pars to db
-        pars_det.ft       = result.ft
-        pars_det.ft_err   = step(dsp_config.e_grid_ft_trap)
-        pars_det.min_fwhm = result.min_fwhm
+        pars_det.trap_ft       = result.ft
+        pars_det._trap_ft_err   = step(dsp_config.e_grid_ft_trap)
+        pars_det.trap_min_fwhm = result.min_fwhm
     end
 
     # # save pars to disk
