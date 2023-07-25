@@ -1,3 +1,3 @@
 # Julia DSP and Germanium Detector Analysis for LEGEND-200
 
-to be continued
+to be continued...

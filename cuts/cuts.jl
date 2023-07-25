@@ -55,11 +55,11 @@ function process_qc(l200::LegendData, period::DataPeriod, run::DataRun)
 
         figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
 
-        if haskey(l200.metadata.dataprod.config.qc.cal(sel), det)
-            qc_config = l200.metadata.dataprod.config.qc.cal(sel)[det]
+        if haskey(l200.metadata.dataprod.config.cal.qc(sel), det)
+            qc_config = l200.metadata.dataprod.config.cal.qc(sel)[det]
             @debug "Use config for detector $det"
         else
-            qc_config = l200.metadata.dataprod.config.qc.cal(sel).default
+            qc_config = l200.metadata.dataprod.config.cal.qc(sel).default
             @debug "Use default config"
         end
 
@@ -171,7 +171,7 @@ function process_qc(l200::LegendData, period::DataPeriod, run::DataRun)
         pars_det.blstd_cut_sf   = blstd_cut_sf
         pars_det.t0_cut_sf      = t0_cut_sf
         pars_det.inTrace_cut_sf = inTrace_cut_sf
-        pars_det.qc             = count(qc.qc)/length(qc.qc)        
+        pars_det.qc             = count(qc.qc)/length(qc.qc)    
 
 
         outfilename = joinpath(l200.tier[:qc, :cal, period, run], format("{}-{}-{}-{}-{}-tier_qc.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))

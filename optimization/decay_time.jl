@@ -11,11 +11,6 @@
 # @info "Loading Legend MetaData"
 # l200 = LegendData(:l200)
 
-# search_disk(DataCategory, l200.tier[:raw])
-# search_disk(DataPeriod, l200.tier[:raw, :cal])
-# search_disk(DataRun, l200.tier[:raw, :cal, period])
-# search_disk(DataRun, l200.tier[:raw, :cal, string(period)])
-
 # period = DataPeriod(3)
 # run    = DataRun(1)
 
@@ -28,7 +23,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun)
     chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
-    dsp_meta = l200.metadata.dataprod.config.dsp(sel).default
+    dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
     dsp_config = create_dsp_config(dsp_meta)
     @debug "Loaded DSP config: $(dsp_config)"
 
@@ -48,11 +43,11 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun)
         det = chinfo.detector[i]
         @debug "Processing channel $ch ($det)"
 
-        if haskey(l200.metadata.dataprod.config.dsp.decay_time(sel), det)
-            decay_time_config = l200.metadata.dataprod.config.dsp.decay_time(sel)[det]
+        if haskey(l200.metadata.dataprod.config.cal.dsp.decay_time(sel), det)
+            decay_time_config = l200.metadata.dataprod.config.cal.dsp.decay_time(sel)[det]
             @debug "Use config for detector $det"
         else
-            decay_time_config = l200.metadata.dataprod.config.dsp.decay_time(sel).default
+            decay_time_config = l200.metadata.dataprod.config.cal.dsp.decay_time(sel).default
             @debug "Use default config"
         end
 

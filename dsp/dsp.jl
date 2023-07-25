@@ -43,7 +43,7 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun)
     chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
-    dsp_meta = l200.metadata.dataprod.config.dsp(sel).default
+    dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
     dsp_config = create_dsp_config(dsp_meta)
     @debug "Loaded DSP config: $(dsp_config)"
 
