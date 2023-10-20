@@ -2,6 +2,12 @@
 figures/
 tests/data/
 
+# HDF5 files
+*.hdf5
+
+# ignore Manifest.toml
+Manifest.toml
+
 # Jupyter checkpoints
 .ipynb_checkpoints
 

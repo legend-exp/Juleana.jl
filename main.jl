@@ -1,6 +1,8 @@
 # set environment variables
 ENV["JULIA_DEBUG"] = Main # enable debug
 ENV["JULIA_CPU_TARGET"] = "generic" # enable AVX2
+ENV["QT_QPA_PLATFORM"] = "xcb" # enable qt
+ENV["GKSwstype"] = "100" # disable cannot connect to localhost display warnings in parallel processing
 ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/auto/config.json"
 
 # load packages
@@ -8,75 +10,91 @@ import Pkg
 # Pkg.instantiate() # instantiate
 # Pkg.precompile() # precompile
 
-using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-using Unitful, Formatting, LaTeXStrings
-using Plots
-using LegendHDF5IO, LegendDSP, LegendSpecFits
-using Distributed, ProgressMeter
-
-# select plot backend
-gr()
-# plotlyjs()
-
-# config for MPP servers
-server_config = [("cslg-02.mpp.mpg.de", 10), ("cslg-03.mpp.mpg.de", 25)]
-addprocs(server_config, exeflags=`--threads=4 --project=$(dirname(Pkg.project().path))`, env=["JULIA_CPU_TARGET"=>"generic"], topology=:master_worker)
-addprocs(25, exeflags=`--threads=4 --project=$(dirname(Pkg.project().path))`, env=["JULIA_CPU_TARGET"=>"generic"], topology=:master_worker)
-
 @info "Using Julia $VERSION"
 @info "Using Julia project $(dirname(Pkg.project().path))"
 
-# Sanity check:
-worker_ids = Distributed.remotecall_fetch.(Ref(Distributed.myid), Distributed.workers())
-@assert length(worker_ids) == Distributed.nworkers()
+using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement
+using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
+using Unitful, Formatting, LaTeXStrings, Printf, Measures, Dates
+using Plots
+using Distributed, ProgressMeter, TimerOutputs
 
-@info "$(Distributed.nworkers()) Julia worker processes active."
-@assert @fetchfrom 2 ENV["JULIA_CPU_TARGET"] == "generic" 
+using HDF5
+using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
 
-@everywhere begin
-    using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-    using Unitful, Formatting, LaTeXStrings
-    using Plots
-    using LegendHDF5IO, LegendDSP, LegendSpecFits
-    using Distributed, ProgressMeter
-    ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/auto/config.json"
-    gr()
-    # plotlyjs()
+# kill all workers at exist
+function kill_sessions()
+    @info "Kill all sessions"
+    # kill all sessions
+    rmprocs(workers()...)
+    run(`pkill -u henkes -f worker`)
 end
+atexit(kill_sessions)
+
+# select plot backend
+gr(margin=10mm, thickness_scaling=1.5, size=(1300, 900), dpi=600)
 
 @info "Loading Legend MetaData"
 l200 = LegendData(:l200)
 
 @info "Start Data processing"
 
+include(joinpath(@__DIR__,"utils.jl"))
+include(joinpath(@__DIR__,"dsp/split_raw_by_energy.jl"))
 include(joinpath(@__DIR__,"optimization/decay_time.jl"))
 include(joinpath(@__DIR__,"optimization/filter_optimization.jl"))
+include(joinpath(@__DIR__,"optimization/aoe_filter_optimization.jl"))
 include(joinpath(@__DIR__,"dsp/dsp.jl"))
+include(joinpath(@__DIR__,"cuts/cuts.jl"))
+include(joinpath(@__DIR__,"energy/energy.jl"))
+
+# reprocess everything or not
+reprocess = false
+
+# process steps
+# process_steps = [:process_peak_split, :process_decay_time, :process_filter_optimization, :process_aoe_optimization, :process_dsp, :process_cuts, :process_energy, :process_aoe]
+process_steps = [:process_peak_split, :process_decay_time, :process_filter_optimization, :process_aoe_optimization, :process_dsp]
+# process_steps = [:process_dsp]
 
 # select periods to process
 periods = [DataPeriod(i) for i in 3:3]
-# periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
 
 # process periods 
 for period in periods
     @info "Process period $period"
     # select runs to process
     runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
+    runs = [r for r in runs if r.no > 3]
+    # runs = [DataRun(2)]
     @info "Found runs $(string.(runs))"
     # process runs
     for run in runs
-        if run != DataRun(1)
-            continue
-        end
-        # if run == DataRun(0) || run == DataRun(1)
-        #     continue
-        # end
         @info "Process run $run"
-        # process decay time
-        # process_decay_time(l200, period, run)
-        # process filter optimization
-        # process_filter_optimization(l200, period, run)
-        # process dsp
-        process_dsp(l200, period, run)
+        
+        for process in process_steps
+            @info "$process"
+            # create workers
+            create_workers(30)
+            @everywhere begin
+                using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement
+                using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
+                using Unitful, Formatting, LaTeXStrings, Printf, Measures, Dates
+                using Plots
+                using Distributed, ProgressMeter, TimerOutputs
+        
+                using HDF5
+                using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+        
+                # set environment variables
+                ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/auto/config.json"
+        
+                # select plot backend to GR
+                gr(margin=10mm, thickness_scaling=1.5, size=(1300, 900), dpi=600)
+                # free memory
+                GC.gc()
+            end
+            # run process
+            getfield(Main, process)(l200, period, run,; reprocess=reprocess)
+        end
     end
 end
