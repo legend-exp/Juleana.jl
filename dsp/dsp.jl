@@ -1,40 +1,4 @@
-# ENV["JULIA_DEBUG"] = Main # enable debug
-# ENV["JULIA_CPU_TARGET"] = "generic" # enable AVX2
-# # import Pkg; Pkg.instantiate(); Pkg.precompile() # load packages
-
-# using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-# using Unitful, Formatting, LaTeXStrings
-# using LegendHDF5IO, LegendDSP, LegendSpecFits
-# using Distributed, ProgressMeter
-# import Pkg
-
-
-# # config for MPP servers
-# server_config = [("cslg-01.mpp.mpg.de", 5), ("cslg-02.mpp.mpg.de", 10), ("cslg-03.mpp.mpg.de", 20)]
-# addprocs(server_config, exeflags=`--threads=4 --project=$(dirname(Pkg.project().path))`, env=["JULIA_CPU_TARGET"=>"generic"], topology=:master_worker)
-# addprocs(20, exeflags=`--threads=4 --project=$(dirname(Pkg.project().path))`, env=["JULIA_CPU_TARGET"=>"generic"], topology=:master_worker)
-
-# @info "Using Julia $VERSION"
-# @info "Using Julia project $(dirname(Pkg.project().path))"
-# # Sanity check:
-# worker_ids = Distributed.remotecall_fetch.(Ref(Distributed.myid), Distributed.workers())
-# @assert length(worker_ids) == Distributed.nworkers()
-
-# @info "$(Distributed.nworkers()) Julia worker processes active."
-# @assert @fetchfrom 2 ENV["JULIA_CPU_TARGET"] == "generic" 
-
-# @everywhere begin
-#     using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-#     using Unitful, Formatting, LaTeXStrings
-#     using LegendHDF5IO, LegendDSP, LegendSpecFits
-#     using Distributed, ProgressMeter
-#     ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/auto/config.json"
-# end
-
-# @info "Loading Legend MetaData"
-# l200 = LegendData(:l200)
-
-function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun)
+function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false)
     @info "Process DSP for period $period and run $run"
 
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
@@ -47,19 +11,19 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun)
     dsp_config = create_dsp_config(dsp_meta)
     @debug "Loaded DSP config: $(dsp_config)"
 
-    pars_tau_folder     = joinpath(l200.tier[:par, :cal, period, run], "decay_time")
-    pars_filename       = format("{}-{}-{}-{}-decay_time.json", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category))
-    pars_tau            = readprops(joinpath(pars_tau_folder, pars_filename))
+    pars_tau = l200.par[:cal, :decay_time, period, run]
     @debug "Loaded decay times"
 
-    pars_optimization_folder = joinpath(l200.tier[:par, :cal, period, run], "optimization")
-    pars_filename           = format("{}-{}-{}-{}-filter_optimization.json", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category))
-    pars_optimization       = readprops(joinpath(pars_optimization_folder, pars_filename))
-    @debug "Loaded optimization parameters: $(pars_optimization)"
+    pars_optimization = l200.par[:cal, :optimization, period, run]
+    @debug "Loaded optimization parameters"
 
     @debug "Create DSP folder"
     dsp_folder = l200.tier[:dsp, :cal, period, run]
     ifelse(isdir(dsp_folder), @debug("DSP folder $dsp_folder already exists"), mkpath(dsp_folder))
+
+    @debug "Create logs folder"
+    log_folder = joinpath(l200.tier[:log, :cal, period, run])
+    ifelse(isdir(log_folder), @debug("Log folder $log_folder already exists"), mkpath(log_folder))
 
 
     # move all variables to workers
@@ -70,53 +34,136 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun)
         pars_tau = $pars_tau
         pars_optimization = $pars_optimization
         chinfo = $chinfo
+        reprocess = $reprocess
     end
 
-    @everywhere function dsp_single_file(i::Int64)
-        filename    = l200.tier[:raw, filekeys[i]]
-        outfilename = l200.tier[:dsp, filekeys[i]]
+    @everywhere function single_file_dsp(idx::Int64)
+        dsp_timer = TimerOutput()
+        @timeit dsp_timer "Startup" begin
+            filename    = l200.tier[:raw, filekeys[idx]]
+            outfilename = l200.tier[:dsp, filekeys[idx]]
 
-        @info "Processing file: $(basename(filename))"
-        data    = LHDataStore(filename, "r")
-        @info "Using output file: $(basename(outfilename))"
-        outdata     = LHDataStore(outfilename, "cw")
+            @info "Processing file: $(basename(filename))"
+            data    = LHDataStore(filename, "r")
+            @info "Using output file: $(basename(outfilename))"
+            if reprocess && isfile(outfilename)
+                @info "Reprocess $(basename(outfilename)), remove old DSP."
+                rm(outfilename)
+            else
+                try 
+                    LHDataStore(outfilename, "cw")
+                catch e
+                    @warn "LoadError: $e"
+                    @warn "Filename $(basename(outfilename)) seems broken, remove it."
+                    rm(outfilename)
+                end
+            end
+            outdata = LHDataStore(outfilename, "cw")
+        end
+
         @info "Start DSP"
-        for (i, ch_short) in enumerate(chinfo.channel)
-            ch_short = chinfo.channel[i]
-            ch = format("ch{}", ch_short)
-            det = chinfo.detector[i]
+        n_detectors = 0
+        @timeit dsp_timer "DSP" begin
+            # loop over channels
+            for (i, ch_short) in enumerate(chinfo.channel)
+                ch_short = chinfo.channel[i]
+                ch = format("ch{}", ch_short)
+                det = chinfo.detector[i]
 
-            # check if channel can be processed
-            if !haskey(pars_tau, det)
-                @warn "No decay time for detector $det, skip channel $ch"
-                continue
-            end
-            if haskey(outdata, ch)
-                @info "Channel $ch already processed, skip"
-                continue
-            end
-            @debug "Processing channel $ch ($det)"
+                # check if channel can be processed
+                if !haskey(pars_tau, det)
+                    @warn "No decay time for detector $det, skip channel $ch"
+                    continue
+                end
+                if haskey(outdata, ch) && !reprocess
+                    @info "Detector $det ($ch) already processed, skip"
+                    continue
+                end
 
-            # load data from HDF5
-            data_ch = data[format("{}/raw", ch)][:]
-            # process channel
-            outdata[ch]  = dsp_icpc(data_ch, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
-            # free memory
-            GC.gc()
+                @debug "Processing channel $ch ($det)"
+                @timeit dsp_timer "DSP $det" begin
+                    # load data from HDF5
+                    data_ch = data["$ch/raw"][:]
+                    # process channel
+                    if !haskey(pars_optimization, det)
+                        @warn "No optimization parameters for detector $det, skip channel $ch"
+                        continue
+                    end
+                    if !haskey(pars_optimization[det], :sg_wl)
+                        @warn "No AoE window length optimization parameter for detector $det, use default."
+                        pars_optimization[det].sg_wl.val = 100.0 # ns
+                    end
+                    outdata[ch]  = dsp_icpc(data_ch, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
+                    # free memory
+                    GC.gc()
+                end
+                n_detectors += 1
+            end
         end
 
         @info "Finished processing file: $(basename(filename))"
         close(data)
         close(outdata)
-    end
 
-    dsp_status = @showprogress pmap(eachindex(filekeys), batch_size = 1, on_error=identity) do idx
+        total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(dsp_timer)))
+        total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
+        log_info = "| $(filekeys[idx]) | $n_detectors | Success | $total_time | $total_allocated | - |"
+        return (timer = dsp_timer, log = log_info)
+    end
+    result_dsp = @showprogress pmap(eachindex(filekeys), batch_size = 1, on_error=identity) do idx
         try
-            dsp_single_file(idx)
-            true # success
-        catch e 
-            false # failed
+            idx => single_file_dsp(idx)
+        catch e
+            @debug "Write Error log for $(filekeys(idx))"
+            log_info = "| $(filekeys[idx]) | - | Failed | - | - | $e |"
+            idx => (timer = TimerOutput(), log = log_info)
         end
     end
-    return true
+
+
+    @info "Finished DSP"
+    @info "Remove all workers"
+    rmprocs(workers()...)
+
+    main_log = """# Main log 
+
+    Time of processing: $(now())
+
+    ## DSP
+    This is the log for the dsp. The algorithm iterates through each file and process within each file each detector separate.
+
+    # MetaData
+    | Setup | Period | Run | Category |
+    |-------|--------|-----|----------|
+    | $(filekey.setup) | $(filekey.period) | $(filekey.run) | $(filekey.category) |
+
+    # Results
+    | FileKey | Number of Detectors | Status | Total Time | Total Allocated | Error |
+    |---------|---------------------|--------|------------|-----------------|-------|
+    """
+    total_dsp_timer = TimerOutput()
+    for (idx, res) in result_dsp
+        # merge timer into total timer
+        merge!(total_dsp_timer, res.timer)
+        # add log to main log
+        main_log = """
+        $main_log$(res.log)
+        """
+    end
+    # add total timer to main log
+    main_log = """
+$main_log
+# Total Timing
+```
+$total_dsp_timer
+```
+    """
+
+    @info "Write main log to disk"
+    @info main_log
+
+    log_filename = joinpath(log_folder, format("{}-{}-{}-{}-dsp.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+    open(log_filename, "w+") do file
+        write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
+    end
 end

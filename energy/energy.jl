@@ -72,6 +72,8 @@ function process_energy(l200::LegendData, period::DataPeriod, run::DataRun)
         @debug "Loading data from $(basename(filename))"
         dsp_data = data["$ch/after_qc"][:]
 
+        close(data)
+
         if length(dsp_data) < 50000
             @warn "Not enough data points for channel $ch, skip"
             continue
@@ -103,7 +105,7 @@ function process_energy(l200::LegendData, period::DataPeriod, run::DataRun)
         savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-simple_calibration.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
 
         @debug "Fit all peaks"
-        result, report = fit_peaks(report.peakhists, report.peakstats, th228_lines)
+        result, report = fit_peaks(result.peakhists, result.peakstats, th228_lines)
 
         peak_fit_plot = plot.(values(report), titleloc=:right, titlefont=font(8), ticks=:native, label="")
         for (i, p) in enumerate(peak_fit_plot)
@@ -159,7 +161,7 @@ function process_energy(l200::LegendData, period::DataPeriod, run::DataRun)
         fwhm_err = ([result[p].err.fwhm for p in th228_lines] ./ m_cal_simple) .* m_calib .+ n_calib
 
         result, report = fit_fwhm(th228_lines, fwhm)
-        @debug "Found FWHM: $(result.qbb) +- $(result.err.qbb)keV"
+        @debug "Found FWHM: $(round(result.qbb, digits=2)) +- $(round(result.err.qbb, digits=2))keV"
 
         scatter(th228_lines, fwhm, yerror=fwhm_err, ms=5, color=:black, markershape= :x, layout = @layout[grid(2, 1, heights=[0.8, 0.2])], link=:x, label="Best Fits", xlabel="Energy (keV)", xlabelfontsize=10, ylabel="FWHM (keV)", ylabelfontsize=10, legend=:topleft, legendfontsize=8, legendfont=font(8), legendtitlefontsize=8, legendtitlefont=font(8), xlims = (0, 3000), xticks = (convert(Int, 0):300:convert(Int, round(3000, digits=0))))
         plot!(0:0.1:3000, x -> report.f_fit(x), label="Best Fit: Sqrt($(round(report.v[1], digits=2)) + x*$(round(report.v[2]*100, digits=2))e-3)", line_width=2, color=:red, subplot=1)

@@ -1,0 +1,8 @@
+{
+    "default": {
+        "min_enc": -50.0,
+        "max_enc": 50.0,
+        "nbins": 1000,
+        "rel_cut_fit": 0.1
+    }
+}

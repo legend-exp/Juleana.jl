@@ -185,4 +185,14 @@ function process_qc(l200::LegendData, period::DataPeriod, run::DataRun)
 
         close(outdata)
     end
+    # # save pars to disk
+    @info "Save pars to disk"
+    pars_filename       = format("{}-{}-{}-{}-qc.json", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category))
+    pars_validTimeStamp = string(filekey.time)
+    # write params
+    writeprops(joinpath(pars_folder, pars_filename), pars_db, multiline=true)
+    # write validity
+    open(joinpath(pars_folder, "validity.jsonl"), "a") do io
+        println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$pars_filename\"]}")
+    end
 end
