@@ -57,14 +57,15 @@ process_steps = [:process_peak_split, :process_decay_time, :process_filter_optim
 # process_steps = [:process_dsp]
 
 # select periods to process
-periods = [DataPeriod(i) for i in 3:3]
+# periods = [DataPeriod(i) for i in 6:7]
+periods = [DataPeriod(6)]
 
 # process periods 
 for period in periods
     @info "Process period $period"
     # select runs to process
     runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
-    runs = [r for r in runs if r.no > 3]
+    # runs = [r for r in runs if r.no > 3]
     # runs = [DataRun(2)]
     @info "Found runs $(string.(runs))"
     # process runs

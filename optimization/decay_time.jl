@@ -22,7 +22,15 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
     @debug "Create pars db"
     pars_db = PropDict()
     # read params if exist
-    if !(l200.par[:cal, :decay_time, period, run] isa LegendDataManagement.NoSuchPropsDBEntry)
+    if !(Symbol(period) in keys(l200.par[:cal, :decay_time]))
+        # path folder for current period seems not to exist, will create it first to avoid errors
+        mkpath(joinpath(l200.tier[:par, :cal], "decay_time", "$period"))
+        # write validity
+        pars_validTimeStamp = string(filekey.time)
+        open(joinpath(l200.tier[:par, :cal], "decay_time", "validity.jsonl"), "a") do io
+            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
+        end
+    elseif !(l200.par[:cal, :decay_time, period, run] isa LegendDataManagement.NoSuchPropsDBEntry)
         @info "Pars file already exists."
         pars_db = l200.par[:cal, :decay_time, period, run]
     else
