@@ -1,0 +1,62 @@
+{    
+    "config": {
+        "LEGEND_DATA_CONFIG": "/home/iwsatlas1/henkes/l200/auto/config.json",
+        "user": "henkes",
+        "debug": true,
+        "env": "/home/iwsatlas1/henkes/l200/auto/",
+        "instantiate": false,
+        "precompile": false,
+        "env_variables": {
+            "QT_QPA_PLATFORM": "xcb",
+            "GKSwstype": "100"
+        }
+    },
+    "processing": {
+        "periods": "search_disk(DataPeriod, l200.tier[:raw, :cal])",
+        "runs" : "all"
+    },
+    "processors":
+    {
+        "default": {
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_peak_split": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_decay_time": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_filter_optimization": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_aoe_optimization": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_dsp": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_energy_calibration": {
+            "enabled": false,
+            "n_workers": 90,
+            "reprocess": false,
+            "timeout": 240
+        },
+        "process_ct_correction": {
+            "enabled": true,
+            "n_workers": 90,
+            "reprocess": false,
+            "timeout": 240
+        }
+    }
+}
