@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "448499a1c8e9aeeaecc4c46888d8ed4549253cf6"
+project_hash = "28dbdb07d5948dde8b4369c809c67877f9a30456"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "5d2e21d7b0d8c22f67483ef95ebdc39c0e6b6003"
@@ -88,6 +88,12 @@ version = "0.2.3"
 git-tree-sha1 = "a3a402a35a2f7e0b87828ccabbd5ebfbebe356b4"
 uuid = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 version = "2.3.0"
+
+[[deps.ArgParse]]
+deps = ["Logging", "TextWrap"]
+git-tree-sha1 = "3102bce13da501c9104df33549f511cd25264d7d"
+uuid = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+version = "1.1.4"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -1119,9 +1125,7 @@ version = "0.2.0"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Glob", "JSON", "Pkg", "PropDicts", "PropertyDicts", "Requires", "StructArrays", "Unitful"]
-git-tree-sha1 = "05fb6db802c25c37e45b4e81c4147ad6aeafdf45"
-repo-rev = "gen-propdb-files"
-repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
+path = "../packages/LegendDataManagement.jl"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
 version = "0.2.4"
 
@@ -1144,7 +1148,7 @@ uuid = "c9265ca6-b027-5446-b1a4-febfa8dd10b0"
 version = "0.1.7"
 
 [[deps.LegendSpecFits]]
-deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Formatting", "ForwardDiff", "IntervalSets", "InverseFunctions", "IrrationalConstants", "LinearAlgebra", "LinearRegression", "LsqFit", "Optim", "Plots", "PropDicts", "RadiationSpectra", "Random", "Requires", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
+deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Formatting", "ForwardDiff", "IntervalSets", "InverseFunctions", "IrrationalConstants", "LinearAlgebra", "LinearRegression", "LsqFit", "Optim", "PropDicts", "RadiationSpectra", "Random", "Requires", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
 path = "../packages/LegendSpecFits.jl"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
 version = "0.2.0"
@@ -1733,7 +1737,9 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[deps.RadiationDetectorDSP]]
 deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "ChainRulesCore", "CompositionsBase", "DSP", "DocStringExtensions", "ElasticArrays", "FFTW", "FillArrays", "FunctionChains", "GPUArraysCore", "IntervalSets", "InverseFunctions", "KernelAbstractions", "LinearAlgebra", "Parameters", "RadiationDetectorSignals", "Random", "Requires", "SIMD", "Statistics", "StatsBase", "StructArrays", "TypedTables", "UnPack", "Unitful"]
-git-tree-sha1 = "80a3c94061cf0d29ca6e72e82520b875fcac9ace"
+git-tree-sha1 = "9d88c0058a8b2586805619a60cb18136b22f73e4"
+repo-rev = "main"
+repo-url = "https://github.com/JuliaPhysics/RadiationDetectorDSP.jl.git"
 uuid = "afd6e06f-c550-5763-af36-7391d39e46ec"
 version = "0.2.3"
 
@@ -2094,6 +2100,11 @@ version = "0.1.7"
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[deps.TextWrap]]
+git-tree-sha1 = "9250ef9b01b66667380cf3275b3f7488d0e25faf"
+uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
+version = "1.0.1"
 
 [[deps.ThreadsX]]
 deps = ["ArgCheck", "BangBang", "ConstructionBase", "InitialValues", "MicroCollections", "Referenceables", "Setfield", "SplittablesBase", "Transducers"]

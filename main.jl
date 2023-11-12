@@ -1,9 +1,4 @@
-# set environment variables
-ENV["JULIA_DEBUG"] = Main # enable debug
-ENV["JULIA_CPU_TARGET"] = "generic" # enable AVX2
-ENV["QT_QPA_PLATFORM"] = "xcb" # enable qt
-ENV["GKSwstype"] = "100" # disable cannot connect to localhost display warnings in parallel processing
-ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/auto/config.json"
+#!/usr/bin/env -S /home/iwsatlas1/henkes/julia-1.9.0/bin/julia -t 1 --heap-size-hint=10G
 
 using ArgParse
 settings = ArgParseSettings(prog="LEGEND Julia main data processing",
@@ -16,23 +11,49 @@ settings = ArgParseSettings(prog="LEGEND Julia main data processing",
         help = "path to config file"
         arg_type = String
         required = true
-    "--reprocess", "-r"
+    "--reprocess"
         help = "reprocess all channels while deleting old data"
         action = :store_true
-        required = false
     "--periods", "-p"
         help = "Periods to process"
-        nargs = "+"
+        nargs = '+'
+        arg_type = Int
         action = :append_arg
     "--runs", "-r"
         help = "Runs to process within periods"
-        nargs = "+"
+        nargs = '+'
+        arg_type = Int
         action = :append_arg
+end
+parsed_args = parse_args(settings)
+
+using PropDicts
+import Pkg
+processing_config = PropDict()
+try
+    global processing_config = readprops(parsed_args["config"])
+    ENV["LEGEND_DATA_CONFIG"] = processing_config.config.LEGEND_DATA_CONFIG
+    if processing_config.config.debug
+        ENV["JULIA_DEBUG"] = Main # enable debug
+    end
+    for key in keys(processing_config.config.env_variables)
+        ENV[String(key)] = processing_config.config.env_variables[key]
+    end
+    Pkg.activate(processing_config.config.env)
+    if processing_config.config.precompile
+        Pkg.precompile()
+    end
+    if processing_config.config.instantiate
+        Pkg.instantiate()
+    end
+catch e
+    @error "Could not setup config: $(parsed_args["config"])"
+    rethrow(e)
 end
 
 @info "Using Julia $VERSION"
 @info "Using Julia project $(dirname(Pkg.project().path))"
-@info "Load "
+@info "Load LEGEND packages"
 
 using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement
 using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
@@ -48,18 +69,32 @@ function kill_sessions()
     @info "Kill all sessions"
     # kill all sessions
     rmprocs(workers()...)
-    run(`pkill -u henkes -f worker`)
+    run(`pkill -u $(processing_config.config.user) -f worker`)
 end
 atexit(kill_sessions)
 
-# select plot backend
-# gr(margin=10mm, thickness_scaling=1.5, size=(1300, 900), dpi=600)
+# parse periods and runs from arguments, if not supported use config
+runs, periods = nothing, nothing
+if !isempty(parsed_args["runs"]) && isempty(parsed_args["periods"])
+    @error "ArgumentError: Runs without periods are not supported"
+    throw(ArgParseError("Runs without periods are not supported"))
+elseif !isempty(parsed_args["periods"]) && isempty(parsed_args["runs"])
+    periods = [DataPeriod(p) for p in parsed_args["periods"][1]]
+    @info "Process all runs in periods $(parsed_args["periods"][1])"
+    processing_config.processing.runs = "all"
+else
+    periods = [DataPeriod(p) for p in parsed_args["periods"][1]]
+    runs = [DataRun(r) for r in parsed_args["runs"][1]]
+    @info "Process runs: $(parsed_args["runs"][1]) in periods: $(parsed_args["periods"][1])"
+end
 
+# load metadata
 @info "Loading Legend MetaData"
 l200 = LegendData(:l200)
 
 @info "Start Data processing"
 
+# load all available processors
 include(joinpath(@__DIR__,"utils.jl"))
 include(joinpath(@__DIR__,"dsp/split_raw_by_energy.jl"))
 include(joinpath(@__DIR__,"optimization/decay_time.jl"))
@@ -67,38 +102,56 @@ include(joinpath(@__DIR__,"optimization/filter_optimization.jl"))
 include(joinpath(@__DIR__,"optimization/aoe_filter_optimization.jl"))
 include(joinpath(@__DIR__,"dsp/dsp.jl"))
 include(joinpath(@__DIR__,"cuts/cuts.jl"))
-include(joinpath(@__DIR__,"energy/dev_energy.jl"))
+include(joinpath(@__DIR__,"energy/energy.jl"))
+include(joinpath(@__DIR__,"energy/energy_ct.jl"))
 
-# reprocess everything or not
-reprocess = false
+# check which periods to process
+if isnothing(periods)
+    try
+        eval(Meta.parse(processing_config.processing.periods))
+    catch e
+        @error "Could not parse periods: $(processing_config.processing.periods)"
+        rethrow(e)
+    end
+end
 
-# process steps
-# process_steps = [:process_peak_split, :process_decay_time, :process_filter_optimization, :process_aoe_optimization, :process_dsp, :process_cuts, :process_energy, :process_aoe]
-# process_steps = [:process_peak_split, :process_decay_time, :process_filter_optimization, :process_aoe_optimization, :process_dsp]
-# process_steps = [:process_energy_calibration]
-
-# select periods to process
-# periods = [DataPeriod(i) for i in 6:7]
-# periods = [DataPeriod(6)]
-# periods = [DataPeriod(4)]
-# periods = [DataPeriod(3)]
+# get processing steps from config
+process_steps = Symbol.(keys(processing_config.processors))
+process_steps = process_steps[process_steps .!= :default]
+process_steps = sort(process_steps[[processing_config.processors[step].enabled for step in process_steps]], by = s -> processing_config.processors[s].rank)
 
 # process periods 
 for period in periods
     @info "Process period $period"
     # select runs to process
-    runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
-    runs = [r for r in runs if r.no == 1]
-    # runs = [DataRun(2)]
-    @info "Found runs $(string.(runs))"
+    available_runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
+    processed_runs = runs
+    if processing_config.processing.runs == "all" && isnothing(runs)
+        processed_runs = available_runs
+    elseif isnothing(runs)
+        try
+            processed_runs = eval(Meta.parse(processing_config.processing.runs))
+        catch e
+            @error "Could not parse runs: $(processing_config.processing.runs)"
+            rethrow(e)
+        end
+    end
+
     # process runs
-    for run in runs
+    for run in processed_runs
+        if !(run in available_runs)
+            @warn "Run $run not found in period $period"
+            continue
+        end
         @info "Process run $run"
-        
         for process in process_steps
             @info "$process"
             # create workers
-            create_workers(80)
+            if haskey(processing_config.processors[process], :n_workers)
+                create_workers(processing_config.processors[process].n_workers)
+            else
+                create_workers(processing_config.default.n_workers)
+            end
             @everywhere begin
                 using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement
                 using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
@@ -118,7 +171,11 @@ for period in periods
                 GC.gc()
             end
             # run process
-            getfield(Main, process)(l200, period, run,; reprocess=reprocess)
+            if haskey(processing_config.processors[process], :timeout)
+                getfield(Main, process)(l200, period, run,; reprocess=processing_config.processors[process].reprocess, timeout=processing_config.processors[process].timeout)
+            else
+                getfield(Main, process)(l200, period, run,; reprocess=processing_config.processors[process].reprocess)
+            end
         end
     end
 end

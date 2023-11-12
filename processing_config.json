@@ -24,39 +24,48 @@
         "process_peak_split": {
             "enabled": false,
             "n_workers": 30,
-            "reprocess": false
+            "reprocess": false,
+            "rank": 1
         },
         "process_decay_time": {
             "enabled": false,
-            "n_workers": 30,
-            "reprocess": false
+            "n_workers": 40,
+            "reprocess": false,
+            "rank": 2
         },
         "process_filter_optimization": {
             "enabled": false,
             "n_workers": 30,
-            "reprocess": false
+            "reprocess": false,
+            "timeout": 300,
+            "rank": 3
         },
         "process_aoe_optimization": {
             "enabled": false,
             "n_workers": 30,
-            "reprocess": false
+            "reprocess": false,
+            "timeout": 300,
+            "rank": 4
         },
         "process_dsp": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 30,
-            "reprocess": false
+            "reprocess": false,
+            "rank": 5
+        },
+        "process_ct_correction": {
+            "enabled": true,
+            "n_workers": 90,
+            "reprocess": true,
+            "timeout": 300,
+            "rank": 6
         },
         "process_energy_calibration": {
             "enabled": false,
             "n_workers": 90,
             "reprocess": false,
-            "timeout": 240
-        },
-        "process_ct_correction": {
-            "enabled": true,
-            "n_workers": 90,
-            "reprocess": false,
-            "timeout": 240
+            "timeout": 240,
+            "rank": 7
         }
     }
 }

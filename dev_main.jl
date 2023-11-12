@@ -103,6 +103,7 @@ include(joinpath(@__DIR__,"optimization/aoe_filter_optimization.jl"))
 include(joinpath(@__DIR__,"dsp/dsp.jl"))
 include(joinpath(@__DIR__,"cuts/cuts.jl"))
 include(joinpath(@__DIR__,"energy/dev_energy.jl"))
+include(joinpath(@__DIR__,"energy/dev_energy_ct.jl"))
 
 # check which periods to process
 if isnothing(periods)
@@ -124,18 +125,20 @@ for period in periods
     @info "Process period $period"
     # select runs to process
     available_runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
-    if processing_config.processing.runs == "all"
-        runs = available_runs
+    processed_runs = runs
+    if processing_config.processing.runs == "all" && isnothing(runs)
+        processed_runs = available_runs
     elseif isnothing(runs)
         try
-            eval(Meta.parse(processing_config.processing.runs))
+            processed_runs = eval(Meta.parse(processing_config.processing.runs))
         catch e
             @error "Could not parse runs: $(processing_config.processing.runs)"
             rethrow(e)
         end
     end
+
     # process runs
-    for run in runs
+    for run in processed_runs
         if !(run in available_runs)
             @warn "Run $run not found in period $period"
             continue
@@ -168,7 +171,11 @@ for period in periods
                 GC.gc()
             end
             # run process
-            getfield(Main, process)(l200, period, run,; reprocess=processing_config.processors[process].reprocess, timeout=processing_config.processors[process].timeout)
+            if haskey(processing_config.processors[process], :timeout)
+                getfield(Main, process)(l200, period, run,; reprocess=processing_config.processors[process].reprocess, timeout=processing_config.processors[process].timeout)
+            else
+                getfield(Main, process)(l200, period, run,; reprocess=processing_config.processors[process].reprocess)
+            end
         end
     end
 end
