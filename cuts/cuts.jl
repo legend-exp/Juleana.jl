@@ -1,21 +1,3 @@
-# using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-# using Unitful, Formatting, LaTeXStrings
-# using Plots, StatsBase
-# using LegendHDF5IO, LegendDSP, LegendSpecFits
-# using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
-
-# ENV["JULIA_DEBUG"] = Main # enable debug
-
-# gr()
-# plotlyjs()
-
-# @info "Loading Legend MetaData"
-# l200 = LegendData(:l200)
-
-# period = DataPeriod(3)
-# run    = DataRun(1)
-
-
 function process_qc(l200::LegendData, period::DataPeriod, run::DataRun)
     @info "Generate QC cuts for period $period and run $run"
 
