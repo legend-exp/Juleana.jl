@@ -1,3 +1,23 @@
+# using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
+# using Unitful, Formatting, LaTeXStrings, Measures
+# using Plots, StatsBase
+# using LegendHDF5IO, LegendDSP, LegendSpecFits
+# using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+
+# ENV["JULIA_DEBUG"] = Main # enable debug
+
+# gr()
+# # plotlyjs(size=(800, 500))
+# # plotlyjs(size=(1200, 800))
+
+# @info "Loading Legend MetaData"
+# l200 = LegendData(:l200)
+
+# period = DataPeriod(3)
+# run    = DataRun(1)
+# reprocess = true
+
+
 function process_energy_calibration(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
     @info "Energy calibration for period $period and run $run"
 

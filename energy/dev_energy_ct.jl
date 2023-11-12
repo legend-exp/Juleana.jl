@@ -1,3 +1,23 @@
+# using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
+# using Unitful, Formatting, LaTeXStrings, Measures
+# using Plots, StatsBase
+# using LegendHDF5IO, LegendDSP, LegendSpecFits
+# using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+
+# ENV["JULIA_DEBUG"] = Main # enable debug
+
+# gr()
+# plotlyjs(size=(800, 500))
+# # plotlyjs(size=(1200, 800))
+
+# @info "Loading Legend MetaData"
+# l200 = LegendData(:l200)
+
+# period = DataPeriod(3)
+# run    = DataRun(1)
+# reprocess = true
+
+
 function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
 
     @info "CT correction for period $period and run $run"
@@ -6,7 +26,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
     filekey = filekeys[1]
     @info "Found filekey $filekey"
 
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off)
+    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
 
@@ -127,7 +147,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
         end
 
         if haskey(l200.metadata.dataprod.config.cal.energy(sel), det)
-            energy_config = merge(l200.metadata.dataprod.config.cal.energy(sel).default, l200.metadata.dataprod.config.cal.energy(sel)[det])
+            energy_config = l200.metadata.dataprod.config.cal.energy(sel)[det]
             @debug "Use config for detector $det"
         else
             energy_config = l200.metadata.dataprod.config.cal.energy(sel).default
@@ -135,7 +155,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
         end
 
         if haskey(l200.metadata.dataprod.config.cal.qc(sel), det)
-            qc_config = merge(l200.metadata.dataprod.config.cal.qc(sel).default, l200.metadata.dataprod.config.cal.qc(sel)[det])
+            qc_config = l200.metadata.dataprod.config.cal.qc(sel)[det]
             @debug "Use config for detector $det"
         else
             qc_config = l200.metadata.dataprod.config.cal.qc(sel).default
@@ -217,19 +237,20 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
     result_ctc = pmap(eachindex(chinfo.channel); on_error = e->(isa(e, ProcessExitedException) ? NaN : rethrow())) do idx
         try
             t_end = time() + timeout
+            c = Channel(0)
             task = Threads.@spawn ch_ct_correction(idx)
+            bind(c, task)
+            # result = nothing
             while !istaskdone(task) && time() <= t_end
                 sleep(0.1)
             end
             if !istaskdone(task)
+                # schedule(task, InterruptException(), error=true)
                 @debug "Timeout for $(chinfo.detector[idx])"
                 throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
             end
             chinfo.detector[idx] => fetch(task)
         catch e
-            if e isa TaskFailedException
-                e = e.task.exception
-            end
             @debug "Write Error log for $(chinfo.detector[idx]): $(e)"
             log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | - | - | - | $(e) |"
             chinfo.detector[idx] => (result = (fct = NaN, ), log = log_info)
