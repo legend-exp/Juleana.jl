@@ -4,7 +4,7 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
     filekey = filekeys[1]
     @info "Found filekey $filekey"
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
+    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off) 
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
     dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
