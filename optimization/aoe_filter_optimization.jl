@@ -1,11 +1,11 @@
-function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false)
+function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
 
     @info "Optimize PSD filter for period $period and run $run"
 
     filekey = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)[1]
     @info "Found filekey $filekey"
 
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
+    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability == :on)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
     dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
@@ -20,16 +20,24 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
 
     @debug "Create figures folder"
     figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "optimization")
-    ifelse(isdir(figures_folder), @debug("Figure folder $figures_folder already exists"), mkpath(figures_folder))
+    if isdir(figures_folder)
+        @debug("Figure folder $figures_folder already exists")
+    else
+        mkpath(figures_folder)
+    end
 
     @debug "Create logs folder"
     log_folder = joinpath(l200.tier[:log, :cal, period, run])
-    ifelse(isdir(log_folder), @debug("Log folder $log_folder already exists"), mkpath(log_folder))
+    if isdir(log_folder)
+        @debug("Log folder $log_folder already exists")
+    else
+        mkpath(log_folder)
+    end
 
     @debug "Create pars db"
     pars_db = PropDict()
     # read params if exist
-    if !(Symbol(period) in keys(l200.par[:cal, :optimization]))
+    if !(haskey(l200.par[:cal, :optimization], Symbol(period)))
         # path folder for current period seems not to exist, will create it first to avoid errors
         mkpath(joinpath(l200.tier[:par, :cal], "optimization", "$period"))
         # write validity
@@ -37,7 +45,7 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
         open(joinpath(l200.tier[:par, :cal], "optimization", "validity.jsonl"), "a") do io
             println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
         end
-    elseif !(l200.par[:cal, :optimization, period, run] isa LegendDataManagement.NoSuchPropsDBEntry)
+    elseif haskey(l200.par[:cal, :optimization, period], Symbol(run))
         @info "Pars file already exists."
         pars_db = l200.par[:cal, :optimization, period, run]
     else
@@ -51,10 +59,10 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
     if reprocess
         @info "Reprocess all channels"
         for det in keys(pars_db)
-            pars_det                   = pars_db[det]
-            pars_det.sg_wl             = nothing
-            pars_det.sg_min_sep_sf     = nothing
-            pars_det.sg_min_sep_sf_err = nothing
+            pars_db[det].sg_wl             = nothing
+            pars_db[det].sg_min_sep_sf     = nothing
+            pars_db[det].sg_min_sep_sf_err = nothing
+            PropDicts.trim_null!(pars_db[det])
         end
         PropDicts.trim_null!(pars_db)
     else
@@ -96,7 +104,7 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
         @info "Processing channel $ch ($det)"
 
         if haskey(l200.metadata.dataprod.config.cal.dsp(sel).optimization, det)
-            optimization_config = l200.metadata.dataprod.config.cal.dsp(sel).optimization[det]
+            optimization_config = merge(l200.metadata.dataprod.config.cal.dsp(sel).optimization.default, l200.metadata.dataprod.config.cal.dsp(sel).optimization[det])
             @debug "Use config for detector $det"
         else
             optimization_config = l200.metadata.dataprod.config.cal.dsp(sel).optimization.default
@@ -175,7 +183,7 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
         @info """Found optimal window length at $(result_sg_wl.wl) with survival fraction $(round(result_sg_wl.sf, digits=2)) ± $(round(result_sg_wl.sf_err, digits=2))%"""
 
         # write log
-        log_info = "| $ch | $det | Success| $(result_sg_wl.wl) | $(round(result_sg_wl.sf, digits=2)) | $(round(result_sg_wl.sf_err, digits=2)) | - |"
+        log_info = "| $ch | $det | Success | $(result_sg_wl.wl) | $(round(result_sg_wl.sf, digits=2)) | $(round(result_sg_wl.sf_err, digits=2)) | - |"
         
         # free memory
         GC.gc()
@@ -183,10 +191,22 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
         return (result = result_sg_wl, log = log_info)
     end
 
-    result_sg = @showprogress pmap(eachindex(chinfo.channel), batch_size = 3) do idx
+    result_sg = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1) do idx
         try
-            chinfo.detector[idx] => ch_sg_optimization(idx)
+            t_end = time() + timeout
+            task = Threads.@spawn ch_sg_optimization(idx)
+            while !istaskdone(task) && time() <= t_end
+                sleep(0.1)
+            end
+            if !istaskdone(task)
+                @debug "Timeout for $(chinfo.detector[idx])"
+                throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
+            end
+            chinfo.detector[idx] => fetch(task)
         catch e
+            if e isa TaskFailedException
+                e = e.task.exception
+            end
             @debug "Write Error log for $(chinfo.detector[idx])"
             log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | - | - | - | $(e) |"
             result_sg_wl = (
