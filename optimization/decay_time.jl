@@ -4,7 +4,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
     filekey = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)[1]
     @info "Found filekey $filekey"
 
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
+    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
     dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
@@ -13,16 +13,24 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
 
     @debug "Create figures folder"
     figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "decay_time")
-    ifelse(isdir(figures_folder), @debug("Figure folder $figures_folder already exists"), mkpath(figures_folder))
+    if isdir(figures_folder)
+        @debug("Figure folder $figures_folder already exists")
+    else
+        mkpath(figures_folder)
+    end
 
     @debug "Create logs folder"
     log_folder = joinpath(l200.tier[:log, :cal, period, run])
-    ifelse(isdir(log_folder), @debug("Log folder $log_folder already exists"), mkpath(log_folder))
+    if isdir(log_folder)
+        @debug "Log folder $log_folder already exists"
+    else
+        mkpath(log_folder)
+    end
 
     @debug "Create pars db"
     pars_db = PropDict()
     # read params if exist
-    if !(Symbol(period) in keys(l200.par[:cal, :decay_time]))
+    if !(haskey(l200.par[:cal, :decay_time], Symbol(period)))
         # path folder for current period seems not to exist, will create it first to avoid errors
         mkpath(joinpath(l200.tier[:par, :cal], "decay_time", "$period"))
         # write validity
@@ -30,7 +38,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
         open(joinpath(l200.tier[:par, :cal], "decay_time", "validity.jsonl"), "a") do io
             println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
         end
-    elseif !(l200.par[:cal, :decay_time, period, run] isa LegendDataManagement.NoSuchPropsDBEntry)
+    elseif haskey(l200.par[:cal, :decay_time, period], Symbol(run))
         @info "Pars file already exists."
         pars_db = l200.par[:cal, :decay_time, period, run]
     else
@@ -69,7 +77,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(chinfo.detector[i]) already processed, skip"
-            log = "| $ch | $det | Success| $(round(pars_db[det].tau.val, digits=2)) | $(round(pars_db[det].tau_err.val, digits=2)) | $(pars_db[det].n_tau) | Already processed --> skipped. |"
+            log = "| $ch | $det | Success | $(round(pars_db[det].tau.val, digits=2)) | $(round(pars_db[det].tau_err.val, digits=2)) | $(pars_db[det].n_tau) | Already processed --> skipped. |"
             result_dt = (
                 μ = NaN*u"μs",
                 μ_err = NaN*u"μs",
@@ -83,7 +91,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
         @debug "Processing channel $ch ($det)"
 
         if haskey(l200.metadata.dataprod.config.cal.dsp(sel).decay_time, det)
-            decay_time_config = l200.metadata.dataprod.config.cal.dsp(sel).decay_time[det]
+            decay_time_config = merge(l200.metadata.dataprod.config.cal.dsp(sel).decay_time.default, l200.metadata.dataprod.config.cal.dsp(sel).decay_time[det])
             @debug "Use config for detector $det"
         else
             decay_time_config = l200.metadata.dataprod.config.cal.dsp(sel).decay_time.default
