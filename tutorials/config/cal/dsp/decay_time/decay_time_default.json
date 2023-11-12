@@ -1,8 +1,0 @@
-{
-    "default": {
-        "min_tau": 200.0,
-        "max_tau": 800.0,
-        "nbins": 1000,
-        "rel_cut_fit": 0.1
-    }
-}
