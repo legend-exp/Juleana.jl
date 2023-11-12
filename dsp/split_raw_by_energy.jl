@@ -62,7 +62,7 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
     isempty(filekeys) && error("No files found in \"$input_datadir\"")
 
     chinfo = channel_info(l200, first(filekeys))
-    channels = sort(filterby(@pf $processable && $usability && $system == :geds)(chinfo).channel)
+    channels = sort(filterby(@pf $processable && $usability != :off && $system == :geds)(chinfo).channel)
     @info "Expecting $(length(channels)) channels each file in \"$input_datadir\"."
 
     if !files_checked
@@ -72,17 +72,24 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
             filename = l200.tier[:raw, filekey]
             @info "Checking file \"$filename\""
             is_ok::Bool = true
-            LHDataStore(filename) do ds
-                #ch = first(channels)
-                for ch in channels
-                    try
-                        #@info "Checking channel $ch in file \"$(filename)\""
-                        haskey(ds, int2chname(ch)) || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
-                        #ds[int2chname(ch)]
-                        #get_daqenergy(ds, ch)
-                    catch err
-                        @error "Error while checking channel $ch in \"$(filename)\": $(err)"
-                        is_ok = false
+            try
+                LHDataStore(filename) 
+            catch err
+                @error "Error while checking file \"$(filename)\": $(err)"
+                is_ok = false
+            else
+                LHDataStore(filename) do ds
+                    #ch = first(channels)
+                    for ch in channels
+                        try
+                            #@info "Checking channel $ch in file \"$(filename)\""
+                            haskey(ds, int2chname(ch)) || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
+                            #ds[int2chname(ch)]
+                            #get_daqenergy(ds, ch)
+                        catch err
+                            @error "Error while checking channel $ch in \"$(filename)\": $(err)"
+                            is_ok = false
+                        end
                     end
                 end
             end
