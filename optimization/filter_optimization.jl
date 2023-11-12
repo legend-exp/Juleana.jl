@@ -1,10 +1,10 @@
-function process_filter_optimization(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false)
+function process_filter_optimization(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
     @info "Optimize filter for period $period and run $run"
 
     filekey = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)[1]
     @info "Found filekey $filekey"
 
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
+    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
     dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
@@ -16,16 +16,24 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
 
     @debug "Create figures folder"
     figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "optimization")
-    ifelse(isdir(figures_folder), @debug("Figure folder $figures_folder already exists"), mkpath(figures_folder))
+    if isdir(figures_folder)
+        @debug("Figure folder $figures_folder already exists")
+    else
+        mkpath(figures_folder)
+    end
 
     @debug "Create logs folder"
     log_folder = joinpath(l200.tier[:log, :cal, period, run])
-    ifelse(isdir(log_folder), @debug("Log folder $log_folder already exists"), mkpath(log_folder))
+    if isdir(log_folder)
+        @debug("Log folder $log_folder already exists")
+    else
+        mkpath(log_folder)
+    end
 
     @debug "Create pars db"
     pars_db = PropDict()
     # read params if exist
-    if !(Symbol(period) in keys(l200.par[:cal, :optimization]))
+    if !(haskey(l200.par[:cal, :optimization], Symbol(period)))
         # path folder for current period seems not to exist, will create it first to avoid errors
         mkpath(joinpath(l200.tier[:par, :cal], "optimization", "$period"))
         # write validity
@@ -33,7 +41,7 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
         open(joinpath(l200.tier[:par, :cal], "optimization", "validity.jsonl"), "a") do io
             println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
         end
-    elseif !(l200.par[:cal, :optimization, period, run] isa LegendDataManagement.NoSuchPropsDBEntry)
+    elseif haskey(l200.par[:cal, :optimization, period], Symbol(run))
         @info "Pars file already exists."
         pars_db = l200.par[:cal, :optimization, period, run]
     else
@@ -73,7 +81,12 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(chinfo.detector[i]) already processed, skip"
-            log = "| $ch | $det | Success | $(pars_db[det].trap_rt.val*u"µs") | $(pars_db[det].trap_ft.val*u"µs") | $(round(pars_db[det].trap_min_fwhm, digits=2)) | Already processed --> skipped. |"
+            if haskey(pars_db[det], :trap_min_fwhm)
+                min_fwhm = "$(round(pars_db[det].trap_min_fwhm, digits=2))"
+            else
+                min_fwhm = "NaN"
+            end
+            log = "| $ch | $det | Success | $(pars_db[det].trap_rt.val*u"µs") | $(pars_db[det].trap_ft.val*u"µs") | $min_fwhm | Already processed --> skipped. |"
             return (result_rt = (rt = NaN*u"µs", ), result_ft = (ft = NaN*u"µs", ), log = log)
         end
 
@@ -81,17 +94,22 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
         @debug "Processing channel $ch ($det)"
 
         if haskey(l200.metadata.dataprod.config.cal.dsp(sel).optimization, det)
-            optimization_config = l200.metadata.dataprod.config.cal.dsp(sel).optimization[det]
+            optimization_config = merge(l200.metadata.dataprod.config.cal.dsp(sel).optimization.default, l200.metadata.dataprod.config.cal.dsp(sel).optimization[det])
             @debug "Use config for detector $det"
         else
             optimization_config = l200.metadata.dataprod.config.cal.dsp(sel).optimization.default
             @debug "Use default config"
         end
 
+        # for filter_type in keys(optimization_config)
+
         # unpack config
         min_enc, max_enc = optimization_config.trap.min_enc, optimization_config.trap.max_enc
         nbins = optimization_config.trap.nbins_enc_sigmas
         rel_cut_fit = optimization_config.trap.rel_cut_fit_enc_sigmas
+        min_e_fep, max_e_fep = optimization_config.trap.min_e_fep, optimization_config.trap.max_e_fep
+        nbins_fep = optimization_config.trap.nbins_e_fep
+        rel_cut_fit_fep = optimization_config.trap.rel_cut_fit_e_fep
 
 
         filename = joinpath(l200.tier[DataTier(:peaks), :cal, filekey.period, filekey.run], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
@@ -146,7 +164,7 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
         end
         result_ft, report_ft = nothing, nothing
         try
-            result_ft, report_ft = fit_fwhm_ft_fep(e_trap_grid, dsp_config.e_grid_ft_trap)
+            result_ft, report_ft = fit_fwhm_ft_fep(e_trap_grid, dsp_config.e_grid_ft_trap, result_rt.rt, min_e_fep, max_e_fep, nbins_fep, rel_cut_fit_fep)
         catch e
             @error "Failed flat-top time extraction: $e"
             throw(ErrorException("Error in flat-top time extraction."))
@@ -164,8 +182,20 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
 
     result_filter = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1) do idx
         try
-            chinfo.detector[idx] => ch_filter_optimization(idx)
+            t_end = time() + timeout
+            task = Threads.@spawn ch_filter_optimization(idx)
+            while !istaskdone(task) && time() <= t_end
+                sleep(0.1)
+            end
+            if !istaskdone(task)
+                @debug "Timeout for $(chinfo.detector[idx])"
+                throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
+            end
+            chinfo.detector[idx] => fetch(task)
         catch e
+            if e isa TaskFailedException
+                e = e.task.exception
+            end
             @debug "Write Error log for $(chinfo.detector[idx]): $e"
             log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | - | - | - | $(e) |"
             chinfo.detector[idx] => (result_rt = (rt = NaN*u"µs", ), result_ft = (ft = NaN*u"µs", ), log = log_info)
