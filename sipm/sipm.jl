@@ -1,23 +1,4 @@
-using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
-using Unitful, Formatting, LaTeXStrings, Measures
-using Plots, StatsBase
-using LegendHDF5IO, LegendDSP, LegendSpecFits
-using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
-
-ENV["JULIA_DEBUG"] = Main # enable debug
-
-gr()
-plotlyjs(size=(800, 500))
-# plotlyjs(size=(1200, 800))
-
-@info "Loading Legend MetaData"
-l200 = LegendData(:l200)
-
-period = DataPeriod(3)
-run    = DataRun(0)
-reprocess = true
-
-# function process_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+function process_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
     @info "Process SiPM DSP for period $period and run $run"
 
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :phy, period, run]), by = x-> x.time)
@@ -33,24 +14,6 @@ reprocess = true
     pars_sipm = l200.par[:phy, :sipm](sel)
     @debug "Loaded SiPM parameters"
 
-    filename    = l200.tier[:raw, filekey]
-
-    i=1
-    ch_short = chinfo.channel[i]
-    ch = format("ch{}", ch_short)
-    det = chinfo.detector[i]
-    data_ch = LHDataStore(filename, "r")["$ch/raw"][:]
-    close(data_ch)
-    test_dsp = dsp_sipm(data_ch, dsp_meta.default, pars_sipm[det])
-
-    rm("/home/iwsatlas1/henkes/l200/auto/sipm/test.lh5")
-    test_t = TypedTables.Table(a = [Float64[NaN],Float64[1,2],Float64[3]], b = [4,5,6])
-    outtest = LHDataStore("/home/iwsatlas1/henkes/l200/auto/sipm/test.lh5", "w")
-    outtest[ch] = test_dsp
-    close(outtest)
-    
-    
-    
     @debug "Create DSP folder"
     dsp_folder = l200.tier[:dsp, :phy, period, run]
     if isdir(dsp_folder)
@@ -193,7 +156,7 @@ reprocess = true
     Time of processing: $(now())
 
     ## DSP
-    This is the log for the dsp. The algorithm iterates through each file and process within each file each detector separate.
+    This is the log for the SiPM dsp. The algorithm iterates through each file and process within each file each detector separate.
 
     # MetaData
     | Setup | Period | Run | Category |
@@ -225,7 +188,7 @@ $total_dsp_timer
     @info "Write main log to disk"
     @info main_log
 
-    log_filename = joinpath(log_folder, format("{}-{}-{}-{}-dsp.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+    log_filename = joinpath(log_folder, format("{}-{}-{}-{}-dsp_sipm.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
     open(log_filename, "w+") do file
         write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
     end
