@@ -5,6 +5,7 @@ using Unitful, Formatting, LaTeXStrings, Measures
 using Plots, StatsBase
 using LegendHDF5IO, LegendDSP, LegendSpecFits
 using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+using LegendDataTypes
 
 using IntervalSets
 using Distributed
@@ -13,13 +14,13 @@ ENV["JULIA_DEBUG"] = Main # enable debug
 
 gr()
 # plotlyjs(size=(800, 500))
-# plotlyjs(size=(1200, 800))
+plotlyjs(size=(1200, 800))
 
 @info "Loading Legend MetaData"
 l200 = LegendData(:l200)
 
 data_period = DataPeriod(3)
-data_run    = DataRun(1)
+data_run    = DataRun(0)
 reprocess = true
 
 # # Needs to be in a separare @everywhere from package loading for some reason:
@@ -74,8 +75,10 @@ end
 isempty(filekeys) && error("No files found in \"$input_datadir\"")
 
 chinfo = channel_info(l200, first(filekeys))
-channels = sort(filterby(@pf $processable && $usability && $system == :geds)(chinfo).channel)
+channels = sort(filterby(@pf $processable && $usability != :off && $system == :geds)(chinfo).channel)
 @info "Expecting $(length(channels)) channels each file in \"$input_datadir\"."
+sel = LegendDataManagement.ValiditySelection(first(filekeys).time, :cal)
+
 
 if !files_checked
     @info "Checking files in \"$input_datadir\"."
@@ -121,13 +124,13 @@ if !files_checked
 end
 
 
+ch = 1116805
 
-
-for ch in channels
-    if ch != chinfo.channel[chinfo.detector .== :V01387A][1]
-        @info "Skipping channel $ch"
-        continue
-    end
+# for ch in channels
+    # if ch != chinfo.channel[chinfo.detector .== :V09724A][1]
+    #     @info "Skipping channel $ch"
+    #     continue
+    # end
     @info "Processing channel $ch"
 
     filelist = [l200.tier[:raw, key] for key in filekeys]
@@ -135,15 +138,26 @@ for ch in channels
     output_basename = join([filekey_parts[1:4]..., int2chname(ch), filekey_parts[6]], "-")
     output_filename = replace(joinpath(output_datadir, output_basename), "tier_raw" => "tier_peaks")
 
-    if isfile(output_filename)
-        @info "Output file \"$output_filename\" already exists, skipping"
-    else
+    # if isfile(output_filename)
+    #     @info "Output file \"$output_filename\" already exists, skipping"
+    # else
         @info "Generating output file \"$output_filename\""
-
+        det = chinfo.detector[chinfo.channel .== ch][1]
+        if haskey(l200.metadata.dataprod.config.cal.energy(sel), det)
+            energy_config = merge(l200.metadata.dataprod.config.cal.energy(sel).default, l200.metadata.dataprod.config.cal.energy(sel)[det])
+            @debug "Use config for detector $det"
+        else
+            energy_config = l200.metadata.dataprod.config.cal.energy(sel).default
+            @debug "Use default config"
+        end
+        quantile_perc = parse(Float64, energy_config.quantile_perc)
         E_raw = get_daqenergy_for_ch(filelist, ch)
-        f_calib, diagnostics = autocal_energy(E_raw)
+        e = E_raw[E_raw .< 60000]
+        h_uncal = fit(Histogram, e, 0:1.0:maximum(e))
+        _, peakpos = RadiationSpectra.peakfinder(h_uncal, σ=5.0, backgroundRemove=true, threshold=10)
+        f_calib, diagnostics = autocal_energy(E_raw[E_raw .< 60000],; quantile_perc=quantile_perc)
 
-        # plot(diagnostics)
+        plot(diagnostics.cal_hist, xlabel="Energy (keV)", ylabel="Counts", title="Calibrated DAQ Online Energy", legend=:none, yscale=:log10, st=:stepbins)
 
         slim_data = flatten_by_key([LHDataStore(filename) do ds
             @info "Filtering $(filename), channel $ch"
@@ -165,7 +179,7 @@ for ch in channels
             end
         end
     end
-end
+# end
 
 
 @info "Finished Peak Splitting"
