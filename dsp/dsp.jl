@@ -1,4 +1,4 @@
-function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false)
+function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
     @info "Process DSP for period $period and run $run"
 
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
@@ -19,12 +19,25 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
 
     @debug "Create DSP folder"
     dsp_folder = l200.tier[:dsp, :cal, period, run]
-    ifelse(isdir(dsp_folder), @debug("DSP folder $dsp_folder already exists"), mkpath(dsp_folder))
+    if isdir(dsp_folder)
+        @debug("DSP folder $dsp_folder already exists")
+    else
+        mkpath(dsp_folder)
+    end
 
     @debug "Create logs folder"
     log_folder = joinpath(l200.tier[:log, :cal, period, run])
-    ifelse(isdir(log_folder), @debug("Log folder $log_folder already exists"), mkpath(log_folder))
+    if isdir(log_folder)
+        @debug("Log folder $log_folder already exists")
+    else
+        mkpath(log_folder)
+    end
 
+    if reprocess
+        @info "Reprocess all filekeys"
+    else
+        @info "Only reprocess filekeys that are not processed yet"
+    end
 
     # move all variables to workers
     @everywhere begin
@@ -110,11 +123,30 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
         log_info = "| $(filekeys[idx]) | $n_detectors | Success | $total_time | $total_allocated | - |"
         return (timer = dsp_timer, log = log_info)
     end
+
+    Base.exit_on_sigint(false)
     result_dsp = @showprogress pmap(eachindex(filekeys), batch_size = 1, on_error=identity) do idx
         try
-            idx => single_file_dsp(idx)
+            t_end = time() + timeout
+            task = Threads.@spawn single_file_dsp(idx)
+            while !istaskdone(task) && time() <= t_end
+                sleep(0.1)
+            end
+            if !istaskdone(task)
+                @debug "Timeout for $(filekeys[idx])"
+                try
+                    Base.throwto(task, InterruptException())
+                catch e
+                    throw(ErrorException("Timeout for $(filekeys[idx])"))
+                end
+                throw(ErrorException("Timeout for $(filekeys[idx])"))
+            end
+            idx => fetch(task)
         catch e
-            @debug "Write Error log for $(filekeys(idx))"
+            if e isa TaskFailedException
+                e = e.task.exception
+            end
+            @debug "Write Error log for $(filekeys[idx])"
             log_info = "| $(filekeys[idx]) | - | Failed | - | - | $e |"
             idx => (timer = TimerOutput(), log = log_info)
         end
