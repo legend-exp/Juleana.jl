@@ -4,6 +4,7 @@ tests/data/
 
 # HDF5 files
 *.hdf5
+*.lh5
 
 # ignore Manifest.toml
 Manifest.toml
