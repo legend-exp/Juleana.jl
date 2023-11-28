@@ -77,6 +77,24 @@ else
     @info "Only reprocess channels that are not in pars_db"
 end
 
+# ch = "ch1116805"
+# for p in search_disk(DataPeriod, l200.tier[:peaks, :cal])
+#     if p.no < 3
+#         continue
+#     end
+#     @info "Period $p"
+#     for r in search_disk(DataRun, l200.tier[:peaks, :cal, p])
+#         @info "Run $r"
+#         filename = joinpath(l200.tier[DataTier(:peaks), :cal, p, r], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(p), string(r), string(filekey.category), ch))
+#         if isfile(filename)
+#             @warn "File $filename does exist, remove"
+#             rm(filename)
+#         end
+#     end
+# end
+# filename = joinpath(l200.tier[DataTier(:peaks), :cal, p, r], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(p), string(r), string(filekey.category), ch))
+
+
 # # move all variables to workers
 # @everywhere begin
 #     l200 = $l200
@@ -92,9 +110,9 @@ end
 
 
 # @everywhere function ch_filter_optimization(i::Int64)
-    det = :V09724A
+    det = :V07646A    
     i = findfirst(chinfo.detector .== det)
-    i = 10
+    # i = 10
     ch_short = chinfo.channel[i]
     ch = format("ch{}", ch_short)
     det = chinfo.detector[i]
@@ -124,48 +142,43 @@ end
     nbins_fep = optimization_config.trap.nbins_e_fep
     rel_cut_fit_fep = optimization_config.trap.rel_cut_fit_e_fep
 
-    filename = joinpath(l200.tier[DataTier(:peaks), :cal, filekey.period, filekey.run], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
-    # if !isfile(filename)
-    #     @warn "File $filename does not exist, Skip channel $ch"
-    #     throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
-    # end
+    # for i in eachindex(chinfo)
+    #     ch_short = chinfo.channel[i]
+    #     ch = format("ch{}", ch_short)
+    #     det = chinfo.detector[i]
+        filename = joinpath(l200.tier[DataTier(:peaks), :cal, filekey.period, filekey.run], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
+        # if !isfile(filename)
+        #     @warn "File $filename does not exist, Skip channel $ch"
+        #     throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
+        # end
 
-    # load data
-    wvfs_ch_fep = nothing
-    # try
-        data = LHDataStore(filename, "r")
-        @debug "Loading Tl208 FEP data from $(filename)"
-        wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
-        close(data)    
-    # catch e
-    #     @error "FEP data from $(basename(filename)) cannot be loaded"
-    #     throw(LoadError(string(basename(filename)), 154,"FEP data from $(basename(filename)) cannot be loaded"))
+        # load data
+
+        wvfs_ch_fep = nothing
+        try
+            data = LHDataStore(filename, "r")
+            @debug "Loading Tl208 FEP data from $(filename)"
+            wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
+            e_daq = data[ch].Tl208FEP.daqenergy[:]
+            close(data)    
+        catch e
+            @error "FEP data from $(basename(filename)) cannot be loaded"
+            throw(LoadError(string(basename(filename)), 154,"FEP data from $(basename(filename)) cannot be loaded"))
+        end
     # end
 using RadiationDetectorDSP
 plot(wvfs_ch_fep[20:40])
 bl_stats = signalstats.(wvfs_ch_fep, 0u"µs", 35u"µs")
 wvfs = shift_waveform.(wvfs_ch_fep, -bl_stats.mean)
-plot(wvfs[10:20])
-cusp_rt, cusp_ft, cusp_length = 8.0u"µs", 4.0u"µs", 15.0u"µs"
-cusp_filter = CUSPChargeFilter(cusp_rt, cusp_ft, pars_tau[det].tau.val*u"µs", cusp_length, 625.0)
-wvfs_cusp = cusp_filter.(wvfs)
-plot(wvfs_cusp[10:11], xlims=(47.5e3, 60e3))
-vline!(t0[10:11] .+ cusp_length/2 .+ cusp_ft/4)
+IntersectMaximum()
+wvfs_max = maximum.(wvfs.signal)
+using LegendDSP
+t50 = LegendDSP.get_t50.(wvfs, wvfs_max)
 
-zac_rt, zac_ft, zac_length = 6.0u"µs", 4.0u"µs", 6.0u"µs"
-zac_scale = ustrip(NoUnits, zac_length/step(wvfs[1].time))
-zac_filter = ZACChargeFilter(zac_rt, zac_ft, pars_tau[det].tau.val*u"µs", zac_length, 625.0)
-wvfs_zac = zac_filter.(wvfs)
-plot(wvfs_zac[10:11], xlims=(47.5e3, 60e3))
-vline!(t0[10:11] .+ zac_length/2 .+ zac_ft/4)
-
-
-vline!(t0[10:11] .+ 2*zac_rt)
-vline!(t0[10:11] .+ zac_ft/2 .+ zac_rt .- zac_length/2)
-vline!(t0[10:11])
-
-(tp_0_est+tp_0_est.offset)/wf_blsub.period - round((len(wf_blsub)-((36.8*us + db.cusp.flat)/wf_blsub.period))/2)
-
+in_max = Intersect()
+t_max = uconvert.(u"µs", in_max.(wvfs, wvfs_max).x)
+pz_flt = InvCRFilter(pars_tau[det].tau.val*u"µs")
+wvfs_pz = pz_flt.(wvfs)
 # t0 determination
 using IntervalSets
 # filter with fast asymetric trapezoidal filter and truncate waveform
@@ -175,25 +188,73 @@ uflt_trunc_t0 = TruncateFilter(0u"µs"..60u"µs")
 # eventuell zwei schritte!!!
 wvfs_flt_asy_t0 = uflt_asy_t0.(uflt_trunc_t0.(wvfs))
 
+# plot(wvfs[1:10])
+plot(wvfs_flt_asy_t0[1:10], xlims=(46e3, 55e3))
+ylims!(-70, 70)
+
 # get intersect at t0 threshold (fixed as in MJD analysis)
-flt_intersec_t0 = Intersect(mintot = 600u"ns")
+flt_intersec_t0 = Intersect(mintot = 1000u"ns")
 
 # get t0 for every waveform as pick-off at fixed threshold
-t0 = uconvert.(u"µs", flt_intersec_t0.(wvfs_flt_asy_t0, 4.0).x)
+t0 = uconvert.(u"µs", flt_intersec_t0.(wvfs_flt_asy_t0, 5.0).x)
+
+
+plot(wvfs[1:10])
+vline!(t0[1:10])
+cusp_rt, cusp_ft, cusp_length =  5.0u"µs", 1.0u"µs", 10.0u"µs"
+cusp_scale = ustrip(NoUnits, cusp_length/step(wvfs[1].time))
+cusp_filter = CUSPChargeFilter(cusp_rt, cusp_ft, pars_tau[det].tau.val*u"µs", cusp_length, 625.0)
+wvfs_cusp = cusp_filter.(wvfs)
+plot(u"µs", NoUnits)
+plot!(wvfs_pz[10], label="wvfs pz")
+plot!(wvfs_cusp[10], label="wvfs cusp")
+xlims!(40, 70)
+
+vline!(t0[10:11] .+ cusp_length/2)
+zac_filter = ZACChargeFilter(cusp_rt, cusp_ft, pars_tau[det].tau.val*u"µs", cusp_length, 625.0)
+wvfs_zac = zac_filter.(wvfs)
+plot(u"µs", NoUnits)
+plot!(wvfs_pz[10], label="wvfs pz")
+plot!(wvfs_zac[10], label="wvfs zac")
+
+# zac_rt, zac_ft, zac_length = 6.0u"µs", 4.0u"µs", 6.0u"µs"
+# zac_scale = ustrip(NoUnits, zac_length/step(wvfs[1].time))
+# zac_filter = ZACChargeFilter(zac_rt, zac_ft, pars_tau[det].tau.val*u"µs", zac_length, 625.0)
+# wvfs_zac = zac_filter.(wvfs)
+# plot(wvfs_zac[10:11], xlims=(47.5e3, 60e3))
+# vline!(t0[10:11] .+ zac_length/2 .+ zac_ft/4)
+
+
+# vline!(t0[10:11] .+ 2*zac_rt)
+# vline!(t0[10:11] .+ zac_ft/2 .+ zac_rt .- zac_length/2)
+# vline!(t0[10:11])
+
+# (tp_0_est+tp_0_est.offset)/wf_blsub.period - round((len(wf_blsub)-((36.8*us + db.cusp.flat)/wf_blsub.period))/2)
 
 
 
-enc_cusp_grid = dsp_cusp_rt_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs",; ft=1.0u"µs", flt_length=10.0u"µs")
+stephist(e_daq, nbins=1000)
 
-result_rt, report_rt = fit_enc_sigmas(enc_cusp_grid, dsp_config.e_grid_rt_cusp, min_enc, max_enc, nbins, rel_cut_fit)
+using ArraysOfArrays
+enc_cusp_grid = dsp_cusp_rt_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs",; ft=1.0u"µs")
+histogram(flatview(enc_cusp_grid)[5,:], bins=10000, xlims=(-50, 50))
 
-e_cusp_grid = dsp_cusp_ft_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs", result_rt.rt,; flt_length=10.0u"µs")
+result_rt, report_rt = fit_enc_sigmas(enc_cusp_grid, dsp_config.e_grid_rt_cusp, min_enc, max_enc, 1000, 0.2)
+plot(report_rt)
+
+e_cusp_grid = dsp_cusp_ft_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs", result_rt.rt)
+
+histogram(flatview(e_cusp_grid)[13,:], bins=1000, yscale=:log10)
 
 result_ft, report_ft = fit_fwhm_ft_fep(e_cusp_grid, dsp_config.e_grid_ft_cusp, result_rt.rt, min_e_fep, max_e_fep, nbins_fep, rel_cut_fit_fep)
+plot(report_ft)
+ylims!(1, 3)
+xlims!(0.5, 5)
+
 using ArraysOfArrays
 e_ft = Array{Float64}(flatview(e_cusp_grid)[1, :])
 e_ft = e_ft[isfinite.(e_ft)]
-stephist(e_ft[min_e_fep .< e_ft .< max_e_fep], bins=nbins_fep)
+stephist(e_ft[min_e_fep .< e_ft .< max_e_fep], bins=200)
 stephist(e_ft, bins=nbins_fep)
 fit_cut = cut_single_peak(e_ft, min_e_fep, max_e_fep,; n_bins=nbins_fep, relative_cut=rel_cut_fit_fep)
 
@@ -236,7 +297,7 @@ enc_zac_grid = dsp_zac_rt_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].ta
     # end
     result_ft, report_ft = nothing, nothing
     # try
-        result_ft, report_ft = fit_fwhm_ft_fep(e_trap_grid, dsp_config.e_grid_ft_trap)
+        result_ft, report_ft = fit_fwhm_ft_fep(e_trap_grid, dsp_config.e_grid_ft_trap, result_rt.rt, min_e_fep, max_e_fep, nbins_fep, rel_cut_fit_fep)
     # catch e
     #     @error "Failed flat-top time extraction: $e"
     #     throw(ErrorException("Error in flat-top time extraction."))

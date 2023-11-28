@@ -36,20 +36,9 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
     if !(haskey(l200.par[:cal, :optimization], Symbol(period)))
         # path folder for current period seems not to exist, will create it first to avoid errors
         mkpath(joinpath(l200.tier[:par, :cal], "optimization", "$period"))
-        # write validity
-        pars_validTimeStamp = string(filekey.time)
-        open(joinpath(l200.tier[:par, :cal], "optimization", "validity.jsonl"), "a") do io
-            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
-        end
     elseif haskey(l200.par[:cal, :optimization, period], Symbol(run))
         @info "Pars file already exists."
         pars_db = l200.par[:cal, :optimization, period, run]
-    else
-        # write validity
-        pars_validTimeStamp = string(filekey.time)
-        open(joinpath(l200.tier[:par, :cal], "optimization", "validity.jsonl"), "a") do io
-            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
-        end
     end
 
     if reprocess
@@ -79,18 +68,6 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
         ch = format("ch{}", ch_short)
         det = chinfo.detector[i]
 
-        if !reprocess && haskey(pars_db, det)
-            @debug "Channel $(chinfo.detector[i]) already processed, skip"
-            if haskey(pars_db[det], :trap_min_fwhm)
-                min_fwhm = "$(round(pars_db[det].trap_min_fwhm, digits=2))"
-            else
-                min_fwhm = "NaN"
-            end
-            log = "| $ch | $det | Success | $(pars_db[det].trap_rt.val*u"µs") | $(pars_db[det].trap_ft.val*u"µs") | $min_fwhm | Already processed --> skipped. |"
-            return (result_rt = (rt = NaN*u"µs", ), result_ft = (ft = NaN*u"µs", ), log = log)
-        end
-
-
         @debug "Processing channel $ch ($det)"
 
         if haskey(l200.metadata.dataprod.config.cal.dsp(sel).optimization, det)
@@ -101,16 +78,37 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
             @debug "Use default config"
         end
 
-        # for filter_type in keys(optimization_config)
+        result_rt_dict = Dict{Symbol, NamedTuple}()
+        result_ft_dict = Dict{Symbol, NamedTuple}()
+        log_info_dict  = Dict{Symbol, String}()
 
-        # unpack config
-        min_enc, max_enc = optimization_config.trap.min_enc, optimization_config.trap.max_enc
-        nbins = optimization_config.trap.nbins_enc_sigmas
-        rel_cut_fit = optimization_config.trap.rel_cut_fit_enc_sigmas
-        min_e_fep, max_e_fep = optimization_config.trap.min_e_fep, optimization_config.trap.max_e_fep
-        nbins_fep = optimization_config.trap.nbins_e_fep
-        rel_cut_fit_fep = optimization_config.trap.rel_cut_fit_e_fep
+        if !reprocess && haskey(pars_db, det)
+            @debug "Channel $(chinfo.detector[i]) already processed, check missing filters"
+            for filter_type in keys(optimization_config)
+                if filter_type == :sg
+                    continue
+                end
+                if haskey(pars_db[det], filter_type)
+                    @debug "Filter $filter_type already processed, skip"
+                    if haskey(pars_db[det][filter_type], :min_fwhm)
+                        min_fwhm = "$(round(pars_db[det][filter_type].min_fwhm, digits=2))"
+                    else
+                        min_fwhm = "NaN"
+                    end
+                    log_info = "| $ch | $det | Success | $filter_type | $(pars_db[det][filter_type].rt.val*u"µs") | $(pars_db[det][filter_type].ft.val*u"µs") | $min_fwhm | Already processed --> skipped. |"
+                    # add results to dict
+                    result_rt_dict[filter_type] = NamedTuple()
+                    result_ft_dict[filter_type] = NamedTuple()
+                    log_info_dict[filter_type] = log_info
+                end
+            end
+        end
 
+        # check if all filters are already processed
+        if length(keys(result_rt_dict)) == length(keys(optimization_config)) - 1
+            @debug "All filters already processed, skip channel"
+            return (result_rt = result_rt_dict, result_ft = result_ft_dict, log = log_info_dict)
+        end
 
         filename = joinpath(l200.tier[DataTier(:peaks), :cal, filekey.period, filekey.run], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
         if !isfile(filename)
@@ -118,69 +116,141 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
         end
 
+        yield()
         # load data
         wvfs_ch_fep = nothing
         try
             data = LHDataStore(filename, "r")
             @debug "Loading Tl208 FEP data from $(filename)"
             wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
-            close(data)    
+            close(data)
+            if length(wvfs_ch_fep) > 20000
+                @warn "Tl208 FEP events exceed 20000, keep only first 20000 events"
+                wvfs_ch_fep = wvfs_ch_fep[1:20000]
+            end
         catch e
             @error "FEP data from $(basename(filename)) cannot be loaded"
             throw(LoadError(string(basename(filename)), 154,"FEP data from $(basename(filename)) cannot be loaded"))
         end
+        yield()
 
-        # optimize RT
-        enc_trap_grid = nothing
-        try
-            @debug "Generate trap ENC filter grid"
-            enc_trap_grid = dsp_trap_rt_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs",; ft=1.0u"µs")
-        catch e
-            @error "Error in RT DSP for FEP: $e"
-            throw(ErrorException("Error in RT DSP for FEP."))
+        GC.gc()
+
+        for filter_type in keys(optimization_config)
+            if filter_type == :sg
+                continue
+            end
+            if haskey(result_rt_dict, filter_type)
+                continue
+            end
+            
+            try
+                @debug "Optimize $filter_type filter"
+
+                # unpack config
+                min_enc, max_enc = optimization_config[filter_type].min_enc, optimization_config[filter_type].max_enc
+                nbins = optimization_config[filter_type].nbins_enc_sigmas
+                rel_cut_fit = optimization_config[filter_type].rel_cut_fit_enc_sigmas
+                min_e_fep, max_e_fep = optimization_config[filter_type].min_e_fep, optimization_config[filter_type].max_e_fep
+                nbins_fep = optimization_config[filter_type].nbins_e_fep
+                rel_cut_fit_fep = optimization_config[filter_type].rel_cut_fit_e_fep
+                e_grid_rt = eval(Meta.parse(optimization_config[filter_type].e_grid_rt))
+                e_grid_ft = eval(Meta.parse(optimization_config[filter_type].e_grid_ft))
+                ft_fixed = optimization_config[filter_type].ft_fixed*u"µs"
+
+                # optimize RT
+                enc_grid = nothing
+                try
+                    @debug "Generate $filter_type ENC filter grid"
+                    enc_grid = getfield(Main, Symbol(optimization_config[filter_type].dsp_rt_func))(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs",; ft=ft_fixed)
+                catch e
+                    @error "Error in $filter_type RT DSP for FEP: $e"
+                    throw(ErrorException("Error in $filter_type RT DSP for FEP."))
+                end
+
+                GC.gc()
+                result_rt, report_rt = nothing, nothing
+                try
+                    result_rt, report_rt = fit_enc_sigmas(enc_grid, e_grid_rt, min_enc, max_enc, nbins, rel_cut_fit)
+                catch e
+                    @error "Failed $filter_type rise time extraction: $e"
+                    throw(ErrorException("Error in $filter_type rise time extraction."))
+                end
+                @debug format("Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
+
+                plot(report_rt, title=format("{} {} Noise Sweep ({}-{}-{}-{})", string(det), string(filter_type), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+                savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-noise_sweep_{}.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch, string(filter_type))))
+
+                # optimize FT
+                GC.gc()
+                e_grid = nothing
+                try
+                    @debug "Generate $filter_type FT energy grid"
+                    e_grid = getfield(Main, Symbol(optimization_config[filter_type].dsp_ft_func))(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs", result_rt.rt)
+                catch e
+                    @error "Error in $filter_type FT DSP for FEP: $e"
+                    throw(ErrorException("Error in $filter_type FT DSP for FEP."))
+                end
+                GC.gc()
+                result_ft, report_ft = nothing, nothing
+                try
+                    result_ft, report_ft = fit_fwhm_ft_fep(e_grid, e_grid_ft, result_rt.rt, min_e_fep, max_e_fep, nbins_fep, rel_cut_fit_fep)
+                catch e
+                    @error "Failed $filter_type flat-top time extraction: $e"
+                    throw(ErrorException("Error in $filter_type flat-top time extraction."))
+                end
+                @debug format("Found optimal $filter_type FT at $(result_ft.ft) with FWHM {:.2f} keV", result_ft.min_fwhm)
+                
+                plot(report_ft, title=format("{} {} FWHM FEP FT Scan ({}-{}-{}-{})", string(det), string(filter_type), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+
+                savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-fwhm_ft_scan_{}.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch, string(filter_type))))
+
+                log_info = "| $ch | $det | Success | $filter_type | $(result_rt.rt) | $(result_ft.ft) | $(round(result_ft.min_fwhm, digits=2)) | - |"
+
+                # add results to dict
+                result_rt_dict[filter_type] = result_rt
+                result_ft_dict[filter_type] = result_ft
+                log_info_dict[filter_type] = log_info
+
+                # call garbage collector
+                GC.gc()
+            catch e
+                @error "Error in $filter_type filter optimization: $e"
+                log_info = "| ch$(chinfo.channel[i]) | $(chinfo.detector[i]) | Failed | $filter_type | - | - | $(e) |"
+                # add results to dict
+                result_rt_dict[filter_type] = NamedTuple()
+                result_ft_dict[filter_type] = NamedTuple()
+                log_info_dict[filter_type] = log_info
+            end
         end
 
-        result_rt, report_rt = nothing, nothing
-        try
-            result_rt, report_rt = fit_enc_sigmas(enc_trap_grid, dsp_config.e_grid_rt_trap, min_enc, max_enc, nbins, rel_cut_fit)
-        catch e
-            @error "Failed rise time extraction: $e"
-            throw(ErrorException("Error in rise time extraction."))
-        end
-        @debug format("Found optimal RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
-
-        plot(report_rt, title=format("{} Noise Sweep ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-        savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-noise_sweep.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
-
-
-        # optimize FT
-        e_trap_grid = nothing
-        try
-            @debug "Generate trap FT energy grid"
-            e_trap_grid = dsp_trap_ft_optimization(wvfs_ch_fep, dsp_config, pars_tau[det].tau.val*u"µs", result_rt.rt)
-        catch e
-            @error "Error in FT DSP for FEP: $e"
-            throw(ErrorException("Error in FT DSP for FEP."))
-        end
-        result_ft, report_ft = nothing, nothing
-        try
-            result_ft, report_ft = fit_fwhm_ft_fep(e_trap_grid, dsp_config.e_grid_ft_trap, result_rt.rt, min_e_fep, max_e_fep, nbins_fep, rel_cut_fit_fep)
-        catch e
-            @error "Failed flat-top time extraction: $e"
-            throw(ErrorException("Error in flat-top time extraction."))
-        end
-        @debug format("Found optimal FT at $(result_ft.ft) with FWHM {:.2f} keV", result_ft.min_fwhm)
-        
-        plot(report_ft, title=format("{} FWHM FEP FT Scan ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-
-        savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-fwhm_ft_scan.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
-
-        log_info = "| $ch | $det | Success | $(result_rt.rt) | $(result_ft.ft) | $(round(result_ft.min_fwhm, digits=2)) | - |"
-        
-        return (result_rt = result_rt, result_ft = result_ft, log = log_info)
+        return (result_rt = result_rt_dict, result_ft = result_ft_dict, log = log_info_dict)
     end
 
-    result_filter = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1) do idx
+    function retry_check(delay_state, err)
+        # Below each condition to retry is listed along with an explanation about why
+        # retrying should/might work.
+        should_retry = (
+            # Worker death is normally stocastic, if not then doesn't matter how many
+            # retries as it will rapidly kill all workers
+            err isa ProcessExitedException ||
+            # If we are in the middle of fetching data and the process is killed we could
+            # get an ArgumentError saying that the stream was closed or unusable.
+            # So same as above.
+            err isa ArgumentError && occursin("stream is closed or unusable", err.msg) ||
+            # In general IO errors can be transient and related to network blips
+            err isa Base.IOError
+        )
+        if should_retry
+            @info "Retrying computation that failed due to a $(typeof(err)): $err"
+        else
+            @warn "Non-retryable $(typeof(err)) occurred: $err"
+        end
+        return should_retry
+    end
+
+    Base.exit_on_sigint(false)
+    result_filter = @showprogress pmap(reverse(eachindex(chinfo.channel)), batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do idx
         try
             t_end = time() + timeout
             task = Threads.@spawn ch_filter_optimization(idx)
@@ -189,6 +259,11 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
             end
             if !istaskdone(task)
                 @debug "Timeout for $(chinfo.detector[idx])"
+                try
+                    schedule(task, ErrorException("Timeout"), error=true)
+                catch e
+                    throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
+                end
                 throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
             end
             chinfo.detector[idx] => fetch(task)
@@ -197,8 +272,8 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
                 e = e.task.exception
             end
             @debug "Write Error log for $(chinfo.detector[idx]): $e"
-            log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | - | - | - | $(e) |"
-            chinfo.detector[idx] => (result_rt = (rt = NaN*u"µs", ), result_ft = (ft = NaN*u"µs", ), log = log_info)
+            log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | ? | - | - | - | $(e) |"
+            chinfo.detector[idx] => (result_rt = Dict{Symbol, NamedTuple}(), result_ft = Dict{Symbol, NamedTuple}(), log = log_info)
         end
     end
 
@@ -219,25 +294,44 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
     | $(filekey.setup) | $(filekey.period) | $(filekey.run) | $(filekey.category) |
 
     # Results
-    | Channel | Detector | Status | Rise Time | Flat-Top Time | Min. FWHM (keV) | Error |
-    |---------|----------|--------|-----------|---------------|-----------------|-------|
+    | Channel | Detector | Status | Filter | Rise Time | Flat-Top Time | Min. FWHM (keV) | Error |
+    |---------|----------|--------|--------|-----------|---------------|-----------------|-------|
     """
     # extract results into pars_db and append to main log
     for (det, res) in result_filter
         # save pars to db
-        if !isnan(res.result_rt.rt)
-            pars_det                    = pars_db[det]
-            pars_det.trap_rt            = res.result_rt.rt
-            pars_det.trap_rt_err        = step(dsp_config.e_grid_rt_trap)
-            pars_det.trap_min_enc       = res.result_rt.min_enc
-            pars_det.trap_ft            = res.result_ft.ft
-            pars_det.trap_ft_err        = step(dsp_config.e_grid_ft_trap)
-            pars_det.trap_min_fwhm      = res.result_ft.min_fwhm
+        if !isempty(res.result_rt)
+            pars_det = pars_db[det]
+            for (flt_type, res_rt) in res.result_rt
+                if isempty(res_rt)
+                    continue
+                end
+                pars_det_flt_type           = pars_det[flt_type]
+                pars_det_flt_type.rt        = res_rt.rt
+                pars_det_flt_type.rt_err    = res_rt.rt_err
+                pars_det_flt_type.min_enc   = res_rt.min_enc
+            end
+            for (flt_type, res_ft) in res.result_ft
+                if isempty(res_ft)
+                    continue
+                end
+                pars_det_flt_type           = pars_det[flt_type]
+                pars_det_flt_type.ft        = res_ft.ft
+                pars_det_flt_type.ft_err    = res_ft.ft_err
+                pars_det_flt_type.min_fwhm  = res_ft.min_fwhm
+            end
+            for (flt_type, log_info) in res.log
+                # add log to main log
+                main_log = """
+                $main_log$(log_info)
+                """
+            end
+        else
+            # add log to main log
+            main_log = """
+            $main_log$(res.log)
+            """
         end
-        # add log to main log
-        main_log = """
-        $main_log$(res.log)
-        """
         # main_log *= res.log
     end
 
@@ -246,6 +340,20 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
     
     # write pars
     writeprops(joinpath(l200.tier[:par, :cal], "optimization", "$period/$run.json"), pars_db, multiline=true)
+
+    # write validity
+    pars_validTimeStamp = string(filekey.time)
+    add_validity = true
+    for ln in eachline(open(joinpath(l200.tier[:par, :cal], "optimization", "validity.jsonl"), "r"))
+        if (contains(ln, "$pars_validTimeStamp"))
+            add_validity = false
+        end
+    end
+    if add_validity
+        open(joinpath(l200.tier[:par, :cal], "optimization", "validity.jsonl"), "a") do io
+            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
+        end
+    end
 
     @info "Write main log to disk"
     @info main_log
