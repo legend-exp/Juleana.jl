@@ -1,4 +1,4 @@
-function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false)
+function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
     @info "Process decay time for period $period and run $run"
 
     filekey = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)[1]
@@ -33,20 +33,9 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
     if !(haskey(l200.par[:cal, :decay_time], Symbol(period)))
         # path folder for current period seems not to exist, will create it first to avoid errors
         mkpath(joinpath(l200.tier[:par, :cal], "decay_time", "$period"))
-        # write validity
-        pars_validTimeStamp = string(filekey.time)
-        open(joinpath(l200.tier[:par, :cal], "decay_time", "validity.jsonl"), "a") do io
-            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
-        end
     elseif haskey(l200.par[:cal, :decay_time, period], Symbol(run))
         @info "Pars file already exists."
         pars_db = l200.par[:cal, :decay_time, period, run]
-    else
-        # write validity
-        pars_validTimeStamp = string(filekey.time)
-        open(joinpath(l200.tier[:par, :cal], "decay_time", "validity.jsonl"), "a") do io
-            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
-        end
     end
 
     if reprocess
@@ -116,12 +105,17 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
             data = LHDataStore(filename, "r")
             @debug "Loading Tl208 FEP data from $(filename)"
             wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
-            close(data)    
+            close(data)
+            if length(wvfs_ch_fep) > 20000
+                @warn "Tl208 FEP events exceed 20000, keep only first 20000 events"
+                wvfs_ch_fep = wvfs_ch_fep[1:20000]
+            end
         catch e
             @error "FEP data from $(basename(filename)) cannot be loaded"
             throw(LoadError(string(basename(filename)), 154,"FEP data from $(basename(filename)) cannot be loaded"))
         end
-        
+        yield()
+
         # DSP
         decay_times = nothing
         try
@@ -131,6 +125,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
             @error "Error in DSP for FEP"
             throw(ErrorException("Error in DSP for FEP."))
         end
+        yield()
 
         # get decay time
         cuts_τ =  nothing
@@ -138,13 +133,14 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
         report = nothing
         try
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
-
+            yield()
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ)
         catch e
             @error "Failed decay time extraction"
             throw(ErrorException("Error in decay time extraction."))
         end
-
+        yield()
+        
         plot(report, decay_times, cuts_τ, xlabel="Decay Time [µs]")
         title!(format("{} Decay Time Distribution ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
 
@@ -157,10 +153,28 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
         return (result = result, log = log_info)
     end
 
-    result_decay_time = @showprogress pmap(eachindex(chinfo.channel), batch_size = 3) do idx
+    Base.exit_on_sigint(false)
+    result_decay_time = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1) do idx
         try
-            chinfo.detector[idx] => ch_decay_time(idx)
+            t_end = time() + timeout
+            task = Threads.@spawn ch_decay_time(idx)
+            while !istaskdone(task) && time() <= t_end
+                sleep(0.1)
+            end
+            if !istaskdone(task)
+                @debug "Timeout for $(chinfo.detector[idx])"
+                try
+                    Base.throwto(task, InterruptException())
+                catch e
+                    throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
+                end
+                throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
+            end
+            chinfo.detector[idx] => fetch(task)
         catch e
+            if e isa TaskFailedException
+                e = e.task.exception
+            end
             @debug "Write Error log for $(chinfo.detector[idx])"
             log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | - | - | - | $(e) |"
             result_dt = (
@@ -219,6 +233,20 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
     
     # write pars
     writeprops(joinpath(l200.tier[:par, :cal], "decay_time", "$period/$run.json"), pars_db, multiline=true)
+
+    # write validity
+    pars_validTimeStamp = string(filekey.time)
+    add_validity = true
+    for ln in eachline(open(joinpath(l200.tier[:par, :cal], "decay_time", "validity.jsonl"), "r"))
+        if (contains(ln, "$pars_validTimeStamp"))
+            add_validity = false
+        end
+    end
+    if add_validity
+        open(joinpath(l200.tier[:par, :cal], "decay_time", "validity.jsonl"), "a") do io
+            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
+        end
+    end
 
     @info "Write main log to disk"
     @info main_log
