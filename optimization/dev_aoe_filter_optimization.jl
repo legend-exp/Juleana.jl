@@ -1,4 +1,22 @@
-function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
+# function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
+using LegendDataManagement, PropertyFunctions, TypedTables, PropDicts
+using Unitful, Formatting, LaTeXStrings, Measures
+using Plots, StatsBase
+using LegendHDF5IO, LegendDSP, LegendSpecFits
+using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+
+ENV["JULIA_DEBUG"] = Main # enable debug
+
+gr()
+plotlyjs(size=(800, 500))
+# plotlyjs(size=(1200, 800))
+
+@info "Loading Legend MetaData"
+l200 = LegendData(:l200)
+
+period = DataPeriod(3)
+run    = DataRun(0)
+reprocess = true
 
     @info "Optimize PSD filter for period $period and run $run"
 
@@ -71,8 +89,8 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
     end
 
 
-    @everywhere function ch_sg_optimization(i::Int64)
-
+    # @everywhere function ch_sg_optimization(i::Int64)
+        i = findfirst(chinfo.detector .== :V02160B)
         ch_short = chinfo.channel[i]
         ch = format("ch{}", ch_short)
         det = chinfo.detector[i]
@@ -125,43 +143,43 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
         dsp_dep = nothing
         dsp_sep = nothing
 
-        try
+        # try
             # DSP
             @debug "Generating DSP AoE grid for SEP and DEP data"
             dsp_dep = dsp_sg_optimization(wvfs_ch_dep, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
             dsp_sep = dsp_sg_optimization(wvfs_ch_sep, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
-        catch e
-            @error "Failed DSP for DEP or SEP"
-            throw(ErrorException("Error in DSP for DEP or SEP."))
-        end
+        # catch e
+        #     @error "Failed DSP for DEP or SEP"
+        #     throw(ErrorException("Error in DSP for DEP or SEP."))
+        # end
 
         # free memory
         GC.gc()
 
         dep_sep_after_qc = nothing
 
-        try
+        # try
             # generate simple QC cuts
             @debug "Use simple QC cuts for SEP and DEP"
             dep_sep_after_qc = qc_sg_optimization(dsp_dep, dsp_sep, optimization_config)
-        catch e
+        # catch e
             @error "Failed QC for DEP or SEP"
             throw(ErrorException("QC for DEP or SEP."))
-        end
+        # end
         
         # free memory
         GC.gc()
 
         result_sg_wl, report_sg_wl = nothing, nothing
 
-        try
+        # try
             # fit SG window length
             @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
             result_sg_wl, report_sg_wl = fit_sg_wl(dep_sep_after_qc, dsp_config.a_grid_wl_sg, optimization_config)    
-        catch e
-            @error "Failed SG window length optimization"
-            throw(ErrorException("SG window length optimization."))
-        end
+        # catch e
+        #     @error "Failed SG window length optimization"
+        #     throw(ErrorException("SG window length optimization."))
+        # end
         
         plot(report_sg_wl, title=format("{} SG Filter Optimization ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
 
@@ -252,9 +270,6 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
     # save pars to disk
     @info "Save pars to disk"
 
-    # write pars
-    writeprops(joinpath(l200.tier[:par, :cal], "optimization", "$period/$run.json"), pars_db, multiline=true)
-
     # write validity
     pars_validTimeStamp = string(filekey.time)
     add_validity = true
@@ -276,5 +291,5 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
     open(log_filename, "w+") do file
         write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
     end
-end
+# end
 
