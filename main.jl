@@ -104,6 +104,7 @@ include(joinpath(@__DIR__,"dsp/dsp.jl"))
 include(joinpath(@__DIR__,"cuts/cuts.jl"))
 include(joinpath(@__DIR__,"energy/energy.jl"))
 include(joinpath(@__DIR__,"energy/energy_ct.jl"))
+include(joinpath(@__DIR__,"sipm/sipm.jl"))
 
 # check which periods to process
 if isnothing(periods)
