@@ -5,7 +5,7 @@
         "debug": true,
         "env": "/home/iwsatlas1/henkes/l200/auto/",
         "instantiate": false,
-        "precompile": true,
+        "precompile": false,
         "env_variables": {
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100"
@@ -23,50 +23,50 @@
             "reprocess": false
         },
         "process_peak_split": {
-            "enabled": false,
-            "n_workers": 30,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": 10,
+            "reprocess": true,
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": false,
-            "n_workers": 30,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": 20,
+            "reprocess": true,
             "timeout": 300,
             "rank": 2
         },
         "process_filter_optimization": {
-            "enabled": false,
-            "n_workers": 30,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": 10,
+            "reprocess": true,
             "timeout": 1200,
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": false,
-            "n_workers": 40,
-            "reprocess": false,
-            "timeout": 180,
+            "enabled": true,
+            "n_workers": 20,
+            "reprocess": true,
+            "timeout": 300,
             "rank": 4
         },
         "process_dsp": {
             "enabled": false,
-            "n_workers": 30,
+            "n_workers": 10,
             "reprocess": true,
             "timeout": 6000,
             "rank": 5
         },
         "process_ct_correction": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": 90,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 900,
             "rank": 6
         },
         "process_energy_calibration": {
             "enabled": false,
             "n_workers": 90,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 300,
             "rank": 7
         },

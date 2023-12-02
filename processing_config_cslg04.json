@@ -3,7 +3,7 @@
         "LEGEND_DATA_CONFIG": "/home/iwsatlas1/henkes/l200/auto/config.json",
         "user": "henkes",
         "debug": true,
-        "env": "/home/iwsatlas1/henkes/l200/auto/",
+        "env": "/home/iwsatlas1/henkes/l200/auto/env/",
         "instantiate": false,
         "precompile": false,
         "env_variables": {
@@ -13,7 +13,8 @@
     },
     "processing": {
         "periods": "search_disk(DataPeriod, l200.tier[:raw, :cal])",
-        "runs" : "all"
+        "runs" : "all", 
+        "analysis": true
     },
     "processors":
     {
@@ -31,20 +32,20 @@
             "enabled": false,
             "n_workers": 30,
             "reprocess": true,
-            "timeout": 180,
+            "timeout": 300,
             "rank": 2
         },
         "process_filter_optimization": {
             "enabled": false,
-            "n_workers": 90,
+            "n_workers": 30,
             "reprocess": true,
             "timeout": 1200,
             "rank": 3
         },
         "process_aoe_optimization": {
             "enabled": true,
-            "n_workers": 30,
-            "reprocess": true,
+            "n_workers": 40,
+            "reprocess": false,
             "timeout": 300,
             "rank": 4
         },
@@ -52,14 +53,14 @@
             "enabled": false,
             "n_workers": 30,
             "reprocess": true,
-            "timeout": 6000,
+            "timeout": 5000,
             "rank": 5
         },
         "process_ct_correction": {
             "enabled": false,
             "n_workers": 90,
-            "reprocess": true,
-            "timeout": 600,
+            "reprocess": false,
+            "timeout": 900,
             "rank": 6
         },
         "process_energy_calibration": {
