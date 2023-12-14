@@ -6,100 +6,66 @@ using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
 
 ENV["JULIA_DEBUG"] = Main # enable debug
 
-gr()
-plotlyjs()
+gr(size=(1500, 800))
+plotlyjs(size=(800, 500))
+
 
 @info "Loading Legend MetaData"
 l200 = LegendData(:l200)
 
-period = DataPeriod(3)
-run    = DataRun(1)
+partition_n = 1
 
-@info "PSD calibration for period $period and run $run"
+@info "PSD calibration for partition $partition_n"
 
-filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
-filekey = filekeys[1]
+partition = data_partitions(l200)[1]
+period = filter(row -> row.period == minimum(partition.period), partition).period[1]
+partion_period = partition[[p == period for p in partition.period]]
+run = filter(row -> row.run == minimum(partion_period.run), partion_period).run[1]
+
+filekey = first(sort(search_disk(FileKey, l200.tier[:dsp, :cal, period, run]), by = x-> x.time))
 @info "Found filekey $filekey"
 
-chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
+chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability == :on)
 
 sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
 
-hit_folder = l200.tier[:hit, :cal, period, run]
-@debug "Use Hit folder $hit_folder"
 
-@debug "Create figures folder"
-figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "aoe")
-ifelse(isdir(figures_folder), @debug("Figure folder $figures_folder already exists"), mkpath(figures_folder))
+hit_folder = l200.tier[:hit_ch, :cal, period, run]
 
-for str in unique(chinfo.string)
-    figures_folder_string = joinpath(figures_folder, format("string{:02d}", str))
-    ifelse(isdir(figures_folder_string), @debug("String Figure folder $figures_folder_string already exists"), mkpath(figures_folder_string))
-end
-
-@debug "Get calibration pars"
-energy_pars_folder   =  joinpath(l200.tier[:par, :cal, period, run], "energy")
-energy_pars_filename = format("{}-{}-{}-{}-energy.json", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category))
-energy_pars          = readprops(joinpath(energy_pars_folder, energy_pars_filename))
-
-@debug "Create pars folder"
-pars_folder = joinpath(l200.tier[:par, :cal, period, run], "aoe")
-ifelse(isdir(pars_folder), @debug("Pars folder $pars_folder already exists"), mkpath(pars_folder))
-
-@debug "Create pars db"
-pars_db = PropDict()
-
-
-i = 2
-# det = :V09372A
-# findfirst(x -> x == det, chinfo.detector)
+i = 30
 ch_short = chinfo.channel[i]
 ch = format("ch{}", ch_short)
 string_number = chinfo.string[i]
 det = chinfo.detector[i]
 
-figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
+a = fast_flatten([
+            LHDataStore(
+                ds -> begin
+                    @debug "Reading from \"$(ds.data_store.filename)\""
+                    ds["$(ch)/dataQC/a"][:]
+                end,
+                joinpath(l200.tier[:hit_ch, :cal, period, run], format("{}-{}-{}-{}-{}-tier_hit.lh5", string(filekey.setup), string(period), string(run), string(filekey.category), ch))
+            ) for (period, run) in partition
+        ])
 
-@debug "Processing channel $ch ($det)"
+e_cusp_ctc_cal = fast_flatten([
+            LHDataStore(
+                ds -> begin
+                    @debug "Reading from \"$(ds.data_store.filename)\""
+                    ds["$(ch)/e_cusp_ctc_cal"][:]
+                end,
+                joinpath(l200.tier[:hit_ch, :cal, period, run], format("{}-{}-{}-{}-{}-tier_hit.lh5", string(filekey.setup), string(period), string(run), string(filekey.category), ch))
+            ) for (period, run) in partition
+        ])
 
-filename = joinpath(l200.tier[:qc, :cal, period, run], format("{}-{}-{}-{}-{}-tier_qc.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
+aoe = a ./ e_cusp_ctc_cal
 
-if !isfile(filename)
-    @warn "File $(basename(filename)) does not exist, skip"
-end
-
-data = LHDataStore(filename, "r")
-
-@debug "Loading data from $(basename(filename))"
-dsp_data = data["$ch/after_qc"][:]
-
-if length(dsp_data) < 50000
-    @warn "Not enough data points for channel $ch, skip"
-end
-
-if haskey(l200.metadata.dataprod.config.cal.energy(sel), det)
-    energy_config = l200.metadata.dataprod.config.cal.energy(sel)[det]
-    @debug "Use config for detector $det"
-else
-    energy_config = l200.metadata.dataprod.config.cal.energy(sel).default
-    @debug "Use default config"
-end
-
-close(data)
-
-m_calib, n_calib = energy_pars[det].m_calib, energy_pars[det].n_calib
-
-e_trap = m_calib .* dsp_data.e_trap .+ n_calib
-a      = dsp_data.a
-aoe    = a ./ e_trap
-
-plotlyjs()
-stephist(e_trap, bins=0:0.5:3000, label="e_trap", legend=:topleft, yscale=:log10)
-
-gr()
-histogram2d(e_trap, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.2, 0.8), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy (keV)", ylabel="A/E (a.u.)")
+gr(size=(1500, 800))
+histogram2d(e_cusp_ctc_cal, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.2, 0.8), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy (keV)", ylabel="A/E (a.u.)")
 
 
+
+plotlyjs(size=(800, 500))
 compton_bands = Vector{Float64}([520, 555, 590, 610, 630, 650, 670, 690, 
                 735, 790, 810, 830, 865, 900, 930, 955,
                 1000, 1020, 1040, 1130, 1150, 1170, 1190, 
