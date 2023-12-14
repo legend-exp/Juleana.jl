@@ -3,9 +3,9 @@
         "LEGEND_DATA_CONFIG": "/home/iwsatlas1/henkes/l200/auto/config.json",
         "user": "henkes",
         "debug": true,
-        "env": "/home/iwsatlas1/henkes/l200/auto/env/",
+        "env": "/home/iwsatlas1/henkes/l200/auto/",
         "instantiate": false,
-        "precompile": false,
+        "precompile": true,
         "env_variables": {
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100"
@@ -31,51 +31,58 @@
         "process_decay_time": {
             "enabled": false,
             "n_workers": 30,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 300,
             "rank": 2
         },
         "process_filter_optimization": {
             "enabled": false,
             "n_workers": 30,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 1200,
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": 40,
             "reprocess": false,
-            "timeout": 300,
+            "timeout": 180,
             "rank": 4
         },
-        "process_dsp": {
+        "process_dsp_cal": {
             "enabled": false,
             "n_workers": 30,
             "reprocess": true,
-            "timeout": 5000,
+            "timeout": 6000,
             "rank": 5
         },
         "process_ct_correction": {
             "enabled": false,
             "n_workers": 90,
-            "reprocess": false,
-            "timeout": 900,
+            "reprocess": true,
+            "timeout": 1000,
             "rank": 6
         },
         "process_energy_calibration": {
             "enabled": false,
             "n_workers": 90,
             "reprocess": true,
-            "timeout": 300,
+            "timeout": 900,
             "rank": 7
         },
         "process_sipm": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 60,
             "reprocess": true,
             "timeout": 6000,
             "rank": 8
+        },
+        "process_dsp_phy": {
+            "enabled": true,
+            "n_workers": 150,
+            "reprocess": false,
+            "timeout": 6000,
+            "rank": 9
         }
     }
 }

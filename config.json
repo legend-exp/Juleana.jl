@@ -4,22 +4,23 @@
             "paths": {
                 "metadata": "/home/iwsatlas1/henkes/l200/auto/legend-julia-metadata/",
 
-                "tier": "/remote/ceph/group/legendex/data/l200/",
-                "tier/raw": "/remote/ceph/group/legendex/data/l200/raw/",
-                "tier/dsp": "/remote/ceph/group/legendex/data/l200/dsp/",
-                "tier/peaks": "/remote/ceph/group/legendex/data/l200/peaks/",
-                "tier/qc": "/remote/ceph/group/legendex/data/l200/qc/",
-                "tier/hit": "/remote/ceph/group/legendex/data/l200/hit/",
+                "tier": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier",
+                "tier/raw": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier/raw/",
+                "tier/dsp": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier/dsp/",
+                "tier/peaks": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier/peaks/",
+                "tier/qc": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier/qc/",
+                "tier/hit": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier/hit/",
+                "tier/chhit": "/remote/ceph/group/legendex/data/l200/julia/current/generated/tier/chhit/",
 
-                "par": "/remote/ceph/group/legendex/data/l200/par/",
-                "par/dsp": "/remote/ceph/group/legendex/data/l200/par/dsp/",
-                "par/peaks": "/remote/ceph/group/legendex/data/l200/par/peaks/",
-                "par/cuts": "/remote/ceph/group/legendex/data/l200/par/cuts/",
-                "par/hit": "/remote/ceph/group/legendex/data/l200/par/hit/",
+                "par": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jlpar/",
+                "par/ecal": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jlpar/energy/",
+                "par/peaks": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jlpar/optimization/",
+                "par/cuts": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jlpar/psd/",
+                "par/hit": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jlpar//qc/",
 
 
-                "log": "/remote/ceph/group/legendex/data/l200/log/",
-                "plt": "/remote/ceph/group/legendex/data/l200/plt/"
+                "log": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jllog/",
+                "plt": "/remote/ceph/group/legendex/data/l200/julia/current/generated/jlplt/"
             }
         }
     }

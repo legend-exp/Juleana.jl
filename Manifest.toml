@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "28dbdb07d5948dde8b4369c809c67877f9a30456"
+project_hash = "92ac9ac0383627c1ba23f0dda239e8784625a63c"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "5d2e21d7b0d8c22f67483ef95ebdc39c0e6b6003"
@@ -230,6 +230,11 @@ weakdeps = ["ChainRulesCore", "DataFrames", "StaticArrays", "StructArrays", "Typ
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.BaseDirs]]
+git-tree-sha1 = "4b41ad09c2307d5f24e36cd6f92eb41b218af22c"
+uuid = "18cc8868-cbac-4acf-b575-c8ff214dc66f"
+version = "1.2.1"
 
 [[deps.Baselet]]
 git-tree-sha1 = "aebf55e6d7795e02ca500a689d326ac979aaf89e"
@@ -1076,6 +1081,11 @@ git-tree-sha1 = "f689897ccbe049adb19a065c495e75f372ecd42b"
 uuid = "1d63c593-3942-5779-bab2-d838dc0a180e"
 version = "15.0.4+0"
 
+[[deps.LRUCache]]
+git-tree-sha1 = "d36130483e3b6e4cd88d81633b596563264f15db"
+uuid = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
+version = "1.5.0"
+
 [[deps.LZO_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "e5b909bcf985c5e2605737d2ce278ed791b89be6"
@@ -1124,10 +1134,12 @@ uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
 version = "0.2.0"
 
 [[deps.LegendDataManagement]]
-deps = ["Dates", "Distributed", "Glob", "JSON", "Pkg", "PropDicts", "PropertyDicts", "Requires", "StructArrays", "Unitful"]
-path = "../packages/LegendDataManagement.jl"
+deps = ["Dates", "Distributed", "Glob", "IntervalSets", "JSON", "LRUCache", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "StructArrays", "Unitful"]
+git-tree-sha1 = "dde020111eb452d5ef5d894b486df925acc9949a"
+repo-rev = "main"
+repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
-version = "0.2.4"
+version = "0.2.6"
 
     [deps.LegendDataManagement.extensions]
     LegendDataManagementSolidStateDetectorsExt = "SolidStateDetectors"
@@ -1148,7 +1160,7 @@ uuid = "c9265ca6-b027-5446-b1a4-febfa8dd10b0"
 version = "0.1.7"
 
 [[deps.LegendSpecFits]]
-deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Formatting", "ForwardDiff", "IntervalSets", "InverseFunctions", "IrrationalConstants", "LinearAlgebra", "LinearRegression", "LsqFit", "Optim", "PropDicts", "RadiationSpectra", "Random", "Requires", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
+deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Formatting", "ForwardDiff", "IntervalSets", "InverseFunctions", "IrrationalConstants", "LegendDataManagement", "LinearAlgebra", "LinearRegression", "LsqFit", "Optim", "PropDicts", "RadiationSpectra", "Random", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
 path = "../packages/LegendSpecFits.jl"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
 version = "0.2.0"
@@ -1599,6 +1611,17 @@ version = "1.39.0"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoPlotly]]
+deps = ["AbstractPlutoDingetjes", "BaseDirs", "Colors", "Dates", "Downloads", "HypertextLiteral", "InteractiveUtils", "LaTeXStrings", "Markdown", "Pkg", "PlotlyBase", "Reexport", "TOML"]
+git-tree-sha1 = "58dcb661ba1e58a13c7adce77435c3c6ac530ef9"
+uuid = "8e989ff0-3d88-8e9f-f020-2b208a939ff0"
+version = "0.4.4"
+weakdeps = ["PlotlyKaleido", "Unitful"]
+
+    [deps.PlutoPlotly.extensions]
+    PlotlyKaleidoExt = "PlotlyKaleido"
+    UnitfulExt = "Unitful"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
@@ -1698,9 +1721,9 @@ version = "1.9.0"
 
 [[deps.PropDicts]]
 deps = ["JSON"]
-git-tree-sha1 = "3885ea0bf1248fb5a9d467a4f25eab79f46b0072"
+git-tree-sha1 = "ec3e55894cea14e1973b836627bcf9debeed1c37"
 uuid = "4dc08600-4268-439e-8673-d706fafbb426"
-version = "0.2.2"
+version = "0.2.3"
 
 [[deps.PropertyDicts]]
 git-tree-sha1 = "a6b4c12d38387a4382fa53b8a6591f9c219add16"
@@ -1737,11 +1760,11 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[deps.RadiationDetectorDSP]]
 deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "ChainRulesCore", "CompositionsBase", "DSP", "DocStringExtensions", "ElasticArrays", "FFTW", "FillArrays", "FunctionChains", "GPUArraysCore", "IntervalSets", "InverseFunctions", "KernelAbstractions", "LinearAlgebra", "Parameters", "RadiationDetectorSignals", "Random", "Requires", "SIMD", "Statistics", "StatsBase", "StructArrays", "TypedTables", "UnPack", "Unitful"]
-git-tree-sha1 = "9d88c0058a8b2586805619a60cb18136b22f73e4"
-repo-rev = "main"
-repo-url = "https://github.com/JuliaPhysics/RadiationDetectorDSP.jl.git"
+git-tree-sha1 = "d10d7d90ff16b88cc8c369b47ac3a4cf625e5471"
+repo-rev = "dev"
+repo-url = "../packages/RadiationDetectorDSP.jl"
 uuid = "afd6e06f-c550-5763-af36-7391d39e46ec"
-version = "0.2.3"
+version = "0.2.4"
 
     [deps.RadiationDetectorDSP.extensions]
     RadiationDetectorDSPCUDAExt = "CUDA"
@@ -1990,6 +2013,12 @@ weakdeps = ["Statistics"]
 git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 version = "1.4.2"
+
+[[deps.StaticStrings]]
+deps = ["Compat"]
+git-tree-sha1 = "7d6fc92886669512ea6e99abe67ddb81e97ba3d6"
+uuid = "4db0a0c5-418a-4e1d-8806-cb305fe13294"
+version = "0.2.6"
 
 [[deps.StaticUnivariatePolynomials]]
 git-tree-sha1 = "7b83ff383df0eb24aa606eebb360e352ca0a4e2c"
