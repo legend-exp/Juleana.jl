@@ -229,4 +229,4 @@ $total_dsp_timer
     open(log_filename, "w+") do file
         write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
     end
-end
+# end

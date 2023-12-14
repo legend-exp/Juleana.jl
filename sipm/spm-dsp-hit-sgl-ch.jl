@@ -43,15 +43,12 @@ data = LHDataStore(filename, "r")["$ch/raw"][:]
 
 wvfs = data.waveform
 wvfs = shift_waveform.(wvfs, 0.0);
-
 SAVITZ_WINDOW_LENGTH = 96u"ns"
-
 sgflt_savitz = SavitzkyGolayFilter(SAVITZ_WINDOW_LENGTH, 2, 1) # savitzky golay filter: takes derivative of waveform plus smoothing
 wvfs_sgflt_savitz = sgflt_savitz.(wvfs);
 
 # get threshold
 wvfs_bsl = vec(flatview(wvfs_sgflt_savitz.signal)); # project waveforms on the y-axis, histogram that and find fwhm of histogram
-
 MIN_CUT_SAVITZ = -5.
 MAX_CUT_SAVITZ = 10.
 NBINS_SAVITZ = 100

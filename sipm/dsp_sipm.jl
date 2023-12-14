@@ -1,4 +1,4 @@
-function process_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+function process_dsp_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
     @info "Process SiPM DSP for period $period and run $run"
 
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :phy, period, run]), by = x-> x.time)
@@ -8,7 +8,7 @@ function process_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; repro
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :phy)
 
-    dsp_meta = l200.metadata.dataprod.config.phy.sipm(sel)
+    dsp_meta = l200.metadata.dataprod.config.sipm(sel)
     @debug "Loaded DSP config: $(dsp_meta)"
 
     pars_sipm = l200.par[:phy, :sipm](sel)
@@ -86,6 +86,7 @@ function process_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; repro
                 end
                 if haskey(outdata, ch) && !reprocess
                     @info "Detector $det ($ch) already processed, skip"
+                    n_detectors += 1
                     continue
                 end
 
