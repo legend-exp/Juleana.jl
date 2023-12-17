@@ -106,9 +106,9 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
             @debug "Loading Tl208 FEP data from $(filename)"
             wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
             close(data)
-            if length(wvfs_ch_fep) > 20000
-                @warn "Tl208 FEP events exceed 20000, keep only first 20000 events"
-                wvfs_ch_fep = wvfs_ch_fep[1:20000]
+            if length(wvfs_ch_fep) > 15000
+                @warn "Tl208 FEP events exceed 15000, keep only first 15000 events"
+                wvfs_ch_fep = wvfs_ch_fep[1:15000]
             end
         catch e
             @error "FEP data from $(basename(filename)) cannot be loaded"
@@ -164,7 +164,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
             if !istaskdone(task)
                 @debug "Timeout for $(chinfo.detector[idx])"
                 try
-                    Base.throwto(task, InterruptException())
+                    schedule(task, ErrorException("Timeout"), error=true)
                 catch e
                     throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
                 end

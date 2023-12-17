@@ -7,7 +7,7 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
     chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
-    dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
+    dsp_meta = l200.metadata.dataprod.config.dsp(sel).default
     dsp_config = create_dsp_config(dsp_meta)
     @debug "Loaded DSP config: $(dsp_config)"
 
@@ -70,11 +70,11 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
 
         @debug "Processing channel $ch ($det)"
 
-        if haskey(l200.metadata.dataprod.config.cal.dsp(sel).optimization, det)
-            optimization_config = merge(l200.metadata.dataprod.config.cal.dsp(sel).optimization.default, l200.metadata.dataprod.config.cal.dsp(sel).optimization[det])
+        if haskey(l200.metadata.dataprod.config.dsp(sel).optimization, det)
+            optimization_config = merge(l200.metadata.dataprod.config.dsp(sel).optimization.default, l200.metadata.dataprod.config.dsp(sel).optimization[det])
             @debug "Use config for detector $det"
         else
-            optimization_config = l200.metadata.dataprod.config.cal.dsp(sel).optimization.default
+            optimization_config = l200.metadata.dataprod.config.dsp(sel).optimization.default
             @debug "Use default config"
         end
 
@@ -124,9 +124,9 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
             @debug "Loading Tl208 FEP data from $(filename)"
             wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
             close(data)
-            if length(wvfs_ch_fep) > 20000
-                @warn "Tl208 FEP events exceed 20000, keep only first 20000 events"
-                wvfs_ch_fep = wvfs_ch_fep[1:20000]
+            if length(wvfs_ch_fep) > 15000
+                @warn "Tl208 FEP events exceed 15000, keep only first 15000 events"
+                wvfs_ch_fep = wvfs_ch_fep[1:15000]
             end
         catch e
             @error "FEP data from $(basename(filename)) cannot be loaded"
@@ -225,28 +225,6 @@ function process_filter_optimization(l200::LegendData, period::DataPeriod, run::
         end
 
         return (result_rt = result_rt_dict, result_ft = result_ft_dict, log = log_info_dict)
-    end
-
-    function retry_check(delay_state, err)
-        # Below each condition to retry is listed along with an explanation about why
-        # retrying should/might work.
-        should_retry = (
-            # Worker death is normally stocastic, if not then doesn't matter how many
-            # retries as it will rapidly kill all workers
-            err isa ProcessExitedException ||
-            # If we are in the middle of fetching data and the process is killed we could
-            # get an ArgumentError saying that the stream was closed or unusable.
-            # So same as above.
-            err isa ArgumentError && occursin("stream is closed or unusable", err.msg) ||
-            # In general IO errors can be transient and related to network blips
-            err isa Base.IOError
-        )
-        if should_retry
-            @info "Retrying computation that failed due to a $(typeof(err)): $err"
-        else
-            @warn "Non-retryable $(typeof(err)) occurred: $err"
-        end
-        return should_retry
     end
 
     Base.exit_on_sigint(false)

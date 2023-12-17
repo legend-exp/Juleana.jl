@@ -179,7 +179,7 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
     end
 
     Base.exit_on_sigint(false)
-    result_sg = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1) do idx
+    result_sg = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do idx
         try
             t_end = time() + timeout
             task = Threads.@spawn ch_sg_optimization(idx)
@@ -188,11 +188,11 @@ function process_aoe_optimization(l200::LegendData, period::DataPeriod, run::Dat
             end
             if !istaskdone(task)
                 @debug "Timeout for $(chinfo.detector[idx])"
-                try
-                    Base.throwto(task, InterruptException())
-                catch e
-                    throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
-                end
+                # try
+                schedule(task, ErrorException("Timeout for $(chinfo.detector[idx])"), error=true)
+                # catch e
+                    # throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
+                # end
                 throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
             end
             chinfo.detector[idx] => fetch(task)

@@ -170,10 +170,13 @@ using RadiationDetectorDSP
 plot(wvfs_ch_fep[20:40])
 bl_stats = signalstats.(wvfs_ch_fep, 0u"µs", 35u"µs")
 wvfs = shift_waveform.(wvfs_ch_fep, -bl_stats.mean)
+
+
 IntersectMaximum()
 wvfs_max = maximum.(wvfs.signal)
 using LegendDSP
-t50 = LegendDSP.get_t50.(wvfs, wvfs_max)
+t50 = LegendDSP.get_t50(wvfs, wvfs_max)
+t80 = LegendDSP.get_t80(wvfs, wvfs_max)
 
 in_max = Intersect()
 t_max = uconvert.(u"µs", in_max.(wvfs, wvfs_max).x)

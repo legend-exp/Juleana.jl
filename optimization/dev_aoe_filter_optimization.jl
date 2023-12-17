@@ -15,7 +15,7 @@ plotlyjs(size=(800, 500))
 l200 = LegendData(:l200)
 
 period = DataPeriod(3)
-run    = DataRun(0)
+run    = DataRun(1)
 reprocess = true
 
     @info "Optimize PSD filter for period $period and run $run"
@@ -26,7 +26,7 @@ reprocess = true
     chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability == :on)
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
-    dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
+    dsp_meta = l200.metadata.dataprod.config.dsp(sel).default
     dsp_config = create_dsp_config(dsp_meta)
     @debug "Loaded DSP config: $(dsp_config)"
 
@@ -90,7 +90,8 @@ reprocess = true
 
 
     # @everywhere function ch_sg_optimization(i::Int64)
-        i = findfirst(chinfo.detector .== :V02160B)
+        i = findfirst(chinfo.detector .== :B00032D)
+        i = 4
         ch_short = chinfo.channel[i]
         ch = format("ch{}", ch_short)
         det = chinfo.detector[i]
@@ -108,11 +109,11 @@ reprocess = true
 
         @info "Processing channel $ch ($det)"
 
-        if haskey(l200.metadata.dataprod.config.cal.dsp(sel).optimization, det)
-            optimization_config = merge(l200.metadata.dataprod.config.cal.dsp(sel).optimization.default, l200.metadata.dataprod.config.cal.dsp(sel).optimization[det])
+        if haskey(l200.metadata.dataprod.config.dsp(sel).optimization, det)
+            optimization_config = merge(l200.metadata.dataprod.config.dsp(sel).optimization.default, l200.metadata.dataprod.config.dsp(sel).optimization[det])
             @debug "Use config for detector $det"
         else
-            optimization_config = l200.metadata.dataprod.config.cal.dsp(sel).optimization.default
+            optimization_config = l200.metadata.dataprod.config.dsp(sel).optimization.default
             @debug "Use default config"
         end
         
@@ -126,17 +127,33 @@ reprocess = true
         wvfs_ch_sep = nothing
         
         try 
-            data = LHDataStore(filename, "r")
+            # data = LHDataStore(filename, "r")
 
-            @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_ch_dep_bi121fep = data[ch].Tl208DEP_Bi212FEP.waveform[:]
-            e_ch_dep_bi121fep    = data[ch].Tl208DEP_Bi212FEP.daqenergy[:]
+            data_ch_Tl208DEP_Bi212FEP = fast_flatten([ LHDataStore(
+                ds -> begin
+                    @debug "Reading from \"$(ds.data_store.filename)\""
+                    ds["$ch/Tl208DEP_Bi212FEP"][:]
+                end,
+                joinpath(l200.tier[DataTier(:peaks), :cal, filekey.period, run], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(filekey.period), string(run), string(filekey.category), ch))
+            ) for run in [DataRun(0), DataRun(1)] ])
+
+            data_ch_Tl208SEP = fast_flatten([ LHDataStore(
+                ds -> begin
+                    @debug "Reading from \"$(ds.data_store.filename)\""
+                    ds["$ch/Tl208SEP"][:]
+                end,
+                joinpath(l200.tier[DataTier(:peaks), :cal, filekey.period, run], format("{}-{}-{}-{}-{}-tier_peaks.lh5", string(filekey.setup), string(filekey.period), string(run), string(filekey.category), ch))
+            ) for run in [DataRun(0), DataRun(1)] ])
+
+            @debug "Loading Tl208 FEP data from "
+            wvfs_ch_dep_bi121fep = data_ch_Tl208DEP_Bi212FEP.waveform[:]
+            e_ch_dep_bi121fep    = data_ch_Tl208DEP_Bi212FEP.daqenergy[:]
             wvfs_ch_dep   = wvfs_ch_dep_bi121fep[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, optimization_config.sg.dep_sep_quantile)]
-            wvfs_ch_sep   = data[ch].Tl208SEP.waveform[:]
+            wvfs_ch_sep   = data_ch_Tl208SEP.waveform[:]
 
-            close(data)
+            # close(data)
         catch e
-            @error "DEP and SEP data from $(basename(filename)) cannot be loaded"
+            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $e"
             throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded"))
         end
         
@@ -163,8 +180,8 @@ reprocess = true
             @debug "Use simple QC cuts for SEP and DEP"
             dep_sep_after_qc = qc_sg_optimization(dsp_dep, dsp_sep, optimization_config)
         # catch e
-            @error "Failed QC for DEP or SEP"
-            throw(ErrorException("QC for DEP or SEP."))
+            # @error "Failed QC for DEP or SEP"
+            # throw(ErrorException("QC for DEP or SEP."))
         # end
         
         # free memory
@@ -181,7 +198,67 @@ reprocess = true
         #     throw(ErrorException("SG window length optimization."))
         # end
         
+        
+        
         plot(report_sg_wl, title=format("{} SG Filter Optimization ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+
+
+        dep_sep_data, a_grid_wl_sg, optimization_config = dep_sep_after_qc, dsp_config.a_grid_wl_sg, optimization_config
+        # unpack config
+        dep, dep_window = optimization_config.sg.dep, Float64.(optimization_config.sg.dep_window)
+        sep, sep_window = optimization_config.sg.sep, Float64.(optimization_config.sg.sep_window)
+
+        # unpack data
+        e_dep, e_sep = dep_sep_data.dep.e, dep_sep_data.sep.e
+        aoe_dep, aoe_sep = dep_sep_data.dep.aoe, dep_sep_data.sep.aoe
+
+
+        # prepare peakhist
+        stephist(e_dep, bins=1000)
+        result_dep, report_dep = prepare_dep_peakhist(e_dep, dep; n_bins_cut=optimization_config.sg.nbins_dep_cut, relative_cut=optimization_config.sg.dep_rel_cut)
+        plot(report_dep)
+        # get calib constant from fit on DEP peak
+        e_dep_calib = e_dep .* result_dep.m_calib
+        e_sep_calib = e_sep .* result_dep.m_calib
+
+        # create empty arrays for sf and sf_err
+        sep_sfs     = ones(length(a_grid_wl_sg)) .* 100
+        sep_sfs_err = zeros(length(a_grid_wl_sg))
+
+        i_aoe = 9 
+        wl = a_grid_wl_sg[9]
+
+        aoe_dep_i = aoe_dep[i_aoe, :][isfinite.(aoe_dep[i_aoe, :])] ./ result_dep.m_calib
+        e_dep_i   = e_dep_calib[isfinite.(aoe_dep[i_aoe, :])]
+
+        # prepare AoE
+        max_aoe_dep_i = quantile(aoe_dep_i, optimization_config.sg.max_aoe_quantile) + optimization_config.sg.max_aoe_offset
+        min_aoe_dep_i = quantile(aoe_dep_i, optimization_config.sg.min_aoe_quantile) + optimization_config.sg.min_aoe_offset
+
+        stephist(aoe_dep_i, bins=1000)
+        vline!([max_aoe_dep_i, min_aoe_dep_i], color=:red)
+
+        psd_cut = get_psd_cut(aoe_dep_i, e_dep_i; window=[15.0, 10.0], cut_search_interval=(min_aoe_dep_i, max_aoe_dep_i))
+        aoe, e = aoe_dep_i, e_dep_i
+        window = dep_window
+        cut_search_interval = (min_aoe_dep_i, max_aoe_dep_i)
+        bin_width = LegendSpecFits.get_friedman_diaconis_bin_width(e[e .> dep - 3 .&& e .< dep + 3])
+        dephist = fit(Histogram, e, dep-first(window):bin_width:dep+last(window))
+        # get peakstats
+        depstats = estimate_single_peak_stats(dephist)
+        # cut window around peak
+        aoe = aoe[dep-first(window) .< e .< dep+last(window)]
+        e   =   e[dep-first(window) .< e .< dep+last(window)]
+        # fit before cut
+        result_before, report_before = fit_single_peak_th228(dephist, depstats,; uncertainty=true, fixed_position=true, low_e_tail=false)
+        # get n0 before cut
+        plot(report_before)
+        nsf = result_before.n * 0.9
+        n_surrival_dep_f = cut -> LegendSpecFits.get_n_after_psd_cut(cut, aoe, e, dep, window, bin_width, result_before, depstats; uncertainty=false).n - nsf
+        using Roots
+        psd_cut = find_zero(n_surrival_dep_f, cut_search_interval, Bisection(), rtol=0.1, maxiters=10, verbose=true)
+        n_surrival_dep_f(last(cut_search_interval))
+
 
         savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-sg_sweep.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
 
@@ -194,7 +271,7 @@ reprocess = true
         GC.gc()
 
         return (result = result_sg_wl, log = log_info)
-    end
+    # end
 
     Base.exit_on_sigint(false)
     result_sg = @showprogress pmap(eachindex(chinfo.channel), batch_size = 1) do idx
