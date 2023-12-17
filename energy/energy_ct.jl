@@ -2,7 +2,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
 
     @info "CT correction for period $period and run $run"
 
-    filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
+    filekeys = sort(search_disk(FileKey, l200.tier[:dsp, :cal, period, run]), by = x-> x.time)
     filekey = filekeys[1]
     @info "Found filekey $filekey"
 
@@ -11,12 +11,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
 
     @debug "Create Hit folder"
-    hit_folder = l200.tier[:hit, :cal, period, run]
-    if isdir(hit_folder)
-        @debug("Hit folder $hit_folder already exists")
-    else
-        mkpath(hit_folder)
-    end
+    hit_folder = l200.tier[:hit_ch, :cal, period, run]
 
     @debug "Create figures folder"
     figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "energy")
@@ -89,16 +84,18 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
 
         figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
 
+        hitchfilename = joinpath(hit_folder, format("{}-{}-{}-{}-{}-tier_hit.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
+
         @debug "Processing channel $ch ($det)"
 
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, String}()
 
-        if haskey(l200.metadata.dataprod.config.cal.energy(sel), det)
-            energy_config = merge(l200.metadata.dataprod.config.cal.energy(sel).default, l200.metadata.dataprod.config.cal.energy(sel)[det])
+        if haskey(l200.metadata.dataprod.config.energy(sel), det)
+            energy_config = merge(l200.metadata.dataprod.config.energy(sel).default, l200.metadata.dataprod.config.energy(sel)[det])
             @debug "Use config for detector $det"
         else
-            energy_config = l200.metadata.dataprod.config.cal.energy(sel).default
+            energy_config = l200.metadata.dataprod.config.energy(sel).default
             @debug "Use default config"
         end
 
@@ -115,49 +112,28 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
             end
         end
 
-        ch_filekeys = Vector{FileKey}()
-        for fk in filekeys
-            if !isfile(l200.tier[:dsp, fk])
-                @warn "File $(basename(l200.tier[:dsp, fk])) does not exist, skip"
-                continue
-            end
-            if !haskey(LHDataStore(l200.tier[:dsp, fk], "r"), ch)
-                @warn "Channel $ch not found in $(basename(l200.tier[:dsp, fk])), skip"
-                continue
-            end
-            push!(ch_filekeys, fk)
+        # load data file
+        if !isfile(hitchfilename)
+            @error "Hit file $hitchfilename not found"
+            throw(ErrorException("Hit file not found"))
         end
-
-        if isempty(ch_filekeys)
-            @error "No valid filekeys found for channel $ch ($det), skip"
-            throw(LoadError("$det", 154,"No filekeys found for channel $ch ($det)"))
+        # get data
+        data_ch_after_qc = nothing
+        try
+            @debug "Load hit file"
+            data_hit = LHDataStore(hitchfilename, "r");
+            data_ch_after_qc = data_hit["$(ch)/dataQC"][:];
+            close(data_hit)
+        catch e
+            @error "Error in loading data for channel $ch: $e"
+            throw(ErrorException("Error data loader"))
         end
-        yield()
+        
 
-        data_ch = fast_flatten([
-            LHDataStore(
-                ds -> begin
-                    # @debug "Reading from \"$(ds.data_store.filename)\""
-                    ds[ch][:]
-                end,
-                l200.tier[:dsp, fk]
-            ) for fk in ch_filekeys
-        ])
-        yield()
-
-        if length(data_ch) < 50000
+        if length(data_ch_after_qc) < 50000
             @error "Not enough data points for channel $ch ($det), skip"
             throw(ErrorException("Not enough data points for channel $ch ($det)"))
         end
-
-        if haskey(l200.metadata.dataprod.config.cal.qc(sel), det)
-            qc_config = merge(l200.metadata.dataprod.config.cal.qc(sel).default, l200.metadata.dataprod.config.cal.qc(sel)[det])
-            @debug "Use config for detector $det"
-        else
-            qc_config = l200.metadata.dataprod.config.cal.qc(sel).default
-            @debug "Use default config"
-        end
-        yield()
 
         th228_lines = Vector{Float64}(energy_config.th228_lines)
         th228_names = Symbol.(energy_config.th228_names)
@@ -174,18 +150,6 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
         ctc_cal_peak = Float64(energy_config.ctc.peak)
         ctc_cal_window = (Float64(energy_config.ctc.left_window_size),Float64(energy_config.ctc.right_window_size))
 
-        # generate qc cuts
-        qc, data_ch_after_qc = nothing, nothing
-        try
-            @debug "Get QC cuts"
-            qc = qc_cal_energy(data_ch, qc_config)
-            @debug "Total surrival fraction: $(round(count(qc) / length(data_ch) * 100, digits=2))%"
-            data_ch_after_qc =  data_ch[qc]
-        catch e
-            @error "Error in QC for channel $ch: $e"
-            throw(ErrorException("Error in QC cut generation: $e"))
-        end
-        yield()
 
         for e_type in energy_types
             if haskey(result_dict, e_type)
@@ -253,7 +217,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
     end
 
     Base.exit_on_sigint(false)
-    result_ctc = pmap(eachindex(chinfo.channel); on_error = e->(isa(e, ProcessExitedException) ? NaN : rethrow())) do idx
+    result_ctc =  @showprogress pmap(eachindex(chinfo.channel); batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do idx
         try
             t_end = time() + timeout
             task = Threads.@spawn ch_ct_correction(idx)

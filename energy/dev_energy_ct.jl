@@ -28,7 +28,7 @@ chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $proces
 sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
 
 @debug "Create Hit folder"
-hit_folder = l200.tier[:hit, :cal, period, run]
+hit_folder = l200.tier[:hit_ch, :cal, period, run]
 if isdir(hit_folder)
     @debug("Hit folder $hit_folder already exists")
 else
@@ -108,16 +108,18 @@ end
 
     figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
 
+    hitchfilename = joinpath(hit_folder, format("{}-{}-{}-{}-{}-tier_hit.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
+    
     @debug "Processing channel $ch ($det)"
 
     result_dict    = Dict{Symbol, NamedTuple}()
     log_info_dict  = Dict{Symbol, String}()
 
-    if haskey(l200.metadata.dataprod.config.cal.energy(sel), det)
-        energy_config = merge(l200.metadata.dataprod.config.cal.energy(sel).default, l200.metadata.dataprod.config.cal.energy(sel)[det])
+    if haskey(l200.metadata.dataprod.config.energy(sel), det)
+        energy_config = merge(l200.metadata.dataprod.config.energy(sel).default, l200.metadata.dataprod.config.energy(sel)[det])
         @debug "Use config for detector $det"
     else
-        energy_config = l200.metadata.dataprod.config.cal.energy(sel).default
+        energy_config = l200.metadata.dataprod.config.energy(sel).default
         @debug "Use default config"
     end
 
@@ -182,11 +184,11 @@ data_ch = fast_flatten([
         throw(ErrorException("Not enough data points for channel $ch ($det)"))
     end
 
-    if haskey(l200.metadata.dataprod.config.cal.qc(sel), det)
-        qc_config = merge(l200.metadata.dataprod.config.cal.qc(sel).default, l200.metadata.dataprod.config.cal.qc(sel)[det])
+    if haskey(l200.metadata.dataprod.config.qc(sel), det)
+        qc_config = merge(l200.metadata.dataprod.config.qc(sel).default, l200.metadata.dataprod.config.qc(sel)[det])
         @debug "Use config for detector $det"
     else
-        qc_config = l200.metadata.dataprod.config.cal.qc(sel).default
+        qc_config = l200.metadata.dataprod.config.qc(sel).default
         @debug "Use default config"
     end
     yield()
@@ -212,20 +214,30 @@ data_ch = fast_flatten([
         @debug "Get QC cuts"
         qc = qc_cal_energy(data_ch, qc_config)
         @debug "Total surrival fraction: $(round(count(qc) / length(data_ch) * 100, digits=2))%"
-        data_ch_after_qc =  data_ch[qc]
+        data_ch_after_qc =  data_ch[qc.qc]
     catch e
         @error "Error in QC for channel $ch: $e"
         throw(ErrorException("Error in QC cut generation: $e"))
     end
     yield()
+    for col in columns(qc)
+        @info "$(col) cut: $(round(count(getproperty(qc, :blmean)) / length(qc) * 100, digits=2))%"
+    end
+    outdata = LHDataStore(hitchfilename, "cw")
 
+    outdata["qc"] = qc
+    outdata["afterQC"] = data_ch_after_qc
+
+    close(outdata)
+    # save data for later processing
+    
     # for e_type in energy_types
         # if haskey(result_dict, e_type)
         #     continue
         # end
         
         # try
-            e_type = :e_zac
+            e_type = :e_cusp
             @debug "Correct $e_type"
 
             result_simple, report_simple = nothing, nothing
@@ -280,6 +292,18 @@ data_ch = fast_flatten([
         #     result_dict[e_type] = NamedTuple()
         #     log_info_dict[e_type] = log_info
         # end
+        e_ctc = 
+
+        LHDataStore(hitchfilename, "cw") do outdata
+
+            outdata["$ch/qc"] = qc
+            outdata["$ch/dataQC"] = data_ch_after_qc
+            for e_type in energy_types
+                if !isempty(result_dict[e_type])
+                    outdata["$ch/$(e_type)_ctc"] = getproperty(data_ch_after_qc, e_type) .* result_dict[e_type].fct
+                end
+            end
+        end
     # end
 
     # return (result = result_dict, log = log_info_dict)
