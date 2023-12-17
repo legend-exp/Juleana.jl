@@ -1,4 +1,4 @@
-function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+function process_dsp_cal(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
     @info "Process DSP for period $period and run $run"
 
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
@@ -7,7 +7,7 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
     chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off) 
 
     sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
-    dsp_meta = l200.metadata.dataprod.config.cal.dsp(sel).default
+    dsp_meta = l200.metadata.dataprod.config.dsp(sel).default
     dsp_config = create_dsp_config(dsp_meta)
     @debug "Loaded DSP config: $(dsp_config)"
 
@@ -84,33 +84,52 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
                 det = chinfo.detector[i]
 
                 # check if channel can be processed
-                if !haskey(pars_tau, det)
-                    @warn "No decay time for detector $det, skip channel $ch"
-                    continue
-                end
                 if haskey(outdata, ch) && !reprocess
                     @info "Detector $det ($ch) already processed, skip"
                     continue
                 end
+                # check for decay time
+                if !haskey(pars_tau, det)
+                    @warn "No decay time for detector $det, skip channel $ch"
+                    continue
+                end
+                # check if channel has values for RT and FT for different filters
+                if !haskey(pars_optimization, det)
+                    @warn "No optimization parameters for detector $det, skip channel $ch"
+                    continue
+                end
+                # check if channel has values for SG optimization, otherwise use standard value
+                if !haskey(pars_optimization[det], :sg)
+                    @warn "No AoE window length optimization parameter for detector $det, use default."
+                    pars_optimization[det].sg.wl.val = 100.0 # ns
+                end
 
                 @debug "Processing channel $ch ($det)"
+                ch_sucess = false
                 @timeit dsp_timer "DSP $det" begin
                     # load data from HDF5
                     data_ch = data["$ch/raw"][:]
-                    # process channel
-                    if !haskey(pars_optimization, det)
-                        @warn "No optimization parameters for detector $det, skip channel $ch"
+                    # process data
+                    outdata_ch = nothing
+                    try
+                        outdata_ch = dsp_icpc(data_ch, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
+                        ch_sucess = true
+                    catch e
+                        if e isa TaskFailedException
+                            e = e.task.exception
+                        end
+                        @error "Error processing channel $ch ($det) in $(filekeys[idx]): $e"
                         continue
                     end
-                    if !haskey(pars_optimization[det], :sg_wl)
-                        @warn "No AoE window length optimization parameter for detector $det, use default."
-                        pars_optimization[det].sg_wl.val = 100.0 # ns
-                    end
-                    outdata[ch]  = dsp_icpc(data_ch, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
+                    # save data to hdf5
+                    outdata[ch] = outdata_ch
                     # free memory
                     GC.gc()
                 end
-                n_detectors += 1
+                # count number of detectors processed and Successful
+                if ch_sucess
+                    n_detectors += 1
+                end
             end
         end
 
@@ -125,7 +144,7 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
     end
 
     Base.exit_on_sigint(false)
-    result_dsp = @showprogress pmap(eachindex(filekeys), batch_size = 1, on_error=identity) do idx
+    result_dsp = @showprogress pmap(eachindex(filekeys), batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do idx
         try
             t_end = time() + timeout
             task = Threads.@spawn single_file_dsp(idx)
@@ -146,7 +165,7 @@ function process_dsp(l200::LegendData, period::DataPeriod, run::DataRun,; reproc
             if e isa TaskFailedException
                 e = e.task.exception
             end
-            @debug "Write Error log for $(filekeys[idx])"
+            @debug "Write Error log for $(filekeys[idx]): $e"
             log_info = "| $(filekeys[idx]) | - | Failed | - | - | $e |"
             idx => (timer = TimerOutput(), log = log_info)
         end

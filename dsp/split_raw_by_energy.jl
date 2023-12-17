@@ -127,7 +127,7 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
 
     @time begin
 
-    pmap(channels) do ch
+    @showprogress pmap(channels, batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do ch
         @info "Processing channel $ch"
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
@@ -142,11 +142,11 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
             # get detector name for channel
             det = chinfo.detector[chinfo.channel .== ch][1]
             # get config for channel
-            if haskey(l200.metadata.dataprod.config.cal.energy(sel), det)
-                energy_config = merge(l200.metadata.dataprod.config.cal.energy(sel).default, l200.metadata.dataprod.config.cal.energy(sel)[det])
+            if haskey(l200.metadata.dataprod.config.energy(sel), det)
+                energy_config = merge(l200.metadata.dataprod.config.energy(sel).default, l200.metadata.dataprod.config.energy(sel)[det])
                 @debug "Use config for detector $det"
             else
-                energy_config = l200.metadata.dataprod.config.cal.energy(sel).default
+                energy_config = l200.metadata.dataprod.config.energy(sel).default
                 @debug "Use default config"
             end
             quantile_perc = nothing

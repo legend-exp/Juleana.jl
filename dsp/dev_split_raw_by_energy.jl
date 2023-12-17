@@ -178,7 +178,7 @@ ch = 1116805
                 LegendDataTypes.writedata(output, "$(int2chname(ch))/$label", slim_data[label])
             end
         end
-    end
+    # end
 # end
 
 
