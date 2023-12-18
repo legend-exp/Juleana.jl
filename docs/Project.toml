@@ -1,0 +1,19 @@
+[deps]
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LegendDSP = "e6d7a502-be5c-5049-a927-8d60e566555d"
+LegendDataManagement = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
+LegendDataTypes = "99e09c13-5545-5ee2-bfa2-77f358fb75d8"
+LegendEventAnalysis = "ca666546-4c2a-41e4-9648-72713d810efe"
+LegendHDF5IO = "c9265ca6-b027-5446-b1a4-febfa8dd10b0"
+LegendSpecFits = "18221496-77af-46cf-bab8-820da09f7f97"
+LegendTestData = "33d6da08-6349-5f7c-b5a4-6ff4d8795aaf"
+LegendTextIO = "c397c909-374d-579b-8af3-fa3aa4f02e89"
+Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
+RadiationDetectorDSP = "afd6e06f-c550-5763-af36-7391d39e46ec"
+RadiationDetectorSignals = "bf2c0563-65cf-5db2-a620-ceb7de82658c"
+RadiationSpectra = "4f207c7e-01da-51d7-a1a0-c8c06dd1d883"
+SolidStateDetectors = "71e43887-2bd9-5f77-aebd-47f656f0a3f0"
+
+[compat]
+Documenter = "1"
