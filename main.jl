@@ -35,21 +35,7 @@ l200 = LegendData(:l200)
 @info "Start Data processing"
 
 # load all available processors
-include(joinpath(@__DIR__,"dsp/split_raw_by_energy.jl"))
-include(joinpath(@__DIR__,"optimization/decay_time.jl"))
-include(joinpath(@__DIR__,"optimization/filter_optimization.jl"))
-include(joinpath(@__DIR__,"optimization/aoe_filter_optimization.jl"))
-include(joinpath(@__DIR__,"dsp/dsp_cal.jl"))
-include(joinpath(@__DIR__,"dsp/dsp_phy.jl"))
-include(joinpath(@__DIR__,"cuts/cuts.jl"))
-include(joinpath(@__DIR__,"energy/energy.jl"))
-include(joinpath(@__DIR__,"energy/energy_ct.jl"))
-include(joinpath(@__DIR__,"energy/energy_partition.jl"))
-include(joinpath(@__DIR__,"aoe/aoe_cal.jl"))
-include(joinpath(@__DIR__,"aoe/psd_cut_partition.jl"))
-include(joinpath(@__DIR__,"sipm/dsp_sipm.jl"))
-include(joinpath(@__DIR__,"hit/generate_hit_cal.jl"))
-
+include.(filter(contains(r".jl$"), readdir("src/"; join=true)))
 
 ####################
 # Process Runs
