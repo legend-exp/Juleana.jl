@@ -10,7 +10,7 @@ You can also make the script executable and run it directly. You might need to e
 ``` bash
 ./main.jl -c utils/processing_config.json
 ```
-You should consider all necessary packages in a single environment. You can create a new environment with the `Project.toml` and `Manifest.toml` files in the corresponding data production folder on each processing node which is currently used. If you create a new environment from an existing `Project.toml` file, you have to first instantiate the environment with the `instantiate` command in the julia package manager.
+You should consider all necessary packages in a single environment. You can create a new environment with the `Project.toml` and `Manifest.toml` files in the corresponding data production folder on each processing node which is currently used. If you create a new environment from an existing `Project.toml` file, you have to first instantiate the environment with the `instantiate` command in the julia package manager. 
 ``` julia
 import Pkg; Pkg.instantiate()
 ```
