@@ -1,331 +1,180 @@
-include("../utils/packages.jl")
-include("../utils/loader.jl")
-include("../utils/saver.jl")
+function process_qc(l200::LegendData, period::DataPeriod, run::DataRun)
+    @info "Generate QC cuts for period $period and run $run"
 
-config_folder = "/home/iwsatlas1/henkes/legend/julia/legend-julia-dsp-scripts/configs/"
+    filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
+    filekey = filekeys[1]
+    @info "Found filekey $filekey"
 
-stringsToLoad = [1,2,7,8]
-period, run, preName, cal = 1, 25, "l60", true
-dsp_folder, hit_folder, cut_folder, figure_folder, string_numbers, data_strings, qc_cuts = prepareHit(config_folder, period=period, run=run, preName=preName, cal=cal, stringsToLoad=stringsToLoad)
+    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable)
 
-cuts_figure_folder = joinpath(figure_folder, "cuts")
-checkFolder(cuts_figure_folder, true)
+    sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
 
-# Create cuts TypedTables
-qc_cuts = TypedTables.Table(channel=Int[], blmeancut = Bool[], blsigmacut = Bool[], blslopecut = Bool[], 
-        timestamp = Float64[]u"s", eventID_fadc = Int[]
+    @debug "Create QC folder"
+    qc_folder = l200.tier[:qc, :cal, period, run]
+    ifelse(isdir(qc_folder), @debug("QC folder $qc_folder already exists"), mkpath(qc_folder))
+
+    @debug "Create figures folder"
+    figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "qc")
+    ifelse(isdir(figures_folder), @debug("Figure folder $figures_folder already exists"), mkpath(figures_folder))
+
+    for str in unique(chinfo.string)
+        figures_folder_string = joinpath(figures_folder, format("string{:02d}", str))
+        ifelse(isdir(figures_folder_string), @debug("String Figure folder $figures_folder_string already exists"), mkpath(figures_folder_string))
+    end
+
+    @debug "Create pars folder"
+    pars_folder = joinpath(l200.tier[:par, :cal, period, run], "qc")
+    ifelse(isdir(pars_folder), @debug("Pars folder $pars_folder already exists"), mkpath(pars_folder))
+
+    @debug "Create pars db"
+    pars_db = PropDict()
+
+    for (i, ch_short) in enumerate(chinfo.channel)
+        # ch_short = chinfo.channel[i]
+        string_number = chinfo.string[i]
+        ch = format("ch{}", ch_short)
+        det = chinfo.detector[i]
+
+        figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
+
+        if haskey(l200.metadata.dataprod.config.cal.qc(sel), det)
+            qc_config = l200.metadata.dataprod.config.cal.qc(sel)[det]
+            @debug "Use config for detector $det"
+        else
+            qc_config = l200.metadata.dataprod.config.cal.qc(sel).default
+            @debug "Use default config"
+        end
+
+        @debug "Processing channel $ch ($det)"
+
+        ch_filekeys = Vector{FileKey}()
+        for fk in filekeys
+            if !isfile(l200.tier[:dsp, fk])
+                @warn "File $(basename(l200.tier[:dsp, fk])) does not exist, skip"
+                continue
+            end
+            if !haskey(LHDataStore(l200.tier[:dsp, fk], "r"), ch)
+                @warn "Channel $ch not found in $(basename(l200.tier[:dsp, fk])), skip"
+                continue
+            end
+            push!(ch_filekeys, fk)
+        end
+
+        if isempty(ch_filekeys)
+            @warn "No files found for channel $ch, skip"
+            continue
+        end
+
+        data_ch = fast_flatten([
+            LHDataStore(
+                ds -> begin
+                    @debug "Reading from \"$(ds.data_store.filename)\""
+                    ds[ch][:]
+                end,
+                l200.tier[:dsp, fk]
+            ) for fk in ch_filekeys
+        ])
+
+        @debug "Number of events: $(length(data_ch))"
+        @debug "Median of baseline mean : $(median(data_ch.blmean))"
+        @debug "Median of baseline std  : $(median(data_ch.blsigma))"
+        @debug "Median of baseline slope: $(median(data_ch.blslope))"
+
+        min_blmean, max_blmean = qc_config.blmean.min, qc_config.blmean.max
+        n_bins_blmean = convert(Int64, round(length(data_ch)/100))
+        rel_cut_blmean = qc_config.blmean.rel_cut
+        blmean_cut = cut_single_peak(data_ch.blmean, min_blmean, max_blmean, n_bins_blmean, rel_cut_blmean)
+
+        blmean_qc = data_ch.blmean .> blmean_cut.low .&& data_ch.blmean .< blmean_cut.high
+        blmean_cut_sf = count(blmean_qc)/length(data_ch.blmean)
+        @debug format("Baseline mean surrival fraction: {:.2f}%", blmean_cut_sf*100)
+
+        plot(data_ch.blmean, blmean_cut, nbins = n_bins_blmean, xlabel="Baseline Mean (ADC)", title=format("{} Baseline Mean ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+        savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-baseline_mean.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
+
+        min_blslope, max_blslope = qc_config.blslope.min*u"ns^-1", qc_config.blslope.max*u"ns^-1"
+        n_bins_blslope = convert(Int64, round(length(data_ch)/20))
+        rel_cut_blslope = qc_config.blslope.rel_cut
+        blslope_cut = cut_single_peak(data_ch.blslope, min_blslope, max_blslope, n_bins_blslope, rel_cut_blslope)
+
+        blsope_qc = data_ch.blslope .> blslope_cut.low .&& data_ch.blslope .< blslope_cut.high
+        blsope_cut_sf = count(blsope_qc)/length(data_ch.blslope)
+        @debug format("Baseline slope surrival fraction: {:.2f}%", blsope_cut_sf*100)
+
+        plot(data_ch.blslope, blslope_cut, nbins = n_bins_blslope, xlabel="Baseline Slope", title=format("{} Baseline Slope ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+        xlims!(ustrip(median(data_ch.blslope) - 0.1*std(data_ch.blslope)), ustrip(median(data_ch.blslope) + 0.1*std(data_ch.blslope)))
+        savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-baseline_slope.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
+
+        min_blstd, max_blstd = qc_config.blstd.min, qc_config.blstd.max
+        n_bins_blstd = convert(Int64, round(length(data_ch)/20))
+        rel_cut_blstd = qc_config.blstd.rel_cut
+        blstd_cut = cut_single_peak(data_ch.blsigma, min_blstd, max_blstd, n_bins_blstd, rel_cut_blstd)
+
+        blstd_qc = data_ch.blsigma .> blstd_cut.low .&& data_ch.blsigma .< blstd_cut.high
+        blstd_cut_sf = count(blstd_qc)/length(data_ch.blsigma)
+        @debug format("Baseline std surrival fraction: {:.2f}%", blstd_cut_sf*100)
+
+        plot(data_ch.blsigma, blstd_cut, nbins = n_bins_blstd, xlabel="Baseline Std (ADC)", title=format("{} Baseline Std ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+        xlims!(0, blstd_cut.max + blstd_cut.high)
+        savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-baseline_std.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
+
+        min_t0, max_t0 = qc_config.t0.min*u"µs", qc_config.t0.max*u"µs"
+        n_bins_t0 = convert(Int64, round(length(data_ch)/500))
+        rel_cut_t0 = qc_config.t0.rel_cut
+        t0_cut = cut_single_peak(data_ch.t0, min_t0, max_t0, n_bins_t0, rel_cut_t0)
+
+        t0_qc = data_ch.t0 .> t0_cut.low .&& data_ch.t0 .< t0_cut.high
+        t0_cut_sf = count(t0_qc)/length(data_ch.t0)
+        @debug format("t0 surrival fraction: {:.2f}%", t0_cut_sf*100)
+
+        plot(data_ch.t0, t0_cut, nbins = n_bins_t0, xlabel="t0 (µs)", title=format("{} t0 ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
+        savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-t0.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
+
+        # TODO: remove len_wf to dsp processing
+        inTrace_qc = .!(data_ch.inTrace_intersect .< data_ch.t0 .- 2 .* data_ch.drift_time .&& data_ch.inTrace_n .> 1)
+        inTrace_cut_sf = count(inTrace_qc)/length(data_ch.inTrace_intersect)
+        @debug format("In-Trace surrival fraction: {:.2f}%", inTrace_cut_sf*100)
+        plot(data_ch.inTrace_n, st=:barhist, bins=0.5:1:maximum(data_ch.inTrace_n)+0.5, xlabel="In-Trace Pile-Up", title=format("{} In-Trace Pile-Up ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)), fillcolor=:blue)
+        savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-inTrace_pileUp.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
+
+        qc = TypedTables.Table(
+            blmean = blmean_qc,
+            blslope = blsope_qc,
+            blstd = blstd_qc,
+            t0 = t0_qc,
+            inTrace = inTrace_qc,
+            qc = blmean_qc .&& blsope_qc .&& blstd_qc .&& t0_qc .&& inTrace_qc
         )
 
-# Baseline cuts
-for string_number in string_numbers
-
-    printfmtln("Processing string number: {}", string_number)
-    println()
-    println()
-    println("Check figure folder")
-    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
-    println()
-    println()
-
-    dsp_data, channel_list, label_listExt, label_list = data_strings[string_number]
-
-    font_size = 14
-
-    blmean_plots = repeat([plot(1)], length(channel_list))
-    blstd_plots = repeat([plot(1)], length(channel_list))
-    blslope_plots = [plot(u"ns^-1", Unitful.NoUnits, size=(1000, 800), xlabel="Baseline Slope", ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size) for i in 1:length(channel_list)]
-
-    for (i, ch) in enumerate(channel_list)
-        blmean_ch  = dsp_data[ch].blmean
-        blstd_ch   = dsp_data[ch].blsigma
-        blslope_ch = dsp_data[ch].blslope
-        printfmtln("Channel: {}", ch)
-        printfmtln("Number of events: {}", length(blmean_ch))
-        printfmtln("Median of baseline mean: {}",  median(blmean_ch))
-        printfmtln("Median of baseline std: {}",   median(blstd_ch))
-        printfmtln("Median of baseline slope: {}", median(blslope_ch))
-
-        append!(qc_cuts.channel, dsp_data[ch].channel)
-        append!(qc_cuts.timestamp, dsp_data[ch].timestamp)
-        append!(qc_cuts.eventID_fadc, dsp_data[ch].eventID_fadc)
-
-    
-        # Mean
-        xlim_factor, mean_cut_factor = 2, 0.2
-        blmean_plots[i]  = stephist(blmean_ch, label="Bl Mean", title=format("Channel g{:>03d}", ch), xlim=(median(blmean_ch)-xlim_factor*std(blmean_ch), median(blmean_ch)+xlim_factor*std(blmean_ch)), normalize=:pdf)
-        hists = fit(Histogram, blmean_ch, nbins=convert(Int, round(length(blmean_ch)/100)))
-        cts_argmax = mapslices(argmax, hists.weights, dims=1)[1]
-        cts_max = hists.weights[cts_argmax]
-
-        cut_low_arg  = filter((x) -> hists.weights[x] < mean_cut_factor * cts_max, reverse(1:cts_argmax))[1]
-        cut_high_arg = filter((x) -> hists.weights[x] < mean_cut_factor * cts_max, cts_argmax:length(hists.weights))[1]
-        cut_low, cut_high = Array(hists.edges[1])[cut_low_arg], Array(hists.edges[1])[cut_high_arg]
-
-        printfmtln("BL Mean Cut window: [{}, {}]", cut_low, cut_high)
-        vline!([cut_low, cut_high], color=:red, lw=3, label="")
-        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
-
-        append!(qc_cuts.blmeancut, (blmean_ch .> cut_low) .& (blmean_ch .< cut_high))
-
-        # Std
-        xlim_factor, std_cut_factor = 1, 0.2
-        blstd_plots[i]   = stephist(blstd_ch, label="Bl Std", title=format("Channel g{:>03d}", ch), xlim=(0, median(blstd_ch)+xlim_factor*std(blstd_ch)), normalize=:pdf, nbins=convert(Int, round(length(blstd_ch)/30)))
-        hists = fit(Histogram, blstd_ch, nbins=convert(Int, round(length(blstd_ch)/30)))
-        cts_argmax = mapslices(argmax, hists.weights, dims=1)[1]
-        cts_max = hists.weights[cts_argmax]
-
-        cut_low_arg = filter((x) -> hists.weights[x] < std_cut_factor * cts_max, reverse(1:cts_argmax))[1]
-        cut_high_arg = filter((x) -> hists.weights[x] < std_cut_factor * cts_max, cts_argmax:length(hists.weights))[1]
-        cut_low, cut_high = Array(hists.edges[1])[cut_low_arg], Array(hists.edges[1])[cut_high_arg]
-        printfmtln("BL Std Cut window: [{}, {}]", cut_low, cut_high)
-        vline!([cut_low, cut_high], color=:red, lw=3, label="")
-        vspan!([cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
-
-        append!(qc_cuts.blsigmacut, (blstd_ch .> cut_low) .& (blstd_ch .< cut_high))
+        #save pars to db
+        pars_det  = pars_db[det]
+        pars_det.blmean_cut_sf  = blmean_cut_sf
+        pars_det.blsope_cut_sf  = blsope_cut_sf
+        pars_det.blstd_cut_sf   = blstd_cut_sf
+        pars_det.t0_cut_sf      = t0_cut_sf
+        pars_det.inTrace_cut_sf = inTrace_cut_sf
+        pars_det.qc             = count(qc.qc)/length(qc.qc)    
 
 
+        outfilename = joinpath(l200.tier[:qc, :cal, period, run], format("{}-{}-{}-{}-{}-tier_qc.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
+        @info "Save data to $(outfilename)"
 
-        # Slope
-        xlim_factor, slope_cut_factor = 1, 0.2
-        stephist!(blslope_plots[i], blslope_ch, label="Bl Slope", title=format("Channel g{:>03d}", ch), xlim=(median(blslope_ch)-xlim_factor*std(blslope_ch), median(blslope_ch)+xlim_factor*std(blslope_ch)), normalize=:pdf, nbins=convert(Int, round(length(blslope_ch)/30)))
-        blslope_unit = unit(blslope_ch[1])
-        hists = fit(Histogram, blslope_ch/blslope_unit, nbins=convert(Int, round(length(blslope_ch)/30)))
-        cts_argmax = mapslices(argmax, hists.weights, dims=1)[1]
-        cts_max = hists.weights[cts_argmax]
+        outdata = LHDataStore(outfilename, "w")
 
-        cut_low_arg = filter((x) -> hists.weights[x] < slope_cut_factor * cts_max, reverse(1:cts_argmax))[1]
-        cut_high_arg = filter((x) -> hists.weights[x] < slope_cut_factor * cts_max, cts_argmax:length(hists.weights))[1]
-        cut_low, cut_high = Array(hists.edges[1])[cut_low_arg]*blslope_unit, Array(hists.edges[1])[cut_high_arg]*blslope_unit
-        printfmtln("BL Slope Cut window: [{}, {}]", cut_low, cut_high)
-        vline!(blslope_plots[i], [cut_low, cut_high], color=:red, lw=3, label="")
-        vspan!(blslope_plots[i], [cut_low, cut_high], fillrange=cut_high, label="Cut window", color=:red, lw=1.5, alpha=0.2)
+        outdata["$ch/qc"] = qc
+        outdata["$ch/after_qc"] = data_ch[qc.qc]
+        outdata["$ch/before_qc"] = data_ch
 
-        append!(qc_cuts.blslopecut, (blslope_ch .> cut_low) .& (blslope_ch .< cut_high))
-
-
-        # break
-        println()
+        close(outdata)
     end
-
-
-
-    bl_mean_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blmean.pdf", string_number))
-    bl_mean_pdf_tmp = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blmean_tmp.pdf", string_number))
-
-    for p in blmean_plots
-        p_save = plot(p, size=(1000, 800), xlabel="Baseline Mean [ADC]", ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(p_save, bl_mean_pdf_tmp)
-        append_pdf!(string(bl_mean_pdf), string(bl_mean_pdf_tmp), cleanup=true)
+    # # save pars to disk
+    @info "Save pars to disk"
+    pars_filename       = format("{}-{}-{}-{}-qc.json", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category))
+    pars_validTimeStamp = string(filekey.time)
+    # write params
+    writeprops(joinpath(pars_folder, pars_filename), pars_db, multiline=true)
+    # write validity
+    open(joinpath(pars_folder, "validity.jsonl"), "a") do io
+        println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$pars_filename\"]}")
     end
-
-    bl_std_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blstd.pdf", string_number))
-    bl_std_pdf_tmp = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blstd_tmp.pdf", string_number))
-
-    for p in blstd_plots
-        p_save = plot(p, size=(1000, 800), xlabel="Baseline Std [ADC]", ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(p_save, bl_std_pdf_tmp)
-        append_pdf!(string(bl_std_pdf), string(bl_std_pdf_tmp), cleanup=true)
-    end
-
-    bl_slope_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blslope.pdf", string_number))
-    bl_slope_pdf_tmp = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blslope_tmp.pdf", string_number))
-    
-    for p in blslope_plots
-        # plot!(p, )
-        savefig(p, bl_slope_pdf_tmp)
-        append_pdf!(string(bl_slope_pdf), string(bl_slope_pdf_tmp), cleanup=true)
-    end
-    break
-
 end
-# current()
-
-
-# Time Plots 
-
-# string_number = 1
-for string_number in string_numbers
-
-    printfmtln("Processing string number: {}", string_number)
-    println()
-    println()
-    println("Check figure folder")
-    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
-    println()
-    println()
-
-    dsp_data, channel_list, label_listExt, label_list = data_strings[string_number]
-
-
-    rt1090_plots = repeat([plot(1)], length(channel_list))
-    rt1099_plots = repeat([plot(1)], length(channel_list))
-    rt9099_plots = repeat([plot(1)], length(channel_list))
-    drifttime_plots = repeat([plot(1)], length(channel_list))
-    t0_plots = repeat([plot(1)], length(channel_list))
-
-
-    for (i, ch) in enumerate(channel_list)
-        rt1090_ch      = dsp_data[ch].rt1090
-        rt1099_ch      = dsp_data[ch].rt1099
-        rt9099_ch      = dsp_data[ch].rt9099
-        drifttime_ch   = dsp_data[ch].drift_time
-        t0_ch          = dsp_data[ch].t0
-
-        printfmtln("Channel: {}", ch)
-        printfmtln("Number of events: {}", length(rt1090_ch))
-        printfmtln("Median of rt1090: {}", median(rt1090_ch))
-        printfmtln("Median of rt1099: {}", median(rt1099_ch))
-        printfmtln("Median of rt9099: {}", median(rt9099_ch))
-        printfmtln("Median of drifttime: {}", median(drifttime_ch))
-        printfmtln("Median of t0: {}", median(t0_ch))
-
-        # xlim_factor, mean_cut_factor = 2, 0.2
-        xlim_factor = 1
-        rt1090_plots[i]  = stephist(rt1090_ch, label="RT 10-90", title=format("Channel g{:>03d}", ch), xlim=(zero(rt1090_ch[1]), median(rt1090_ch)+xlim_factor*median(rt1090_ch)), normalize=:pdf, nbins=convert(Int, round(length(rt1090_ch)/30)))
-        # rt1090_plots[i]  = stephist(rt1090_ch, label="RT 10-90", title=format("Channel g{:>03d}", ch), xlim=(zero(rt1090_ch[1]), median(rt1090_ch)+xlim_factor*median(rt1090_ch)), nbins=:sturges)
-
-        rt9099_plots[i] = stephist(rt9099_ch, label="RT 90-99", title=format("Channel g{:>03d}", ch), xlim=(zero(rt9099_ch[1]), median(rt9099_ch)+xlim_factor*median(rt9099_ch)), normalize=:pdf, nbins=convert(Int, round(length(rt9099_ch)/30)))
-
-        rt1099_plots[i] = stephist(rt1099_ch, label="RT 10-99", title=format("Channel g{:>03d}", ch), xlim=(zero(rt1099_ch[1]), median(rt1099_ch)+xlim_factor*median(rt1099_ch)), normalize=:pdf, nbins=convert(Int, round(length(rt1099_ch)/30)))
-
-        drifttime_plots[i] = stephist(drifttime_ch, label="Drift Time", title=format("Channel g{:>03d}", ch), xlim=(zero(drifttime_ch[1]), median(drifttime_ch)+xlim_factor*median(drifttime_ch)), normalize=:pdf, nbins=convert(Int, round(length(drifttime_ch)/30)))
-
-        t0_plots[i] = stephist(t0_ch, label="t0", title=format("Channel g{:>03d}", ch), xlim=(45u"µs", 50u"µs"), normalize=:pdf, nbins=convert(Int, round(length(t0_ch)/500)))
-
-        # break
-        println()
-    end
-
-    font_size = 14
-
-    rt_1090_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt1090.pdf", string_number))
-    rt_1099_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt1099.pdf", string_number))
-    rt_9099_pdf     = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_rt9099.pdf", string_number))
-    drifttime_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_drifttime.pdf", string_number))
-    t0_pdf          = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_t0.pdf", string_number))
-
-    tmp_pdf        = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_tmp.pdf", string_number))
-
-    for p in rt1090_plots
-        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(tmp_pdf)
-        append_pdf!(string(rt_1090_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    for p in rt1099_plots
-        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(tmp_pdf)
-        append_pdf!(string(rt_1099_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    for p in rt9099_plots
-        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(tmp_pdf)
-        append_pdf!(string(rt_9099_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    for p in drifttime_plots
-        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(tmp_pdf)
-        append_pdf!(string(drifttime_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    for p in t0_plots
-        plot(p, size=(1000, 800), ylabel="Counts", framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size)
-        savefig(tmp_pdf)
-        append_pdf!(string(t0_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    # break
-
-end
-# current()
-
-for string_number in string_numbers
-
-    printfmtln("Processing string number: {}", string_number)
-    println()
-    println()
-    println("Check figure folder")
-    checkFolder(joinpath(cuts_figure_folder, format("string{}", string_number)), true)
-    println()
-    println()
-
-    dsp_data, channel_list, label_listExt, label_list = data_strings[string_number]
-
-
-    blmean_2D_plots = repeat([plot(1)], length(channel_list))
-    blstd_2D_plots = repeat([plot(1)], length(channel_list))
-    blslope_2D_plots = repeat([plot(1)], length(channel_list))
-
-    for (i, ch) in enumerate(channel_list)
-        blmean_ch  = dsp_data[ch].blmean
-        blstd_ch   = dsp_data[ch].blsigma
-        blslope_ch = dsp_data[ch].blslope
-        timestamps_ch = dsp_data[ch].timestamp .- dsp_data[ch].timestamp[1]
-
-        printfmtln("Channel: {}", ch)
-        printfmtln("Number of events: {}", length(blmean_ch))
-        printfmtln("Median of baseline mean: {}",  median(blmean_ch))
-        printfmtln("Median of baseline std: {}",   median(blstd_ch))
-        printfmtln("Median of baseline slope: {}", median(blslope_ch))
-
-        # Mean
-        xlim_factor = 1
-        # blmean_2D_plots[i] = histogram2d(timestamps_ch/unit(timestamps_ch[1]), blmean_ch, nbins=(500, 5000), ylim=(median(blmean_ch)-1000, median(blmean_ch)+1000), title=format("Channel g{:>03d}", ch), color=:plasma, ylabel="Baseline Mean [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-        blmean_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blmean_ch, nbins=(150, 5000), ylim=(median(blmean_ch)-1000, median(blmean_ch)+1000), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Mean [ADC]", show_empty_bins=true, dpi=100)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-
-        # Std
-        # blstd_2D_plots[i] = histogram2d(timestamps_ch/unit(timestamps_ch[1]), blstd_ch, nbins=(500, 5000), ylim=(median(blstd_ch)-1000, median(blstd_ch)+1000), title=format("Channel g{:>03d}", ch), color=:plasma, ylabel="Baseline Std [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-        blstd_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blstd_ch, nbins=(150, 5000), ylim=(0, median(blstd_ch)+50), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Std [ADC]", show_empty_bins=true, dpi=100)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-
-        # Slope
-        # blslope_2D_plots[i] = histogram2d(timestamps_ch/unit(timestamps_ch[1]), blslope_ch, nbins=(500, 5000), ylim=(median(blslope_ch)-1000, median(blslope_ch)+1000), title=format("Channel g{:>03d}", ch), color=:plasma, ylabel="Baseline Slope [ADC]", show_empty_bins=true)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-        blslope_2D_plots[i] = histogram2d(uconvert.(u"minute", timestamps_ch), blslope_ch, nbins=(150, 5000), title=format("Channel g{:>03d}", ch), color=cgrad(:linear_worb_100_25_c53_n256, scale=:log), ylabel="Baseline Slope [ADC]", show_empty_bins=true, dpi=100)#, xlim=(timestamps_ch[1], timestamps_ch[end]))
-
-
-        # break
-        println()
-    end
-
-    font_size = 14
-
-    blmean_2D_pdf   = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blmean-time.pdf", string_number))
-    blstd_2D_pdf    = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blstd-time.pdf", string_number))
-    blslope_2D_pdf  = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_blslope-time.pdf", string_number))
-    
-    # plot(blmean_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
-    # savefig(blmean_2D_pdf)
-
-    # plot(blstd_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
-    # savefig(blstd_2D_pdf)
-
-    # plot(blslope_2D_plots..., layout=(length(channel_list), 1), size=(2000, 5000), framestyle=:box, margin=10mm, xtickfontsize=18, ytickfontsize=18, xguidefontsize=18, yguidefontsize=18, legendfontsize=18, dpi=100)
-    # savefig(blslope_2D_pdf)
-
-    tmp_pdf = joinpath(cuts_figure_folder, format("string{}", string_number), format("string{}_2D_tmp.pdf", string_number))
-
-    for p in blmean_2D_plots
-        plot(p, size=(1000, 800), framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size, dpi=100)
-        savefig(tmp_pdf)
-        append_pdf!(string(blmean_2D_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    for p in blstd_2D_plots
-        plot(p, size=(1000, 800), framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size, dpi=100)
-        savefig(tmp_pdf)
-        append_pdf!(string(blstd_2D_pdf), string(tmp_pdf), cleanup=true)
-    end
-
-    for p in blslope_2D_plots
-        plot(p, size=(800, 800), framestyle=:box, margin=10mm, xtickfontsize=font_size, ytickfontsize=font_size, xguidefontsize=font_size, yguidefontsize=font_size, legendfontsize=font_size, dpi=100)
-        savefig(tmp_pdf)
-        append_pdf!(string(blslope_2D_pdf), string(tmp_pdf), cleanup=true)
-    end
-    # break
-    
-end
-# current()
-
-# Save cuts
-saveCuts(string(cut_folder), qc_cuts)

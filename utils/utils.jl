@@ -1,79 +1,244 @@
-"""
-    checkPermissions(/path/to/directory/or/file, mode)
+# creates workers for the parallel processing and sets up the environment
+function create_workers(n_workers::Int64,; env_args::Vector{Pair{String, String}}=Pair{String, String}[])
+    # config for MPP servers
+    # push!(env_args, "JULIA_DEPOT_PATH" => "/depot")
+    addprocs(n_workers, exeflags=`--threads=4 --project=$(dirname(Pkg.project().path)) --heap-size-hint=10G`, topology=:master_worker, env=env_args, enable_threaded_blas=true)
+    
+    # Sanity check:
+    worker_ids = Distributed.remotecall_fetch.(Ref(Distributed.myid), Distributed.workers())
+    @assert length(worker_ids) == Distributed.nworkers()
 
-Given a specific directory or file and mode (options for mode = `r`, `w`, `x` for read/write/execute, respectively), this function checks if the present user has read, write, or execute permissions. Returns Boolean 'true' if current user does have permission, and Boolean false if the user does not have permission. 
-
-The input path can be either a String or a PosixPath. The input mode must be given in double quotes, e.g. "r", "w", "x", though a literal char must be used if calling this function within another function.
-
-# Examples
-To check read permissions:
-```julia-repl
-julia> checkPermissions("/user/home/directory/someFile.txt", "r")  
-IS readable.
-true
-```
-To check write permissions:
-```julia-repl
-julia> checkPermissions("/root", "w")
-Is NOT writable.
-false
-``` 
-The returned Boolean can also be assigned:
-```julia-repl
-julia> x = checkPermissions("/root", "x")
-Is NOT executable.
-false
-
-julia> (x==false)
-true
-julia> !(x==false)
-false
-```
-"""
-function checkPermissions(path, mode::String) # written like this to allow 'path' to be either a String or PosixPath
-    # Inside of this function, 'path' needs to be a string here because we are using ccall. First check if the input 'path' is of type PosixPath
-    if (typeof(path)==PosixPath)
-       global  inputPath = convert(String, path) # if it is, convert the type to a normal String type.
-    elseif (typeof(path)==String)
-        # Do nothing, just reassign variable for local type
-       global  inputPath = path
-    else
-        println("Invalid path format given. Please input a String or PosixPath.")
-        return false # will handle cases where bad path given 
-    end
-
-    # could make all of these more compact with ternary operator, but that is less human-readable
-    if mode=="w"
-        println("Checking if writable:") # Giving option '2' checks for writability
-        (ccall(:access, Cint, (Cstring, Cint), inputPath, 2) == 0;) || (println("Is NOT writable"); return false)
-        (ccall(:access, Cint, (Cstring, Cint), inputPath, 2) == 0;) && (println("IS writable"); return true)
-    elseif mode=="r"
-        println("Checking if readable:") # Giving option '4' checks for readability
-        (ccall(:access, Cint, (Cstring, Cint), inputPath, 4) == 0;) || (println("Is NOT readable"); return false)
-        (ccall(:access, Cint, (Cstring, Cint), inputPath, 4) == 0;) && (println("IS readable"); return true)
-    elseif mode=="x"
-        println("Checking if executable:") # Giving option '1' checks for executability
-        (ccall(:access, Cint, (Cstring, Cint), inputPath, 1) == 0;) || (println("Is NOT executable"); return false)
-        (ccall(:access, Cint, (Cstring, Cint), inputPath, 1) == 0;) && (println("IS executable"); return true)
-    end
+    @info "$(Distributed.nworkers()) Julia worker processes active."
 end
 
+function create_workers(processing_config::PropDict, process::Symbol)
+    create_workers(get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers); env_args=processing_config.env_args_worker)
+    # check for precompile on the workers and debug flag
+    worker_instantiate, worker_precompile, debug = processing_config.config.worker_instantiate, processing_config.config.worker_precompile, processing_config.config.debug
+    @everywhere begin
+        worker_instantiate, worker_precompile, debug = $worker_instantiate, $worker_precompile, $debug
+    end
+    # set up startup on each worker
+    @everywhere include(joinpath(@__DIR__, "startup.jl"))
+end
 
+# retry delay check for parallel processing
+function retry_check(delay_state, err)
+    # Below each condition to retry is listed along with an explanation about why
+    # retrying should/might work.
+    should_retry = (
+        # Worker death is normally stocastic, if not then doesn't matter how many
+        # retries as it will rapidly kill all workers
+        err isa ProcessExitedException ||
+        # If we are in the middle of fetching data and the process is killed we could
+        # get an ArgumentError saying that the stream was closed or unusable.
+        # So same as above.
+        err isa ArgumentError && occursin("stream is closed or unusable", err.msg) ||
+        # In general IO errors can be transient and related to network blips
+        err isa Base.IOError
+    )
+    if should_retry
+        @info "Retrying computation that failed due to a $(typeof(err)): $err"
+    else
+        @warn "Non-retryable $(typeof(err)) occurred: $err"
+    end
+    return should_retry
+end
 
-"Checks if a folder exists; if it does, do nothing. If folder does not exist, attempts to create directory."
-function checkFolder(folder::PosixPath, create::Bool=false)
-    if !exists(folder) #if directory 'folder' does not exist:
-        if create #if create is set to true (it is false by default)
-            if (checkPermissions(splitdir(folder)[1], "w")==true) # checking parent directory to see if it is writable before attempting to create new folder.
-                @info "Created folder $folder"
-                mkpath(folder)
-            else # If folder does not exist, but we also do not have write permission (or if parent directory does not exist)
-                @info "Could not create folder $folder. Exited script with exit(86)."
-                exit(86)
-            end
-        else
-            @info "$folder did not exist, but new directory not created. Exiting script."
-            exit(86)
+# process parsed arguments for the main function
+function get_argparse()
+    settings = ArgParseSettings(prog="LEGEND Julia main data processing",
+                            description="LEGEND Julia main data processing for data processing on single server machines with access to LEGEND data. Please check the config for all settings related to the data processing.",
+                            commands_are_required = true,
+                            version = "0.2",
+                            add_version = true)
+    @add_arg_table settings begin
+        "--config", "-c"
+            help = "path to config file"
+            arg_type = String
+            required = true
+        "--reprocess"
+            help = "reprocess all channels while deleting old data"
+            action = :store_true
+        "--only_runs"
+            help = "process only period and runs ignoring partitions"
+            action = :store_true
+        "--only_partitions"
+            help = "process only partitions ignoring periods and runs"
+            action = :store_true
+        "--analysis_runs_only"
+            help = "process only channels that are marked as analysis runs"
+            action = :store_true
+        "--periods", "-p"
+            help = "Periods to process"
+            nargs = '+'
+            arg_type = Int
+            action = :append_arg
+        "--runs", "-r"
+            help = "Runs to process within periods"
+            nargs = '+'
+            arg_type = Int
+            action = :append_arg
+        "--partitions"
+            help = "Analysis partitions to process"
+            nargs = '+'
+            arg_type = Int
+            action = :append_arg
+    end
+    parse_args(settings)
+end
+
+function get_processingconfig()
+    # read parsed arguments
+    parsed_args = get_argparse()
+    # read config
+    processing_config = readprops(parsed_args["config"])
+    # save parsed args for later
+    processing_config.parsed_args = parsed_args
+    # get environoment variables
+    env_args_worker = Pair{String, String}[]
+    worker_instantiate, worker_precompile = false, false
+    for key in keys(processing_config.config.env_variables)
+        ENV[String(key)] = processing_config.config.env_variables[key]
+        push!(env_args_worker, Pair{String, String}(String(key), processing_config.config.env_variables[key]))
+    end
+    processing_config.env_args_worker = env_args_worker
+    # check for precompile on the workers
+    @everywhere begin
+        worker_instantiate, worker_precompile = $processing_config.config.worker_instantiate, $processing_config.config.worker_precompile
+        if worker_instantiate
+            Pkg.instantiate()
+        end
+        if worker_precompile
+            Pkg.precompile()
         end
     end
+    # set debug flag
+    if processing_config.config.debug
+        ENV["JULIA_DEBUG"] = Main # enable debug
+    end
+
+    # check flags if only partitions or only runs should be processed
+    processing_config.only_partitions = parsed_args["only_partitions"]
+    processing_config.only_runs       = parsed_args["only_runs"]
+
+    # check flag if only analysis runs should be processed
+    processing_config.analysis_runs_only = ifelse(parsed_args["analysis_runs_only"], true, processing_config.processing.analysis_runs_only)
+
+    # get processing steps from config and sort by rank
+    process_steps = Symbol.(keys(processing_config.processors))
+    process_steps = process_steps[process_steps .!= :default]
+    process_steps = sort(process_steps[[processing_config.processors[step].enabled for step in process_steps]], by = s -> processing_config.processors[s].rank)
+
+    # if reprocess passed as global argument set reprocess flag for all processors
+    if parsed_args["reprocess"]
+        for process in process_steps
+            processing_config.processors[process].reprocess = true
+        end
+    end
+
+    processing_config.process_steps = process_steps
+
+    # get processing steps for partition and sort by rank
+    p_process_steps = Symbol.(keys(processing_config.p_processors))
+    p_process_steps = p_process_steps[p_process_steps .!= :default]
+    p_process_steps = sort(p_process_steps[[processing_config.p_processors[step].enabled for step in p_process_steps]], by = s -> processing_config.p_processors[s].rank)
+
+    # if reprocess passed as global argument set reprocess flag for all processors
+    if parsed_args["reprocess"]
+        for process in p_process_steps
+            processing_config.processors[process].reprocess = true
+        end
+    end
+
+    processing_config.p_process_steps = p_process_steps
+
+    # get runs and periods 
+    runs, periods = get_runsandperiods(parsed_args, processing_config)
+
+    # get partitions
+    partitions = get_partitions(parsed_args, processing_config)
+
+    return processing_config, runs, periods, partitions
+end
+
+function get_runsandperiods(parsed_args::Dict, processing_config::PropDict)
+    # parse periods and runs from arguments, if not supported use config
+    runs, periods = nothing, nothing
+    if !isempty(parsed_args["runs"]) && isempty(parsed_args["periods"])
+        @error "ArgumentError: Runs without periods are not supported"
+        throw(ArgParseError("Runs without periods are not supported"))
+    elseif !isempty(parsed_args["periods"]) && isempty(parsed_args["runs"])
+        periods = [DataPeriod(p) for p in parsed_args["periods"][1]]
+        @info "Process all runs in periods $(parsed_args["periods"][1])"
+        runs = "all"
+    elseif !isempty(parsed_args["periods"])
+        periods = [DataPeriod(p) for p in parsed_args["periods"][1]]
+        runs = [DataRun(r) for r in parsed_args["runs"][1]]
+        @info "Process runs: $(parsed_args["runs"][1]) in periods: $(parsed_args["periods"][1])"
+    end
+    if processing_config.processing.periods == "all" && isnothing(periods)
+        periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
+    elseif isnothing(periods)
+        periods = [DataPeriod(p) for p in processing_config.processing.periods]
+    end
+    if processing_config.processing.runs == "all" && isnothing(runs)
+        runs = "all"
+    elseif isnothing(runs)
+        runs = [DataRun(r) for r in processing_config.processing.runs]
+    end
+
+    return runs, periods
+end
+
+function get_partitions(parsed_args::Dict, processing_config::PropDict)
+    # parse data_partitions from config
+    partitions = processing_config.processing.partitions
+    if !isempty(parsed_args["partitions"])
+        partitions = parsed_args["partitions"][1]
+        @info "Process partitions: $(parsed_args["partitions"][1])"
+    end
+    if partitions == "all"
+        partitions = collect(keys(data_partitions(l200)))
+    end
+    return partitions
+end
+
+function get_proccessable_runs(runs, period)
+    # select runs to process
+    available_runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
+    processable_runs = runs
+    if runs == "all"
+        processable_runs = available_runs
+    end
+
+    # if runs has no data available skip
+    for run in processable_runs
+        if !(run in available_runs)
+            @warn "Run $run not found in period $period"
+            continue
+        end
+    end
+
+    return [r for r in processable_runs if r in available_runs ]
+
+end
+
+function get_processable_partitions(partitions)
+    # select partitions to process
+    possible_partitions = collect(keys(data_partitions(l200)))
+    for partition in partitions
+        if !(partition in possible_partitions)
+            @warn "Partition $partition is not a valid data partition"
+            continue
+        end
+    end
+    return [p for p in partitions if p in possible_partitions]
+end
+
+function kill_sessions()
+    @info "Kill all sessions"
+    # kill all sessions
+    rmprocs(workers()...)
+    run(`pkill -u $(ENV["USER"]) -f worker`)
 end
