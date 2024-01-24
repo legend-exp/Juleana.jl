@@ -242,3 +242,21 @@ function kill_sessions()
     rmprocs(workers()...)
     run(`pkill -u $(ENV["USER"]) -f worker`)
 end
+
+
+"""
+returns ranges (i.e. indices to split the data).
+"""
+function partition_array_indices(nb_data::Int, nb_data_per_chunk::Int)
+    nb_chunks = ceil(Int, nb_data / nb_data_per_chunk)
+    ids = UnitRange{Int}[]
+    for which_chunk = 1:nb_chunks
+        id_start::Int = 1 + nb_data_per_chunk * (which_chunk - 1)
+        id_end::Int = id_start - 1 + nb_data_per_chunk
+        if id_end > nb_data
+            id_end = nb_data
+        end
+        push!(ids, id_start:id_end)
+    end
+    return ids
+end

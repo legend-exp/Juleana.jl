@@ -28,7 +28,7 @@
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": 2,
             "reprocess": false,
             "timeout": 300,
@@ -49,10 +49,11 @@
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 30,
             "reprocess": true,
             "timeout": 6000,
+            "max_wvfs": 10000,
             "rank": 5
         },
         "process_hit_cal": {
@@ -91,7 +92,7 @@
             "rank": 10
         },
         "process_dsp_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 30,
             "reprocess": false,
             "timeout": 6000,
@@ -105,7 +106,7 @@
             "reprocess": false
         },
         "process_energy_partition": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": 60,
             "reprocess": false,
             "timeout": 6000,

@@ -1,4 +1,4 @@
-function process_dsp_cal(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+function process_dsp_cal(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600, max_wvfs::Int=10000)
     @info "Process DSP for period $period and run $run"
 
     filekeys = sort(search_disk(FileKey, l200.tier[:raw, :cal, period, run]), by = x-> x.time)
@@ -48,6 +48,7 @@ function process_dsp_cal(l200::LegendData, period::DataPeriod, run::DataRun,; re
         pars_optimization = $pars_optimization
         chinfo = $chinfo
         reprocess = $reprocess
+        max_wvfs = $max_wvfs
     end
 
     @everywhere function single_file_dsp(idx::Int64)
@@ -112,7 +113,7 @@ function process_dsp_cal(l200::LegendData, period::DataPeriod, run::DataRun,; re
                     # process data
                     outdata_ch = nothing
                     try
-                        outdata_ch = dsp_icpc(data_ch, dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det])
+                        outdata_ch = fast_flatten([dsp_icpc(data_ch[idx], dsp_config, pars_tau[det].tau.val*u"µs", pars_optimization[det]) for idx in partition_array_indices(length(data_ch), max_wvfs)])
                         ch_sucess = true
                     catch e
                         if e isa TaskFailedException
