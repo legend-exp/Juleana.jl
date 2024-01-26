@@ -10,15 +10,15 @@ using LegendDataTypes: fast_flatten, readdata
 data = LegendData(:l200)
 
 selected_periods = [DataPeriod(3), DataPeriod(4)]
-filekeys = [filekey for period in selected_periods for run in search_disk(DataRun, data.tier[:evt, :phy, period]) for filekey in search_disk(FileKey, data.tier[:evt, :phy, period, run])]
+filekeys = [filekey for period in selected_periods for run in search_disk(DataRun, data.tier[:jlevt, :phy, period]) for filekey in search_disk(FileKey, data.tier[:jlevt, :phy, period, run])]
 
 sel = ValiditySelection(first(filekeys))
 chinfo = channelinfo(data, sel)
-sel_geds_channels = Set(Int.(ChannelId.(filterby(@pf $system == :geds && $processable && $usability == :on)(chinfo).channel)))
+sel_geds_channels = Set(Int.(ChannelId.(filterby(@pf $system == :geds && $aoe_status == :valid)(chinfo).channel)))
 
 
 function read_events(data, filekey)
-    filename = data.tier[:evt, filekey]
+    filename = data.tier[:jlevt, filekey]
     h5open(input -> readdata(input, "events"), filename)
 end
 
@@ -94,6 +94,8 @@ lar_pe_plot = plot(lar_pe_hist, xlims = (0.4,7.5), st = :stepbins, yscale = :log
 savefig(lar_pe_plot, "plots/lar_pe_plot.png")
 savefig(lar_pe_plot, "plots/lar_pe_plot.pdf")
 
+lar_pe_plot_2 = stephist(r.ged_spm.smps_win_pe_sum, bins = 0.5:0.01:8.5)
+
 multiplicity_plot = stephist(r.geds.multiplicity .* nopls, bins = 0:0.1:10, dpi = 600)
 
 physpec_plot = stephist(r.geds.emax_cusp_ctc_cal .* qualitycuts, bins = bigbins, ylabel = "Counts / $(step(bigbins)) keV", yscale = :log10, label ="QC", xlabel = "Energy", dpi = 600)
@@ -138,3 +140,11 @@ scatter!(
 )
 savefig(aoe_plot, "plots/aoe_plot.png")
 savefig(aoe_plot, "plots/aoe_plot.pdf")
+
+
+# ==========================================
+
+roi = (minimum(roibins)* u"keV" .. maximum(roibins)* u"keV")
+
+idxs = findall(x -> x in roi, r.geds.emax_cusp_ctc_cal .* qualitycuts .* larcuts .* psdcuts)
+sum.(filter(!iszero, r.spms.trig_pe[idxs[2]]))
