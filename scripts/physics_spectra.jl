@@ -94,8 +94,6 @@ lar_pe_plot = plot(lar_pe_hist, xlims = (0.4,7.5), st = :stepbins, yscale = :log
 savefig(lar_pe_plot, "plots/lar_pe_plot.png")
 savefig(lar_pe_plot, "plots/lar_pe_plot.pdf")
 
-lar_pe_plot_2 = stephist(r.ged_spm.smps_win_pe_sum, bins = 0.5:0.01:8.5)
-
 multiplicity_plot = stephist(r.geds.multiplicity .* nopls, bins = 0:0.1:10, dpi = 600)
 
 physpec_plot = stephist(r.geds.emax_cusp_ctc_cal .* qualitycuts, bins = bigbins, ylabel = "Counts / $(step(bigbins)) keV", yscale = :log10, label ="QC", xlabel = "Energy", dpi = 600)
@@ -140,11 +138,3 @@ scatter!(
 )
 savefig(aoe_plot, "plots/aoe_plot.png")
 savefig(aoe_plot, "plots/aoe_plot.pdf")
-
-
-# ==========================================
-
-roi = (minimum(roibins)* u"keV" .. maximum(roibins)* u"keV")
-
-idxs = findall(x -> x in roi, r.geds.emax_cusp_ctc_cal .* qualitycuts .* larcuts .* psdcuts)
-sum.(filter(!iszero, r.spms.trig_pe[idxs[2]]))
