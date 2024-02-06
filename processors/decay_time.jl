@@ -252,6 +252,8 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
     @info "Write main log to disk"
     @info main_log
 
+    write_main_log(main_log, filekey, l200, :decay_time)
+
     log_filename = joinpath(log_folder, format("{}-{}-{}-{}-decay_time.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
     open(log_filename, "w+") do file
         write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
