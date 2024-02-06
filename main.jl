@@ -18,7 +18,7 @@ Pkg.instantiate()
 Pkg.precompile()
 
 # load packages
-include(joinpath(@__DIR__,"utils/startup.jl"))
+include(joinpath(@__DIR__,"src/LegendJuliaDataflow.jl"))
 
 # evaluate config
 processing_config, runs, periods, partitions = get_processingconfig()
@@ -35,7 +35,7 @@ l200 = LegendData(:l200)
 @info "Start Data processing"
 
 # load all available processors
-include.(filter(contains(r".jl$"), readdir("src/"; join=true)))
+include.(filter(contains(r".jl$"), readdir("processors/"; join=true)))
 
 ####################
 # Process Runs
@@ -66,18 +66,13 @@ if !processing_config.only_partitions
             for process in process_steps
                 @info "$process"
 
-                # create workers
-                create_workers(processing_config, process)
-
                 # run process
                 kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process]) if !(k in [:enabled, :rank, :n_workers])])
-                getfield(Main, process)(l200, period, run,; kwargs...)
+                getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
             end
         end
     end
 end
-
-@info partitions
 
 ####################
 # Process Partitions
@@ -103,7 +98,7 @@ if !processing_config.only_runs
 
             # run process
             kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process]) if !(k in [:enabled, :rank, :n_workers])])
-            getfield(Main, process)(l200, period, run,; kwargs...)
+            getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
         end
     end
 end
