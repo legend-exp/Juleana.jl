@@ -1,0 +1,126 @@
+{    
+    "config": {
+        "debug": true,
+        "worker_instantiate": false,
+        "worker_precompile": true,
+        "env_variables": {
+            "QT_QPA_PLATFORM": "xcb",
+            "GKSwstype": "100",
+            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+        }
+    },
+    "processing": {
+        "periods": "all",
+        "runs" : "all", 
+        "partitions": [1],
+        "analysis_runs_only": true
+    },
+    "processors":
+    {
+        "default": {
+            "n_workers": 20,
+            "n_threads": 4,
+            "reprocess": false
+        },
+        "process_peak_split": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false,
+            "rank": 1
+        },
+        "process_decay_time": {
+            "enabled": false,
+            "n_workers": 50,
+            "reprocess": true,
+            "timeout": 300,
+            "max_wvfs": 15000,
+            "rank": 2
+        },
+        "process_filter_optimization": {
+            "enabled": false,
+            "n_workers": 50,
+            "reprocess": true,
+            "timeout": 1500,
+            "max_wvfs": 12000,
+            "rank": 3
+        },
+        "process_aoe_optimization": {
+            "enabled": true,
+            "n_workers": 60,
+            "reprocess": true,
+            "timeout": 180,
+            "rank": 4
+        },
+        "process_dsp_cal": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": true,
+            "timeout": 6000,
+            "max_wvfs": 10000,
+            "rank": 5
+        },
+        "process_hit_cal": {
+            "enabled": false,
+            "n_workers": 90,
+            "reprocess": true,
+            "timeout": 1000,
+            "rank": 6
+        },
+        "process_ct_correction": {
+            "enabled": false,
+            "n_workers": 90,
+            "reprocess": false,
+            "timeout": 1500,
+            "rank": 7
+        },
+        "process_energy_calibration": {
+            "enabled": false,
+            "n_workers": 95,
+            "reprocess": false,
+            "timeout": 900,
+            "rank": 8
+        },
+        "process_psd_calibration": {
+            "enabled": false,
+            "n_workers": 90,
+            "reprocess": false,
+            "timeout": 900,
+            "rank": 9
+        },
+        "process_dsp_sipm": {
+            "enabled": false,
+            "n_workers": 100,
+            "reprocess": false,
+            "timeout": 6000,
+            "rank": 10
+        },
+        "process_dsp_phy": {
+            "enabled": false,
+            "n_workers": 30,
+            "reprocess": false,
+            "timeout": 6000,
+            "rank": 11
+        }
+    },
+    "p_processors":
+    {
+        "default": {
+            "n_workers": 30,
+            "reprocess": false
+        },
+        "process_energy_partition": {
+            "enabled": false,
+            "n_workers": 60,
+            "reprocess": false,
+            "timeout": 6000,
+            "rank": 1
+        },
+        "process_psd_partition": {
+            "enabled": false,
+            "n_workers": 60,
+            "reprocess": false,
+            "timeout": 6000,
+            "rank": 2
+        }
+    }
+}

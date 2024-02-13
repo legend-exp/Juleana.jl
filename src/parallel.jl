@@ -14,6 +14,7 @@ end
 function create_workers(processing_config::PropDict, process::Symbol)
     n_workers = get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers)
     n_threads = get(processing_config.processors[process], :n_threads, processing_config.processors.default.n_threads)
+    @info "Creating $(n_workers) workers with $(n_threads) threads each."
     create_workers(n_workers, n_threads; env_args=processing_config.env_args_worker)
     # check for precompile on the workers and debug flag
     worker_instantiate, worker_precompile, debug = processing_config.config.worker_instantiate, processing_config.config.worker_precompile, processing_config.config.debug
@@ -24,6 +25,15 @@ function create_workers(processing_config::PropDict, process::Symbol)
     @everywhere include(joinpath(@__DIR__, "startup.jl"))
 end
 
+function get_workerPool(processing_config::PropDict, process::Symbol)
+    n_workers = get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers)
+    n_threads = get(processing_config.processors[process], :n_threads, processing_config.processors.default.n_threads)
+    if n_workers <= nworkers()
+        return WorkerPool(2:n_workers+1)
+    else
+        return WorkerPool(2:nworkers()+1)
+    end
+end
 
 # retry delay check for parallel processing
 function retry_check(delay_state, err)
@@ -48,37 +58,45 @@ function retry_check(delay_state, err)
     return should_retry
 end
 
-function parallel(iterator::AbstractArray, f::Function, process::Symbol, processing_config::PropDict,; timeout::Int=3600, n_logentries::Int=3)
+
+function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Int=3600, retry::Bool=false)
     # prevent crash from Base
     Base.exit_on_sigint(false)
 
     # run parallel
-    result = @showprogress pmap(iterator, batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do itr
+    result =  @showprogress pmap(iterator, wpool; batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
         try
             t_end = time() + timeout
-            task = Threads.@spawn f(itr)
-            while !istaskdone(task) && time() <= t_end
+            # task = Threads.@spawn f(itr)
+            task = @async f(itr)
+            while time() <= t_end && !istaskdone(task)
                 sleep(0.1)
             end
             if !istaskdone(task)
-                @debug "Timeout for $(itr)"
-                try
-                    Base.throwto(task, InterruptException())
-                catch e
-                    throw(ErrorException("Timeout for $(itr)"))
-                end
-                throw(ErrorException("Timeout for $(itr)"))
+                @debug "Timeout for $(ifelse(haskey(itr, :detector), itr.detector, itr))"
+                @async Base.throwto(task, InterruptException())
+                throw(ErrorException("Timeout for $(ifelse(haskey(itr, :detector), itr.detector, itr))"))
             end
-            itr => fetch(task)
+            return itr => fetch(task)
         catch e
             if e isa TaskFailedException
                 e = e.task.exception
             end
-            @debug "Write Error log for $(itr): $e"
-            itr => (error = true, log = MarkdownLogLine(itr, false, "$e", n_logentries))
+            @debug "Write Error log for $(ifelse(haskey(itr, :detector), itr.detector, itr)): $e"
+            # distinguish between ch and det logging or iterator logging
+            log_itr = nothing
+            if haskey(itr, :channel) && haskey(itr, :detector)
+                log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$e"))
+            elseif itr isa FileKey
+                log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$e"))
+            else
+                throw(ErrorException("No logging for $(itr)"))
+            end
+            return itr => (processed = false, log = log_itr)
         end
     end
 
-    @info "Finished $process"
+    Base.exit_on_sigint(true)
+
     return result
 end
