@@ -1,8 +1,8 @@
 # creates workers for the parallel processing and sets up the environment
-function create_workers(n_workers::Int, n_threads::Int; env_args::Vector{Pair{String, String}}=Pair{String, String}[])
+function create_workers(workers, n_threads::Int; env_args::Vector{Pair{String, String}}=Pair{String, String}[])
     # config for MPP servers
     # push!(env_args, "JULIA_DEPOT_PATH" => "/depot")
-    addprocs(n_workers, exeflags=`--threads=$(n_threads) --project=$(dirname(Pkg.project().path)) --heap-size-hint=10G`, topology=:master_worker, env=env_args, enable_threaded_blas=true)
+    addprocs(workers, exeflags=`--threads=$(n_threads) --project=$(dirname(Pkg.project().path)) --heap-size-hint=10G`, topology=:master_worker, env=env_args, enable_threaded_blas=true)
     
     # Sanity check:
     worker_ids = Distributed.remotecall_fetch.(Ref(Distributed.myid), Distributed.workers())
@@ -11,11 +11,17 @@ function create_workers(n_workers::Int, n_threads::Int; env_args::Vector{Pair{St
     @info "$(Distributed.nworkers()) Julia worker processes active."
 end
 
-function create_workers(processing_config::PropDict, process::Symbol)
-    n_workers = get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers)
-    n_threads = get(processing_config.processors[process], :n_threads, processing_config.processors.default.n_threads)
-    @info "Creating $(n_workers) workers with $(n_threads) threads each."
-    create_workers(n_workers, n_threads; env_args=processing_config.env_args_worker)
+function create_workers(processing_config::PropDict)
+    # number of threads
+    n_threads = processing_config.processors.default.n_threads
+    # number of local workers
+    @info "Create $(processing_config.processors.default.local_workers) local workers for parallel processing"
+    create_workers(processing_config.processors.default.local_workers, n_threads; env_args=processing_config.env_args_worker)
+    # number of remote workers
+    @info "Create remote workers: $(processing_config.processors.default.remote_workers)"
+    if !isempty(processing_config.processors.default.remote_workers)
+        create_workers([Tuple(p) for p in processing_config.processors.default.remote_workers], n_threads; env_args=processing_config.env_args_worker)
+    end
     # check for precompile on the workers and debug flag
     worker_instantiate, worker_precompile, debug = processing_config.config.worker_instantiate, processing_config.config.worker_precompile, processing_config.config.debug
     @everywhere begin
@@ -27,7 +33,6 @@ end
 
 function get_workerPool(processing_config::PropDict, process::Symbol)
     n_workers = get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers)
-    n_threads = get(processing_config.processors[process], :n_threads, processing_config.processors.default.n_threads)
     if n_workers <= nworkers()
         return WorkerPool(2:n_workers+1)
     else
@@ -64,7 +69,7 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
     Base.exit_on_sigint(false)
 
     # run parallel
-    result =  @showprogress pmap(iterator, wpool; batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
+    result =  @showprogress pmap(wpool, iterator; batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
         try
             t_end = time() + timeout
             # task = Threads.@spawn f(itr)
