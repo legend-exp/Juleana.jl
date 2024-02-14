@@ -1,5 +1,9 @@
-function process_aoe_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300, max_wvfs::Int=15000)
-
+    period = DataPeriod(3)
+    run = DataRun(0)
+    l200 = LegendData(:l200)
+    reprocess=true
+    timeout=3600
+    max_wvfs=15000
     @info "Optimize PSD filter for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
@@ -29,9 +33,9 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Window length"), Symbol("Surrival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
-
-    # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
+    
+    # create workers
+    create_workers(processing_config, nameof(var"#self#"))
     
     # move all variables to workers
     @everywhere begin
@@ -47,6 +51,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         log_nt = $log_nt
         max_wvfs = $max_wvfs
     end
+
 
 
     @everywhere function ch_sg_optimization(chinfo_ch::NamedTuple)
@@ -102,6 +107,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
         # free memory
         GC.gc()
+        # throw(ErrorException("Error in DSP for DEP or SEP"))
 
         dep_sep_after_qc = nothing
 
@@ -135,7 +141,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         else
             @warn "No SG sweep plot for channel $ch ($det)"
         end
-
+        
         @info """Found optimal window length at $(result_sg_wl.wl) with survival fraction $(round(u"percent", result_sg_wl.sf, digits=2)) for channel $ch ($det)"""
 
         # write log
@@ -151,32 +157,30 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo, ch_sg_optimization, log_nt, wpool; timeout=timeout, retry=false)
+    result_sg = parallel(chinfo, ch_sg_optimization, log_nt, default_worker_pool(); timeout=timeout, retry=false)
     
+    ch_sg_optimization(chinfo[13])
 
     @info "Finished SG filter optimization"
+    @info "Remove all workers"
+    rmprocs(workers()...)
 
     pars_db = create_pars(pars_db, result_sg)
-    if !isempty(pars_db)
-        writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
-        writevalidity(l200.par.rpars.aoeopt, filekey)
-        @info "Saved pars to disk"
-    end
+    writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
+    writevalidity(l200.par.rpars.aoeopt, filekey)
+    @info "Saved pars to disk"
 
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Time of processing: $(now())")
-    lreport!(report, "Total Processing time: $(now() - start_time)")
     lreport!(report, sg_flt_optimization_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, Table(Setup = [filekey.setup], Period = [filekey.period], Run = [filekey.run], Category = [filekey.category]))
     lreport!(report, "# Results")
-    @info result_sg
     lreport!(report, create_logtbl(result_sg))
 
 
     @info "Write log report"
     writelreport(get_logfilename(l200, filekey, :sg_filter_optimization), report)
     @info report
-end
 
