@@ -1,5 +1,7 @@
 #!/usr/bin/env julia
-function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run::DataRun,; reprocess::Bool=false)
+function process_peak_split(processing_config::PropDict, l200::LegendData, data_period::DataPeriod, data_run::DataRun,; reprocess::Bool=false)
+    wpool = get_workerPool(processing_config, nameof(var"#self#"))
+    
     # # Needs to be in a separare @everywhere from package loading for some reason:
     @everywhere begin
     
@@ -11,21 +13,14 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
     input_datadir = l200.tier[:raw, :cal, data_period, data_run]
     output_datadir = l200.tier[:peaks, :cal, data_period, data_run]
 
-    @debug "Create figures folder"
-    figures_folder = joinpath(l200.tier[:plt, :cal, data_period, data_run], "dsp")
-    if isdir(figures_folder)
-        @debug("Figure folder $figures_folder already exists")
-    else
-        mkpath(figures_folder)
-    end
 
 
-    function get_daqenergy_for_ch(filelist::AbstractVector{<:AbstractString}, ch::Integer)
+    function get_daqenergy_for_ch(filelist::AbstractVector{<:AbstractString}, ch::ChannelIdLike)
         fast_flatten([
             LHDataStore(
                 ds -> begin
                     @info "Reading DAQ energy for channel $ch from \"$(ds.data_store.filename)\""
-                    get_daqenergy(ds, ch)
+                    ds[ch].raw.daqenergy[:]
                 end,
                 filename
             ) for filename in filelist
@@ -69,8 +64,8 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
     end
     isempty(filekeys) && error("No files found in \"$input_datadir\"")
 
-    chinfo = channel_info(l200, first(filekeys))
-    channels = sort(filterby(@pf $processable && $usability != :off && $system == :geds)(chinfo).channel)
+    chinfo = Table(channelinfo(l200, first(filekeys); system=:geds, only_processable=true))
+    channels = chinfo.channel
     @info "Expecting $(length(channels)) channels each file in \"$input_datadir\"."
     sel = LegendDataManagement.ValiditySelection(first(filekeys).time, :cal)
     if reprocess
@@ -79,10 +74,16 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
         @info "Reprocessing only channels with missing peaks file."
     end
 
+    e_config = dataprod_config(l200).energy(sel)
+
+    @everywhere begin
+        e_config = $e_config
+    end
+
     if !files_checked
         @info "Checking files in \"$input_datadir\"."
 
-        filecheck_result = pmap(filekeys) do filekey
+        filecheck_result = pmap(wpool, filekeys) do filekey
             filename = l200.tier[:raw, filekey]
             @info "Checking file \"$filename\""
             is_ok::Bool = true
@@ -97,7 +98,7 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
                     for ch in channels
                         try
                             #@info "Checking channel $ch in file \"$(filename)\""
-                            haskey(ds, int2chname(ch)) || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
+                            haskey(ds, "$ch") || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
                             #ds[int2chname(ch)]
                             #get_daqenergy(ds, ch)
                         catch err
@@ -127,12 +128,12 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
 
     @time begin
 
-    @showprogress pmap(channels, batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do ch
+    @showprogress pmap(wpool, channels, batch_size=1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do ch
         @info "Processing channel $ch"
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
         filekey_parts = split(basename(first(filelist)), "-")
-        output_basename = join([filekey_parts[1:4]..., int2chname(ch), filekey_parts[6]], "-")
+        output_basename = join([filekey_parts[1:4]..., "$ch", filekey_parts[6]], "-")
         output_filename = replace(joinpath(output_datadir, output_basename), "tier_raw" => "tier_peaks")
 
         if isfile(output_filename) && !reprocess
@@ -140,32 +141,26 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
         else
             @info "Generating output file \"$output_filename\""
             # get detector name for channel
-            det = chinfo.detector[chinfo.channel .== ch][1]
+            det = channelinfo(l200, first(filekeys), ch).detector
             # get config for channel
-            if haskey(l200.metadata.dataprod.config.energy(sel), det)
-                energy_config = merge(l200.metadata.dataprod.config.energy(sel).default, l200.metadata.dataprod.config.energy(sel)[det])
-                @debug "Use config for detector $det"
+            energy_config = merge(e_config.default, ifelse(haskey(e_config, det), e_config[det], PropDict()))
+            quantile_perc = if !(energy_config.quantile_perc isa Number)
+                parse(Float64, energy_config.quantile_perc)
             else
-                energy_config = l200.metadata.dataprod.config.energy(sel).default
-                @debug "Use default config"
-            end
-            quantile_perc = nothing
-            if !(energy_config.quantile_perc isa Number)
-                quantile_perc = parse(Float64, energy_config.quantile_perc)
-            else
-                quantile_perc = energy_config.quantile_perc
+                energy_config.quantile_perc
             end
             # get raw daqenergy
             E_raw = get_daqenergy_for_ch(filelist, ch)
             f_calib, diagnostics = autocal_energy(E_raw,; quantile_perc=quantile_perc)
 
-            plot(diagnostics.cal_hist, xlabel="Energy (keV)", ylabel="Counts", title="Calibrated DAQ Online Energy", legend=:none, yscale=:log10, st=:stepbins)
-            savefig(joinpath(figures_folder, format("{}-{}-{}-{}-{}-daq_energy.png", string(first(filekeys).setup), string(first(filekeys).period), string(first(filekeys).run), string(first(filekeys).category), ch)))
-
+            p = plot(diagnostics.cal_hist, st=:stepbins)
+            plot!(p, xlabel="Energy (keV)", ylabel="Counts", legend=:none, yscale=:log10)
+            title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+            savelfig(p, l200, first(filekeys), ch, Symbol("daq_energy"))
 
             slim_data = flatten_by_key([LHDataStore(filename) do ds
                 @info "Filtering $(filename), channel $ch"
-                filter_raw_data_by_energy(get_raw_ch_data(ds, ch), f_calib, energy_windows)
+                filter_raw_data_by_energy(ds[ch].raw, f_calib, energy_windows)
             end for filename in filelist])
 
 
@@ -179,7 +174,7 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
 
             h5open(output_filename, "w") do output
                 for label in sort(collect(keys(slim_data)))
-                    LegendDataTypes.writedata(output, "$(int2chname(ch))/$label", slim_data[label])
+                    LegendDataTypes.writedata(output, "$ch/$label", slim_data[label])
                 end
             end
         end
@@ -190,7 +185,5 @@ function process_peak_split(l200::LegendData, data_period::DataPeriod, data_run:
 
     end #time
     @info "Finished Peak Splitting"
-    @info "Remove all workers"
-    rmprocs(workers()...)
 
 end # function
