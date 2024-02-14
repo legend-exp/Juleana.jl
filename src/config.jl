@@ -77,7 +77,8 @@ function get_processingconfig()
 
     # check flag if only analysis runs should be processed
     processing_config.analysis_runs_only = ifelse(parsed_args["analysis_runs_only"], true, processing_config.processing.analysis_runs_only)
-
+    if processing_config.analysis_runs_only @info "Process only analysis runs" end
+    
     # get processing steps from config and sort by rank
     process_steps = Symbol.(keys(processing_config.processors))
     process_steps = process_steps[process_steps .!= :default]
