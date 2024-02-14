@@ -1,4 +1,4 @@
-#!/usr/bin/env -S julia -t 1 --project=../ --heap-size-hint=10G
+#!/usr/bin/env -S julia -t 1 --project=/remote/ceph/group/legendex/data/l200/julia/current/jlenv/ --heap-size-hint=10G
 
 # set julia traget to generic for similar compilecache in all workers
 ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
@@ -35,7 +35,7 @@ l200 = LegendData(:l200)
 @info "Start Data processing"
 
 # load all available processors
-include.(filter(contains(r".jl$"), readdir("processors/"; join=true)))
+include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
 ####################
 # Process Runs
@@ -44,6 +44,9 @@ if !processing_config.only_partitions
     
     # get processing steps from config and sort by rank
     process_steps =  processing_config.process_steps
+
+    # check how many steps are used
+    create_workers(processing_config)
 
     # process periods 
     for period in periods
@@ -72,6 +75,9 @@ if !processing_config.only_partitions
             end
         end
     end
+
+    @info "Remove all workers"
+    rmprocs(workers()...)
 end
 
 ####################

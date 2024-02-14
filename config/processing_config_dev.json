@@ -18,7 +18,9 @@
     "processors":
     {
         "default": {
-            "n_workers": 20,
+            "local_workers": 50,
+            "remote_workers": [],
+            "n_workers": 50,
             "n_threads": 4,
             "reprocess": false
         },
