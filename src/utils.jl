@@ -3,9 +3,9 @@ function kill_sessions()
     @info "Kill all sessions"
     # kill all sessions
     rmprocs(workers()...)
-    sleep(3)
+    sleep(5)
     # kill all workers
-    run(`pkill -u $(ENV["USER"]) -f worker`)
+    # run(`pkill -u $(ENV["USER"]) -f worker`)
 end
 
 

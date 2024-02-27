@@ -215,10 +215,10 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Date of processing: $(now())")
-    lreport!(report, "Total Processing time: $(now() - start_time)")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, flt_optimization_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, Table(Setup = [filekey.setup], Period = [filekey.period], Run = [filekey.run], Category = [filekey.category]))
+    lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_flt))
 

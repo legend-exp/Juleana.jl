@@ -1,10 +1,17 @@
-function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600, max_wvfs::Int=10000)
-    
+addprocs(20)
+period = DataPeriod(3)
+run = DataRun(0)
+l200 = LegendData(:l200)
+reprocess=true
+timeout=3600
+max_wvfs=15000
+ENV["JULIA_DEBUG"] = Main
+@everywhere include(joinpath(@__DIR__, "../src/startup.jl"))
     @info "Process DSP for period $period and run $run"
 
-    filekeys = search_disk(FileKey, l200.tier[:raw, :phy, period, run])
+    filekeys = search_disk(FileKey, l200.tier[:raw, :cal, period, run])
     
-    filekey = start_filekey(l200, (period, run, :phy))
+    filekey = start_filekey(l200, (period, run, :cal))
     @info "Found start filekey $filekey"
 
     chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
@@ -16,10 +23,12 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
 
-    pars_fltoptimization = get_values(merge(l200.par.rpars.fltopt[period, run], l200.par.rpars.aoeopt[period, run]))
-    @debug "Loaded optimization parameters"
+    pars_fltoptimization = get_values(l200.par.rpars.fltopt[period, run])
+    @debug "Loaded energy optimization parameters"
 
-    @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :phy, period, run]))"
+    pars_aoeoptimization = get_values(l200.par.rpars.aoeopt[period, run])
+
+    @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :cal, period, run]))"
 
     if reprocess 
         @info "Reprocess all filekeys and channels"
@@ -40,6 +49,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         dsp_config = $dsp_config
         pars_tau = $pars_tau
         pars_fltoptimization = $pars_fltoptimization
+        pars_aoeoptimization = $pars_aoeoptimization
         chinfo = $chinfo
         reprocess = $reprocess
         max_wvfs = $max_wvfs
@@ -75,12 +85,10 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         failed_detectors = DetectorId[]
         @timeit dsp_timer "DSP" begin
             # loop over channels
-            @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
-
+            for (ch, det) in zip(chinfo.channel, chinfo.detector)
                 # check if channel can be processed
-                if haskey(outdata, "$ch") && !reprocess
+                if haskey(outdata, ch) && !reprocess
                     @info "Detector $det ($ch) already processed, skip"
-                    n_detectors += 1
                     continue
                 end
                 # check for decay time
@@ -102,8 +110,9 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     # process data
                     outdata_ch = nothing
                     try
-                        outdata_ch = fast_flatten([dsp_icpc(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det])
-                                for data_part in Iterators.partition(data[ch].raw[:], max_wvfs)])
+                        outdata_ch = fast_flatten([
+                                dsp_icpc(data_part[1:100], dsp_config, pars_tau[det].tau, merge(pars_fltoptimization[det], get(pars_aoeoptimization, det, PropDict())))
+                                for data_part in Iterators.partition(data[ch].raw, max_wvfs)])
                     catch e
                         if e isa TaskFailedException
                             e = e.task.exception
@@ -118,6 +127,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     GC.gc()
                     # count number of detectors processed and Successful
                     n_detectors += 1
+                    break
                 end
             end
         end
@@ -128,6 +138,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
         if n_detectors == 0
             @warn "No detectors processed in $(basename(filename))"
+            throw(ErrorException("No detectors processed in $(basename(filename))"))
         end
 
         # create total timer by summing over memory usage and time
@@ -135,7 +146,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), "$(n_detectors)/$(length(chinfo))", string.(failed_detectors), total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus, "$(n_detectors)/$(length(chinfo))", string.(failed_detectors), total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
@@ -144,17 +155,17 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout)
+    result_dsp = parallel([filekeys[1]], filekey_dsp, log_nt, default_worker_pool(),; timeout=timeout, retry=false)
     
     @info "Finished DSP for period $period and run $run"
 
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Date of processing: $(now())")
-    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
+    lreport!(report, "Total Processing time: $(now() - start_time)")
     lreport!(report, dsp_cal_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, create_metadatatbl(filekey))
+    lreport!(report, Table(Setup = [filekey.setup], Period = [filekey.period], Run = [filekey.run], Category = [filekey.category]))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_dsp))
     lreport!(report, "# Total Timing")

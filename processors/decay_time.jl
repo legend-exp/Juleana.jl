@@ -53,7 +53,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         @debug "Processing channel $ch ($det)"
 
-        pz_config_ch = merge(pz_config.default, ifelse(haskey(pz_config, det), pz_config[det], PropDict()))
+        pz_config_ch = merge(pz_config.default, get(pz_config, det, PropDict()))
 
         # unpack config
         min_τ, max_τ = pz_config_ch.min_tau, pz_config_ch.max_tau
@@ -133,10 +133,10 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Date of processing: $(now())")
-    lreport!(report, "Total Processing time: $(now() - start_time)")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, decay_time_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, Table(Setup = [filekey.setup], Period = [filekey.period], Run = [filekey.run], Category = [filekey.category]))
+    lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_pz))
 

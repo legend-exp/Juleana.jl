@@ -1,128 +1,81 @@
-function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
+function process_ct_correction(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
 
     @info "CT correction for period $period and run $run"
 
-    filekeys = sort(search_disk(FileKey, l200.tier[:dsp, :cal, period, run]), by = x-> x.time)
-    filekey = filekeys[1]
+    filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off)
+    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    @info "Loaded channel info with $(length(chinfo)) channels"
 
-    sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
-
-    @debug "Create Hit folder"
-    hit_folder = l200.tier[:hit_ch, :cal, period, run]
-
-    @debug "Create figures folder"
-    figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "energy")
-    if isdir(figures_folder)
-        @debug("Figure folder $figures_folder already exists")
-    else
-        mkpath(figures_folder)
-    end
-
-    for str in unique(chinfo.string)
-        figures_folder_string = joinpath(figures_folder, format("string{:02d}", str))
-        if isdir(figures_folder_string)
-            @debug("String Figure folder $figures_folder_string already exists")
-        else
-            mkpath(figures_folder_string)
-        end
-    end
-
-    @debug "Create logs folder"
-    log_folder = joinpath(l200.tier[:log, :cal, period, run])
-    if isdir(log_folder)
-        @debug("Log folder $figures_folder already exists")
-    else
-        mkpath(log_folder)
-    end
+    energy_config = dataprod_config(l200).energy(filekey)
+    @debug "Loaded energy config: $(energy_config)"
 
     @debug "Create pars db"
-    pars_db = PropDict()
-    # read params if exist
-    if !(haskey(l200.par[:cal, :energy], Symbol(period)))
-        # path folder for current period seems not to exist, will create it first to avoid errors
-        mkpath(joinpath(l200.tier[:par, :cal], "energy", "$period"))
-    elseif haskey(l200.par[:cal, :energy, period], Symbol(run))
-        @info "Pars file already exists."
-        pars_db = l200.par[:cal, :energy, period, run]
-    end
+    mkpath(joinpath(data_path(l200.par.rpars.ctc), string(period)))
+    pars_db = ifelse(l200.par.rpars.ctc[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.ctc[period, run])
 
-    if reprocess
-        @info "Reprocess all channels"
-        for det in keys(pars_db)
-            for e_type in keys(pars_db[det])
-                pars_db[det][e_type].ctc = nothing
-            end
-        end
-        PropDicts.trim_null!(pars_db)
-    else
-        @info "Only reprocess channels that are not in pars_db"
-    end
+    pars_db = ifelse(reprocess, PropDict(), pars_db)
+    if reprocess @info "Reprocess all channels" end
+
+    # create log line Tuple
+    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
+
+    # get worker pool
+    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # move all variables to workers
     @everywhere begin
         l200 = $l200
-        sel = $sel
         filekey = $filekey
-        filekeys = $filekeys
         chinfo = $chinfo
-        figures_folder = $figures_folder
-        hit_folder = $hit_folder
         pars_db = $pars_db
         reprocess = $reprocess
+        energy_config = $energy_config
+        log_nt = $log_nt
     end
 
-    # for (i, ch_short) in enumerate(chinfo.channel)
-    @everywhere function ch_ct_correction(i::Int64)
+    @everywhere function ch_ct_correction(chinfo_ch::NamedTuple)
 
-        ch_short = chinfo.channel[i]
-        ch = format("ch{}", ch_short)
-        string_number = chinfo.string[i]
-        det = chinfo.detector[i]
-
-        figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
-
-        hitchfilename = joinpath(hit_folder, format("{}-{}-{}-{}-{}-tier_hit.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
+        ch  = chinfo_ch.channel
+        det = chinfo_ch.detector
 
         @debug "Processing channel $ch ($det)"
 
-        result_dict    = Dict{Symbol, NamedTuple}()
-        log_info_dict  = Dict{Symbol, String}()
-
-        if haskey(l200.metadata.dataprod.config.energy(sel), det)
-            energy_config = merge(l200.metadata.dataprod.config.energy(sel).default, l200.metadata.dataprod.config.energy(sel)[det])
-            @debug "Use config for detector $det"
-        else
-            energy_config = l200.metadata.dataprod.config.energy(sel).default
-            @debug "Use default config"
-        end
-
-        energy_types = Symbol.(energy_config.energy_types)
-
-        if !reprocess && haskey(pars_db, det)
-            @debug "Channel $(chinfo.detector[i]) already processed, check missing energy types"
-            for e_type in energy_types
-                if haskey(pars_db[det], e_type) && haskey(pars_db[det][e_type], :ctc)
-                    log_info = "| $ch | $det | Success | $e_type | $(round(pars_db[det][e_type].ctc.fct*1e6, digits=2))E-6 | $(round(ustrip(pars_db[det][e_type].ctc.fwhm_before), digits=2))±$(round(ustrip(pars_db[det][e_type].ctc.err.fwhm_before), digits=2)) | $(round(ustrip(pars_db[det][e_type].ctc.fwhm_after), digits=2))±$(round(ustrip(pars_db[det][e_type].ctc.err.fwhm_after), digits=2)) | Already processed --> skipped. |"
-                    result_dict[e_type] = NamedTuple()
-                    log_info_dict[e_type] = log_info
-                end
-            end
-        end
-
+        hitchfilename = get_hitchfilename(l200, filekey, ch)
         # load data file
         if !isfile(hitchfilename)
             @error "Hit file $hitchfilename not found"
             throw(ErrorException("Hit file not found"))
         end
+
+        result_dict    = Dict{Symbol, NamedTuple}()
+        log_info_dict  = Dict{Symbol, NamedTuple}()
+        processed_dict = Dict{Symbol, Bool}()
+
+        energy_config_ch = merge(energy_config.default, get(energy_config, det, PropDict()))
+        ctc_config_ch = merge(energy_config.ctc.default, get(energy_config.ctc, det, PropDict()))
+
+        energy_types = Symbol.(ctc_config_ch.energy_types)
+
+        if !reprocess && haskey(pars_db, det)
+            @debug "Channel $(det) already processed, check missing energy types"
+            for e_type in energy_types
+                if haskey(pars_db[det], e_type)
+                    @debug "Filter $filter_type already processed, skip"
+                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fct, pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after, "Already processed --> skipped."))
+                    processed_dict[e_type] = false
+                    log_info_dict[e_type] = log_info
+                end
+            end
+        end
+
         # get data
         data_ch_after_qc = nothing
         try
             @debug "Load hit file"
-            data_hit = LHDataStore(hitchfilename, "r");
-            data_ch_after_qc = data_hit["$(ch)/dataQC"][:];
+            data_hit = lh5open(hitchfilename, "r");
+            data_ch_after_qc = data_hit["$(ch)"].dataQC[:];
             close(data_hit)
         catch e
             @error "Error in loading data for channel $ch: $e"
@@ -135,24 +88,13 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
             throw(ErrorException("Not enough data points for channel $ch ($det)"))
         end
 
-        th228_lines = Vector{Float64}(energy_config.th228_lines)
-        th228_names = Symbol.(energy_config.th228_names)
-        th228_names_dict  = Dict{Float64, Symbol}(th228_lines .=> Symbol.(energy_config.th228_names))
-        window_sizes = Vector{Tuple{Float64, Float64}}([(l,r) for (l,r) in zip(Vector{Float64}(energy_config.left_window_sizes), Vector{Float64}(energy_config.right_window_sizes))])
-        n_bins = energy_config.n_bins
-        quantile_perc = nothing
-        if !(energy_config.quantile_perc isa Number)
-            quantile_perc = parse(Float64, energy_config.quantile_perc)
-        else
-            quantile_perc = energy_config.quantile_perc
-        end
-        # get special config for CTC
-        ctc_cal_peak = Float64(energy_config.ctc.peak)
-        ctc_cal_window = (Float64(energy_config.ctc.left_window_size),Float64(energy_config.ctc.right_window_size))
+        quantile_perc = if energy_config_ch.quantile_perc isa String parse(Float64, energy_config_ch.quantile_perc) else energy_config_ch.quantile_perc end
 
+        # get special config for CTC
+        ctc_cal_peak = ctc_config_ch.peak
 
         for e_type in energy_types
-            if haskey(result_dict, e_type)
+            if haskey(processed_dict, e_type)
                 continue
             end
             
@@ -162,7 +104,7 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = simple_calibration(getproperty(data_ch_after_qc, e_type), th228_lines, window_sizes,; n_bins=n_bins, quantile_perc=quantile_perc)
+                    result_simple, report_simple = simple_calibration(getproperty(data_ch_after_qc, e_type), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, n_bins=energy_config_ch.n_bins, quantile_perc=quantile_perc)
                 catch e
                     @error "Error in $e_type simple calibration for channel $ch: $e"
                     throw(ErrorException("Error in $e_type simple calibration"))
@@ -171,24 +113,27 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
                 # get simple calibration constant
                 m_cal_simple = result_simple.c
                 # save plots for simple calibration for control
-                plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true, title=format("{} Simple Calibration ({}-{}-{}-{})", string(det), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-                savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-simple_calibration_{}.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch, string(e_type))))
+                p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
+                title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
+                savelfig(p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
 
                 yield()
 
                 result_ctc, report_ctc = nothing, nothing
                 try
                     @debug "Get $e_type Charge Trapping Alpha"
-                    result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_cal_peak, ctc_cal_window)
+                    result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_config_ch.peak, (ctc_config_ch.left_window_size, ctc_config_ch.right_window_size))
                 catch e
                     @error "Error in $e_type alpha generation $ch: $e"
                     throw(ErrorException("Error in $e_type alpha generation"))
                 end
-                @debug "Found Best $e_type FWHM: $(round(result_ctc.fwhm_after, digits=2)) +- $(round(result_ctc.err.fwhm_after, digits=2))keV"
-                @debug "Found $e_type FCT: $(round(result_ctc.fct*1e6, digits=2))E-6"
+                fct = result_ctc.fct / m_cal_simple
+                @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"
+                @debug "Found $e_type FCT: $(round(fct*1e6, digits=2))E-6"
                 
-                plot(report_ctc, plot_title=format("{} {}keV Charge Trapping Correction ({}-{}-{}-{})", string(det), string(ctc_cal_peak), string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-                savefig(joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-ctc_{}.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch, string(e_type))))
+                p = plot(report_ctc)
+                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"))
+                savelfig(p, l200, filekey, ch, Symbol("ctc_$(e_type)"))
 
                 yield()
 
@@ -197,128 +142,48 @@ function process_ct_correction(l200::LegendData, period::DataPeriod, run::DataRu
                     fwhm_before = result_ctc.fwhm_before,
                     fwhm_after = result_ctc.fwhm_after,
                     peak = ctc_cal_peak,
-                    err = (fwhm_before = result_ctc.err.fwhm_before, fwhm_after = result_ctc.err.fwhm_after)
                 )
-                log_info = "| $ch | $det | Success | $e_type | $(round(ustrip(result.fct*1e6), digits=2))E-6 | $(round(ustrip(result.fwhm_before), digits=2))±$(round(ustrip(result.err.fwhm_before), digits=2)) | $(round(ustrip(result.fwhm_after), digits=2))±$(round(ustrip(result.err.fwhm_after), digits=2)) | - |"
+                log_ch = log_nt((ch, det, ProcessStatus(1), "$e_type", fct*1e6, result.fwhm_before, result.fwhm_after, "-"))
 
                 # add results to dict
                 result_dict[e_type]   = result
-                log_info_dict[e_type] = log_info
+                log_info_dict[e_type] = log_ch
+                processed_dict[e_type] = true
             catch e
                 @error "Error in $e_type CT correction: $e"
-                log_info = "| ch$(chinfo.channel[i]) | $(chinfo.detector[i]) | Failed | $e_type | - | - | - | $(e) |"
+                log_ch = log_nt((ch, det, ProcessStatus(0), "$e_type", "-", "-", "-", "$e"))
                 # add results to dict
-                result_dict[e_type] = NamedTuple()
-                log_info_dict[e_type] = log_info
+                log_info_dict[e_type] = log_ch
+                processed_dict[e_type] = false
             end
         end
 
-        return (result = result_dict, log = log_info_dict)
+        return (result = result_dict, log = log_info_dict, processed = processed_dict)
     end
 
-    Base.exit_on_sigint(false)
-    result_ctc =  @showprogress pmap(eachindex(chinfo.channel); batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do idx
-        try
-            t_end = time() + timeout
-            task = Threads.@spawn ch_ct_correction(idx)
-            while !istaskdone(task) && time() <= t_end
-                sleep(0.1)
-            end
-            if !istaskdone(task)
-                @debug "Timeout for $(chinfo.detector[idx])"
-                try
-                    Base.throwto(task, InterruptException())
-                catch e
-                    throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
-                end
-                throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
-            end
-            chinfo.detector[idx] => fetch(task)
-        catch e
-            if e isa TaskFailedException
-                e = e.task.exception
-            end
-            @debug "Write Error log for $(chinfo.detector[idx]): $(e)"
-            log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | ? | - | - | - | $(e) |"
-            chinfo.detector[idx] => (result = Dict{Symbol, NamedTuple}(), log = log_info)
-        end
-    end
+    # get start time
+    start_time = now()
+
+    result_ctc = parallel(chinfo, ch_ct_correction, log_nt, wpool; timeout=timeout)
 
     @info "Finished CT correction"
-    @info "Remove all workers"
-    rmprocs(workers()...)
 
-    main_log = """# Main log
-    Time of processing: $(now())
-    ## CT Correction
-    This is the log for the charge trapping correction. The algorithm loads all data for a channel and performs the correction while optimizing maximum height and FWHM of a defined peak in the energy spectrum.
-    Before the parameters are extracted, QC cuts are applied to increase the quality of the data.
-    # MetaData
-    | Setup | Period | Run | Category |
-    |-------|--------|-----|----------|
-    | $(filekey.setup) | $(filekey.period) | $(filekey.run) | $(filekey.category) |
+    pars_db = create_pars(pars_db, result_ctc)
+    writelprops(l200.par.rpars.ctc[period], run, pars_db)
+    writevalidity(l200.par.rpars.ctc, filekey)
+    @info "Saved pars to disk"
 
-    # Results
-    | Channel | Detector | Status | Energy | FCT | FWHM Before (keV) | FWHM After (keV) | Error |
-    |---------|----------|--------|--------|-----|-------------------|------------------|-------|
-    """
-    # extract results into pars_db and append to main log
-    for (det, res) in result_ctc
-        # save pars to db
-        if !isempty(res.result)
-            pars_det = pars_db[det]
-            for (e_type, res_e_type) in res.result
-                if isempty(res_e_type)
-                    continue
-                end
-                pars_det_e_type = pars_det[e_type].ctc
-                # save calibration results
-                pars_det_e_type.fct             = res_e_type.fct
-                pars_det_e_type.fwhm_before     = res_e_type.fwhm_before
-                pars_det_e_type.fwhm_after      = res_e_type.fwhm_after
-                pars_det_e_type.peak            = res_e_type.peak
-                pars_det_e_type.err.fwhm_before = res_e_type.err.fwhm_before
-                pars_det_e_type.err.fwhm_after  = res_e_type.err.fwhm_after
-            end
-            for (e_type, log_info) in res.log
-                # add log to main log
-                main_log = """
-                $main_log$(log_info)
-                """
-            end
-        else
-            # add log to main log
-            main_log = """
-            $main_log$(res.log)
-            """
-            # main_log *= res.log
-        end
-    end
-    # save pars to disk
-    @info "Save pars to disk"
+    report = lreport()
+    lreport!(report, "# Main Log")
+    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
+    lreport!(report, energy_ctc_log_text)
+    lreport!(report, "# Metadata")
+    lreport!(report, create_metadatatbl(filekey))
+    lreport!(report, "# Results")
+    lreport!(report, create_logtbl(result_ctc))
 
-    # write pars
-    writeprops(joinpath(l200.tier[:par, :cal], "energy", "$period/$run.json"), pars_db, multiline=true)
-
-    # write validity
-    pars_validTimeStamp = string(filekey.time)
-    add_validity = true
-    for ln in eachline(open(joinpath(l200.tier[:par, :cal], "energy", "validity.jsonl"), "r"))
-        if (contains(ln, "$pars_validTimeStamp"))
-            add_validity = false
-        end
-    end
-    if add_validity
-        open(joinpath(l200.tier[:par, :cal], "energy", "validity.jsonl"), "a") do io
-            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"all\", \"apply\":[\"$period/$run.json\"]}")
-        end
-    end
-
-    @info "Write main log to disk"
-    @info main_log
-
-    log_filename = joinpath(log_folder, format("{}-{}-{}-{}-ct_correction.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-    open(log_filename, "w+") do file
-        write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
-    end
+    @info "Write log report"
+    writelreport(get_logfilename(l200, filekey, :ctc), report)
+    @info report
 end

@@ -12,13 +12,35 @@ get_logfilename(data::LegendData, setup::ExpSetupLike, period::DataPeriodLike, r
 get_logfilename(data::LegendData, filekey::FileKey, process::Symbol) = get_logfilename(data, filekey.setup, filekey.period, filekey.run, filekey.category, process)
 get_logfilename(data::LegendData, partition::DataPartitionLike, category::DataCategoryLike, process::Symbol) = joinpath(get_logfolder(data, partition, category), format("{}-{}-{}.md", string(partition), string(category), string(process)))
 
+# create metadata table
+function create_metadatatbl(filekey::FileKey)
+    Table(Setup = [filekey.setup], Period = [filekey.period], Run = [filekey.run], Category = [filekey.category])
+end
 
 # create log table from a result fille while adding - for non-exisiting keys in certain loglines
 function create_logtbl(result)
     tbl = vcat([collect(values(res.log)) for (itr, res) in result if res.log isa Dict]...)
     append!(tbl, [res.log for (itr, res) in result if !(res.log isa Dict)])
     unique_keys = unique(reduce(vcat, collect.(keys.(tbl))))
-    Table([NamedTuple{Tuple(unique_keys)}([get(nt, k, "-") for k in unique_keys]...) for nt in tbl])
+    StructArray([NamedTuple{Tuple(unique_keys)}([get(nt, k, "-") for k in unique_keys]...) for nt in tbl])
+end
+
+# don't know why.... I hate types!
+function fix_type end
+fix_type(x) = x
+fix_type(x::Measurement) = Measurement{Float64}(x)
+# fix_type(x::Quantity)    = Quantity{Float64}(x)
+fix_type(x::Quantity{<:Measurement}) = Measurement{Float64}(ustrip(x))*unit(x)
+
+# get the total timer from a result file
+function get_totalTimer(result::Vector)
+    totalTimer = TimerOutput()
+    for (itr, res) in result
+        if haskey(res, :timer)
+            merge!(totalTimer, res.timer)
+        end
+    end
+    totalTimer
 end
 
 # log texts that are static in each log report
@@ -40,3 +62,23 @@ This is the log for the savitzky-golay filter optimization for the PSD analysis.
 a small DSP routine on the waveforms in the DEP and SEP, a simple AoE cut for different window lengths
 and the calculation of the survival fraction in the SEP after a simple PSD cut on the DEP. Then, the 
 window length with the lowest survival fraction is chosen."""
+
+const dsp_cal_log_text = """## DSP
+This is the log for the dsp. The algorithm iterates through each file and process within each file each detector separate."""
+
+const hit_cal_log_text = """## Hit Cal QC generation
+This is the log for the qualtiy cuts generation for calibration data. The algorithm generates the QC cuts and saves a hit file per detector
+for the following processing."""
+
+const energy_ctc_log_text = """## CT Correction
+This is the log for the charge trapping correction. The algorithm loads all data for a channel and performs the correction while optimizing maximum height and FWHM of a defined peak in the energy spectrum.
+Before the parameters are extracted, QC cuts are applied to increase the quality of the data."""
+
+const energy_log_text = """ ## Energy Calibration
+This is the log for the energy calibration. The algorithm loads all data for a channel and performs a energy calibration while fitting peaks identified in the spectrum and returning 
+calibration constant and resolution.
+Before the parameters are extracted, QC cuts are applied to increase the quality of the data."""
+
+const psd_log_text = """## PSD calibration
+This is the log for the PSD calibration for the AoE PSD analysis. The processing involves fitting the Compton bands of the AoE spectrum and fitting the resulting parameters with correction functions. The correction functions are then applied to the AoE spectrum. The resulting AoE spectrum is then saved to the hit file.
+"""

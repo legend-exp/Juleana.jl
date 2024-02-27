@@ -1,102 +1,66 @@
-function process_hit_cal(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
+function process_hit_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
 
     @info "Generate cal hit for period $period and run $run"
 
-    filekeys = sort(search_disk(FileKey, l200.tier[:dsp, :cal, period, run]), by = x-> x.time)
-    filekey = filekeys[1]
+    filekeys = search_disk(FileKey, l200.tier[:jldsp, :cal, period, run])
+
+    filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :geds && $processable && $usability != :off)
+    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    @info "Loaded channel info with $(length(chinfo)) channels"
 
-    sel = LegendDataManagement.ValiditySelection(filekey.time, :cal)
+    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
+    @debug "Loaded DSP config: $(dsp_config)"
+
+    qc_config = dataprod_config(l200).qc(filekey)
 
     @debug "Create Hit folder"
-    hit_folder = l200.tier[:hit_ch, :cal, period, run]
-    if isdir(hit_folder)
-        @debug("Hit folder $hit_folder already exists")
-    else
-        mkpath(hit_folder)
-    end
-
-    @debug "Create figures folder"
-    figures_folder = joinpath(l200.tier[:plt, :cal, period, run], "qc")
-    if isdir(figures_folder)
-        @debug("Figure folder $figures_folder already exists")
-    else
-        mkpath(figures_folder)
-    end
-
-    for str in unique(chinfo.string)
-        figures_folder_string = joinpath(figures_folder, format("string{:02d}", str))
-        if isdir(figures_folder_string)
-            @debug("String Figure folder $figures_folder_string already exists")
-        else
-            mkpath(figures_folder_string)
-        end
-    end
-
-    @debug "Create logs folder"
-    log_folder = joinpath(l200.tier[:log, :cal, period, run])
-    if isdir(log_folder)
-        @debug("Log folder $figures_folder already exists")
-    else
-        mkpath(log_folder)
-    end
+    mkpath(l200.tier[:jlhitch, :cal, period, run])
 
     @debug "Create pars db"
-    pars_db = PropDict()
-    # read params if exist
-    if !(haskey(l200.par[:cal, :qc], Symbol(period)))
-        # path folder for current period seems not to exist, will create it first to avoid errors
-        mkpath(joinpath(l200.tier[:par, :cal], "qc", "$period"))
-    elseif haskey(l200.par[:cal, :qc, period], Symbol(run))
-        @info "Pars file already exists."
-        pars_db = l200.par[:cal, :qc, period, run]
-    end
+    mkpath(joinpath(data_path(l200.par.rpars.qc), string(period)))
+    pars_db = ifelse(l200.par.rpars.qc[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.qc[period, run])
 
-    if reprocess
-        @info "Reprocess all channels"
-        for det in keys(pars_db)
-            if !haskey(pars_db[det], :cal)
-                pars_db[det].cal = nothing
-            end
-        end
-        PropDicts.trim_null!(pars_db)
-    else
-        @info "Only reprocess channels that are not in pars_db"
-    end
+    pars_db = ifelse(reprocess, PropDict(), pars_db)
+    if reprocess @info "Reprocess all channels" end
 
+    # create log line Tuple
+    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Surrival Fraction"), Symbol("Number Pulser Events"), :Error)}
+
+    # get worker pool
+    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # move all variables to workers
     @everywhere begin
         l200 = $l200
-        sel = $sel
         filekey = $filekey
         filekeys = $filekeys
         chinfo = $chinfo
         reprocess = $reprocess
-        figures_folder = $figures_folder
-        hit_folder = $hit_folder
         pars_db = $pars_db
+        log_nt = $log_nt
+        qc_config = $qc_config
     end
 
-    # for (i, ch_short) in enumerate(chinfo.channel)
-    @everywhere function ch_hit_cal(i::Int64)
+    @everywhere function ch_hit_cal(chinfo_ch::NamedTuple)
 
-        ch_short = chinfo.channel[i]
-        ch = format("ch{}", ch_short)
-        string_number = chinfo.string[i]
-        det = chinfo.detector[i]
+        ch = chinfo_ch.channel
+        det = chinfo_ch.detector
 
-        figures_folder_string = joinpath(figures_folder, format("string{:02d}", string_number))
+        hitchfilename = get_hitchfilename(l200, filekey, ch)
 
-        hitchfilename = joinpath(hit_folder, format("{}-{}-{}-{}-{}-tier_hit.lh5", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch))
-
-        if !reprocess && haskey(pars_db, det) && haskey(pars_db[det], :cal)
-            @debug "Channel $(chinfo.detector[i]) already processed"
-            log_info = "| $ch | $det | Success | $(round(pars_db[det].cal.qc * 100, digits=2))% | Already processed --> skipped. |"
-            result_dict = Dict{Symbol, Float64}()
-            return (result = result_dict, log = log_info)
+        if !reprocess && haskey(pars_db, det) && haskey(pars_db[det], :cal) && isfile(hitchfilename)
+            try
+                close(lh5open(hitchfilename, "r"))
+                @debug "Channel $(det) already processed"
+                log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))
+                return (processed=false, log = log_ch)
+            catch e
+                @warn "Error reading hit file for channel $ch ($det): $e"
+                @info "Reprocess channel $ch ($det)"
+                rm(hitchfilename)
+            end
         end
 
         if reprocess
@@ -108,56 +72,21 @@ function process_hit_cal(l200::LegendData, period::DataPeriod, run::DataRun,; re
 
         @debug "Processing channel $ch ($det)"
         
-
-        ch_filekeys = Vector{FileKey}()
-        for fk in filekeys
-            if !isfile(l200.tier[:dsp, fk])
-                @warn "File $(basename(l200.tier[:dsp, fk])) does not exist, skip"
-                continue
-            end
-            if !haskey(LHDataStore(l200.tier[:dsp, fk], "r"), ch)
-                @warn "Channel $ch not found in $(basename(l200.tier[:dsp, fk])), skip"
-                continue
-            end
-            push!(ch_filekeys, fk)
-        end
-
-        if isempty(ch_filekeys)
-            @error "No valid filekeys found for channel $ch ($det), skip"
-            throw(LoadError("$det", 154,"No filekeys found for channel $ch ($det)"))
-        end
-        yield()
-
-        data_ch = fast_flatten([
-            LHDataStore(
-                ds -> begin
-                    # @debug "Reading from \"$(ds.data_store.filename)\""
-                    ds[ch][:]
-                end,
-                l200.tier[:dsp, fk]
-            ) for fk in ch_filekeys
-        ])
-        yield()
-
+        data_ch = load_runch(l200, filekeys, :jldsp, ch; check_filekeys=true)
+        
         if length(data_ch) < 5000
             @error "Not enough data points for channel $ch ($det), skip"
             throw(ErrorException("Not enough data points for channel $ch ($det)"))
         end
 
-        if haskey(l200.metadata.dataprod.config.qc(sel), det)
-            qc_config = merge(l200.metadata.dataprod.config.qc(sel).default, l200.metadata.dataprod.config.qc(sel)[det])
-            @debug "Use config for detector $det"
-        else
-            qc_config = l200.metadata.dataprod.config.qc(sel).default
-            @debug "Use default config"
-        end
-        yield()
+        qc_config_ch = merge(qc_config.default, get(qc_config, det, PropDict()))
+        pulser_config_ch = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
 
         # generate qc cuts
-        qc, data_ch_after_qc = nothing, nothing
+        qc, data_ch_after_qc, cut_res = nothing, nothing, nothing
         try
             @debug "Get QC cuts"
-            qc = qc_cal_energy(data_ch, qc_config)
+            qc, cut_res = qc_cal_energy(data_ch, qc_config_ch)
             @debug "Total surrival fraction: $(round(count(qc.qc) / length(data_ch) * 100, digits=2))%"
             data_ch_after_qc =  data_ch[qc.qc]
         catch e
@@ -166,115 +95,96 @@ function process_hit_cal(l200::LegendData, period::DataPeriod, run::DataRun,; re
         end
         yield()
 
-        histogram(data_ch_after_qc.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Trap - after QC", xlabel="Energy (ADC)", ylabel="Counts", title="Energy spectrum for channel $ch ($det)", legend=:topleft)
-        histogram!(data_ch.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Trap - before QC")
-        savefig(joinpath(figures_folder_string,  format("{}-{}-{}-{}-{}-raw_energy_e_trap.png", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch)))
+        pulser_tag, data_pulser = nothing, nothing
+        try
+            @debug "Get Pulser tags"
+            pulser_tag = pulser_cal_qc(data_ch, pulser_config_ch; n_pulser_identified=100)
+            @debug "Found $(length(pulser_tag)) pulser events"
+            data_pulser = data_ch[pulser_tag]
+            data_ch_after_qc = data_ch[findall(x -> !(x in pulser_tag) && qc.qc[x], eachindex(data_ch))]
+        catch e
+            @error "Error in Pulser tag for channel $ch: $e"
+            throw(ErrorException("Error in Pulser tag for channel: $e"))
+        end
+
+        p = stephist(data_ch_after_qc.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Trap - after QC", yscale=:log10)
+        stephist!(p, data_ch.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Trap - before QC", yscale=:log10)
+        if !isempty(data_pulser)
+            stephist!(p, data_pulser.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Pulser", yscale=:log10)
+        end
+        plot!(p, xformatter=:plain, xlabel="Energy (ADC)", ylabel="Counts", title=get_plottitle(filekey, det, "Trap Raw Energy Spectrum"), legend=:topright)
+
+        savelfig(p, l200, filekey, ch, :raw_energy_e_trap)
 
         # save hit file
         @debug "Save hit file"
-        outdata = LHDataStore(hitchfilename, "cw")
-        outdata["$ch/qc"] = qc;
-        outdata["$ch/dataQC"] = data_ch_after_qc;
-        close(outdata)
+        lh5open(hitchfilename, "cw") do outdata
+            @info "Save QC"
+            outdata["$ch/qc"] = qc;
+            @info "Save Pulser Tags"
+            outdata["$ch/pulserTag"] = pulser_tag;
+            @info "Save data after QC"
+            outdata["$ch/dataQC"] = data_ch_after_qc;
+            @info "Save data pulser"
+            if !isempty(data_pulser)
+                outdata["$ch/dataPulser"] = data_pulser;
+            else
+                @error "No Pulser data written out!"
+            end
+        end
 
-        log_info = "| $ch | $det | Success | $(round(count(qc.qc) / length(data_ch) * 100, digits=2))% | - |"
+        sf, n_pulser = count(qc.qc) / length(data_ch) * 100u"percent", ifelse(!isempty(data_pulser), length(data_pulser), 0)
+        log_ch = log_nt((ch, det, ProcessStatus(1), sf, n_pulser, "-"))
 
-        result_dict = Dict{Symbol, Float64}()
 
         for cut in columnnames(qc)
-            @info "$(cut) cut: $(round(count(getproperty(qc, cut)) / length(qc) * 100, digits=2))%"
-            result_dict[cut] = round(count(getproperty(qc, cut)) / length(qc) * 100, digits=2)
+            @info "$(cut) cut: $(count(getproperty(qc, cut)) / length(qc) * 100u"percent")"
         end
 
-        return (result = result_dict, log = log_info)
+        return (result = (sf = sf, n_pulser = n_pulser, cuts = cut_res), log = log_ch, processed=true)
     end
 
-    Base.exit_on_sigint(false)
-    result_ctc =  @showprogress pmap(eachindex(chinfo.channel); batch_size = 1, retry_check=retry_check, retry_delays=ExponentialBackOff(n=3)) do idx
-        try
-            t_end = time() + timeout
-            task = Threads.@spawn ch_hit_cal(idx)
-            while !istaskdone(task) && time() <= t_end
-                sleep(0.1)
-            end
-            if !istaskdone(task)
-                @debug "Timeout for $(chinfo.detector[idx])"
-                try
-                    Base.throwto(task, InterruptException())
-                catch e
-                    throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
-                end
-                throw(ErrorException("Timeout for $(chinfo.detector[idx])"))
-            end
-            chinfo.detector[idx] => fetch(task)
-        catch e
-            if e isa TaskFailedException
-                e = e.task.exception
-            end
-            @debug "Write Error log for $(chinfo.detector[idx]): $(e)"
-            log_info = "| ch$(chinfo.channel[idx]) | $(chinfo.detector[idx]) | Failed | - | $(e) |"
-            chinfo.detector[idx] => (result = Dict{Symbol, Float64}(), log = log_info)
-        end
-    end
+    # get start time
+    start_time = now()
 
-    @info "Finished Hit channel processing"    
-    @info "Remove all workers"
-    rmprocs(workers()...)
+    # execute in parallel
+    result_qc = parallel(chinfo, ch_hit_cal, log_nt, wpool; timeout=timeout)
 
-    main_log = """# Main log
-    Time of processing: $(now())
-    ## QC Cal generation
-    This is the log for the qualtiy cuts generation for calibration data. The algorithm generates the QC cuts and saves a hit file per detector
-    for the following processing.
-    # MetaData
-    | Setup | Period | Run | Category |
-    |-------|--------|-----|----------|
-    | $(filekey.setup) | $(filekey.period) | $(filekey.run) | $(filekey.category) |
+    @info "Finished Hit channel processing"
 
-    # Results
-    | Channel | Detector | Status | QC SF | Error |
-    |---------|----------|--------|-------|-------|
-    """
-    # extract results into pars_db and append to main log
-    for (det, res) in result_ctc
-        # save pars to db
-        if !isempty(res.result)
-            pars_det = pars_db[det].cal
-            for (cut, cut_sf) in res.result
-                pars_det[cut].sf = cut_sf
-            end
-        end
-            # add log to main log
-            main_log = """
-            $main_log$(res.log)
-            """
-            # main_log *= res.log
-    end
-    # save pars to disk
-    @info "Save pars to disk"
+    pars_db = create_pars(pars_db, result_qc)
+    writelprops(l200.par.rpars.qc[period], run, pars_db)
+    writevalidity(l200.par.rpars.qc, filekey)
+    @info "Saved pars to disk"
 
-    # write pars
-    writeprops(joinpath(l200.tier[:par, :cal], "qc", "$period/$run.json"), pars_db, multiline=true)
+    report = lreport()
+    lreport!(report, "# Main Log")
+    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
+    lreport!(report, hit_cal_log_text)
+    lreport!(report, "# Metadata")
+    lreport!(report, create_metadatatbl(filekey))
+    lreport!(report, "# Results")
+    lreport!(report, create_logtbl(result_qc))
 
-    # write validity
-    pars_validTimeStamp = string(filekey.time)
-    add_validity = true
-    for ln in eachline(open(joinpath(l200.tier[:par, :cal], "qc", "validity.jsonl"), "r"))
-        if (contains(ln, "$pars_validTimeStamp"))
-            add_validity = false
-        end
-    end
-    if add_validity
-        open(joinpath(l200.tier[:par, :cal], "qc", "validity.jsonl"), "a") do io
-            println(io, "{\"valid_from\":\"$pars_validTimeStamp\", \"category\":\"cal\", \"apply\":[\"$period/$run.json\"]}")
-        end
-    end
 
-    @info "Write main log to disk"
-    @info main_log
-
-    log_filename = joinpath(log_folder, format("{}-{}-{}-{}-qc.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-    open(log_filename, "w+") do file
-        write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
-    end
+    @info "Write log report"
+    writelreport(get_logfilename(l200, filekey, :qc), report)
+    @info report
 end
+
+
+# drift_time_idx = findall(x -> x < 200u"ns", data_ch_after_qc.drift_time)
+
+# ts = data_ch_after_qc.timestamp[drift_time_idx]
+# # findall(x -> x in (2u"s"-16u"ns")..(2u"s"+16u"ns"), diff(ts))
+# pulser_identified_idx = findall(x -> x .== 2u"s", diff(ts))
+
+# drift_time_idx[pulser_identified_idx[1]]
+
+# p_evt = data_ch_after_qc[drift_time_idx[pulser_identified_idx[1]]]
+# findall(.!(-400u"ns" .< (data_ch_after_qc.timestamp .- p_evt.timestamp .+ 0.5u"s") .% 1.0u"s" .- 0.5u"s" .< 400u"ns"))
+# findall(-400u"ns" .< (data_ch_after_qc.timestamp .- p_evt.timestamp .+ 0.5u"s") .% 1.0u"s" .- 0.5u"s" .< 400u"ns")
+
+
+# histogram(data_ch_after_qc.drift_time[findall(.!(-400u"ns" .< (data_ch_after_qc.timestamp .- p_evt.timestamp .+ 0.5u"s") .% 1u"s" .- 0.5u"s" .< 400u"ns"))], bins=(0:1:1.5e3))

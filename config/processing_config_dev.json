@@ -26,13 +26,13 @@
         },
         "process_peak_split": {
             "enabled": false,
-            "n_workers": 30,
+            "n_workers": 100,
             "reprocess": false,
             "rank": 1
         },
         "process_decay_time": {
             "enabled": false,
-            "n_workers": 50,
+            "n_workers": 100,
             "reprocess": true,
             "timeout": 300,
             "max_wvfs": 15000,
@@ -40,32 +40,32 @@
         },
         "process_filter_optimization": {
             "enabled": false,
-            "n_workers": 50,
+            "n_workers": 100,
             "reprocess": true,
             "timeout": 1500,
             "max_wvfs": 12000,
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": true,
-            "n_workers": 60,
-            "reprocess": true,
-            "timeout": 180,
+            "enabled": false,
+            "n_workers": 70,
+            "reprocess": false,
+            "timeout": 600,
             "rank": 4
         },
         "process_dsp_cal": {
             "enabled": false,
-            "n_workers": 30,
-            "reprocess": true,
-            "timeout": 6000,
-            "max_wvfs": 10000,
+            "n_workers": 100,
+            "reprocess": false,
+            "timeout": 100000,
+            "max_wvfs": 1000,
             "rank": 5
         },
         "process_hit_cal": {
-            "enabled": false,
-            "n_workers": 90,
+            "enabled": true,
+            "n_workers": 100,
             "reprocess": true,
-            "timeout": 1000,
+            "timeout": 600,
             "rank": 6
         },
         "process_ct_correction": {

@@ -18,7 +18,7 @@
     "processors":
     {
         "default": {
-            "local_workers": 100,
+            "local_workers": 200,
             "remote_workers": [],
             "n_workers": 50,
             "n_threads": 4,
@@ -48,44 +48,44 @@
         },
         "process_aoe_optimization": {
             "enabled": false,
-            "n_workers": 100,
+            "n_workers": 70,
             "reprocess": false,
-            "timeout": 180,
+            "timeout": 600,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": true,
-            "n_workers": 80,
-            "reprocess": true,
+            "enabled": false,
+            "n_workers": 100,
+            "reprocess": false,
             "timeout": 100000,
             "max_wvfs": 1000,
             "rank": 5
         },
         "process_hit_cal": {
             "enabled": false,
-            "n_workers": 90,
+            "n_workers": 100,
             "reprocess": true,
             "timeout": 1000,
             "rank": 6
         },
         "process_ct_correction": {
             "enabled": false,
-            "n_workers": 90,
-            "reprocess": false,
+            "n_workers": 100,
+            "reprocess": true,
             "timeout": 1500,
             "rank": 7
         },
         "process_energy_calibration": {
-            "enabled": false,
-            "n_workers": 95,
-            "reprocess": false,
-            "timeout": 900,
+            "enabled": true,
+            "n_workers": 100,
+            "reprocess": true,
+            "timeout": 1200,
             "rank": 8
         },
         "process_psd_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 90,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 900,
             "rank": 9
         },
@@ -98,9 +98,10 @@
         },
         "process_dsp_phy": {
             "enabled": false,
-            "n_workers": 30,
-            "reprocess": false,
-            "timeout": 6000,
+            "n_workers": 200,
+            "reprocess": true,
+            "timeout": 100000,
+            "max_wvfs": 1000,
             "rank": 11
         }
     },

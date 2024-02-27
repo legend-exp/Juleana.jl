@@ -56,7 +56,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, skip"
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].wl, pars_db[det].min_sep_sf, pars_db[det].n_dep, pars_db[det].n_sep, "Already processed --> skipped."))
+            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sg.wl, pars_db[det].sg.min_sep_sf, pars_db[det].sg.n_dep, pars_db[det].sg.n_sep, "Already processed --> skipped."))
             return (processed = false, log = log_ch)
         end
 
@@ -144,7 +144,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         # free memory
         GC.gc()
 
-        return (result = result_sg_wl, log = log_ch, processed = true)
+        return (result = (sg = result_sg_wl, ), log = log_ch, processed = true)
     end
 
     # get start time
@@ -166,12 +166,11 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Time of processing: $(now())")
-    lreport!(report, "Total Processing time: $(now() - start_time)")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, sg_flt_optimization_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, Table(Setup = [filekey.setup], Period = [filekey.period], Run = [filekey.run], Category = [filekey.category]))
+    lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
-    @info result_sg
     lreport!(report, create_logtbl(result_sg))
 
 
