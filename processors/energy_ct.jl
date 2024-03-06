@@ -62,8 +62,8 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
             @debug "Channel $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
-                    @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fct, pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after, "Already processed --> skipped."))
+                    @debug "Filter $e_type already processed, skip"
+                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fct*1e6, pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after, "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -93,7 +93,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         # get special config for CTC
         ctc_cal_peak = ctc_config_ch.peak
 
-        for e_type in energy_types
+        @showprogress desc="Detector: $det" for e_type in energy_types
             if haskey(processed_dict, e_type)
                 continue
             end
