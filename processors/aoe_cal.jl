@@ -1,6 +1,6 @@
-function process_psd_calibration(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
+function process_psd_calibration(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300)
 
-    @info "Optimize PSD filter for period $period and run $run"
+    @info "Calibrate AoE for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
@@ -117,7 +117,7 @@ function process_psd_calibration(l200::LegendData, period::DataPeriod, run::Data
         # end
         # gif(p, fps=0.5, joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-aoe_compton-bands_{}.gif", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch, string(e_type))))
 
-        compton_bands = [band for band in compton_bands if result_fit[band].p_value >= p_value]
+        compton_bands = [band for band in keys(result_fit) if result_fit[band].p_value >= p_value]
         μ = [result_fit[band].μ for band in compton_bands]
         σ = [result_fit[band].σ for band in compton_bands]
 
