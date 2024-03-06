@@ -2,6 +2,10 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     
     @info "Process DSP for period $period and run $run"
 
+    if !ispath(l200.tier[:raw, :phy, period, run])
+        @warn "No raw data found for period $period and run $run"
+        return
+    end
     filekeys = search_disk(FileKey, l200.tier[:raw, :phy, period, run])
     
     filekey = start_filekey(l200, (period, run, :phy))
@@ -11,6 +15,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
+    dsp_meta = dataprod_config(l200).dsp(filekey).default
     @debug "Loaded DSP config: $(dsp_config)"
 
     pars_tau = get_values(l200.par.rpars.pz[period, run])
@@ -37,7 +42,9 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @everywhere begin
         l200 = $l200
         filekeys = $filekeys
+        filekey = $filekey
         dsp_config = $dsp_config
+        dsp_meta = $dsp_meta
         pars_tau = $pars_tau
         pars_fltoptimization = $pars_fltoptimization
         chinfo = $chinfo
@@ -74,6 +81,43 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         n_detectors = 0
         failed_detectors = DetectorId[]
         @timeit dsp_timer "DSP" begin
+            if haskey(dsp_meta, :additional_channel)
+                # process additional channels
+                for det in DetectorId.(keys(dsp_meta.additional_channel))
+                    ch = channelinfo(l200, filekey, det).channel
+
+                    # check if channel can be processed
+                    if haskey(outdata, "$ch") && !reprocess
+                        @info "Detector $det ($ch) already processed, skip"
+                        n_detectors += 1
+                        continue
+                    end
+
+                    @debug "Processing channel $ch ($det)"
+                    @timeit dsp_timer "DSP $det" begin
+                        # process data
+                        outdata_ch = nothing
+                        try
+                            outdata_ch = fast_flatten([getfield(Main, Symbol(dsp_meta.additional_channel[Symbol(det)]))(data_part, dsp_config)
+                                    for data_part in Iterators.partition(data[ch].raw[:], max_wvfs)])
+                        catch e
+                            if e isa TaskFailedException
+                                e = e.task.exception
+                            end
+                            @error "Error processing channel $ch ($det) in $(fk): $e"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+                        # save data to hdf5
+                        outdata["$ch"] = outdata_ch
+                        # free memory
+                        GC.gc()
+                        # count number of detectors processed and Successful
+                        n_detectors += 1
+                    end
+                end
+            end
+
             # loop over channels
             @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
 
@@ -135,7 +179,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), "$(n_detectors)/$(length(chinfo))", string.(failed_detectors), total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(1), "$(n_detectors)/$(length(chinfo)+length(dsp_meta.additional_channel))", string.(failed_detectors), total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end

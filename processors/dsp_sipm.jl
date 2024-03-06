@@ -1,90 +1,88 @@
-function process_dsp_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+    
     @info "Process SiPM DSP for period $period and run $run"
 
-    filekeys = sort(search_disk(FileKey, l200.tier[:raw, :phy, period, run]), by = x-> x.time)
-    filekey = filekeys[1]
-    @info "Found filekey $filekey"
-    chinfo = channel_info(l200, filekey) |> filterby(@pf $system == :spms && $processable) 
+    if !ispath(l200.tier[:raw, :phy, period, run])
+        @warn "No raw data found for period $period and run $run"
+        return
+    end
+    filekeys = search_disk(FileKey, l200.tier[:raw, :phy, period, run])
+    
+    filekey = start_filekey(l200, (period, run, :phy))
+    @info "Found start filekey $filekey"
 
-    sel = LegendDataManagement.ValiditySelection(filekey.time, :phy)
+    chinfo = Table(channelinfo(l200, filekey; system=:spms, only_processable=true))
+    @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_meta = l200.metadata.dataprod.config.sipm(sel)
+    dsp_meta = dataprod_config(l200).sipm(filekey)
     @debug "Loaded DSP config: $(dsp_meta)"
 
-    pars_sipm = l200.par[:phy, :sipm](sel)
+    pars_sipm = l200.par.rpars.sipm(filekey)
     @debug "Loaded SiPM parameters"
 
-    @debug "Create DSP folder"
-    dsp_folder = l200.tier[:dsp, :phy, period, run]
-    if isdir(dsp_folder)
-        @debug("DSP folder $dsp_folder already exists")
+    @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :phy, period, run]))"
+
+    if reprocess 
+        @info "Reprocess all filekeys and channels"
     else
-        mkpath(dsp_folder)
+        @info "Only reprocess filekeys and channels that are not processed yet"
     end
 
-    @debug "Create logs folder"
-    log_folder = joinpath(l200.tier[:log, :phy, period, run])
-    if isdir(log_folder)
-        @debug("Log folder $log_folder already exists")
-    else
-        mkpath(log_folder)
-    end
+    # create log line Tuple
+    log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
-    if reprocess
-        @info "Reprocess all filekeys"
-    else
-        @info "Only reprocess filekeys that are not processed yet"
-    end
+    # get worker pool
+    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # move all variables to workers
     @everywhere begin
         l200 = $l200
         filekeys = $filekeys
+        filekey = $filekey
         dsp_meta = $dsp_meta
         pars_sipm = $pars_sipm
         chinfo = $chinfo
         reprocess = $reprocess
+        log_nt = $log_nt
     end
 
-    @everywhere function single_file_dsp(idx::Int64)
+    @everywhere function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
         @timeit dsp_timer "Startup" begin
-            filename    = l200.tier[:raw, filekeys[idx]]
-            outfilename = l200.tier[:dsp, filekeys[idx]]
+            filename    = l200.tier[:raw, fk]
+            outfilename = l200.tier[:jldsp, fk]
 
             @info "Processing file: $(basename(filename))"
-            data    = LHDataStore(filename, "r")
+            data    = lh5open(filename, "r")
             @info "Using output file: $(basename(outfilename))"
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(outfilename)), remove old DSP."
-                rm(outfilename)
             else
                 try 
-                    LHDataStore(outfilename, "cw")
+                    lh5open(outfilename, "cw")
                 catch e
                     @warn "LoadError: $e"
                     @warn "Filename $(basename(outfilename)) seems broken, remove it."
                     rm(outfilename)
                 end
             end
-            outdata = LHDataStore(outfilename, "cw")
+            outdata = lh5open(outfilename, "cw")
         end
 
         @info "Start DSP"
         n_detectors = 0
+        failed_detectors = DetectorId[]
         @timeit dsp_timer "DSP" begin
             # loop over channels
-            for (i, ch_short) in enumerate(chinfo.channel)
-                ch_short = chinfo.channel[i]
-                ch = format("ch{}", ch_short)
-                det = chinfo.detector[i]
+            @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
 
                 # check if channel can be processed
                 if !haskey(pars_sipm, det)
                     @warn "No thresholds for detector $det, skip channel $ch"
+                    push!(failed_detectors, det)
                     continue
                 end
-                if haskey(outdata, ch) && !reprocess
+                if haskey(outdata, "$ch") && !reprocess
                     @info "Detector $det ($ch) already processed, skip"
                     n_detectors += 1
                     continue
@@ -93,19 +91,28 @@ function process_dsp_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; r
                 @debug "Processing channel $ch ($det)"
                 @timeit dsp_timer "DSP $det" begin
                     # load data from HDF5
-                    data_ch = data["$ch/raw"][:]
+                    data_ch = data[ch].raw[:]
+                    # get metadata
+                    dsp_meta_ch = merge(dsp_meta.default, get(dsp_meta, det, PropDict()))
                     # process channel
-                    dsp_meta_ch = nothing
-                    if haskey(dsp_meta, det)
-                        dsp_meta_ch = merge(dsp_meta.default, dsp_meta[det])
-                    else
-                        dsp_meta_ch = dsp_meta.default
+                    outdata_ch = nothing
+                    try
+                        outdata_ch = dsp_sipm(data_ch, dsp_meta_ch, pars_sipm[det])
+                    catch e
+                        if e isa TaskFailedException
+                            e = e.task.exception
+                        end
+                        @error "Error processing channel $ch ($det) in $(fk): $e"
+                        push!(failed_detectors, det)
+                        continue
                     end
-                    outdata[ch]  = dsp_sipm(data_ch, dsp_meta_ch, pars_sipm[det])
+                    # save data to hdf5
+                    outdata["$ch"] = outdata_ch
                     # free memory
                     GC.gc()
+                    # count number of detectors processed and Successful
+                    n_detectors += 1
                 end
-                n_detectors += 1
             end
         end
 
@@ -113,84 +120,42 @@ function process_dsp_sipm(l200::LegendData, period::DataPeriod, run::DataRun,; r
         close(data)
         close(outdata)
 
+        if n_detectors == 0
+            @warn "No detectors processed in $(basename(filename))"
+        end
+
         total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(dsp_timer)))
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
-        log_info = "| $(filekeys[idx]) | $n_detectors | Success | $total_time | $total_allocated | - |"
-        return (timer = dsp_timer, log = log_info)
+        
+        # create log
+        log_fk = log_nt((fk, ProcessStatus(1), "$(n_detectors)/$(length(chinfo))", string.(failed_detectors), total_time, total_allocated, ""))
+
+        return (timer = dsp_timer, log = log_fk, processed = true)
     end
 
-    Base.exit_on_sigint(false)
-    result_dsp = @showprogress pmap(eachindex(filekeys), batch_size = 1, on_error=identity) do idx
-        try
-            t_end = time() + timeout
-            task = Threads.@spawn single_file_dsp(idx)
-            while !istaskdone(task) && time() <= t_end
-                sleep(0.1)
-            end
-            if !istaskdone(task)
-                @debug "Timeout for $(filekeys[idx])"
-                try
-                    Base.throwto(task, InterruptException())
-                catch e
-                    throw(ErrorException("Timeout for $(filekeys[idx])"))
-                end
-                throw(ErrorException("Timeout for $(filekeys[idx])"))
-            end
-            idx => fetch(task)
-        catch e
-            if e isa TaskFailedException
-                e = e.task.exception
-            end
-            @debug "Write Error log for $(filekeys[idx])"
-            log_info = "| $(filekeys[idx]) | - | Failed | - | - | $e |"
-            idx => (timer = TimerOutput(), log = log_info)
-        end
-    end
+    # get start time
+    start_time = now()
 
+    # execute in parallel
+    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout)
+    
+    @info "Finished DSP for period $period and run $run"
 
-    @info "Finished DSP"
-    @info "Remove all workers"
-    rmprocs(workers()...)
+    report = lreport()
+    lreport!(report, "# Main Log")
+    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
+    lreport!(report, dsp_cal_log_text)
+    lreport!(report, "# Metadata")
+    lreport!(report, create_metadatatbl(filekey))
+    lreport!(report, "# Results")
+    lreport!(report, create_logtbl(result_dsp))
+    lreport!(report, "# Total Timing")
+    lreport!(report, "```")
+    lreport!(report, "$(get_totalTimer(result_dsp))")
+    lreport!(report, "```")
 
-    main_log = """# Main log 
-
-    Time of processing: $(now())
-
-    ## DSP
-    This is the log for the SiPM dsp. The algorithm iterates through each file and process within each file each detector separate.
-
-    # MetaData
-    | Setup | Period | Run | Category |
-    |-------|--------|-----|----------|
-    | $(filekey.setup) | $(filekey.period) | $(filekey.run) | $(filekey.category) |
-
-    # Results
-    | FileKey | Number of Detectors | Status | Total Time | Total Allocated | Error |
-    |---------|---------------------|--------|------------|-----------------|-------|
-    """
-    total_dsp_timer = TimerOutput()
-    for (idx, res) in result_dsp
-        # merge timer into total timer
-        merge!(total_dsp_timer, res.timer)
-        # add log to main log
-        main_log = """
-        $main_log$(res.log)
-        """
-    end
-    # add total timer to main log
-    main_log = """
-$main_log
-# Total Timing
-```
-$total_dsp_timer
-```
-    """
-
-    @info "Write main log to disk"
-    @info main_log
-
-    log_filename = joinpath(log_folder, format("{}-{}-{}-{}-dsp_sipm.md", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category)))
-    open(log_filename, "w+") do file
-        write(file, replace(main_log, "Success" => raw"$${\color{green}Success}$$", "Failed" => raw"$${\color{red}Failed}$$"))
-    end
+    @info "Write log report"
+    writelreport(get_logfilename(l200, filekey, :dsp_sipms), report)
+    @info report
 end
