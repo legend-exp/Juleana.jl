@@ -13,20 +13,21 @@ end
 
 function create_workers(processing_config::PropDict)
     # number of threads
-    n_threads = processing_config.processors.default.n_threads
+    n_threads = processing_config.processing.n_threads
     # number of local workers
-    @info "Create $(processing_config.processors.default.local_workers) local workers for parallel processing"
-    create_workers(processing_config.processors.default.local_workers, n_threads; env_args=processing_config.env_args_worker)
+    @info "Create $(processing_config.processing.local_workers) local workers for parallel processing"
+    create_workers(processing_config.processing.local_workers, n_threads; env_args=processing_config.env_args_worker)
     # number of remote workers
-    if !isempty(processing_config.processors.default.remote_workers)
-        @info "Create remote workers: $(processing_config.processors.default.remote_workers)"
-        create_workers([Tuple(p) for p in processing_config.processors.default.remote_workers], n_threads; env_args=processing_config.env_args_worker)
+    if !isempty(processing_config.processing.remote_workers)
+        @info "Create remote workers: $(processing_config.processing.remote_workers)"
+        create_workers([Tuple(p) for p in processing_config.processing.remote_workers], n_threads; env_args=processing_config.env_args_worker)
     end
     # check for precompile on the workers and debug flag
     worker_instantiate, worker_precompile, debug = processing_config.config.worker_instantiate, processing_config.config.worker_precompile, processing_config.config.debug
     @everywhere begin
         worker_instantiate, worker_precompile, debug = $worker_instantiate, $worker_precompile, $debug
     end
+    @info "Load packages on workers"
     # set up startup on each worker
     @everywhere include(joinpath(@__DIR__, "startup.jl"))
 end
@@ -39,15 +40,15 @@ function get_workerPool(processing_config::PropDict, process::Symbol)
         return wp
     else
         # make sure to distribute the workers evenly between all clusters
-        if length(processing_config.processors.default.remote_workers) == 0
+        if length(processing_config.processing.remote_workers) == 0
             return WorkerPool(2:n_workers+1)
         end
-        cluster_workers_pids = [2:processing_config.processors.default.local_workers+1]
-        for p in processing_config.processors.default.remote_workers
+        cluster_workers_pids = [2:processing_config.processing.local_workers+1]
+        for p in processing_config.processing.remote_workers
             last_pid = last(cluster_workers_pids[end])
             push!(cluster_workers_pids, last_pid+1:last_pid+last(p))
         end
-        cluster_workers = append!([processing_config.processors.default.local_workers], [last(p) for p in processing_config.processors.default.remote_workers])
+        cluster_workers = append!([processing_config.processing.local_workers], [last(p) for p in processing_config.processing.remote_workers])
         cluster_shares = [floor(Int, n_workers * n / sum(cluster_workers)) for n in cluster_workers]
         wpool = Int64[]
         for (pids, share) in zip(cluster_workers_pids, cluster_shares)

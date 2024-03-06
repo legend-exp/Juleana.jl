@@ -2,7 +2,7 @@
     "config": {
         "debug": true,
         "worker_instantiate": false,
-        "worker_precompile": true,
+        "worker_precompile": false,
         "env_variables": {
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
@@ -13,15 +13,15 @@
         "periods": "all",
         "runs" : "all", 
         "partitions": [1],
-        "analysis_runs_only": true
+        "analysis_runs_only": true,
+        "local_workers": 200,
+        "remote_workers": [],
+        "n_threads": 4
     },
     "processors":
     {
         "default": {
-            "local_workers": 200,
-            "remote_workers": [],
             "n_workers": 50,
-            "n_threads": 4,
             "reprocess": false
         },
         "process_peak_split": {
@@ -31,30 +31,30 @@
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 300,
             "max_wvfs": 15000,
             "rank": 2
         },
         "process_filter_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": true,
-            "timeout": 1500,
+            "reprocess": false,
+            "timeout": 3600,
             "max_wvfs": 12000,
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 70,
             "reprocess": false,
-            "timeout": 600,
+            "timeout": 1200,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 100000,
@@ -62,31 +62,31 @@
             "rank": 5
         },
         "process_hit_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 1000,
             "rank": 6
         },
         "process_ct_correction": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 1500,
             "rank": 7
         },
         "process_energy_calibration": {
             "enabled": true,
             "n_workers": 100,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 1200,
             "rank": 8
         },
         "process_psd_calibration": {
             "enabled": true,
             "n_workers": 90,
-            "reprocess": true,
-            "timeout": 900,
+            "reprocess": false,
+            "timeout": 1200,
             "rank": 9
         },
         "process_dsp_sipm": {
@@ -97,9 +97,9 @@
             "rank": 10
         },
         "process_dsp_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 200,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 100000,
             "max_wvfs": 1000,
             "rank": 11
@@ -108,14 +108,14 @@
     "p_processors":
     {
         "default": {
-            "n_workers": 30,
+            "n_workers": 100,
             "reprocess": false
         },
         "process_energy_partition": {
-            "enabled": false,
-            "n_workers": 60,
-            "reprocess": false,
-            "timeout": 6000,
+            "enabled": true,
+            "n_workers": 100,
+            "reprocess": true,
+            "timeout": 600,
             "rank": 1
         },
         "process_psd_partition": {

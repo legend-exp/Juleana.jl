@@ -14,7 +14,7 @@
         "runs" : "all", 
         "partitions": [1],
         "analysis_runs_only": true,
-        "local_workers": 100,
+        "local_workers": 200,
         "remote_workers": [],
         "n_threads": 4
     },
@@ -31,15 +31,15 @@
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 300,
             "max_wvfs": 15000,
             "rank": 2
         },
         "process_filter_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 3600,
@@ -47,14 +47,14 @@
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 70,
             "reprocess": false,
             "timeout": 1200,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 100000,
@@ -62,21 +62,21 @@
             "rank": 5
         },
         "process_hit_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 1000,
             "rank": 6
         },
         "process_ct_correction": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 1500,
             "rank": 7
         },
         "process_energy_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 1200,
@@ -91,15 +91,15 @@
         },
         "process_dsp_sipm": {
             "enabled": false,
-            "n_workers": 200,
+            "n_workers": 100,
             "reprocess": false,
             "timeout": 6000,
             "rank": 10
         },
         "process_dsp_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 200,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 100000,
             "max_wvfs": 1000,
             "rank": 11
@@ -114,14 +114,14 @@
         "process_energy_partition": {
             "enabled": true,
             "n_workers": 100,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 1800,
             "rank": 1
         },
         "process_psd_partition": {
             "enabled": true,
-            "n_workers": 70,
-            "reprocess": false,
+            "n_workers": 100,
+            "reprocess": true,
             "timeout": 1800,
             "rank": 2
         }

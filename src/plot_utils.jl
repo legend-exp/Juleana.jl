@@ -21,3 +21,5 @@ savelfig(p::Plots.Plot, data::LegendData, partition::DataPartitionLike, setup::E
 function get_plottitle end
 get_plottitle(setup::ExpSetupLike, period::DataPeriodLike, run::DataRunLike, category::DataCategoryLike, det::DetectorIdLike, process::String; additiional_type::String="") = "$(string(det)) $additiional_type $process  ($(string(setup))-$(string(period))-$(string(run))-$(string(category)))"
 get_plottitle(filekey::FileKey, det::DetectorIdLike, process::String; kwargs...) = get_plottitle(filekey.setup, filekey.period, filekey.run, filekey.category, det, process; kwargs...)
+
+get_plottitle(setup::ExpSetupLike, partition::DataPartitionLike, category::DataCategoryLike, det::DetectorIdLike, process::String; additiional_type::String="") = "$(string(det)) $additiional_type $process  ($(string(setup))-$(string(partition))-$(string(category)))"

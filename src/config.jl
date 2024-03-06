@@ -101,17 +101,23 @@ function get_processingconfig()
     # if reprocess passed as global argument set reprocess flag for all processors
     if parsed_args["reprocess"]
         for process in p_process_steps
-            processing_config.processors[process].reprocess = true
+            processing_config.p_processors[process].reprocess = true
         end
     end
 
     processing_config.p_process_steps = p_process_steps
 
-    # get runs and periods 
-    runs, periods = get_runsandperiods(parsed_args, processing_config)
+    # get runs and periods
+    runs, periods = nothing, nothing
+    if !(processing_config.only_partitions)
+        runs, periods = get_runsandperiods(parsed_args, processing_config)
+    end
 
     # get partitions
-    partitions = get_partitions(parsed_args, processing_config)
+    partitions = nothing
+    if !(processing_config.only_runs)
+        partitions = get_partitions(parsed_args, processing_config)
+    end
 
     return processing_config, runs, periods, partitions
 end
@@ -133,13 +139,17 @@ function get_runsandperiods(parsed_args::Dict, processing_config::PropDict)
     end
     if processing_config.processing.periods == "all" && isnothing(periods)
         periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
+        @info "Process all periods on disk: $(string.(periods))"
     elseif isnothing(periods)
         periods = [DataPeriod(p) for p in processing_config.processing.periods]
+        @info "Process periods: $(string.(periods))"
     end
     if processing_config.processing.runs == "all" && isnothing(runs)
         runs = "all"
+        @info "Process all runs on disk for each period"
     elseif isnothing(runs)
         runs = [DataRun(r) for r in processing_config.processing.runs]
+        @info "Process runs: $(string.(runs))"
     end
 
     return runs, periods
@@ -147,13 +157,14 @@ end
 
 function get_partitions(parsed_args::Dict, processing_config::PropDict)
     # parse data_partitions from config
-    partitions = processing_config.processing.partitions
+    partitions = [DataPartition(p) for p in processing_config.processing.partitions]
     if !isempty(parsed_args["partitions"])
-        partitions = parsed_args["partitions"][1]
+        partitions = [DataPartition(p) for p in parsed_args["partitions"][1]]
         @info "Process partitions: $(parsed_args["partitions"][1])"
     end
     if partitions == "all"
-        partitions = collect(keys(data_partitions(l200)))
+        partitions = collect(keys(partitioninfo(l200)))
+        @info "Process all partitions from partitioninfo: $(string.(partitions))"
     end
     return partitions
 end
@@ -180,7 +191,7 @@ end
 
 function get_processable_partitions(partitions)
     # select partitions to process
-    possible_partitions = collect(keys(data_partitions(l200)))
+    possible_partitions = collect(keys(partitioninfo(l200)))
     for partition in partitions
         if !(partition in possible_partitions)
             @warn "Partition $partition is not a valid data partition"

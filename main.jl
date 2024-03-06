@@ -37,6 +37,10 @@ l200 = LegendData(:l200)
 # load all available processors
 include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
+# create workers
+create_workers(processing_config)
+
+
 ####################
 # Process Runs
 ####################
@@ -44,9 +48,6 @@ if !processing_config.only_partitions
     
     # get processing steps from config and sort by rank
     process_steps =  processing_config.process_steps
-
-    # check how many steps are used
-    create_workers(processing_config)
 
     # process periods 
     for period in periods
@@ -92,19 +93,16 @@ if !processing_config.only_runs
     processable_partitions = get_processable_partitions(partitions)
 
     # process partitions 
-    for partition in partitions
+    for part in partitions
 
         # iterate through process steps
-        @info "Process partition $partition"
+        @info "Process partition $part"
         for process in process_steps
             @info "$process"
 
-            # create workers
-            create_workers(processing_config, process)
-
             # run process
             kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process]) if !(k in [:enabled, :rank, :n_workers])])
-            getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
+            getfield(Main, process)(processing_config, l200, part,; kwargs...)
         end
     end
 end
