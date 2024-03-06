@@ -10,9 +10,6 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
-
     qc_config = dataprod_config(l200).qc(filekey)
 
     @debug "Create Hit folder"
@@ -50,12 +47,12 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         hitchfilename = get_hitchfilename(l200, filekey, ch)
 
-        if !reprocess && haskey(pars_db, det) && haskey(pars_db[det], :cal) && isfile(hitchfilename)
+        if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
+            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))
             try
                 close(lh5open(hitchfilename, "r"))
                 @debug "Channel $(det) already processed"
-                log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))
-                return (processed=false, log = log_ch)
+                return (processed = true, log = log_ch)
             catch e
                 @warn "Error reading hit file for channel $ch ($det): $e"
                 @info "Reprocess channel $ch ($det)"
@@ -118,6 +115,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         # save hit file
         @debug "Save hit file"
+        rm(hitchfilename, force=true)
         lh5open(hitchfilename, "cw") do outdata
             @info "Save QC"
             outdata["$ch/qc"] = qc;
@@ -154,7 +152,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
     pars_db = create_pars(pars_db, result_qc)
     writelprops(l200.par.rpars.qc[period], run, pars_db)
-    writevalidity(l200.par.rpars.qc, filekey)
+    writevalidity(l200.par.rpars.qc, filekey; apply_to=:cal)
     @info "Saved pars to disk"
 
     report = lreport()
@@ -172,19 +170,3 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     writelreport(get_logfilename(l200, filekey, :qc), report)
     @info report
 end
-
-
-# drift_time_idx = findall(x -> x < 200u"ns", data_ch_after_qc.drift_time)
-
-# ts = data_ch_after_qc.timestamp[drift_time_idx]
-# # findall(x -> x in (2u"s"-16u"ns")..(2u"s"+16u"ns"), diff(ts))
-# pulser_identified_idx = findall(x -> x .== 2u"s", diff(ts))
-
-# drift_time_idx[pulser_identified_idx[1]]
-
-# p_evt = data_ch_after_qc[drift_time_idx[pulser_identified_idx[1]]]
-# findall(.!(-400u"ns" .< (data_ch_after_qc.timestamp .- p_evt.timestamp .+ 0.5u"s") .% 1.0u"s" .- 0.5u"s" .< 400u"ns"))
-# findall(-400u"ns" .< (data_ch_after_qc.timestamp .- p_evt.timestamp .+ 0.5u"s") .% 1.0u"s" .- 0.5u"s" .< 400u"ns")
-
-
-# histogram(data_ch_after_qc.drift_time[findall(.!(-400u"ns" .< (data_ch_after_qc.timestamp .- p_evt.timestamp .+ 0.5u"s") .% 1u"s" .- 0.5u"s" .< 400u"ns"))], bins=(0:1:1.5e3))
