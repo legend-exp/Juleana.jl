@@ -7,25 +7,25 @@ using ProgressMeter
 using IntervalSets
 using LegendDataTypes: fast_flatten, readdata
 
-data = LegendData(:l200)
+l200 = LegendData(:l200)
 
-selected_periods = [DataPeriod(3), DataPeriod(4)]
-filekeys = [filekey for period in selected_periods for run in search_disk(DataRun, data.tier[:evt, :phy, period]) for filekey in search_disk(FileKey, data.tier[:evt, :phy, period, run])]
+part = DataPartition(1)
+partinfo = partitioninfo(l200)[part]
+found_filekeys = [filekey for (period, run) in partinfo if is_analysis_run(l200, period, DataRun(run.no +1)) for filekey in search_disk(FileKey, l200.tier[:jldsp, :phy, period, run])]
 
-sel = ValiditySelection(first(filekeys))
-chinfo = channelinfo(data, sel)
+chinfo = channelinfo(l200, first(found_filekeys))
 sel_geds_channels = Set(Int.(ChannelId.(filterby(@pf $system == :geds && $processable && $usability == :on)(chinfo).channel)))
 
 
-function read_events(data, filekey)
-    filename = data.tier[:evt, filekey]
+function read_events(l200, filekey)
+    filename = l200.tier[:jlevt, filekey]
     h5open(input -> readdata(input, "events"), filename)
 end
 
-r = read_events(data, filekeys[begin])
-@showprogress for filekey in filekeys[begin+1:end]
+r = read_events(l200, found_filekeys[begin])
+@showprogress for filekey in found_filekeys[begin+1:end]
     try
-        append!(r, read_events(data, filekey))
+        append!(r, read_events(l200, filekey))
     catch err
         @warn "Failed to read $filekey" err
     end
@@ -61,13 +61,13 @@ kbins = 1440:1:1550
 roibins = 1930:2:2190
 
 
-stephist(r.geds.emax_trap_ctc_cal .* qualitycuts, bins = bins, yscale = :log10)
+stephist(r.geds.emax_cusp_cal .* qualitycuts, bins = bins, yscale = :log10)
 
 
 #=
 detector = DetectorId(:B00000B)
 # detector = DetectorId(:C000RG1)
-channel = channelinfo(data, filekey, detector).channel
+channel = channelinfo(l200, filekey, detector).channel
 chidx = findfirst(isequal(Int(channel)), first(r).geds.channel)
 
 lar_pe_plot = stephist(flatview(flatview(r.spms.trig_pe)), bins = 0.5:.025:4.5, yscale = :log10, xlabel = "All SiPMs, PE in Ge-trig-window")
@@ -80,9 +80,9 @@ stephist!(@pf($e_trap_ctc_cal[chidx] * $is_valid_baseline[chidx]).(r.geds) .* no
 histogram2d(r.e_trap_cal, r.aoe_classifier, nbins = (0:5:3000, -10:0.1:10), colorbar_scale=:log10, fmt=:png)
 
 histogram2d(
-    r.geds.emax_trap_cal .* qualitycuts .* larcuts,
+    r.geds.emax_cusp_cal .* qualitycuts .* larcuts,
     @pf($aoe_classifier[$emax_ch]).(r.geds),
-    nbins = (1000:5:5000, -10:0.1:10), colorbar_scale=:log10, fmt=:png
+    nbins = (1000:5:3000, -10:0.1:10), colorbar_scale=:log10, fmt=:png
 )
 
 
@@ -96,26 +96,26 @@ savefig(lar_pe_plot, "plots/lar_pe_plot.pdf")
 
 multiplicity_plot = stephist(r.geds.multiplicity .* nopls, bins = 0:0.1:10, dpi = 600)
 
-physpec_plot = stephist(r.geds.emax_cusp_ctc_cal .* qualitycuts, bins = bigbins, ylabel = "Counts / $(step(bigbins)) keV", yscale = :log10, label ="QC", xlabel = "Energy", dpi = 600)
+physpec_plot = stephist(r.geds.emax_cusp_cal .* qualitycuts, bins = bigbins, ylabel = "Counts / $(step(bigbins)) keV", yscale = :log10, label ="QC", xlabel = "Energy", dpi = 600)
 savefig(physpec_plot, "plots/physpec_plot.png")
 savefig(physpec_plot, "plots/physpec_plot.pdf")
 
 physpec_cuts_plot = plot()
-stephist!(r.geds.emax_cusp_ctc_cal .* qualitycuts, bins = bigbins, yscale = :log10, ylabel = "Counts / $(step(bigbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
-stephist!(r.geds.emax_cusp_ctc_cal .* qualitycuts .* psdcuts, bins = bigbins, yscale = :log10, label = "PSD")
-stephist!(r.geds.emax_cusp_ctc_cal .* qualitycuts .* larcuts .* psdcuts, bins = bigbins, yscale = :log10, label = "PSD + LAr")
+stephist!(r.geds.emax_cusp_cal .* qualitycuts, bins = bigbins, yscale = :log10, ylabel = "Counts / $(step(bigbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
+stephist!(r.geds.emax_cusp_cal .* qualitycuts .* psdcuts, bins = bigbins, yscale = :log10, label = "PSD")
+stephist!(r.geds.emax_cusp_cal .* qualitycuts .* larcuts .* psdcuts, bins = bigbins, yscale = :log10, label = "PSD + LAr")
 savefig(physpec_cuts_plot, "plots/physpec_cuts_plot.png")
 savefig(physpec_cuts_plot, "plots/physpec_cuts_plot.pdf")
 
 klines_plot = plot()
-stephist!(r.geds.emax_cusp_ctc_cal .* qualitycuts, bins = kbins, ylabel = "Counts / $(step(kbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
-stephist!(r.geds.emax_cusp_ctc_cal .* qualitycuts .* larcuts, bins = kbins, label = "LAr")
+stephist!(r.geds.emax_cusp_cal .* qualitycuts, bins = kbins, ylabel = "Counts / $(step(kbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
+stephist!(r.geds.emax_cusp_cal .* qualitycuts .* larcuts, bins = kbins, label = "LAr")
 savefig(klines_plot, "plots/klines_plot.png")
 savefig(klines_plot, "plots/klines_plot.pdf")
 
 roi_plot = plot()
-barhist!(r.geds.emax_cusp_ctc_cal .* qualitycuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD", xlabel = "Energy", linewidth = 0, dpi = 600)
-barhist!(r.geds.emax_cusp_ctc_cal .* qualitycuts .* larcuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD + LAr", linewidth = 0)
+barhist!(r.geds.emax_cusp_cal .* qualitycuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD", xlabel = "Energy", linewidth = 0, dpi = 600, alpha=0.4)
+barhist!(r.geds.emax_cusp_cal .* qualitycuts .* larcuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD + LAr", linewidth = 0)
 vspan!([2099, 2109], color = :black, fillalpha = 0.2, label = "")
 vspan!([2114, 2124], color = :black, fillalpha = 0.2, label = "")
 vspan!([2039-2, 2039+2], color = :orange, fillalpha = 0.4, label = "")
