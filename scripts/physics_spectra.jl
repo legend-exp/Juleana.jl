@@ -33,10 +33,10 @@ end
 
 # Workaround for incorrect r.geds.emax_ch
 emax_chno = @pf($channel[findfirst(isequal($emax_trap_cal), $e_trap_cal)]).(r.geds)
-r = Table(merge(
-    columns(r),
-    (geds = Table(merge(columns(r.geds), (emax_chno = emax_chno,))),)
-))
+# r = Table(merge(
+#     columns(r),
+#     (geds = Table(merge(columns(r.geds), (emax_chno = emax_chno,))),)
+# ))
 
 nopls = .!(r.puls.puls_trig)
 nolar = .!(r.ged_spm.lar_cut)

@@ -24,16 +24,16 @@ found_filekeys = [filekey for (period, run) in partinfo if is_analysis_run(l200,
 
 filekeys = filter(Base.Fix2(!in, bad_filekeys(l200)), found_filekeys)
 
-filekey = first(filekeys)
-input_filename = l200.tier[:jldsp, filekey]
-output_filename = l200.tier[:jlevt, filekey]
+# filekey = first(filekeys)
+# input_filename = l200.tier[:jldsp, filekey]
+# output_filename = l200.tier[:jlevt, filekey]
 
 
-caloutput = lh5open(input_filename)
-t = calibrate_all(l200, filekey, caloutput)
+# caloutput = lh5open(input_filename)
+# t = calibrate_all(l200, filekey, caloutput)
     
-mkpath(dirname(output_filename))
-h5open(output -> writedata(output, "events", caloutput), output_filename, "w")
+# mkpath(dirname(output_filename))
+# h5open(output -> writedata(output, "events", caloutput), output_filename, "w")
 
 result = @showprogress pmap(filekeys) do filekey
     data = LegendData(:l200)
