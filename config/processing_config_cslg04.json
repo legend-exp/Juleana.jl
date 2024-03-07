@@ -89,19 +89,19 @@
             "timeout": 1200,
             "rank": 9
         },
-        "process_dsp_sipm": {
-            "enabled": false,
-            "n_workers": 100,
-            "reprocess": false,
-            "timeout": 6000,
-            "rank": 10
-        },
         "process_dsp_phy": {
             "enabled": true,
             "n_workers": 200,
             "reprocess": false,
             "timeout": 100000,
             "max_wvfs": 1000,
+            "rank": 10
+        },
+        "process_dsp_sipm": {
+            "enabled": true,
+            "n_workers": 100,
+            "reprocess": false,
+            "timeout": 6000,
             "rank": 11
         }
     },
@@ -119,9 +119,9 @@
             "rank": 1
         },
         "process_psd_partition": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 60,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 6000,
             "rank": 2
         }
