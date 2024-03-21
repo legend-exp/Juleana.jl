@@ -88,8 +88,11 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
     # prevent crash from Base
     Base.exit_on_sigint(false)
 
+    is_logging(io) = isa(io, Base.TTY) == false || (get(ENV, "CI", nothing) == "true")
+    p = Progress(length(iterator); output = stderr, enabled = !is_logging(stderr))
+    
     # run parallel
-    result =  @showprogress pmap(wpool, iterator; batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
+    result =  progress_pmap(wpool, iterator; progress=p, batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
         try
             t_end = time() + timeout
             task = Threads.@spawn f(itr)

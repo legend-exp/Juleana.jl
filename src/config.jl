@@ -86,6 +86,7 @@ function get_processingconfig()
 
     # if reprocess passed as global argument set reprocess flag for all processors
     if parsed_args["reprocess"]
+        @info "Reprocess all processors"
         for process in process_steps
             processing_config.processors[process].reprocess = true
         end
