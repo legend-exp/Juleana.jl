@@ -122,31 +122,24 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 result_ctc, report_ctc = nothing, nothing
                 try
                     @debug "Get $e_type Charge Trapping Alpha"
-                    result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_config_ch.peak, (ctc_config_ch.left_window_size, ctc_config_ch.right_window_size))
+                    result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_config_ch.peak, (ctc_config_ch.left_window_size, ctc_config_ch.right_window_size), m_cal_simple; e_expression="$e_type")
                 catch e
                     @error "Error in $e_type alpha generation $ch: $e"
                     throw(ErrorException("Error in $e_type alpha generation"))
                 end
-                fct = result_ctc.fct / m_cal_simple
+                
                 @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"
-                @debug "Found $e_type FCT: $(round(fct*1e6, digits=2))E-6"
+                @debug "Found $e_type FCT: $(round(result_ctc.fct*1e6, digits=2))E-6"
                 
                 p = plot(report_ctc)
-                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"))
+                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=14)
                 savelfig(p, l200, filekey, ch, Symbol("ctc_$(e_type)"))
 
                 yield()
-
-                result = (
-                    fct = result_ctc.fct / m_cal_simple,
-                    fwhm_before = result_ctc.fwhm_before,
-                    fwhm_after = result_ctc.fwhm_after,
-                    peak = ctc_cal_peak,
-                )
-                log_ch = log_nt((ch, det, ProcessStatus(1), "$e_type", fct*1e6, result.fwhm_before, result.fwhm_after, "-"))
+                log_ch = log_nt((ch, det, ProcessStatus(1), "$e_type", result_ctc.fct*1e6, result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))
 
                 # add results to dict
-                result_dict[e_type]   = result
+                result_dict[e_type]   = result_ctc
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = true
             catch e
