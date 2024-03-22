@@ -36,17 +36,18 @@ filekeys = filter(Base.Fix2(!in, bad_filekeys(l200)), found_filekeys)
 # h5open(output -> writedata(output, "events", caloutput), output_filename, "w")
 
 result = @showprogress pmap(filekeys) do filekey
-    data = LegendData(:l200)
-    input_filename = data.tier[:jldsp, filekey]
-    output_filename = data.tier[:jlevt, filekey]
+    input_filename = l200.tier[:jldsp, filekey]
+    output_filename = l200.tier[:jlevt, filekey]
 
     try
-        sel = ValiditySelection(filekey)
         caloutput = lh5open(input_filename) do datastore
-            calibrate_all(data, sel, datastore)
+            calibrate_all(l200, filekey, datastore)
         end
         mkpath(dirname(output_filename))
-        h5open(output -> writedata(output, "events", caloutput), output_filename, "w")
+        rm(output_filename, force = true)
+        atomic_fcreate(output_filename) do tmp_filename
+            h5open(output -> writedata(output, "events", caloutput), tmp_filename, "w")
+        end
         return (filekey = filekey, success = true)
     catch e
         @error "Error processing $filekey: $e"
