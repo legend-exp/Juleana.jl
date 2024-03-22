@@ -124,7 +124,7 @@ function process_energy_partition(processing_config::PropDict, l200::LegendData,
 
                 p = stephist(energy, bins=0:1:3000, xlabel="Energy", ylabel="Counts", yscale=:log10, label="$e_type")
                 title!(get_plottitle(filekey.setup, part, filekey.category, det, "Partition Spectrum"; additiional_type="$e_type"))
-                savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("partition_spectrum_$e_type"))
+                savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("partition_spectrum_$e_type"))
 
                 yield()
 
@@ -161,7 +161,7 @@ function process_energy_partition(processing_config::PropDict, l200::LegendData,
                     margins=15mm,
                     dpi=300
                 )
-                savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("peak_fits_$e_type"))
+                savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("peak_fits_$e_type"))
 
 
                 yield()
@@ -185,7 +185,7 @@ function process_energy_partition(processing_config::PropDict, l200::LegendData,
                 plot!(0:1:20000, m_calib .* collect(0:1:20000) .+ n_calib, label="Best Fit: $(round(u"keV", n_calib, digits=2)) + x*$(round(u"keV", m_calib, digits=2))", line_width=2, color=:red, subplot=1, xformatter=_->"")
                 plot!(ustrip.(e_unit, μ), ((m_calib .* ustrip.(μ) .+ n_calib) .- th228_lines) ./ th228_lines .* 100 , label="Residuals", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-0.1, 0.1), markershape=:x, subplot=2, legend=:topleft, top_margin=0mm, framestyle=:box)
                 plot!(legend = :topleft, title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), subplot=1)
-                savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("calibration_curve_$e_type"))
+                savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("calibration_curve_$e_type"))
 
                 yield()
 
@@ -209,7 +209,7 @@ function process_energy_partition(processing_config::PropDict, l200::LegendData,
                 hspan!([mvalue(result_fwhm.qbb) - muncert(result_fwhm.qbb), mvalue(result_fwhm.qbb) + muncert(result_fwhm.qbb)], color=:green, alpha=0.2, label="")
                 plot!(ustrip.(u"keV", th228_lines), ((report_fwhm.f_fit.(th228_lines) .- fwhm) ./ fwhm) .* 100 , label="Residuals", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-10, 10), markershape=:x, legend=:topleft, subplot=2, framestyle=:box, top_margin=0mm)
                 plot!(legend = :topleft, title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), subplot=1)
-                savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("fwhm_$e_type"))
+                savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("fwhm_$e_type"))
 
                 yield()
 

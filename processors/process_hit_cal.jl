@@ -69,7 +69,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         @debug "Processing channel $ch ($det)"
         
-        data_ch = load_runch(l200, filekeys, :jldsp, ch; check_filekeys=true)
+        data_ch = load_runch(lh5open, fast_flatten, l200, filekeys, :jldsp, ch; check_filekeys=true)
         
         if length(data_ch) < 5000
             @error "Not enough data points for channel $ch ($det), skip"
@@ -111,7 +111,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         end
         plot!(p, xformatter=:plain, xlabel="Energy (ADC)", ylabel="Counts", title=get_plottitle(filekey, det, "Trap Raw Energy Spectrum"), legend=:topright)
 
-        savelfig(p, l200, filekey, ch, :raw_energy_e_trap)
+        savelfig(savefig, p, l200, filekey, ch, :raw_energy_e_trap)
 
         # save hit file
         @debug "Save hit file"

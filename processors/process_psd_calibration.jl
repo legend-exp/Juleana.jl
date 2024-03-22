@@ -95,7 +95,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         p = histogram2d(e, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.1, 0.9), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
         xticks!(p, 0:250:3000)
         title!(p, get_plottitle(filekey, det, "AoE Uncalibrated"))
-        savelfig(p, l200, filekey, ch, Symbol("aoe_uncalibrated_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("aoe_uncalibrated_$e_type"))
 
         result_fit, report_fit, compton_band_peakhists = nothing, nothing, nothing
         try
@@ -137,7 +137,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         plot!((0.0:1500:3000), aoe_corrections.f_μ_scs((0.0:1500:3000)u"keV"), plot_ribbon=true, linealpha=0.4, label="Best Fit: $(round(aoe_corrections.μ_scs[1], digits=2)) + x*$(round(aoe_corrections.μ_scs[1]*1000, digits=2))e-3", line_width=3.5, color=:red, subplot=1, xformatter=_->"")
         plot!(ustrip.(aoe_corrections.e), (aoe_corrections.f_μ_scs.(aoe_corrections.e) .- aoe_corrections.μ) ./ aoe_corrections.μ .* 100 , label="", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-5.0, 5.0), markershape=:x, subplot=2, framestyle=:box)
         title!(get_plottitle(filekey, det, "A/E μ"), subplot=1)
-        savelfig(p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type"))
 
         x_fit_σ = minimum(compton_bands)-50u"keV":0.1u"keV": maximum(compton_bands)+50u"keV"
         p = scatter(aoe_corrections.e, aoe_corrections.σ, ms=5, color=:black, layout = @layout[grid(2, 1, heights=[0.8, 0.2])], label=L"\sigma_{SCS}", margin=5mm, framestyle=:box)
@@ -146,7 +146,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         plot!(ustrip.(x_fit_σ), aoe_corrections.f_σ_scs.(x_fit_σ), plot_ribbon=true, linealpha=0.4, label=format("Best Fit: sqrt({:.2E}+({:.2E}/x^2)", ustrip.(mvalue.(aoe_corrections.σ_scs))...), line_width=3.5, color=:red, subplot=1, xformatter=_->"")
         plot!(ustrip.(aoe_corrections.e), (aoe_corrections.f_σ_scs.(aoe_corrections.e) .- aoe_corrections.σ) ./ aoe_corrections.σ .* 100 , label="", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-50.0, 50.0), markershape=:x, subplot=2, framestyle=:box)
         title!(get_plottitle(filekey, det, "A/E σ"), subplot=1)
-        savelfig(p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type"))
         # correct aoe
         correct_aoe!(aoe, e, aoe_corrections)
 
@@ -155,7 +155,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
         xticks!(0:250:3000)
         title!(p, get_plottitle(filekey, det, "normalized A/E"))
-        savelfig(p, l200, filekey, ch, Symbol("aoe_normalized_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("aoe_normalized_$e_type"))
 
         @info "AoE calibration for channel $ch ($det) finished"
 

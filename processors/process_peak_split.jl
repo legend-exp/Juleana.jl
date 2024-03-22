@@ -156,7 +156,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, data_
             p = plot(diagnostics.cal_hist, st=:stepbins)
             plot!(p, xlabel="Energy (keV)", ylabel="Counts", legend=:none, yscale=:log10)
             title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
-            savelfig(p, l200, first(filekeys), ch, Symbol("daq_energy"))
+            savelfig(savefig, p, l200, first(filekeys), ch, Symbol("daq_energy"))
 
             slim_data = flatten_by_key([LHDataStore(filename) do ds
                 @info "Filtering $(filename), channel $ch"

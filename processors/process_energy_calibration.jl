@@ -137,7 +137,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 # save plots for simple calibration for control
                 p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
                 title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
-                savelfig(p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
                 yield()
 
                 result_fit, report_fit = nothing, nothing
@@ -152,7 +152,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 p = plot(broadcast(k -> plot(report_fit[k], left_margin=30mm, title=string(k)), keys(report_fit))..., layout=(length(report_fit), 1), size=(1800, length(report_fit)*1000), thickness_scaling=2)
                 plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2))
-                savelfig(p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
 
                 yield()
 
@@ -171,7 +171,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 
                 p = plot(report_calib, xerrscaling=1)
                 plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
-                savelfig(p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
 
                 yield()
 
@@ -191,7 +191,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 p = plot(report_fwhm)
                 # scatter!([ustrip.(th228_lines_dict[p]) for p in th228_names if (p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))], f_cal.([result_fit[p].fwhm for p in th228_names if (p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple), color=:black, label="", subplot=1)
                 plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
-                savelfig(p, l200, filekey, ch, Symbol("fwhm_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, ch, Symbol("fwhm_$(e_type)"))
                 
                 yield()
 
