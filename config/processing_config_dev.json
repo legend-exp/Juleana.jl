@@ -69,9 +69,9 @@
             "rank": 6
         },
         "process_ct_correction": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": 100,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 1500,
             "rank": 7
         },
@@ -90,7 +90,7 @@
             "rank": 9
         },
         "process_dsp_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 200,
             "reprocess": true,
             "timeout": 100000,
@@ -98,7 +98,7 @@
             "rank": 10
         },
         "process_dsp_sipm": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": false,
             "timeout": 6000,
