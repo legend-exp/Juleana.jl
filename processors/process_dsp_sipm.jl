@@ -56,7 +56,7 @@ function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period:
             data    = lh5open(filename, "r")
             @info "Using output file: $(basename(outfilename))"
             if reprocess && isfile(outfilename)
-                @info "Reprocess $(basename(outfilename)), remove old DSP."
+                @info "Reprocess $(basename(outfilename))"
             else
                 try 
                     lh5open(outfilename, "cw")

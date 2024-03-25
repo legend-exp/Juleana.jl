@@ -19,7 +19,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded DSP config: $(dsp_config)"
 
     train_data = h5open(get_mltrainfilename(l200, filekey))
-    f_evaluate_qc = get_qc_ml_func(Array(train_data["dwt_norm"]), Array(train_data["dc_label"]), l200.par.rpars.ml(filekey))
+    f_evaluate_qc = get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
     close(train_data)
     @info "Loaded trained SVM model"
 
