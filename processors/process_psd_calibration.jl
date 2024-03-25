@@ -44,7 +44,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
     end
 
     @everywhere function ch_psd_calibration(chinfo_ch::NamedTuple)
-
+        chinfo_ch = chinfo[1]
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
@@ -68,7 +68,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
 
         compton_bands  = psd_config_ch.compton_bands
         compton_window = psd_config_ch.compton_window
-        p_value        = psd_config_ch.p_value
+        p_value_cut    = psd_config_ch.p_value # what is this? p values threshold 
         e_type         = Symbol(psd_config_ch.energy_type)
 
         if !haskey(pars_energy, det) || !haskey(pars_energy[det], e_type)
@@ -76,31 +76,29 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
             throw(ErrorException("Energy calibration for $(det) not found"))
         end
 
-        e, aoe = nothing, nothing
-        try
+        e_cal, aoe = nothing, nothing
+         try
             data_hit = LHDataStore(hitchfilename, "r");
-            # get a
-            a = data_hit["$(ch)/dataQC/a"][:];
-            # get energy for best resolution
-            e = data_hit["$(ch)/dataQC/$(e_type)"][:];
-            e  = e .* pars_energy[det][e_type].m_calib .+ pars_energy[det][e_type].n_calib;
-            # get aoe
-            aoe = ustrip.(a ./ e);
-            close(data_hit)
-        catch e
-            @error "AoE and E data from $(basename(hitchfilename)) cannot be loaded: $e"
-            throw(LoadError(string(basename(hitchfilename)), 154, "AoE and E data from $(basename(hitchfilename)) cannot be loaded"))
-        end
+            tab_data = data_hit["$(ch)/dataQC/"]
+            a = tab_data.a[:]; # get a
+            ecal_func_str = pars_energy[det][e_type].cal.func  # calibrate energy 
+            e_cal = collect(ljl_propfunc(ecal_func_str).(tab_data))
+            aoe = ustrip.(a ./ e_cal); # get aoe  
+         catch e
+             @error "AoE and E data from $(basename(hitchfilename)) cannot be loaded: $e"
+             throw(LoadError(string(basename(hitchfilename)), 154, "AoE and E data from $(basename(hitchfilename)) cannot be loaded"))
+         end
 
-        p = histogram2d(e, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.1, 0.9), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
-        xticks!(p, 0:250:3000)
-        title!(p, get_plottitle(filekey, det, "AoE Uncalibrated"))
+        p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.1, 0.9), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
+        plot!(p,guidefontsize=18,xguidefontsize = 18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
+        xticks!(p, 0:500:3000)
+        title!(p, get_plottitle(filekey, det, "AoE uncalibrated"))
         savelfig(p, l200, filekey, ch, Symbol("aoe_uncalibrated_$e_type"))
 
         result_fit, report_fit, compton_band_peakhists = nothing, nothing, nothing
         try
             # get compton band peak histograms with generated peakstats
-            compton_band_peakhists = generate_aoe_compton_bands(aoe, e, compton_bands, compton_window)
+            compton_band_peakhists = generate_aoe_compton_bands(aoe, e_cal, compton_bands, compton_window)
 
             result_fit, report_fit = fit_aoe_compton(compton_band_peakhists.peakhists, compton_band_peakhists.peakstats, compton_bands,; uncertainty=true)
         catch e
@@ -117,56 +115,44 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         # end
         # gif(p, fps=0.5, joinpath(figures_folder_string, format("{}-{}-{}-{}-{}-aoe_compton-bands_{}.gif", string(filekey.setup), string(filekey.period), string(filekey.run), string(filekey.category), ch, string(e_type))))
 
-        compton_bands = [band for band in keys(result_fit) if result_fit[band].p_value >= p_value]
+        compton_bands = [band for band in keys(result_fit) if result_fit[band].gof.pvalue >= p_value_cut] # end here 
         μ = [result_fit[band].μ for band in compton_bands]
         σ = [result_fit[band].σ for band in compton_bands]
 
         # fit μ and σ with correction functions
-        aoe_corrections = nothing
+        result, report = nothing, nothing
         try
-            aoe_corrections = fit_aoe_corrections(compton_bands, μ, σ)
+            result, report = fit_aoe_corrections(compton_bands, μ, σ,; e_expression = ecal_func_str)
         catch e
             @error "AoE corrections cannot be fitted: $e"
             throw(ErrorException("AoE corrections cannot be fitted"))
         end
         
-        # plot μ and σ with correction functions
-        p = scatter(aoe_corrections.e, aoe_corrections.μ, ms=5, color=:black, layout = @layout[grid(2, 1, heights=[0.8, 0.2])], label=L"\mu_{SCS}", margin=5mm, framestyle=:box)
-        plot!(xlabel=L"Energy\ (keV)", ylabel=L"\mu_{A/E} (a.u.)", xticks = ustrip.(minimum(compton_bands):200u"keV": maximum(compton_bands)), xlims=ustrip.((minimum(compton_bands)-50u"keV", maximum(compton_bands)+50u"keV")), legend = :topright)
-        plot!(ylims=(0.95*mvalue(median(aoe_corrections.μ)), 1.05*mvalue(median(aoe_corrections.μ))), subplot=1, xlabel="", xticks = :none, bottom_margin=-14mm)
-        plot!((0.0:1500:3000), aoe_corrections.f_μ_scs((0.0:1500:3000)u"keV"), plot_ribbon=true, linealpha=0.4, label="Best Fit: $(round(aoe_corrections.μ_scs[1], digits=2)) + x*$(round(aoe_corrections.μ_scs[1]*1000, digits=2))e-3", line_width=3.5, color=:red, subplot=1, xformatter=_->"")
-        plot!(ustrip.(aoe_corrections.e), (aoe_corrections.f_μ_scs.(aoe_corrections.e) .- aoe_corrections.μ) ./ aoe_corrections.μ .* 100 , label="", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-5.0, 5.0), markershape=:x, subplot=2, framestyle=:box)
+        plot(report.report_µ)
         title!(get_plottitle(filekey, det, "A/E μ"), subplot=1)
         savelfig(p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type"))
 
-        x_fit_σ = minimum(compton_bands)-50u"keV":0.1u"keV": maximum(compton_bands)+50u"keV"
-        p = scatter(aoe_corrections.e, aoe_corrections.σ, ms=5, color=:black, layout = @layout[grid(2, 1, heights=[0.8, 0.2])], label=L"\sigma_{SCS}", margin=5mm, framestyle=:box)
-        plot!(xlabel=L"Energy\ (keV)", ylabel=L"\sigma_{A/E} (a.u.)", xticks = ustrip.(minimum(compton_bands):200u"keV":maximum(compton_bands)), xlims=ustrip.((minimum(compton_bands)-50u"keV", maximum(compton_bands)+50u"keV")), legend = :topright)
-        plot!(ylims=(0.1*mvalue(aoe_corrections.f_σ_scs(maximum(compton_bands))), 2*mvalue(aoe_corrections.f_σ_scs(minimum(compton_bands)))), subplot=1, xlabel="", xticks = :none, bottom_margin=-14mm)
-        plot!(ustrip.(x_fit_σ), aoe_corrections.f_σ_scs.(x_fit_σ), plot_ribbon=true, linealpha=0.4, label=format("Best Fit: sqrt({:.2E}+({:.2E}/x^2)", ustrip.(mvalue.(aoe_corrections.σ_scs))...), line_width=3.5, color=:red, subplot=1, xformatter=_->"")
-        plot!(ustrip.(aoe_corrections.e), (aoe_corrections.f_σ_scs.(aoe_corrections.e) .- aoe_corrections.σ) ./ aoe_corrections.σ .* 100 , label="", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-50.0, 50.0), markershape=:x, subplot=2, framestyle=:box)
+        plot(report.report_σ)
         title!(get_plottitle(filekey, det, "A/E σ"), subplot=1)
         savelfig(p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type"))
+
         # correct aoe
-        correct_aoe!(aoe, e, aoe_corrections)
-
-
-        p = histogram2d(ustrip.(u"keV", e), aoe, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
+        aoe_corr = ljl_propfunc(result.func).(tab_data)
+        p = histogram2d(ustrip.(u"keV", e_cal), aoe_corr, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
         xticks!(0:250:3000)
         title!(p, get_plottitle(filekey, det, "normalized A/E"))
         savelfig(p, l200, filekey, ch, Symbol("aoe_normalized_$e_type"))
 
         @info "AoE calibration for channel $ch ($det) finished"
-
         log_ch = log_nt(ch, det, "Success", length(compton_bands), aoe_corrections.μ_scs[2], aoe_corrections.μ_scs[1], "-")
 
         # free memory
         GC.gc()
-
+        close(data_hit)  
         return (result = (n_compton = length(compton_bands), μ_scs = aoe_corrections.μ_scs, σ_scs = aoe_corrections.σ_scs, μ = aoe_corrections.μ, σ = aoe_corrections.σ, e = aoe_corrections.e), log = log_ch, processed = true)
     end
-
+ 
     # get start time
     start_time = now()
 
