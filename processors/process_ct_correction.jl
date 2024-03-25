@@ -115,7 +115,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 # save plots for simple calibration for control
                 p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
                 title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
-                savelfig(p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
 
                 yield()
 
@@ -133,7 +133,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 
                 p = plot(report_ctc)
                 plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=14)
-                savelfig(p, l200, filekey, ch, Symbol("ctc_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, ch, Symbol("ctc_$(e_type)"))
 
                 yield()
                 log_ch = log_nt((ch, det, ProcessStatus(1), "$e_type", result_ctc.fct*1e6, result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))

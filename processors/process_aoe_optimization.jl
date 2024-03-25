@@ -198,7 +198,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         if length(report_sg_wl.sfs) > 0
             p = plot(report_sg_wl)
             title!(p, get_plottitle(filekey, det, "SG Filter Optimization"))
-            savelfig(p, l200, filekey, ch, Symbol("sg_sweep"))
+            savelfig(savefig, p, l200, filekey, ch, Symbol("sg_sweep"))
         else
             @warn "No SG sweep plot for channel $ch ($det)"
         end

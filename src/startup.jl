@@ -18,7 +18,7 @@ else
 end
 
 # load packages
-using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement
+using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement, LegendDataManagement.LDMUtils
 using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
 using Unitful, Formatting, LaTeXStrings, Printf, Measures, Dates, Measurements
 using Measurements: value as mvalue
@@ -40,10 +40,6 @@ using ArgParse
 
 global_logger(TerminalLogger())
 include(joinpath(@__DIR__,"utils.jl"))
-include(joinpath(@__DIR__,"data_utils.jl"))
-include(joinpath(@__DIR__,"log_utils.jl"))
-include(joinpath(@__DIR__,"pars_utils.jl"))
-include(joinpath(@__DIR__,"plot_utils.jl"))
 
 # free memory
 GC.gc()

@@ -109,7 +109,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         p = plot(report, decay_times, cuts_τ, xlabel="Decay Time [µs]", legend=:topright)
         title!(p, get_plottitle(filekey, det, "Decay Time Distribution"))
 
-        savelfig(p, l200, filekey, ch, :decay_time)
+        savelfig(savefig, p, l200, filekey, ch, :decay_time)
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
 

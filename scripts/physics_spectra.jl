@@ -19,7 +19,8 @@ sel_geds_channels = Set(Int.(ChannelId.(filterby(@pf $system == :geds && $proces
 
 function read_events(l200, filekey)
     filename = l200.tier[:jlevt, filekey]
-    h5open(input -> readdata(input, "events"), filename)
+    tbl = h5open(input -> readdata(input, "events"), filename)
+    Table(merge((filekey = fill(filekey, length(tbl)),), columns(tbl)))
 end
 
 r = read_events(l200, found_filekeys[begin])
@@ -30,6 +31,9 @@ r = read_events(l200, found_filekeys[begin])
         @warn "Failed to read $filekey" err
     end
 end
+
+
+
 
 # Workaround for incorrect r.geds.emax_ch
 emax_chno = @pf($channel[findfirst(isequal($emax_trap_cal), $e_trap_cal)]).(r.geds)
@@ -138,3 +142,11 @@ scatter!(
 )
 savefig(aoe_plot, "plots/aoe_plot.png")
 savefig(aoe_plot, "plots/aoe_plot.pdf")
+
+
+
+
+# scratch
+r_afterall = r[findall(Bool.(allcuts))]
+
+r_afterall_roi = r_afterall[findall(roibins[1]*u"keV" .< r_afterall.geds.emax_cusp_cal .< roibins[end]*u"keV")]

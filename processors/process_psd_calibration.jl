@@ -91,7 +91,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
 
         p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.1, 0.9), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
         plot!(p,guidefontsize=18,xguidefontsize = 18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
-        xticks!(p, 0:500:3000)
+        xticks!(p, 0:250:3000)
         title!(p, get_plottitle(filekey, det, "AoE uncalibrated"))
         savelfig(p, l200, filekey, ch, Symbol("aoe_uncalibrated_$e_type"))
 
@@ -130,11 +130,11 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         
         plot(report.report_µ)
         title!(get_plottitle(filekey, det, "A/E μ"), subplot=1)
-        savelfig(p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type"))
 
         plot(report.report_σ)
         title!(get_plottitle(filekey, det, "A/E σ"), subplot=1)
-        savelfig(p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type"))
 
         # correct aoe
         aoe_corr = ljl_propfunc(result.func).(tab_data)
@@ -142,7 +142,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
         xticks!(0:250:3000)
         title!(p, get_plottitle(filekey, det, "normalized A/E"))
-        savelfig(p, l200, filekey, ch, Symbol("aoe_normalized_$e_type"))
+        savelfig(savefig, p, l200, filekey, ch, Symbol("aoe_normalized_$e_type"))
 
         @info "AoE calibration for channel $ch ($det) finished"
         log_ch = log_nt(ch, det, "Success", length(compton_bands), aoe_corrections.μ_scs[2], aoe_corrections.μ_scs[1], "-")

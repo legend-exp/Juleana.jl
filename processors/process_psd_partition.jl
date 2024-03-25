@@ -87,7 +87,7 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         p = histogram2d(e, aoe, nbins=(0:0.5:3000, -25:0.05:10), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600, xlims=(0, 3000), ylims=(-25, 10), size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10), fontfamily=:sansserif)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "normalized A/E"))
-        savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_normalized_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_normalized_$e_type"))
 
         result_cut = nothing
         try
@@ -125,7 +125,7 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         plot!(margin=1mm, thickness_scaling=1.5, dpi=600, size=(1000, 700))
         title!("Qbb CC ($(qbb_result.window)) - SF: $(qbb_result.sf)", titlefontisze=8)
         plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_qbb_sf_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_qbb_sf_$e_type"))
 
 
         peak_sf_plot = plot.([rep.after for rep in values(report_peaks)], titleloc=:left, titlefont=font(8), ticks=:native, legend=:bottomright; show_label=true, show_fit=false)
@@ -151,14 +151,14 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         )
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1200, 900))
         plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type"))
 
         p = stephist(e, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before PSD", ylabel="Counts / 0.2 keV")
         stephist!(e[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After PSD")
         xticks!(0:250:3000)
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600), fontfamily=:sansserif)
-        savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_$e_type"))
 
 
         p = stephist(e, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before PSD", ylabel="Counts / 0.5 keV")
@@ -170,14 +170,14 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"), subplot=1)
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600), fontfamily=:sansserif)
         plot!(ylabelfontsize=8, subplot=2)
-        savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_zoom_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_zoom_$e_type"))
 
         p = histogram2d(e, aoe, nbins=(0:0.5:3000, -25:0.02:10), xlims=(0, 3000), ylims=(-25, 10), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600, size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10), fontfamily=:sansserif)
         hline!([result_cut.lowcut, result_cut.highcut], color=:red, label="Cut", lw=2.5)
         hspan!([-50, result_cut.lowcut, result_cut.highcut, 50], color=:red, alpha=0.2, label="", lw=0)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "A/E Classifier"))
-        savelfig(p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_withcuts_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_withcuts_$e_type"))
 
         # save results
         result = (

@@ -18,6 +18,11 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     dsp_meta = dataprod_config(l200).dsp(filekey).default
     @debug "Loaded DSP config: $(dsp_config)"
 
+    train_data = h5open(get_mltrainfilename(l200, filekey))
+    f_evaluate_qc = get_qc_ml_func(Array(train_data["dwt_norm"]), Array(train_data["dc_label"]), l200.par.rpars.ml(filekey))
+    close(train_data)
+    @info "Loaded trained SVM model"
+
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
 
@@ -51,6 +56,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         reprocess = $reprocess
         max_wvfs = $max_wvfs
         log_nt = $log_nt
+        f_evaluate_qc = $f_evaluate_qc
     end
 
     @everywhere function filekey_dsp(fk::FileKey)
@@ -146,7 +152,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     # process data
                     outdata_ch = nothing
                     try
-                        outdata_ch = fast_flatten([dsp_icpc(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det])
+                        outdata_ch = fast_flatten([dsp_icpc(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                                 for data_part in Iterators.partition(data[ch].raw[:], max_wvfs)])
                     catch e
                         if e isa TaskFailedException
