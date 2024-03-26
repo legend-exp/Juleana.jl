@@ -132,7 +132,7 @@ function process_psd_calibration(processing_config::PropDict, l200::LegendData, 
         title!(get_plottitle(filekey, det, "A/E μ"), subplot=1)
         savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type"))
 
-        plot(report.report_σ)
+        plot(report.report_σ) 
         title!(get_plottitle(filekey, det, "A/E σ"), subplot=1)
         savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type"))
 
