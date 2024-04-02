@@ -6,37 +6,78 @@ using Unitful
 using ProgressMeter
 using IntervalSets
 using LegendDataTypes: fast_flatten, readdata
+using Distributed, LegendDataManagement, ThreadPinning
+using Measurements
 
+legend_addprocs(ncores())
+
+@everywhere begin
+    using LegendDataManagement, LegendHDF5IO, HDF5
+    using PropDicts, PropertyFunctions, StructArrays, TypedTables, ArraysOfArrays
+    using Plots, StatsBase
+    using LegendEventAnalysis, PropertyFunctions
+    using Unitful
+    using ProgressMeter
+    using IntervalSets
+    using LegendDataTypes: fast_flatten, readdata
+end
+
+ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/config.json:/remote/ceph2/group/legendex/data/l200/julia/current/config.json"
 l200 = LegendData(:l200)
 
 part = DataPartition(1)
 partinfo = partitioninfo(l200)[part]
 found_filekeys = [filekey for (period, run) in partinfo if is_analysis_run(l200, period, DataRun(run.no +1)) for filekey in search_disk(FileKey, l200.tier[:jldsp, :phy, period, run])]
 
-chinfo = channelinfo(l200, first(found_filekeys))
-sel_geds_channels = Set(Int.(ChannelId.(filterby(@pf $system == :geds && $processable && $usability == :on)(chinfo).channel)))
+chinfo = Table(channelinfo(l200, first(found_filekeys); only_processable=true))
+sel_geds_channels = filterby(@pf $system == :geds && $det_type in [:icpc, :bege] && $usability == :on)(chinfo).channel
+sel_spms_channels = filterby(@pf $system == :spms && $usability == :on)(chinfo).channel
+sel_geds_channels_int = Int.(sel_geds_channels)
 
-
-function read_events(l200, filekey)
+@everywhere function read_events(l200, filekey)
     filename = l200.tier[:jlevt, filekey]
     tbl = h5open(input -> readdata(input, "events"), filename)
+    # tbl = lh5open(l200.tier[:jlevt, filekey])["events"][:]
     Table(merge((filekey = fill(filekey, length(tbl)),), columns(tbl)))
 end
 
 r = read_events(l200, found_filekeys[begin])
-@showprogress for filekey in found_filekeys[begin+1:end]
+@everywhere begin
+    r = $r
+    l200 = $l200
+end
+
+# r = read_events(l200, found_filekeys[begin])
+# @showprogress for filekey in found_filekeys[begin+1:end]
+#     try
+#         # read_events(l200, filekey)
+#         append!(r, read_events(l200, filekey))
+#     catch err
+#         @warn "Failed to read $filekey" err
+#     end
+# end
+
+
+r_vec = @showprogress pmap(found_filekeys) do filekey
     try
-        append!(r, read_events(l200, filekey))
+        return read_events(l200, filekey)
+        # append!(r, read_events(l200, filekey))
     catch err
         @warn "Failed to read $filekey" err
+        return similar(r, 0)
     end
 end
 
-
-
+r = fast_flatten(r_vec[.!(isempty.(r_vec))])
+# r = copy(r_vec[1])
+# @showprogress for r_ in r_vec[begin+1:end]
+#     if !isnothing(r_)
+#         append!(r, r_)
+#     end
+# end
 
 # Workaround for incorrect r.geds.emax_ch
-emax_chno = @pf($channel[findfirst(isequal($emax_trap_cal), $e_trap_cal)]).(r.geds)
+# emax_chno = @pf($channel[findfirst(isequal($emax_trap_cal), $e_trap_cal)]).(r.geds)
 # r = Table(merge(
 #     columns(r),
 #     (geds = Table(merge(columns(r.geds), (emax_chno = emax_chno,))),)
@@ -45,19 +86,27 @@ emax_chno = @pf($channel[findfirst(isequal($emax_trap_cal), $e_trap_cal)]).(r.ge
 nopls = .!(r.puls.puls_trig)
 nolar = .!(r.ged_spm.lar_cut)
 nomult = r.geds.multiplicity .= 1
-emaxqc = @pf($is_valid_baseline[$emax_ch] && !$is_upgoing_baseline[$emax_ch]).(r.geds)
-gooddet = (ch -> ch in sel_geds_channels).(emax_chno)
-goodaoe = @pf($aoe_ds_cut[$emax_ch]).(r.geds)
+selchcut = @pf(all(in.($channel[$trig_e_ch], Ref(sel_geds_channels_int)))).(r.geds)
+# qctrigch = @pf(all($is_physical[$trig_e_ch])).(r.geds)
+# qcblch = @pf(all($is_baseline[setdiff(eachindex($is_baseline), $trig_e_ch)])).(r.geds)
+
+# emaxqc = @pf($is_valid_baseline[$emax_ch] && !$is_upgoing_baseline[$emax_ch]).(r.geds)
+# gooddet = (ch -> ch in sel_geds_channels).(emax_chno)
+goodaoe = @pf(all($aoe_ds_cut[$trig_e_ch])).(r.geds)
 larcuts = nolar
 psdcuts = goodaoe
 
-basiccuts = nopls .* gooddet .* nomult
-qualitycuts = basiccuts .* emaxqc
+basiccuts = nopls .* nomult  .* selchcut
+qualitycuts = basiccuts
 allcuts = qualitycuts .* larcuts .* psdcuts
 
 
-lar_nopls_pe = r.spms.trig_pe[findall(nopls)]
+lar_nopls_pe = fast_flatten(flatview(r.spms.trig_pe[findall(nopls)]))
+lar_smps_win_pe_sum = r.ged_spm.smps_win_pe_sum[findall(nopls)]
 
+lar_pe_plot = plot(size=(800, 500))
+stephist!(lar_smps_win_pe_sum, bins = 0.:.01:100, yscale = :log10, label = "SiMP sum(PE) in Ge-trig-window", dpi = 600)
+plot!(xticks=0:1:10, xlims = (0.0,10), ylims=(1e2, 1e4), ylabel = "Counts / 0.01 PE", xlabel = "PE")
 
 bins = 10:1:3000
 bigbins = 10:10:3000
@@ -65,7 +114,7 @@ kbins = 1440:1:1550
 roibins = 1930:2:2190
 
 
-stephist(r.geds.emax_cusp_cal .* qualitycuts, bins = bins, yscale = :log10)
+stephist(r.geds.max_e_cusp_ctc_cal .* qualitycuts, bins = bins, yscale = :log10)
 
 
 #=
@@ -81,7 +130,7 @@ stephist!(@pf($e_trap_ctc_cal[chidx] * $is_valid_baseline[chidx]).(r.geds) .* no
 =#
 
 
-histogram2d(r.e_trap_cal, r.aoe_classifier, nbins = (0:5:3000, -10:0.1:10), colorbar_scale=:log10, fmt=:png)
+histogram2d(r.geds.max_e_trap_cal, r.geds.aoe_classifier, nbins = (0:5:3000, -10:0.1:10), colorbar_scale=:log10, fmt=:png)
 
 histogram2d(
     r.geds.emax_cusp_cal .* qualitycuts .* larcuts,
@@ -94,32 +143,51 @@ histogram2d(
 # Final plots:
 
 lar_pe_hist = fit(Histogram, fast_flatten(flatview(lar_nopls_pe)), 0:.01:40)
-lar_pe_plot = plot(lar_pe_hist, xlims = (0.4,7.5), st = :stepbins, yscale = :log10, xlabel = "PE", label = "SiMP sum(PE) in Ge-trig-window", ylims = (10^4,10^7), ylabel = "Counts / 0.01 PE", dpi = 600)
-savefig(lar_pe_plot, "plots/lar_pe_plot.png")
-savefig(lar_pe_plot, "plots/lar_pe_plot.pdf")
+lar_pe_plot = plot(size=(1200, 800))
+plot!(lar_pe_hist, xlims = (0.4,7.5), st = :stepbins, yscale = :log10, xlabel = "PE", label = "SiMP sum(PE) in Ge-trig-window", ylims = (10^4,10^7), ylabel = "Counts / 0.01 PE", dpi = 600)
+# savefig(lar_pe_plot, "plots/lar_pe_plot.png")
+# savefig(lar_pe_plot, "plots/lar_pe_plot.pdf")
 
 multiplicity_plot = stephist(r.geds.multiplicity .* nopls, bins = 0:0.1:10, dpi = 600)
 
 physpec_plot = stephist(r.geds.emax_cusp_cal .* qualitycuts, bins = bigbins, ylabel = "Counts / $(step(bigbins)) keV", yscale = :log10, label ="QC", xlabel = "Energy", dpi = 600)
-savefig(physpec_plot, "plots/physpec_plot.png")
-savefig(physpec_plot, "plots/physpec_plot.pdf")
+# savefig(physpec_plot, "plots/physpec_plot.png")
+# savefig(physpec_plot, "plots/physpec_plot.pdf")
 
 physpec_cuts_plot = plot()
 stephist!(r.geds.emax_cusp_cal .* qualitycuts, bins = bigbins, yscale = :log10, ylabel = "Counts / $(step(bigbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
 stephist!(r.geds.emax_cusp_cal .* qualitycuts .* psdcuts, bins = bigbins, yscale = :log10, label = "PSD")
 stephist!(r.geds.emax_cusp_cal .* qualitycuts .* larcuts .* psdcuts, bins = bigbins, yscale = :log10, label = "PSD + LAr")
-savefig(physpec_cuts_plot, "plots/physpec_cuts_plot.png")
-savefig(physpec_cuts_plot, "plots/physpec_cuts_plot.pdf")
+# savefig(physpec_cuts_plot, "plots/physpec_cuts_plot.png")
+# savefig(physpec_cuts_plot, "plots/physpec_cuts_plot.pdf")
 
 klines_plot = plot()
-stephist!(r.geds.emax_cusp_cal .* qualitycuts, bins = kbins, ylabel = "Counts / $(step(kbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
-stephist!(r.geds.emax_cusp_cal .* qualitycuts .* larcuts, bins = kbins, label = "LAr")
-savefig(klines_plot, "plots/klines_plot.png")
-savefig(klines_plot, "plots/klines_plot.pdf")
+stephist!(r.geds.max_e_cusp_ctc_cal .* qualitycuts, bins = kbins, ylabel = "Counts / $(step(kbins)) keV", label = "QC", xlabel = "Energy", dpi = 600)
+stephist!(r.geds.max_e_cusp_ctc_cal .* qualitycuts .* larcuts, bins = kbins, label = "LAr")
 
-roi_plot = plot()
-barhist!(r.geds.emax_cusp_cal .* qualitycuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD", xlabel = "Energy", linewidth = 0, dpi = 600, alpha=0.4)
-barhist!(r.geds.emax_cusp_cal .* qualitycuts .* larcuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD + LAr", linewidth = 0)
+n_k42_before = count(1522u"keV" .< r.geds.max_e_cusp_ctc_cal .* qualitycuts .< 1528u"keV")
+n_k42_before = measurement(n_k42_before, sqrt(n_k42_before))
+n_k42_after = count(1522u"keV" .< r.geds.max_e_cusp_ctc_cal .* qualitycuts .* larcuts .< 1528u"keV")
+n_k42_after = measurement(n_k42_after, sqrt(n_k42_after))
+suppression_k42 = n_k42_after / n_k42_before *100u"percent"
+
+n_k40_before = count(1456u"keV" .< r.geds.max_e_cusp_ctc_cal .* qualitycuts .< 1466u"keV")
+n_k40_before = measurement(n_k40_before, sqrt(n_k40_before))
+n_k40_after = count(1456u"keV" .< r.geds.max_e_cusp_ctc_cal .* qualitycuts .* larcuts .< 1466u"keV")
+n_k40_after = measurement(n_k40_after, sqrt(n_k40_after))
+suppression_k40 = n_k40_after / n_k40_before *100u"percent"
+
+n_tl208_before = count(2610u"keV" .< r.geds.max_e_cusp_ctc_cal .* qualitycuts .< 2620u"keV")
+n_tl208_before = measurement(n_tl208_before, sqrt(n_tl208_before))
+n_tl208_after = count(2610u"keV" .< r.geds.max_e_cusp_ctc_cal .* qualitycuts .* larcuts .< 2620u"keV")
+n_tl208_after = measurement(n_tl208_after, sqrt(n_tl208_after))
+suppression_tl208 = n_tl208_after / n_tl208_before *100u"percent"
+# savefig(klines_plot, "plots/klines_plot.png")
+# savefig(klines_plot, "plots/klines_plot.pdf")
+
+roi_plot = plot(size=(800, 500))
+barhist!(r.geds.max_e_cusp_ctc_cal .* qualitycuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD", xlabel = "Energy", linewidth = 0, dpi = 600, alpha=0.4)
+barhist!(r.geds.max_e_cusp_ctc_cal .* qualitycuts .* larcuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD + LAr", linewidth = 0)
 vspan!([2099, 2109], color = :black, fillalpha = 0.2, label = "")
 vspan!([2114, 2124], color = :black, fillalpha = 0.2, label = "")
 vspan!([2039-2, 2039+2], color = :orange, fillalpha = 0.4, label = "")
@@ -149,4 +217,56 @@ savefig(aoe_plot, "plots/aoe_plot.pdf")
 # scratch
 r_afterall = r[findall(Bool.(allcuts))]
 
-r_afterall_roi = r_afterall[findall(roibins[1]*u"keV" .< r_afterall.geds.emax_cusp_cal .< roibins[end]*u"keV")]
+r_afterall_roi = r_afterall[findall(roibins[1]*u"keV" .< r_afterall.geds.max_e_cusp_ctc_cal .< roibins[end]*u"keV")]
+
+r_afterall_roi_idx = 4
+
+fk = r_afterall_roi.filekey[r_afterall_roi_idx]
+
+data_raw = lh5open(l200.tier[:raw, fk])
+data_dsp = lh5open(l200.tier[:jldsp, fk])
+evt_idx = findfirst(data_raw[first(sel_geds_channels)].raw.timestamp[:] .== r_afterall_roi.tstart[r_afterall_roi_idx])
+
+plotlyjs()
+p = plot(u"µs", NoUnits, legend=:outertopright, size=(800, 500), yformatter=:plain)
+for ch in filterby(@pf $system == :spms && $usability == :on)(chinfo)
+    plot!(data_raw[ch.channel].raw.waveform[evt_idx], label=string(ch.detector))
+end
+vline!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx]], color=:red, label="t0", lw=1.5)
+vspan!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx] - 1u"µs", r_afterall_roi.geds.t0_start[r_afterall_roi_idx] + 5u"µs"], color=:orange, label="", alpha=0.3)
+
+p = plot(u"µs", NoUnits, legend=:outertopright, size=(800, 500), yformatter=:plain)
+for ch in sort(filterby(@pf $system == :geds && $usability == :on)(chinfo), by=ch -> string(ch.detector))
+    plot!(data_raw[ch.channel].raw.waveform[evt_idx], label=string(ch.detector))
+end
+vline!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx]], color=:red, label="t0", lw=1.5)
+# vspan!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx] - 1u"µs", r_afterall_roi.geds.t0_start[r_afterall_roi_idx] + 5u"µs"], color=:orange, label="", alpha=0.3)
+
+
+
+
+
+
+
+detstring = sort(unique(chinfo.detstring))
+max_pos = maximum(chinfo.position)
+chinfo_sorted = sort(chinfo, lt=(a, b) -> (a.detstring < b.detstring) || (a.detstring == b.detstring) && (a.position < b.position))
+dets = chinfo_sorted.detector
+
+gr()
+array_plot = Plots.Plot[]
+
+@showprogress for dstr in detstring
+    dstr_plots = [plot(data_raw[chinfo_ch.channel].raw.waveform[evt_idx], label="$chinfo_ch.detector") for chinfo_ch in (chinfo |> filterby(@pf $detstring == dstr))]
+    if length(dstr_plots) < max_pos
+        append!(dstr_plots, [plot() for i in 1:max_pos-length(dstr_plots)])
+    end
+    append!(array_plot, dstr_plots)
+end
+plot(array_plot[1])
+
+plot(
+    array_plot...,
+    layout = (length(detstring), max_pos), lw = 0.05, legend = true, grid = true,
+    size = (1000, 10000)
+)
