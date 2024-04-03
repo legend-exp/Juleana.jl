@@ -168,8 +168,16 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     @error "Error in $e_type calibration curve fitting for channel $ch: $e"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
-                
+                # add not-fitted peaks to plot 
+                μ_notfit =  [result_fit[p].μ for p in th228_names if (p in Symbol.(cal_fit_excluded_peaks))] ./ m_cal_simple
+                pp_notfit = [th228_lines_dict[p] for p in th228_names if (p in Symbol.(cal_fit_excluded_peaks))] .* u"keV"
+                μ_notfit_cal = ljl_propfunc(result_calib.func).(Table(e_cusp = μ_notfit))
+                res_norm_nofit = (LegendSpecFits.mvalue.(μ_notfit_cal) .- pp_notfit)./LegendSpecFits.muncert.(μ_notfit_cal)
+                PltArg = Dict( :ms => 3, :markershape => :circle, :markerstrokecolor => :black, :linewidth => 0.5, :markercolor => :silver)
+               
                 p = plot(report_calib, xerrscaling=1)
+                scatter!(p[1], μ_notfit, ustrip(pp_notfit), label="Data not used for fit"; PltArg...)
+                scatter!(p[2], μ_notfit, res_norm_nofit, label=:none ; PltArg...)
                 plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
                 savelfig(savefig, p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
 
