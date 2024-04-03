@@ -150,7 +150,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 end
                 GC.gc()
 
-                p = plot(broadcast(k -> plot(report_fit[k], left_margin=30mm, title=string(k)), keys(report_fit))..., layout=(length(report_fit), 1), size=(1800, length(report_fit)*1000), thickness_scaling=2)
+                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm,top_margin=-5mm,bottom_margin=-2mm, title=string(k),ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8,titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9,xguidefontsize=11) 
                 plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2))
                 savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
 

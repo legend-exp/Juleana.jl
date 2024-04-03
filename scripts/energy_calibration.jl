@@ -116,10 +116,12 @@ m_cal_simple = result_simple.c
 # save plots for simple calibration for control
 p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
 
-result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228)
-p = plot(broadcast(k -> plot(report_fit[k], left_margin=30mm, title=string(k)), keys(report_fit))..., layout=(length(report_fit), 1), size=(1800, length(report_fit)*1000), thickness_scaling=2)
-plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2))
-# savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
+result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228) 
+p_peaks = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm,top_margin=-5mm,bottom_margin=-2mm, title=string(k),ms=2),
+         keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8,titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9,xguidefontsize=11) 
+plot!(p_peaks, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2))
+# savelfig(savefig, p_peaks, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
+savefig(p_peaks, "test.png")
 
 # do calibration fit 
 cal_fit_excluded_peaks = [:Tl208DEP, :Tl208SEP] # tmp fix for cal_fit_excluded_peaks
