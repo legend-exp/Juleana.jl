@@ -62,30 +62,30 @@
             "rank": 5
         },
         "process_hit_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 1000,
             "rank": 6
         },
         "process_ct_correction": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 1500,
             "rank": 7
         },
         "process_energy_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 100,
             "reprocess": true,
             "timeout": 1200,
             "rank": 8
         },
         "process_psd_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 90,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 1200,
             "rank": 9
         },
@@ -100,7 +100,7 @@
         "process_dsp_sipm": {
             "enabled": true,
             "n_workers": 100,
-            "reprocess": false,
+            "reprocess": true,
             "timeout": 6000,
             "rank": 11
         }
@@ -119,9 +119,9 @@
             "rank": 1
         },
         "process_psd_partition": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": 60,
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 6000,
             "rank": 2
         }

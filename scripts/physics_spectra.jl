@@ -5,7 +5,7 @@ using LegendEventAnalysis, PropertyFunctions
 using Unitful
 using ProgressMeter
 using IntervalSets
-using LegendDataTypes: fast_flatten, readdata
+using LegendDataTypes: fast_flatten, readdata, writedata
 using Distributed, LegendDataManagement, ThreadPinning
 using Measurements
 
@@ -185,7 +185,7 @@ suppression_tl208 = n_tl208_after / n_tl208_before *100u"percent"
 # savefig(klines_plot, "plots/klines_plot.png")
 # savefig(klines_plot, "plots/klines_plot.pdf")
 
-roi_plot = plot(size=(800, 500))
+roi_plot = plot(size=(2000, 800))
 barhist!(r.geds.max_e_cusp_ctc_cal .* qualitycuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD", xlabel = "Energy", linewidth = 0, dpi = 600, alpha=0.4)
 barhist!(r.geds.max_e_cusp_ctc_cal .* qualitycuts .* larcuts .* psdcuts, bins = roibins, ylabel = "Counts / $(step(roibins)) keV", ylims = (0,4), label = "PSD + LAr", linewidth = 0)
 vspan!([2099, 2109], color = :black, fillalpha = 0.2, label = "")
@@ -218,55 +218,3 @@ savefig(aoe_plot, "plots/aoe_plot.pdf")
 r_afterall = r[findall(Bool.(allcuts))]
 
 r_afterall_roi = r_afterall[findall(roibins[1]*u"keV" .< r_afterall.geds.max_e_cusp_ctc_cal .< roibins[end]*u"keV")]
-
-r_afterall_roi_idx = 4
-
-fk = r_afterall_roi.filekey[r_afterall_roi_idx]
-
-data_raw = lh5open(l200.tier[:raw, fk])
-data_dsp = lh5open(l200.tier[:jldsp, fk])
-evt_idx = findfirst(data_raw[first(sel_geds_channels)].raw.timestamp[:] .== r_afterall_roi.tstart[r_afterall_roi_idx])
-
-plotlyjs()
-p = plot(u"µs", NoUnits, legend=:outertopright, size=(800, 500), yformatter=:plain)
-for ch in filterby(@pf $system == :spms && $usability == :on)(chinfo)
-    plot!(data_raw[ch.channel].raw.waveform[evt_idx], label=string(ch.detector))
-end
-vline!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx]], color=:red, label="t0", lw=1.5)
-vspan!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx] - 1u"µs", r_afterall_roi.geds.t0_start[r_afterall_roi_idx] + 5u"µs"], color=:orange, label="", alpha=0.3)
-
-p = plot(u"µs", NoUnits, legend=:outertopright, size=(800, 500), yformatter=:plain)
-for ch in sort(filterby(@pf $system == :geds && $usability == :on)(chinfo), by=ch -> string(ch.detector))
-    plot!(data_raw[ch.channel].raw.waveform[evt_idx], label=string(ch.detector))
-end
-vline!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx]], color=:red, label="t0", lw=1.5)
-# vspan!([r_afterall_roi.geds.t0_start[r_afterall_roi_idx] - 1u"µs", r_afterall_roi.geds.t0_start[r_afterall_roi_idx] + 5u"µs"], color=:orange, label="", alpha=0.3)
-
-
-
-
-
-
-
-detstring = sort(unique(chinfo.detstring))
-max_pos = maximum(chinfo.position)
-chinfo_sorted = sort(chinfo, lt=(a, b) -> (a.detstring < b.detstring) || (a.detstring == b.detstring) && (a.position < b.position))
-dets = chinfo_sorted.detector
-
-gr()
-array_plot = Plots.Plot[]
-
-@showprogress for dstr in detstring
-    dstr_plots = [plot(data_raw[chinfo_ch.channel].raw.waveform[evt_idx], label="$chinfo_ch.detector") for chinfo_ch in (chinfo |> filterby(@pf $detstring == dstr))]
-    if length(dstr_plots) < max_pos
-        append!(dstr_plots, [plot() for i in 1:max_pos-length(dstr_plots)])
-    end
-    append!(array_plot, dstr_plots)
-end
-plot(array_plot[1])
-
-plot(
-    array_plot...,
-    layout = (length(detstring), max_pos), lw = 0.05, legend = true, grid = true,
-    size = (1000, 10000)
-)

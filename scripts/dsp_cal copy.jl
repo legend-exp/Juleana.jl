@@ -1,5 +1,5 @@
 addprocs(20)
-period = DataPeriod(3)
+period = DataPeriod(4)
 run = DataRun(0)
 l200 = LegendData(:l200)
 reprocess=true

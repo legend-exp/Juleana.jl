@@ -1,4 +1,4 @@
-using LegendDataManagement, LegendHDF5IO, LegendEventAnalysis
+using LegendDataManagement, LegendDataManagement.LDMUtils, LegendHDF5IO, LegendEventAnalysis
 using ProgressMeter
 using HDF5: h5open
 using LegendDataTypes: writedata
@@ -19,21 +19,40 @@ l200 = LegendData(:l200)
 #found_filekeys = search_disk(FileKey, data.tier[:dsp, :phy, period, run])
 
 part = DataPartition(1)
-partinfo = partitioninfo(l200)[part]
-found_filekeys = [filekey for (period, run) in partinfo if is_analysis_run(l200, period, DataRun(run.no +1)) for filekey in search_disk(FileKey, l200.tier[:jldsp, :phy, period, run])]
+good_filekeys = get_partitionfilekeys(l200, part, :raw, :phy)
 
-filekeys = filter(Base.Fix2(!in, bad_filekeys(l200)), found_filekeys)
-
-# filekey = first(filekeys)
-# input_filename = l200.tier[:jldsp, filekey]
-# output_filename = l200.tier[:jlevt, filekey]
+filekey = first(good_filekeys)
+input_filename = l200.tier[:jldsp, filekey]
+output_filename = l200.tier[:jlevt, filekey]
 
 
-# caloutput = lh5open(input_filename)
-# t = calibrate_all(l200, filekey, caloutput)
-    
+caloutput = lh5open(input_filename)
+t = calibrate_all(l200, filekey, caloutput)
+using TypedTables
+Table(t)
+
+# ljl_propfunc(PropDict(
+#     "e_trap_cal" => cf_trap,
+#     "e_cusp_cal" => cf_cusp
+
+# )).(chdata)
 # mkpath(dirname(output_filename))
 # h5open(output -> writedata(output, "events", caloutput), output_filename, "w")
+
+# @showprogress pmap(filekeys) do filekey
+#     input_filename = l200.tier[:jldsp, filekey]
+#     output_filename = l200.tier[:jlevt, filekey]
+
+#     try
+#         caloutput = lh5open(input_filename) do datastore
+#             calibrate_all(l200, filekey, datastore)
+#         end
+#         append!(t, Table(caloutput))
+#     catch e
+#         @error "Error processing $filekey: $e"
+        
+#     end
+# end
 
 result = @showprogress pmap(filekeys) do filekey
     input_filename = l200.tier[:jldsp, filekey]
