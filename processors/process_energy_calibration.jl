@@ -46,7 +46,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = get_hitchfilename(l200, filekey, ch)
+        hitchfilename = l200.tier[:jlhitch, filekey, ch]
         # load data file
         if !isfile(hitchfilename)
             @error "Hit file $hitchfilename not found"
@@ -150,8 +150,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 end
                 GC.gc()
 
-                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm,top_margin=-5mm,bottom_margin=-2mm, title=string(k),ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8,titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9,xguidefontsize=11) 
-                plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2))
+                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
+                plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
                 savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
 
                 yield()
@@ -169,15 +169,10 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
-                μ_notfit =  [result_fit[p].μ for p in th228_names if (p in Symbol.(cal_fit_excluded_peaks))] ./ m_cal_simple
-                pp_notfit = [th228_lines_dict[p] for p in th228_names if (p in Symbol.(cal_fit_excluded_peaks))] .* u"keV"
-                μ_notfit_cal = ljl_propfunc(result_calib.func).(Table(e_cusp = μ_notfit))
-                res_norm_nofit = (LegendSpecFits.mvalue.(μ_notfit_cal) .- pp_notfit)./LegendSpecFits.muncert.(μ_notfit_cal)
-                PltArg = Dict( :ms => 3, :markershape => :circle, :markerstrokecolor => :black, :linewidth => 0.5, :markercolor => :silver)
-               
-                p = plot(report_calib, xerrscaling=1)
-                scatter!(p[1], μ_notfit, ustrip(pp_notfit), label="Data not used for fit"; PltArg...)
-                scatter!(p[2], μ_notfit, res_norm_nofit, label=:none ; PltArg...)
+                μ_notfit =  [result_fit[p].μ for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple
+                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
+        
+                p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
                 plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
                 savelfig(savefig, p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
 
@@ -187,17 +182,19 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 result_fwhm, report_fwhm = nothing, nothing
                 try
-                    fwhm_fit = f_cal.([result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple)
-                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]    
+                    fwhm_fit = f_cal.([result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))] ./ m_cal_simple)
+                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]    
                     result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit; pol_order=energy_config_ch.fwhm_pol_order, e_type_cal=Symbol("$(e_type)_cal"), e_expression=e_uncal_func, uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
                     @error "Error in $e_type FWHM fitting for channel $ch: $e"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
+                fwhm_notfit =  f_cal.([result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple)
+                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks)]
+        
 
-                p = plot(report_fwhm)
-                # scatter!([ustrip.(th228_lines_dict[p]) for p in th228_names if (p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))], f_cal.([result_fit[p].fwhm for p in th228_names if (p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple), color=:black, label="", subplot=1)
+                p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
                 plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
                 savelfig(savefig, p, l200, filekey, ch, Symbol("fwhm_$(e_type)"))
                 
