@@ -18,7 +18,7 @@ function process_energy_partition(processing_config::PropDict, l200::LegendData,
     @debug "Loaded energy config: $(energy_config)"
     
     @debug "Create pars db"
-    pars_db = ifelse(l200.par.ppars.ecal[part] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.ppars.ecal[part])
+    pars_db = ifelse(l200.par.ppars.ecal(filekey) isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.ppars.ecal(filekey))
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end

@@ -11,14 +11,14 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true)) |> filterby(@pf $aoe_status .== :valid)
+    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true)) |> filterby(@pf $low_aoe_status .== :valid)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     psd_config = dataprod_config(l200).psd(filekey).partition
     @debug "Loaded psd config: $(psd_config)"
     
     @debug "Create pars db"
-    pars_db = ifelse(l200.par.ppars.aoe[part] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.ppars.aoe[part])
+    pars_db = ifelse(l200.par.ppars.aoe(filekey) isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.ppars.aoe(filekey))
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
@@ -62,18 +62,20 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         psd_peak_names = Symbol.(psd_config_ch.psd_peaks_names)
         psd_peak_dict = Dict(psd_peak_names .=> psd_peaks)
 
-        e_type = Symbol(psd_config_ch.energy_type)
+        e_type_e       = Symbol(psd_config_ch.energy_type_e)
 
-        sigma_high_sided = psd_config_ch.sigma_high_sided
+        sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, psd_config_ch.sigma_high_sided, NaN)
 
         t = nothing
         try
             t = fast_flatten([lh5open(
                 ds -> begin
                     @debug "Reading from \"$(ds.data_store.filename)\""
-                    a = ds["$(ch)/dataQC/a"][:]
-                    e = ds["$(ch)/dataQC/$(e_type)"][:] .* l200.par.rpars.ecal[period, run][det][e_type].m_calib .+ l200.par.rpars.ecal[period, run][det][e_type].n_calib
-                    Table(aoe = correct_aoe!(ustrip.(a ./ e), e, l200.par.rpars.aoecal[period, run][det]), e = e)
+                    dsp_out = ds[ch].dataQC[:]
+
+                    Table(aoe = ljl_propfunc(l200.par.rpars.aoecal[period, run][det].func).(dsp_out), 
+                        e = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_e].cal.func).(dsp_out)
+                    )
                 end,
                 get_hitchfilename(l200, filekey.setup, period, run, filekey.category, ch)
             ) for (period, run) in partinfo])
@@ -82,17 +84,18 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
             throw(LoadError("AoE - E data", 154, "AoE and E data for $det from partition $(part) cannot be loaded"))
         end
 
-        e, aoe = t.e, t.aoe
+        e_cal, aoe = collect(t.e), collect(t.aoe)
 
-        p = histogram2d(e, aoe, nbins=(0:0.5:3000, -25:0.05:10), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
-        plot!(margin=1mm, thickness_scaling=1.6, dpi=600, xlims=(0, 3000), ylims=(-25, 10), size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10), fontfamily=:sansserif)
+        p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
+        plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
+        xticks!(0:250:3000)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "normalized A/E"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_normalized_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_normalized_$e_type_e"))
 
         result_cut = nothing
         try
             @debug "Generate PSD cut"
-            result_cut = get_psd_cut(aoe, e,; cut_search_interval=(-25.0, 0.0), window=[20.0u"keV", 20.0u"keV"], rtol=1e-5, bin_width_window=3.0u"keV", fixed_position=false, sigma_high_sided=sigma_high_sided)
+            result_cut = get_psd_cut(aoe, e_cal,; cut_search_interval=(-25.0, 0.0), window=[20.0u"keV", 20.0u"keV"], rtol=1e-5, bin_width_window=3.0u"keV", fixed_position=false, sigma_high_sided=sigma_high_sided)
         catch e
             @error "PSD cut for $det cannot be generated"
             throw(ErrorException("PSD cut for $det from partition $(part) cannot be generated"))
@@ -103,7 +106,7 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         result_peaks, report_peaks = nothing, nothing
         try
             @debug "Generate PSD Surrival Fractions"
-            result_peaks, report_peaks = get_peaks_surrival_fractions(aoe, e, psd_peaks, psd_peak_names, psd_config_ch.psd_peaks_windows_left, psd_config_ch.psd_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=false, sigma_high_sided=result_cut.highcut)
+            result_peaks, report_peaks = get_peaks_surrival_fractions(aoe, e_cal, psd_peaks, psd_peak_names, psd_config_ch.psd_peaks_windows_left, psd_config_ch.psd_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=false, sigma_high_sided=result_cut.highcut)
         catch e
             @error "PSD peaks SF for $det cannot be generated"
             throw(ErrorException("PSD peaks SF for $det from partition $(part) cannot be generated"))
@@ -111,7 +114,7 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
 
         qbb_result = nothing
         try
-            qbb_result = get_continuum_surrival_fraction(aoe, e, psd_config_ch.qbb, psd_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
+            qbb_result = get_continuum_surrival_fraction(aoe, e_cal, psd_config_ch.qbb, psd_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
         catch e
             @error "Qbb SF for $det cannot be generated"
             throw(ErrorException("Qbb SF for $det from partition $(part) cannot be generated"))
@@ -120,12 +123,12 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         @debug "Found SEP Surrival Fraction at $(round(u"percent", result_peaks[:Tl208SEP].sf, digits=2))"
         @debug "Found FEP Surrival Fraction at $(round(u"percent", result_peaks[:Tl208FEP].sf, digits=2))"
 
-        p = stephist(e, nbins=2039-35:0.5:2039+35, label="Before", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
-        stephist!(e[aoe .> result_cut.lowcut], nbins=2039-35:0.5:2039+35, label="After", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
+        p = stephist(e_cal, nbins=2039-35:0.5:2039+35, label="Before", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
+        stephist!(e_cal[aoe .> result_cut.lowcut], nbins=2039-35:0.5:2039+35, label="After", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
         plot!(margin=1mm, thickness_scaling=1.5, dpi=600, size=(1000, 700))
         title!("Qbb CC ($(qbb_result.window)) - SF: $(qbb_result.sf)", titlefontisze=8)
         plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_qbb_sf_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_qbb_sf_$e_type_e"))
 
 
         peak_sf_plot = plot.([rep.after for rep in values(report_peaks)], titleloc=:left, titlefont=font(8), ticks=:native, legend=:bottomright; show_label=true, show_fit=false)
@@ -151,40 +154,40 @@ function process_psd_partition(processing_config::PropDict, l200::LegendData, pa
         )
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1200, 900))
         plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type_e"))
 
-        p = stephist(e, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before PSD", ylabel="Counts / 0.2 keV")
-        stephist!(e[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After PSD")
+        p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before PSD", ylabel="Counts / 0.2 keV")
+        stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After PSD")
         xticks!(0:250:3000)
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600), fontfamily=:sansserif)
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_$e_type_e"))
 
 
-        p = stephist(e, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before PSD", ylabel="Counts / 0.5 keV")
-        stephist!(e[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After PSD")
-        stephist!(e, nbins=1550:0.5:1700, inset = (1, bbox(0.2, 0.72, 0.4, 0.2, :top)), subplot = 2)
-        stephist!(e[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=1550:0.5:1700, subplot = 2, legend=:none, ylabel="Counts / 0.5 keV", xlabel="")
+        p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before PSD", ylabel="Counts / 0.5 keV")
+        stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After PSD")
+        stephist!(e_cal, nbins=1550:0.5:1700, inset = (1, bbox(0.2, 0.72, 0.4, 0.2, :top)), subplot = 2)
+        stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=1550:0.5:1700, subplot = 2, legend=:none, ylabel="Counts / 0.5 keV", xlabel="")
         xticks!(0:250:3000, subplot = 1)
         xticks!(1500:20:1700, subplot = 2)
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"), subplot=1)
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600), fontfamily=:sansserif)
         plot!(ylabelfontsize=8, subplot=2)
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_zoom_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterPSD_zoom_$e_type_e"))
 
-        p = histogram2d(e, aoe, nbins=(0:0.5:3000, -25:0.02:10), xlims=(0, 3000), ylims=(-25, 10), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
+        p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -25:0.02:10), xlims=(0, 3000), ylims=(-25, 10), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600, size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10), fontfamily=:sansserif)
         hline!([result_cut.lowcut, result_cut.highcut], color=:red, label="Cut", lw=2.5)
         hspan!([-50, result_cut.lowcut, result_cut.highcut, 50], color=:red, alpha=0.2, label="", lw=0)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "A/E Classifier"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_withcuts_$e_type"))
+        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_withcuts_$e_type_e"))
 
         # save results
         result = (
             cut = result_cut,
             peaks = result_peaks,
             qbb = qbb_result,
-            e_type = e_type,
+            e_type = e_type_e,
             sigma_high_sided = sigma_high_sided,
         )
 
