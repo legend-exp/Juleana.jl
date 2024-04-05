@@ -82,7 +82,7 @@
             "timeout": 1200,
             "rank": 8
         },
-        "process_psd_calibration": {
+        "process_aoe_calibration": {
             "enabled": true,
             "n_workers": 90,
             "reprocess": false,
@@ -118,7 +118,7 @@
             "timeout": 600,
             "rank": 1
         },
-        "process_psd_partition": {
+        "process_aoe_partition": {
             "enabled": true,
             "n_workers": 60,
             "reprocess": true,
