@@ -22,7 +22,6 @@ legend_addprocs(ncores())
     using LegendDataTypes: fast_flatten, readdata
 end
 
-ENV["LEGEND_DATA_CONFIG"] = "/home/iwsatlas1/henkes/l200/config.json:/remote/ceph2/group/legendex/data/l200/julia/current/config.json"
 l200 = LegendData(:l200)
 
 part = DataPartition(1)
@@ -37,11 +36,12 @@ sel_geds_channels_int = Int.(sel_geds_channels)
 @everywhere function read_events(l200, filekey)
     filename = l200.tier[:jlevt, filekey]
     tbl = h5open(input -> readdata(input, "events"), filename)
-    # tbl = lh5open(l200.tier[:jlevt, filekey])["events"][:]
-    Table(merge((filekey = fill(filekey, length(tbl)),), columns(tbl)))
+    # Table(merge((filekey = fill(filekey, length(tbl)),), columns(tbl)))
+    tbl
 end
 
 r = read_events(l200, found_filekeys[begin])
+
 @everywhere begin
     r = $r
     l200 = $l200
