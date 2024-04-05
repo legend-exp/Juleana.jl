@@ -1,4 +1,4 @@
-function process_aoe_partition_cut_partCalibration(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=300)
+function p_process_aoe_calibration_cut(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=300)
     
     @info "AoE calibration for partition $part"
 

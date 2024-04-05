@@ -1,4 +1,4 @@
-function process_energy_partition(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=300)
+function p_process_energy(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=300)
     
     @info "Energy calibration for partition $part"
 

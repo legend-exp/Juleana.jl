@@ -111,19 +111,26 @@
             "n_workers": 100,
             "reprocess": false
         },
-        "process_energy_partition": {
+        "p_process_energy": {
             "enabled": false,
             "n_workers": 100,
             "reprocess": true,
             "timeout": 600,
             "rank": 1
         },
-        "process_aoe_partition_cut_runCalibration": {
+        "p_process_aoe_cut": {
             "enabled": true,
             "n_workers": 60,
             "reprocess": true,
             "timeout": 6000,
             "rank": 2
+        },
+        "p_process_aoe_calibration_cut": {
+            "enabled": true,
+            "n_workers": 60,
+            "reprocess": true,
+            "timeout": 6000,
+            "rank": 3
         }
     }
 }
