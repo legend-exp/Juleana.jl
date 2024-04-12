@@ -75,7 +75,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                     dsp_out = ds[ch].dataQC[:]
                     Table(merge((aoe = ustrip.(dsp_out.a ./ ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_aoe].cal.func).(dsp_out)), 
                         e = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_e].cal.func).(dsp_out),
-                        a = dsp_out.a), 
+                        a = dsp_out.a, drift_time = dsp_out.drift_time), 
                         (; e_type_aoe_cal => ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_aoe].cal.func).(dsp_out))
                     ))
                 end,
