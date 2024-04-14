@@ -1,7 +1,7 @@
 #!/usr/bin/env -S julia -t 1 --project=../ --heap-size-hint=10G
 
 # set julia traget to generic for similar compilecache in all workers
-ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)"
 
 ##################
 # Start Processing

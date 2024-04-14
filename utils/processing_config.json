@@ -6,7 +6,7 @@
         "env_variables": {
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
-            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)"
         }
     },
     "processing": {
