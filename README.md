@@ -7,8 +7,8 @@
 [![Codecov](https://codecov.io/gh/legend-exp/Juleana.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/legend-exp/Juleana.jl)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/src/assets/juleana-logo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/src/assets/juleana-logo.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/src/assets/logo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/src/assets/logo.svg">
   <img alt="juleana." width = 500>
 </picture>
 
