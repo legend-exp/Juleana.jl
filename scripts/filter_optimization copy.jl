@@ -217,6 +217,6 @@
     lreport!(report, create_logtbl(result_flt))
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :filter_optimization), report)
+    writelreport(get_reportfilename(l200, filekey, :filter_optimization), report)
     @info report
 

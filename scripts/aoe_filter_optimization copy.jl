@@ -182,7 +182,7 @@ lreport!(report, create_logtbl(result_sg))
 
 
 @info "Write log report"
-writelreport(get_logfilename(l200, filekey, :sg_filter_optimization), report)
+writelreport(get_reportfilename(l200, filekey, :sg_filter_optimization), report)
 @info report
 
 tbl = vcat([collect(values(res.log)) for (itr, res) in result_sg if res.log isa Dict]...)

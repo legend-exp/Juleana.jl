@@ -174,6 +174,6 @@ ENV["JULIA_DEBUG"] = Main
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :dsp), report)
+    writelreport(get_reportfilename(l200, filekey, :dsp), report)
     @info report
 end
