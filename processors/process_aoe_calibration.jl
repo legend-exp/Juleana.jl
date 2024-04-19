@@ -175,6 +175,6 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
     lreport!(report, create_logtbl(result_aoecal))
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :aoe_cal), report)
+    writelreport(get_reportfilename(l200, filekey, :aoe_cal), report)
     @info report
 end

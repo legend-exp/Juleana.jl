@@ -5,35 +5,19 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    partinfo = filter(v -> (period = period, run = run) in v, collect(values(partitioninfo(l200))))
-    next_run = if isempty(partinfo)
-                @info "Run $run is not in partitions, use previous run"
-                DataRun(run.no - 1)
-    elseif maximum(filter(x -> x.period == period, first(partinfo)).run) == run
-        @info "Run $run is last run in period, use previous run"
-        DataRun(run.no - 1)
-    else
-        DataRun(run.no + 1)
-    end
-    next_filekey = start_filekey(l200, (period, next_run, :cal))
-    @info "Found next filekey $next_filekey"
-
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true)) |> filterby(@pf $aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $aoe_status .== :valid)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
     @debug "Loaded DSP config: $(dsp_config)"
 
     pars_tau = get_values(l200.par.rpars.pz[period, run])
-    pars_tau_next = get_values(l200.par.rpars.pz[period, next_run])
     @debug "Loaded decay times"
 
     pars_fltoptimization = get_values(l200.par.rpars.fltopt[period, run])
-    pars_fltoptimization_next = get_values(l200.par.rpars.fltopt[period, next_run])
     @debug "Loaded energy optimization parameters"
 
     optimization_config = dataprod_config(l200).dsp(filekey).optimization
-    optimization_config_next = dataprod_config(l200).dsp(next_filekey).optimization
     @debug "Loaded optimization config: $(optimization_config)"
 
     @debug "Create pars db"
@@ -54,13 +38,9 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         l200 = $l200
         dsp_config = $dsp_config
         filekey = $filekey
-        next_filekey = $next_filekey
         pars_tau = $pars_tau
-        pars_tau_next = $pars_tau_next
         pars_fltoptimization = $pars_fltoptimization
-        pars_fltoptimization_next = $pars_fltoptimization_next
         optimization_config = $optimization_config
-        optimization_config_next = $optimization_config_next
         chinfo = $chinfo
         pars_db = $pars_db
         reprocess = $reprocess
@@ -83,17 +63,11 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         @info "Processing channel $ch ($det)"
 
         sg_config_ch = merge(optimization_config.default, ifelse(haskey(optimization_config, det), optimization_config[det], PropDict())).sg
-        sg_config_ch_next = merge(optimization_config_next.default, ifelse(haskey(optimization_config_next, det), optimization_config_next[det], PropDict())).sg
         
-        filename = get_peaksfilename(l200, filekey, ch)
-        filename_next = get_peaksfilename(l200, next_filekey, ch)
+        filename = l200.tier[:jlpeaks, filekey, ch]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip channel $ch"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
-        end
-        if !isfile(filename_next)
-            @warn "File $filename_next does not exist, Skip channel $ch"
-            throw(LoadError(string(basename(filename_next)), 154,"File $(basename(filename_next)) does not exist"))
         end
         
         wvfs_ch_sep, wvfs_ch_dep = nothing, nothing
@@ -101,10 +75,10 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             data = lh5open(filename, "r")
 
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_ch_dep_bi121fep = data[ch].Tl208DEP_Bi212FEP.waveform[:]
-            e_ch_dep_bi121fep    = data[ch].Tl208DEP_Bi212FEP.daqenergy[:]
+            wvfs_ch_dep_bi121fep = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform[:]
+            e_ch_dep_bi121fep    = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
             wvfs_ch_dep          = wvfs_ch_dep_bi121fep[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, sg_config_ch.dep_sep_quantile)]
-            wvfs_ch_sep          = data[ch].Tl208SEP.waveform[:]
+            wvfs_ch_sep          = data[ch].jlpeaks.Tl208SEP.waveform[:]
 
             close(data)
         catch e
@@ -123,11 +97,11 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             throw(ErrorException("Error in DSP for DEP or SEP: $e"))
         end
 
-        dep_sep_after_qc_prev = nothing
+        dep_sep_after_qc = nothing
         try
             # generate simple QC cuts
             @debug "Use simple QC cuts for SEP and DEP"
-            dep_sep_after_qc_prev = qc_sg_optimization(dsp_dep, dsp_sep, sg_config_ch)
+            dep_sep_after_qc = qc_sg_optimization(dsp_dep, dsp_sep, sg_config_ch)
         catch e
             @error "Failed QC for DEP or SEP: $e"
             throw(ErrorException("QC for DEP or SEP: $e"))
@@ -135,55 +109,6 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
         # free memory
         GC.gc()
-
-        ### Load data from next filekey
-
-        wvfs_ch_sep, wvfs_ch_dep = nothing, nothing
-        try 
-            data = lh5open(filename_next, "r")
-
-            @debug "Loading Tl208 SEP and DEP data from $(filename_next)"
-            wvfs_ch_dep_bi121fep = data[ch].Tl208DEP_Bi212FEP.waveform[:]
-            e_ch_dep_bi121fep    = data[ch].Tl208DEP_Bi212FEP.daqenergy[:]
-            wvfs_ch_dep          = wvfs_ch_dep_bi121fep[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, sg_config_ch_next.dep_sep_quantile)]
-            wvfs_ch_sep          = data[ch].Tl208SEP.waveform[:]
-
-            close(data)
-        catch e
-            @error "DEP and SEP data from $(basename(filename_next)) cannot be loaded: $e"
-            throw(LoadError(string(basename(filename_next)), 154,"DEP and SEP data from $(basename(filename_next)) cannot be loaded: $e"))
-        end
-        
-        try
-            # DSP
-            @debug "Generating DSP AoE grid for SEP and DEP data for next filekey"
-            dsp_dep = dsp_sg_optimization(wvfs_ch_dep, dsp_config, pars_tau_next[det].tau, pars_fltoptimization_next[det])
-            dsp_sep = dsp_sg_optimization(wvfs_ch_sep, dsp_config, pars_tau_next[det].tau, pars_fltoptimization_next[det])
-        catch e
-            @error "Failed DSP for DEP or SEP for next filekey: $e"
-            throw(ErrorException("Error in DSP for DEP or SEP for next filekey: $e"))
-        end
-
-        # free memory
-        GC.gc()
-
-        dep_sep_after_qc = nothing
-        try
-            # generate simple QC cuts
-            @debug "Use simple QC cuts for SEP and DEP for next filekey"
-            dep_sep_after_qc_next = qc_sg_optimization(dsp_dep, dsp_sep, sg_config_ch_next)
-            dep_sep_after_qc = (dep=(aoe=hcat(dep_sep_after_qc_prev.dep.aoe, dep_sep_after_qc_next.dep.aoe), 
-                        e=append!(dep_sep_after_qc_prev.dep.e, dep_sep_after_qc_next.dep.e)), 
-                    sep=(aoe=hcat(dep_sep_after_qc_prev.sep.aoe, dep_sep_after_qc_next.sep.aoe), 
-                        e=append!(dep_sep_after_qc_prev.sep.e, dep_sep_after_qc_next.sep.e)))
-        catch e
-            @error "Failed QC for DEP or SEP for next filekey: $e"
-            throw(ErrorException("QC for DEP or SEP for next filekey: $e"))
-        end
-        
-        # free memory
-        GC.gc()
-
 
         result_sg_wl, report_sg_wl = nothing, nothing
         try
@@ -242,7 +167,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :sg_filter_optimization), report)
+    writelreport(get_reportfilename(l200, filekey, :sg_filter_optimization), report)
     @info report
 end
 

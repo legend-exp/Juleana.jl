@@ -11,7 +11,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, data_
 
 
     input_datadir = l200.tier[:raw, :cal, data_period, data_run]
-    output_datadir = l200.tier[:peaks, :cal, data_period, data_run]
+    output_datadir = l200.tier[:jlpeaks, :cal, data_period, data_run]
 
 
 
@@ -64,7 +64,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, data_
     end
     isempty(filekeys) && error("No files found in \"$input_datadir\"")
 
-    chinfo = Table(channelinfo(l200, first(filekeys); system=:geds, only_processable=true))
+    chinfo = channelinfo(l200, first(filekeys); system=:geds, only_processable=true)
     channels = chinfo.channel
     @info "Expecting $(length(channels)) channels each file in \"$input_datadir\"."
     sel = LegendDataManagement.ValiditySelection(first(filekeys).time, :cal)
@@ -132,50 +132,52 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, data_
         @info "Processing channel $ch"
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
-        filekey_parts = split(basename(first(filelist)), "-")
-        output_basename = join([filekey_parts[1:4]..., "$ch", filekey_parts[6]], "-")
-        output_filename = replace(joinpath(output_datadir, output_basename), "tier_raw" => "tier_peaks")
+        output_filename = l200.tier[:jlpeaks, first(filekeys), ch]
 
         if isfile(output_filename) && !reprocess
             @info "Output file \"$output_filename\" already exists, skipping"
         else
             @info "Generating output file \"$output_filename\""
-            # get detector name for channel
-            det = channelinfo(l200, first(filekeys), ch).detector
-            # get config for channel
-            energy_config = merge(e_config.default, ifelse(haskey(e_config, det), e_config[det], PropDict()))
-            quantile_perc = if !(energy_config.quantile_perc isa Number)
-                parse(Float64, energy_config.quantile_perc)
-            else
-                energy_config.quantile_perc
-            end
-            # get raw daqenergy
-            E_raw = get_daqenergy_for_ch(filelist, ch)
-            f_calib, diagnostics = autocal_energy(E_raw,; quantile_perc=quantile_perc)
+            # # get detector name for channel
+            # det = channelinfo(l200, first(filekeys), ch).detector
+            # # get config for channel
+            # energy_config = merge(e_config.default, ifelse(haskey(e_config, det), e_config[det], PropDict()))
+            # quantile_perc = if !(energy_config.quantile_perc isa Number)
+            #     parse(Float64, energy_config.quantile_perc)
+            # else
+            #     energy_config.quantile_perc
+            # end
+            # # get raw daqenergy
+            # E_raw = get_daqenergy_for_ch(filelist, ch)
+            # f_calib, diagnostics = autocal_energy(E_raw,; quantile_perc=quantile_perc)
 
-            p = plot(diagnostics.cal_hist, st=:stepbins)
-            plot!(p, xlabel="Energy (keV)", ylabel="Counts", legend=:none, yscale=:log10)
-            title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
-            savelfig(savefig, p, l200, first(filekeys), ch, Symbol("daq_energy"))
+            # p = plot(diagnostics.cal_hist, st=:stepbins)
+            # plot!(p, xlabel="Energy (keV)", ylabel="Counts", legend=:none, yscale=:log10)
+            # title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+            # savelfig(savefig, p, l200, first(filekeys), ch, Symbol("daq_energy"))
 
-            slim_data = flatten_by_key([LHDataStore(filename) do ds
-                @info "Filtering $(filename), channel $ch"
-                filter_raw_data_by_energy(ds[ch].raw, f_calib, energy_windows)
-            end for filename in filelist])
+            # slim_data = flatten_by_key([LHDataStore(filename) do ds
+            #     @info "Filtering $(filename), channel $ch"
+            #     filter_raw_data_by_energy(ds[ch].raw, f_calib, energy_windows)
+            # end for filename in filelist])
 
 
-            # stephist(f_calib.(slim_data[:Tl208a].daqenergy), nbins = 100)
-            # stephist(f_calib.(slim_data[:Tl208aDEP_Bi212b].daqenergy), nbins = 100)
+            # # stephist(f_calib.(slim_data[:Tl208a].daqenergy), nbins = 100)
+            # # stephist(f_calib.(slim_data[:Tl208aDEP_Bi212b].daqenergy), nbins = 100)
 
-            # Don't use LHDataStore for writing here, results in huge files HDF5 block size set too large?),
+            # # Don't use LHDataStore for writing here, results in huge files HDF5 block size set too large?),
             # so use  LegendDataTypes.writedata instead until fixed.
-
+            
             @info "Writing $output_filename"
+            
+            # h5open(output_filename, "w") do output
+            #     for label in sort(collect(keys(slim_data)))
+            #         LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
+            #     end
+            # end
 
-            h5open(output_filename, "w") do output
-                for label in sort(collect(keys(slim_data)))
-                    LegendDataTypes.writedata(output, "$ch/$label", slim_data[label])
-                end
+            lh5open(output_filename, "w") do output
+                output["$ch/jlpeaks"] = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch]
             end
         end
 

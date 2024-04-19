@@ -177,6 +177,6 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     lreport!(report, create_logtbl(result_ctc))
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :ctc), report)
+    writelreport(get_reportfilename(l200, filekey, :ctc), report)
     @info report
 end

@@ -215,7 +215,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, part::
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey.setup, part, filekey.category, :aoe), report)
+    writelreport(get_reportfilename(l200, filekey.setup, part, filekey.category, :aoe), report)
     @info report
 end
 

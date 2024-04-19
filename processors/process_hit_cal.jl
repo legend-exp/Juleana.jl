@@ -167,6 +167,6 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :qc), report)
+    writelreport(get_reportfilename(l200, filekey, :qc), report)
     @info report
 end

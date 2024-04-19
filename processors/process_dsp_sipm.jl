@@ -156,6 +156,6 @@ function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period:
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :dsp_sipms), report)
+    writelreport(get_reportfilename(l200, filekey, :dsp_sipms), report)
     @info report
 end

@@ -5,7 +5,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
@@ -61,7 +61,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         rel_cut_fit  = pz_config_ch.rel_cut_fit
 
 
-        filename = get_peaksfilename(l200, filekey, ch)
+        filename = l200.tier[:jlpeaks, filekey, ch]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip channel $ch"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
@@ -72,7 +72,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         try
             data = lh5open(filename, "r")
             @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_ch_fep = data[ch].Tl208FEP.waveform[:]
+            wvfs_ch_fep = data[ch].jlpeaks.Tl208FEP.waveform[:]
             close(data)
             if length(wvfs_ch_fep) > max_wvfs
                 @warn "Tl208 FEP events exceed $max_wvfs, keep only first $max_wvfs events"
@@ -141,6 +141,6 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     lreport!(report, create_logtbl(result_pz))
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey, :decay_time), report)
+    writelreport(get_reportfilename(l200, filekey, :decay_time), report)
     @info report
 end

@@ -265,7 +265,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_logfilename(l200, filekey.setup, part, filekey.category, :energy), report)
+    writelreport(get_reportfilename(l200, filekey.setup, part, filekey.category, :energy), report)
     @info report
 end
 
