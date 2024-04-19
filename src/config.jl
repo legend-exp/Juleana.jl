@@ -1,9 +1,19 @@
+function getboolkwarg(processing_config::PropDict, parsed_args::Dict, key::String)
+    if parsed_args["ignore_config"]
+        parsed_args[key]
+    elseif parsed_args[key]
+        true
+    else
+        get(processing_config.processing, Symbol(key), true)
+    end
+end
+
 # process parsed arguments for the main function
 function get_argparse()
     settings = ArgParseSettings(prog="LEGEND Julia main data processing",
-                            description="LEGEND Julia main data processing for data processing on single server machines with access to LEGEND data. Please check the config for all settings related to the data processing.",
+                            description="LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
                             commands_are_required = true,
-                            version = "0.2",
+                            version = "1.0",
                             add_version = true)
     @add_arg_table settings begin
         "--config", "-c"
@@ -13,12 +23,22 @@ function get_argparse()
         "--reprocess"
             help = "reprocess all channels while deleting old data"
             action = :store_true
-        "--only_runs"
+        "--only_runs", "--or"
             help = "process only period and runs ignoring partitions"
             action = :store_true
-        "--only_partitions"
+        "--only_partitions", "--op"
             help = "process only partitions ignoring periods and runs"
             action = :store_true
+        "--submit_slurm"
+            help = "submit slurm jobs to the cluster for each run and period independently"
+            action = :store_true
+        "--ignore_config"
+            help = "ignore all settings and config and only take command line arguments"
+            action = :store_true
+        "--log_path", "-o"
+            help = "path to store log files in"
+            arg_type = String
+            default = ""
         "--analysis_runs_only"
             help = "process only channels that are marked as analysis runs"
             action = :store_true
@@ -32,7 +52,7 @@ function get_argparse()
             nargs = '+'
             arg_type = Int
             action = :append_arg
-        "--partitions"
+        "--partitions", "--part"
             help = "Analysis partitions to process"
             nargs = '+'
             arg_type = Int
@@ -50,34 +70,52 @@ function get_processingconfig()
     processing_config.parsed_args = parsed_args
     # get environoment variables
     env_args_worker = Pair{String, String}[]
-    worker_instantiate, worker_precompile = false, false
     for key in keys(processing_config.config.env_variables)
         ENV[String(key)] = processing_config.config.env_variables[key]
         push!(env_args_worker, Pair{String, String}(String(key), processing_config.config.env_variables[key]))
     end
-    processing_config.env_args_worker = env_args_worker
-    # check for precompile on the workers
-    @everywhere begin
-        worker_instantiate, worker_precompile = $processing_config.config.worker_instantiate, $processing_config.config.worker_precompile
-        if worker_instantiate
-            Pkg.instantiate()
-        end
-        if worker_precompile
-            Pkg.precompile()
-        end
-    end
     # set debug flag
     if processing_config.config.debug
+        ENV["LEGEND_DEBUG"] = true
         ENV["JULIA_DEBUG"] = Main # enable debug
+        push!(env_args_worker, Pair{String, String}("LEGEND_DEBUG", "true"))
+    else 
+        ENV["LEGEND_DEBUG"] = false
+        push!(env_args_worker, Pair{String, String}("LEGEND_DEBUG", "false"))
+    end
+    processing_config.env_args_worker = env_args_worker
+
+    # get remote workers
+    processing_config.processing.remote_workers = [Tuple(p) for p in processing_config.processing.remote_workers]
+
+    # load metadata
+    @info "Loading Legend MetaData"
+    l200 = LegendData(:l200)
+
+    # get log path
+    if isempty(parsed_args["log_path"])
+        processing_config.processing.log_path = mkpath(joinpath(l200.tier[:jllog], string(Dates.now())))
+    else
+        processing_config.processing.log_path = mkpath(parsed_args["log_path"])
+    end
+    @info "Log path: $(processing_config.processing.log_path)"
+    if !parsed_args["submit_slurm"]
+        processing_config.processing.worker_log_path = mkpath(joinpath(processing_config.processing.log_path, "workers"))
+        @info "Worker log path: $(processing_config.processing.worker_log_path)"
     end
 
-    # check flags if only partitions or only runs should be processed
-    processing_config.only_partitions = parsed_args["only_partitions"]
-    processing_config.only_runs       = parsed_args["only_runs"]
-
-    # check flag if only analysis runs should be processed
-    processing_config.analysis_runs_only = ifelse(parsed_args["analysis_runs_only"], true, processing_config.processing.analysis_runs_only)
+    # check flags if only partitions or only runs should be processed, if slurm jobs should be submitted or only analysis runs should be processed
+    processing_config.analysis_runs_only = getboolkwarg(processing_config, parsed_args, "analysis_runs_only")
+    processing_config.only_partitions    = getboolkwarg(processing_config, parsed_args, "only_partitions")
+    processing_config.only_runs          = getboolkwarg(processing_config, parsed_args, "only_runs")
+    processing_config.submit_slurm       = getboolkwarg(processing_config, parsed_args, "submit_slurm")
+    if processing_config.only_runs @info "Process only runs" end
+    if processing_config.only_partitions @info "Process only partitions" end
+    if processing_config.submit_slurm @info "Submit slurm jobs" end
     if processing_config.analysis_runs_only @info "Process only analysis runs" end
+
+    @assert !(processing_config.only_partitions && processing_config.only_runs) "Only one of only_partitions or only_runs can be set"
+
     
     # get processing steps from config and sort by rank
     process_steps = Symbol.(keys(processing_config.processors))
@@ -120,7 +158,7 @@ function get_processingconfig()
         partitions = get_partitions(parsed_args, processing_config)
     end
 
-    return processing_config, runs, periods, partitions
+    return l200, processing_config, runs, periods, partitions
 end
 
 function get_runsandperiods(parsed_args::Dict, processing_config::PropDict)

@@ -1,7 +1,6 @@
 # creates workers for the parallel processing and sets up the environment
 function create_workers(workers, n_threads::Int; env_args::Vector{Pair{String, String}}=Pair{String, String}[])
     # config for MPP servers
-    # push!(env_args, "JULIA_DEPOT_PATH" => "/depot")
     addprocs(workers, exeflags=`--threads=$(n_threads) --project=$(dirname(Pkg.project().path)) --heap-size-hint=10G`, topology=:master_worker, env=env_args) #, enable_threaded_blas=true)
     
     # Sanity check:
@@ -34,7 +33,8 @@ end
 
 function get_workerPool(processing_config::PropDict, process::Symbol)
     n_workers = get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers)
-    if n_workers >= nworkers()
+    @assert typeof(n_workers) <: Int || n_workers == "all" "Number of workers must be an integer or 'all'."
+    if n_workers == "all" || n_workers >= nworkers()
         wp = default_worker_pool()
         @info "Use default worker pool with $(length(wp)) workers."
         return wp
