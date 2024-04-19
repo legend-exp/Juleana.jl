@@ -1,12 +1,17 @@
 {    
     "config": {
         "debug": true,
-        "worker_instantiate": false,
-        "worker_precompile": false,
         "env_variables": {
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
-            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
+            "SLURM_NTASKS": "48",
+            "SLURM_CPUS_PER_TASK": "4",
+            "SLURM_MEM_PER_CPU": "8GB",
+            "SLURM_TASK_TIMEOUT": "06:00:00",
+            "JULIA_NUM_TASKS": "128",
+            "JULIA_NUM_THREADS": "4",
+            "JULIA_HEAP_SIZE_HINT": "8G"
         }
     },
     "processing": {
@@ -14,92 +19,93 @@
         "runs" : "all", 
         "partitions": [1],
         "analysis_runs_only": true,
-        "local_workers": 128,
-        "remote_workers": [],
-        "n_threads": 4
+        "only_partitions": false,
+        "only_runs": false,
+        "submit_slurm": true,
+        "remote_workers": []
     },
     "processors":
     {
         "default": {
-            "n_workers": 50,
-            "reprocess": false
+            "n_workers": "all",
+            "reprocess": true
         },
         "process_peak_split": {
-            "enabled": false,
-            "n_workers": 100,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": false,
-            "n_workers": 100,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
             "timeout": 300,
             "max_wvfs": 15000,
             "rank": 2
         },
         "process_filter_optimization": {
-            "enabled": false,
-            "n_workers": 100,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
             "timeout": 3600,
             "max_wvfs": 12000,
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": false,
-            "n_workers": 70,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
             "timeout": 1200,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": false,
-            "n_workers": 100,
-            "reprocess": false,
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
             "timeout": 100000,
             "max_wvfs": 1000,
             "rank": 5
         },
         "process_hit_cal": {
-            "enabled": false,
-            "n_workers": 100,
+            "enabled": true,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 1000,
             "rank": 6
         },
         "process_ct_correction": {
-            "enabled": false,
-            "n_workers": 100,
+            "enabled": true,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 1500,
             "rank": 7
         },
         "process_energy_calibration": {
-            "enabled": false,
-            "n_workers": 100,
+            "enabled": true,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 1200,
             "rank": 8
         },
         "process_aoe_calibration": {
             "enabled": true,
-            "n_workers": 90,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 1200,
             "rank": 9
         },
         "process_dsp_phy": {
-            "enabled": false,
-            "n_workers": 200,
+            "enabled": true,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 100000,
             "max_wvfs": 1000,
             "rank": 10
         },
         "process_dsp_sipm": {
-            "enabled": false,
-            "n_workers": 100,
+            "enabled": true,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 6000,
             "rank": 11
@@ -108,26 +114,26 @@
     "p_processors":
     {
         "default": {
-            "n_workers": 100,
-            "reprocess": false
+            "n_workers": "all",
+            "reprocess": true
         },
         "p_process_energy": {
-            "enabled": false,
-            "n_workers": 100,
+            "enabled": true,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 600,
             "rank": 1
         },
         "p_process_aoe_cut": {
             "enabled": true,
-            "n_workers": 60,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 6000,
             "rank": 2
         },
         "p_process_aoe_calibration_cut": {
             "enabled": true,
-            "n_workers": 60,
+            "n_workers": "all",
             "reprocess": true,
             "timeout": 6000,
             "rank": 3

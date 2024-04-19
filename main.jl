@@ -52,25 +52,16 @@ Pkg.precompile()
 include(joinpath(@__DIR__,"src/LegendJuliaDataflow.jl"))
 
 # evaluate config
-processing_config, runs, periods, partitions = get_processingconfig()
-
-# kill all workers at exist
-atexit(kill_sessions)
-
-# load metadata
-@info "Loading Legend MetaData"
-l200 = LegendData(:l200)
-
-# exit()
-
+l200, processing_config, runs, periods, partitions = get_processingconfig()
 @info "Start Data processing"
 
 # load all available processors
 include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
 # create workers
-create_workers(processing_config)
-
+if !processing_config.submit_slurm
+    legend_addprocs(; job_file_loc=processing_config.processing.worker_log_path, env_args=processing_config.env_args_worker)
+end
 
 ####################
 # Process Runs
@@ -96,6 +87,12 @@ if !processing_config.only_partitions
                 continue
             end
 
+            # submit slurm job if enabled
+            if processing_config.submit_slurm
+                sbatch(processing_config, period, run)
+                continue
+            end
+
             # iterate through process steps
             @info "Process run $run"
             for process in process_steps
@@ -107,9 +104,6 @@ if !processing_config.only_partitions
             end
         end
     end
-
-    @info "Remove all workers"
-    rmprocs(workers()...)
 end
 
 ####################
@@ -138,6 +132,4 @@ if !processing_config.only_runs
     end
 end
 
-@info "##################"
-@info "# Processing Done #"
-@info "##################"
+@info "# Processing Done"
