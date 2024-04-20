@@ -5,10 +5,10 @@
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
             "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
-            "SLURM_NTASKS": "48",
-            "SLURM_CPUS_PER_TASK": "4",
+            "SLURM_NTASKS": "32",
+            "SLURM_CPUS_PER_TASK": "2",
             "SLURM_MEM_PER_CPU": "8GB",
-            "SLURM_TASK_TIMEOUT": "06:00:00",
+            "SLURM_TASK_TIMEOUT": "08:00:00",
             "JULIA_NUM_TASKS": "128",
             "JULIA_NUM_THREADS": "4",
             "JULIA_HEAP_SIZE_HINT": "8G"
@@ -33,7 +33,7 @@
         "process_peak_split": {
             "enabled": true,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "rank": 1
         },
         "process_decay_time": {
