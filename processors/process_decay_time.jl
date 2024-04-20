@@ -15,8 +15,8 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     @debug "Loaded PZ config: $(pz_config)"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.pz), string(period)))
-    pars_db = ifelse(l200.par.rpars.pz[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.pz[period, run])
+    mkpath(data_path(l200.par.rpars.pz[period]))
+    pars_db = PropDict(l200.par.rpars.pz[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
@@ -106,7 +106,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         end
         yield()
         
-        p = plot(report, decay_times, cuts_τ, xlabel="Decay Time [µs]", legend=:topright)
+        p = plot(report, decay_times, cuts_τ, xlabel="Decay Time [µs]", thickness_scaling=1.8, size=(1200, 900))
         title!(p, get_plottitle(filekey, det, "Decay Time Distribution"))
 
         savelfig(savefig, p, l200, filekey, ch, :decay_time)

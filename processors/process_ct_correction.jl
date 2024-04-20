@@ -12,8 +12,8 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     @debug "Loaded energy config: $(energy_config)"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.ctc), string(period)))
-    pars_db = ifelse(l200.par.rpars.ctc[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.ctc[period, run])
+    mkpath(data_path(l200.par.rpars.ctc[period]))
+    pars_db = PropDict(l200.par.rpars.ctc[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end

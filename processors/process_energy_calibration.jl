@@ -15,8 +15,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @debug "Loaded CTC parameters"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.ecal), string(period)))
-    pars_db = ifelse(l200.par.rpars.ecal[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.ecal[period, run])
+    mkpath(data_path(l200.par.rpars.ecal[period]))
+    pars_db = PropDict(l200.par.rpars.ecal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end

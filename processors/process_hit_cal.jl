@@ -16,8 +16,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     mkpath(l200.tier[:jlhitch, :cal, period, run])
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.qc), string(period)))
-    pars_db = ifelse(l200.par.rpars.qc[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.qc[period, run])
+    mkpath(data_path(l200.par.rpars.qc[period]))
+    pars_db = PropDict(l200.par.rpars.qc[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end

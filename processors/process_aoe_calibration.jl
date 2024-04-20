@@ -15,8 +15,8 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
     @debug "Loaded energy parameters"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.aoecal), string(period)))
-    pars_db = ifelse(l200.par.rpars.aoecal[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.aoecal[period, run])
+    mkpath(data_path(l200.par.rpars.aoecal[period]))
+    pars_db = PropDict(l200.par.rpars.aoecal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end

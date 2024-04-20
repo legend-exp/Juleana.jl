@@ -5,7 +5,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
@@ -21,8 +21,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @debug "Loaded optimization config: $(optimization_config)"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.aoeopt), string(period)))
-    pars_db = ifelse(l200.par.rpars.aoeopt[period, run] isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.rpars.aoeopt[period, run])
+    mkpath(data_path(l200.par.rpars.aoeopt[period]))
+    pars_db = PropDict(l200.par.rpars.aoeopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
