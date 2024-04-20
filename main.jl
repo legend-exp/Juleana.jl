@@ -45,7 +45,6 @@ import Pkg
 @info "Load LEGEND packages"
 
 # precompile all packages
-Pkg.instantiate()
 Pkg.precompile()
 
 # load packages
