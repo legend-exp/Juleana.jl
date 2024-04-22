@@ -26,20 +26,10 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        filekey = $filekey
-        part = $part
-        partinfo = $partinfo
-        chinfo = $chinfo
-        pars_db = $pars_db
-        reprocess = $reprocess
-        aoe_config = $aoe_config
-        log_nt = $log_nt
-    end
+    # flush stdout
+    flush(stdout)
     
-    @everywhere function ch_aoe_cut(chinfo_ch::NamedTuple)
+    function ch_aoe_cut(chinfo_ch::NamedTuple)
         
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
@@ -273,5 +263,8 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey.setup, part, filekey.category, :aoe), report)
     @info report
+
+    # flush stdout
+    flush(stdout)
 end
 

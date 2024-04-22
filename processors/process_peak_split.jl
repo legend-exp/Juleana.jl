@@ -249,6 +249,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :peak_splitting), report)
     @info report
-    flush(stdout)
 
+    # flush stdout
+    flush(stdout)
 end # function

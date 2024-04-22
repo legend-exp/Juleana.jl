@@ -33,23 +33,10 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
     
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        dsp_config = $dsp_config
-        filekey = $filekey
-        pars_tau = $pars_tau
-        pars_fltoptimization = $pars_fltoptimization
-        optimization_config = $optimization_config
-        chinfo = $chinfo
-        pars_db = $pars_db
-        reprocess = $reprocess
-        log_nt = $log_nt
-        max_wvfs = $max_wvfs
-    end
+    # flush stdout
+    flush(stdout)
 
-
-    @everywhere function ch_sg_optimization(chinfo_ch::NamedTuple)
+    function ch_sg_optimization(chinfo_ch::NamedTuple)
         
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
@@ -169,5 +156,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :sg_filter_optimization), report)
     @info report
+
+    # flush stdout
+    flush(stdout)
 end
 

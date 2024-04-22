@@ -28,19 +28,10 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        filekey = $filekey
-        filekeys = $filekeys
-        chinfo = $chinfo
-        reprocess = $reprocess
-        pars_db = $pars_db
-        log_nt = $log_nt
-        qc_config = $qc_config
-    end
+    # flush stdout
+    flush(stdout)
 
-    @everywhere function ch_hit_cal(chinfo_ch::NamedTuple)
+    function ch_hit_cal(chinfo_ch::NamedTuple)
 
         ch = chinfo_ch.channel
         det = chinfo_ch.detector
@@ -169,4 +160,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :qc), report)
     @info report
+
+    # flush stdout
+    flush(stdout)
 end

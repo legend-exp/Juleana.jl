@@ -30,22 +30,10 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        dsp_config = $dsp_config
-        filekey = $filekey
-        chinfo = $chinfo
-        pars_db = $pars_db
-        reprocess = $reprocess
-        pars_tau = $pars_tau
-        optimization_config = $optimization_config
-        log_nt = $log_nt
-        max_wvfs = $max_wvfs
-    end
+    # flush stdout
+    flush(stdout)
 
-
-    @everywhere function ch_filter_optimization(chinfo_ch::NamedTuple)
+    function ch_filter_optimization(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
@@ -225,5 +213,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :filter_optimization), report)
     @info report
+    
+    # flush stdout
+    flush(stdout)
 end
 

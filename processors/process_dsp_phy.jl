@@ -43,23 +43,10 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        filekeys = $filekeys
-        filekey = $filekey
-        dsp_config = $dsp_config
-        dsp_meta = $dsp_meta
-        pars_tau = $pars_tau
-        pars_fltoptimization = $pars_fltoptimization
-        chinfo = $chinfo
-        reprocess = $reprocess
-        max_wvfs = $max_wvfs
-        log_nt = $log_nt
-        f_evaluate_qc = $f_evaluate_qc
-    end
+    # flush stdout
+    flush(stdout)
 
-    @everywhere function filekey_dsp(fk::FileKey)
+    function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
         @timeit dsp_timer "Startup" begin
             filename    = l200.tier[:raw, fk]
@@ -215,4 +202,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :dsp), report)
     @info report
+
+    # flush stdout
+    flush(stdout)
 end

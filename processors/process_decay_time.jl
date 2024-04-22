@@ -135,5 +135,7 @@ function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,;
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :decay_time), report)
     @info report
+    
+    # flush stdout
     flush(stdout)
 end

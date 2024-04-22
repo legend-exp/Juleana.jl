@@ -34,19 +34,10 @@ function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period:
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        filekeys = $filekeys
-        filekey = $filekey
-        dsp_meta = $dsp_meta
-        pars_sipm = $pars_sipm
-        chinfo = $chinfo
-        reprocess = $reprocess
-        log_nt = $log_nt
-    end
+    # flush stdout
+    flush(stdout)
 
-    @everywhere function filekey_dsp(fk::FileKey)
+    function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
         @timeit dsp_timer "Startup" begin
             filename    = l200.tier[:raw, fk]
@@ -158,4 +149,7 @@ function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period:
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :dsp_sipms), report)
     @info report
+
+    # flush stdout
+    flush(stdout)
 end
