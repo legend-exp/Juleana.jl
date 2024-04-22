@@ -1,5 +1,6 @@
-function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300, max_wvfs::Int=15000)
-
+# function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
+function process_decay_time(l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
+        
     @info "Process decay time for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
@@ -26,21 +27,12 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
-    
-    # move all variables to workers
-    @everywhere begin
-        l200 = $l200
-        dsp_config = $dsp_config
-        pz_config = $pz_config
-        filekey = $filekey
-        pars_db = $pars_db
-        reprocess = $reprocess
-        max_wvfs = $max_wvfs
-        log_nt = $log_nt
-    end
 
+    # flush stdout
+    flush(stdout)
 
-    @everywhere function ch_decay_time(chinfo_ch::NamedTuple)
+    # function to process decay time
+    function ch_decay_time(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
@@ -143,4 +135,5 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     @info "Write log report"
     writelreport(get_reportfilename(l200, filekey, :decay_time), report)
     @info report
+    flush(stdout)
 end
