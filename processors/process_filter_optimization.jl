@@ -1,4 +1,4 @@
-function process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=300, max_wvfs::Int=15000)
+function process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
     
     @info "Optimize filter for period $period and run $run"
 

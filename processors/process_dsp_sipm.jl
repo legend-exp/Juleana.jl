@@ -1,4 +1,4 @@
-function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600)
+function process_dsp_sipm(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false)
     
     @info "Process SiPM DSP for period $period and run $run"
 

@@ -1,4 +1,4 @@
-function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=3600, max_wvfs::Int=10000)
+function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false, max_wvfs::Int=10000)
     
     @info "Process DSP for period $period and run $run"
 
