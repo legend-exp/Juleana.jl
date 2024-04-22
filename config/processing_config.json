@@ -21,7 +21,7 @@
         "analysis_runs_only": true,
         "only_partitions": false,
         "only_runs": false,
-        "submit_slurm": true,
+        "submit_slurm": false,
         "remote_workers": []
     },
     "processors":
@@ -33,14 +33,14 @@
         "process_peak_split": {
             "enabled": true,
             "n_workers": "all",
-            "reprocess": false,
+            "reprocess": true,
             "rank": 1
         },
         "process_decay_time": {
             "enabled": true,
             "n_workers": "all",
             "reprocess": true,
-            "timeout": 300,
+            "timeout": 600,
             "max_wvfs": 15000,
             "rank": 2
         },
@@ -63,7 +63,7 @@
             "enabled": true,
             "n_workers": "all",
             "reprocess": true,
-            "timeout": 100000,
+            "timeout": 10000,
             "max_wvfs": 1000,
             "rank": 5
         },

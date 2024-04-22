@@ -32,6 +32,8 @@ if !processing_config.submit_slurm
     legend_addprocs(; job_file_loc=processing_config.processing.worker_log_path, env_args=processing_config.env_args_worker)
 end
 
+flush(stdout)
+
 ####################
 # Process Runs
 ####################
@@ -48,7 +50,7 @@ if !processing_config.only_partitions
         processable_runs = get_proccessable_runs(runs, period)
 
         # process runs
-        for run in processable_runs
+        @sync for run in processable_runs
 
             # check if run is a analysis run if switched on
             if processing_config.analysis_runs_only && !is_analysis_run(l200, period, run)
@@ -58,7 +60,7 @@ if !processing_config.only_partitions
 
             # submit slurm job if enabled
             if processing_config.submit_slurm
-                sbatch(processing_config, period, run)
+                sbatch(l200, processing_config, period, run)
                 continue
             end
 
@@ -66,10 +68,12 @@ if !processing_config.only_partitions
             @info "Process run $run"
             for process in process_steps
                 @info "$process"
+                flush(stdout)
 
                 # run process
                 kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process]) if !(k in [:enabled, :rank, :n_workers])])
                 getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
+                flush(stdout)
             end
         end
     end
@@ -89,8 +93,15 @@ if !processing_config.only_runs
     # process partitions 
     for part in partitions
 
-        # iterate through process steps
         @info "Process partition $part"
+
+        # submit slurm job if enabled
+        if processing_config.submit_slurm
+            sbatch(l200, processing_config, part)
+            continue
+        end
+
+        # iterate through process steps
         for process in process_steps
             @info "$process"
 

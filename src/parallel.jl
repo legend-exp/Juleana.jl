@@ -84,19 +84,23 @@ function retry_check(delay_state, err)
 end
 
 
-function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Int=3600, retry::Bool=false)
+function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false)
     # prevent crash from Base
     Base.exit_on_sigint(false)
 
     is_logging(io) = isa(io, Base.TTY) == false || (get(ENV, "CI", nothing) == "true")
     p = Progress(length(iterator); output = stderr, enabled = !is_logging(stderr))
     
+    flush(stdout)
     # run parallel
-    result =  progress_pmap(wpool, iterator; progress=p, batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
+    result =  pmap(wpool, iterator; batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
+    # result =  progress_pmap(wpool, iterator; progress=p, batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
         try
+            if timeout == false
+                return itr => f(itr)
+            end
             t_end = time() + timeout
             task = Threads.@spawn f(itr)
-            # task = @async f(itr)
             while time() <= t_end && !istaskdone(task)
                 sleep(0.1)
             end
@@ -123,7 +127,7 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
             return itr => (processed = false, log = log_itr)
         end
     end
-
+    flush(stdout)
     Base.exit_on_sigint(true)
 
     return result

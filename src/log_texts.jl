@@ -1,5 +1,11 @@
 
 # log texts that are static in each log report
+
+const peak_splitting_log_text = """## Peak Splitting
+This is the log for the peak splitting. The algorithm loads the DAQ online energy for each channel
+and then splits the waveforms in chunks for each peak of interest. The chunks are then saved to the `jlpeaks` file.
+"""
+
 const decay_time_log_text = """## Decay Time Extraction
 This is the log for the decay time extraction. The algorithm loads the FEP data of each channel.
 After a mini DSP, the decay times are extracted by fittiing an exponential function to the tail.

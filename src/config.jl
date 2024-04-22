@@ -110,9 +110,9 @@ function get_processingconfig()
     processing_config.only_runs          = getboolkwarg(processing_config, parsed_args, "only_runs")
     processing_config.submit_slurm       = getboolkwarg(processing_config, parsed_args, "submit_slurm")
     if processing_config.only_runs @info "Process only runs" end
+    if processing_config.analysis_runs_only @info "Process only analysis runs" end
     if processing_config.only_partitions @info "Process only partitions" end
     if processing_config.submit_slurm @info "Submit slurm jobs" end
-    if processing_config.analysis_runs_only @info "Process only analysis runs" end
 
     @assert !(processing_config.only_partitions && processing_config.only_runs) "Only one of only_partitions or only_runs can be set"
 
