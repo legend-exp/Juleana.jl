@@ -1,6 +1,7 @@
 using LegendDataManagement
+using ParallelProcessingTools
 
-@always_everywhere begin
+ParallelProcessingTools.@always_everywhere begin
     if !haskey(ENV, "LEGEND_DEBUG")
         @warn "No debug flag set"
     else
@@ -17,6 +18,7 @@ using LegendDataManagement
     using Measurements: uncertainty as muncert
     using Plots
     using Distributed, ProgressMeter, TimerOutputs
+    using ParallelProcessingTools
 
     using HDF5
     using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked

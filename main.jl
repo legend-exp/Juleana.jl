@@ -29,7 +29,9 @@ include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); jo
 
 # create workers
 if !processing_config.submit_slurm
-    legend_addprocs(; job_file_loc=processing_config.processing.worker_log_path, env_args=processing_config.env_args_worker)
+    # legend_addprocs(4; job_file_loc=processing_config.processing.worker_log_path, env_args=processing_config.env_args_worker)
+    addworkers(SlurmRun())
+    # addworkers(4)
 end
 
 flush(stdout)

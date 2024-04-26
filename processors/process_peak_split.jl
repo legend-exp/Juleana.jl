@@ -173,7 +173,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         split_timer = TimerOutput()
 
         @info "Generating output file \"$output_filename\""
-        @timeit split_timer "$ch" begin
+        # @timeit split_timer "$ch" begin
             # # get raw daqenergy
             # @timeit split_timer "Get DAQ Energy" begin
             #     E_raw = get_daqenergy_for_ch(filelist, ch)
@@ -207,14 +207,30 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
                 # tmp for Heidelberg, instead of reprocessing the data just change format of old peak files
                 old_file = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch]
-                n_fep = length(old_file[:Tl208FEP])
-                n_sep = length(old_file[:Tl208SEP])
-                lh5open(output_filename, "w") do output
-                    output["$ch/jlpeaks"] = old_file
+                labels = collect(keys(energy_windows))
+                slim_data =  Dict{Symbol, TypedTables.Table}()
+                for label in labels
+                    if haskey(old_file, label)
+                        slim_data[label] = old_file[label][:]
+                    end
                 end
                 close(old_file)
+                n_fep = length(slim_data[:Tl208FEP])
+                n_sep = length(slim_data[:Tl208SEP])
+
+                h5open(output_filename, "w") do output
+                    for label in sort(collect(keys(slim_data)))
+                        LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
+                    end
+                end
+                # lh5open(output_filename, "cw") do output
+                #     for label in sort(collect(keys(old_file)))
+                #         output["$ch/jlpeaks/$label"] = slim_data[label]
+                #     end
+                # end
+                # close(old_file)
             end
-        end
+        # end
 
         # create total timer by summing over memory usage and time
         total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(split_timer)))
@@ -226,7 +242,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     end
 
     # execute in parallel
-    @info "parallel"
     result_peaksplit = parallel(chinfo, split_peak_ch, log_peaksplit, wpool; timeout=timeout)
 
     @info "Finished peak splitting"
