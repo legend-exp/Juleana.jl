@@ -173,25 +173,25 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         split_timer = TimerOutput()
 
         @info "Generating output file \"$output_filename\""
-        # @timeit split_timer "$ch" begin
-            # # get raw daqenergy
-            # @timeit split_timer "Get DAQ Energy" begin
-            #     E_raw = get_daqenergy_for_ch(filelist, ch)
-            #     f_calib, diagnostics = autocal_energy(E_raw,; quantile_perc=quantile_perc)
-            # end
-            # p = plot(diagnostics.cal_hist, st=:stepbins)
-            # plot!(p, xlabel="Energy (keV)", ylabel="Counts", legend=:none, yscale=:log10)
-            # title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
-            # savelfig(savefig, p, l200, first(filekeys), ch, Symbol("daq_energy"))
+        @timeit split_timer "$ch" begin
+            # get raw daqenergy
+            @timeit split_timer "Get DAQ Energy" begin
+                E_raw = get_daqenergy_for_ch(filelist, ch)
+                f_calib, diagnostics = autocal_energy(E_raw,; quantile_perc=quantile_perc)
+            end
+            p = plot(diagnostics.cal_hist, st=:stepbins)
+            plot!(p, xlabel="Energy (keV)", ylabel="Counts", legend=:none, yscale=:log10)
+            title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+            savelfig(savefig, p, l200, first(filekeys), ch, Symbol("daq_energy"))
 
-            # @timeit split_timer "Filter Raw" begin
-            #     slim_data = flatten_by_key([LHDataStore(filename) do ds
-            #         @info "Filtering $(filename), channel $ch"
-            #         filter_raw_data_by_energy(ds[ch].raw, f_calib, energy_windows)
-            #     end for filename in filelist])
-            # end
-            # n_fep = length(slim_data[:Tl208FEP].daqenergy)
-            # n_sep = length(slim_data[:Tl208SEP].daqenergy)
+            @timeit split_timer "Filter Raw" begin
+                slim_data = flatten_by_key([LHDataStore(filename) do ds
+                    @info "Filtering $(filename), channel $ch"
+                    filter_raw_data_by_energy(ds[ch].raw, f_calib, energy_windows)
+                end for filename in filelist])
+            end
+            n_fep = length(slim_data[:Tl208FEP].daqenergy)
+            n_sep = length(slim_data[:Tl208SEP].daqenergy)
 
             # stephist(f_calib.(slim_data[:Tl208a].daqenergy), nbins = 100)
             # stephist(f_calib.(slim_data[:Tl208aDEP_Bi212b].daqenergy), nbins = 100)
@@ -199,22 +199,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             @info "Writing $output_filename"
             
             @timeit split_timer "Write Data" begin
-                # h5open(output_filename, "w") do output
-                #     for label in sort(collect(keys(slim_data)))
-                #         LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
-                #     end
-                # end
-
-                # tmp for Heidelberg, instead of reprocessing the data just change format of old peak files
-                # old_file = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch]
-                labels = collect(keys(energy_windows))
-                slim_data =  Dict{Symbol, TypedTables.Table}()
-                for label in labels
-                    slim_data[label] = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch][label][:]
-                end
-                n_fep = length(slim_data[:Tl208FEP])
-                n_sep = length(slim_data[:Tl208SEP])
-
                 create_files(output_filename, use_cache = true) do outfile
                     h5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
@@ -222,14 +206,26 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                         end
                     end
                 end
-                # lh5open(output_filename, "cw") do output
-                #     for label in sort(collect(keys(old_file)))
-                #         output["$ch/jlpeaks/$label"] = slim_data[label]
+
+                # tmp for Heidelberg, instead of reprocessing the data just change format of old peak files
+                # old_file = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch]
+                # labels = collect(keys(energy_windows))
+                # slim_data =  Dict{Symbol, TypedTables.Table}()
+                # for label in labels
+                #     slim_data[label] = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch][label][:]
+                # end
+                # n_fep = length(slim_data[:Tl208FEP])
+                # n_sep = length(slim_data[:Tl208SEP])
+
+                # create_files(output_filename, use_cache = true) do outfile
+                #     h5open(outfile, "w") do output
+                #         for label in sort(collect(keys(slim_data)))
+                #             LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
+                #         end
                 #     end
                 # end
-                # close(old_file)
             end
-        # end
+        end
 
         # create total timer by summing over memory usage and time
         total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(split_timer)))
