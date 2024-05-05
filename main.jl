@@ -1,4 +1,4 @@
-#!/usr/bin/env -S julia -t 1 --project=/remote/ceph/group/legendex/data/l200/julia/current/jlenv/ --heap-size-hint=10G
+#!/usr/bin/env -S julia -t 1 --project=/lfs/l1/legend/data/juleana/l200/current/jlenv --heap-size-hint=10G
 
 # set julia traget to generic for similar compilecache in all workers
 ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
@@ -29,9 +29,13 @@ include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); jo
 
 # create workers
 if !processing_config.submit_slurm
-    # legend_addprocs(4; job_file_loc=processing_config.processing.worker_log_path, env_args=processing_config.env_args_worker)
-    addworkers(SlurmRun())
-    # addworkers(4)
+    # println(get_slurm_flags(processing_config; set_env=true))
+    # mode = SlurmRun(slurm_flags = ` $(get_slurm_flags(processing_config; set_env=true))`, julia_flags = `$(get_julia_flags(processing_config))`, timeout = 3600)
+    default_flex_worker_pool!(FlexWorkerPool(label = "juleana"; oversubscription = 1))
+    slurm_site_flags = `--ntasks=256 --cpus-per-task=1 --time=96:00:00 --mem-bind=local --cpu-bind=cores --threads-per-core=1`
+    julia_site_flags = `--heap-size-hint=8G`
+    mode = SlurmRun(slurm_flags = `$slurm_site_flags`, julia_flags = `$julia_site_flags`, timeout = 3600)
+    addworkers(mode)
 end
 
 flush(stdout)
@@ -44,38 +48,43 @@ if !processing_config.only_partitions
     # get processing steps from config and sort by rank
     process_steps =  processing_config.process_steps
 
-    # process periods 
-    for period in periods
-        @info "Process period $period"
+    # process periods
+    @sync begin
+        for period in periods
+            Threads.@spawn begin 
+                @info "Process period $period"
 
-        # select runs to process
-        processable_runs = get_proccessable_runs(runs, period)
+                # select runs to process
+                processable_runs = get_proccessable_runs(runs, period)
 
-        # process runs
-        @sync for run in processable_runs
+                # process runs
+                for run in processable_runs
+                    # check if run is a analysis run if switched on
+                    if processing_config.analysis_runs_only && !is_analysis_run(l200, period, run)
+                        @warn "Run $run is not a analysis run"
+                        continue
+                    end
 
-            # check if run is a analysis run if switched on
-            if processing_config.analysis_runs_only && !is_analysis_run(l200, period, run)
-                @warn "Run $run is not a analysis run"
-                continue
-            end
+                    # submit slurm job if enabled
+                    if processing_config.submit_slurm
+                        sbatch(l200, processing_config, period, run)
+                        continue
+                    end
 
-            # submit slurm job if enabled
-            if processing_config.submit_slurm
-                sbatch(l200, processing_config, period, run)
-                continue
-            end
+                    Threads.@spawn begin
+                        # iterate through process steps
+                        @info "Process run $run"
+                        for process in process_steps
+                            @info "$process"
+                            flush(stdout)
 
-            # iterate through process steps
-            @info "Process run $run"
-            for process in process_steps
-                @info "$process"
-                flush(stdout)
-
-                # run process
-                kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process]) if !(k in [:enabled, :rank, :n_workers])])
-                getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
-                flush(stdout)
+                            # run process
+                            kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process]) if !(k in [:enabled, :rank, :n_workers])])
+                            getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
+                            flush(stdout)
+                        end
+                    end
+                end
             end
         end
     end

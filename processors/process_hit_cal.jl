@@ -7,7 +7,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))[1:2]
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     qc_config = dataprod_config(l200).qc(filekey)
@@ -36,7 +36,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         ch = chinfo_ch.channel
         det = chinfo_ch.detector
 
-        hitchfilename = get_hitchfilename(l200, filekey, ch)
+        hitchfilename = l200.tier[:jlhitch, filekey, ch]
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
             log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))
@@ -51,12 +51,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
             end
         end
 
-        if reprocess
-            @info "Remove old hit file"
-            if isfile(hitchfilename)
-                rm(hitchfilename)
-            end
-        end
+        if reprocess @info "Overwrite old hit file" end
 
         @debug "Processing channel $ch ($det)"
         

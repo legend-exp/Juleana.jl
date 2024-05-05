@@ -89,42 +89,43 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
     Base.exit_on_sigint(false)
 
     is_logging(io) = isa(io, Base.TTY) == false || (get(ENV, "CI", nothing) == "true")
-    p = Progress(length(iterator); output = stderr, enabled = !is_logging(stderr))
     
     flush(stdout)
     # run parallel
-    result =  fetch.(broadcast(iterator) do itr
-        on_free_worker(; tries=retry ? 3 : 1) do
-            try
-                if timeout == false
-                    return itr => f(itr)
+    result = @showprogress enabled = !is_logging(stderr) showspeed=true broadcast(fetch , broadcast(iterator) do itr
+        Threads.@spawn begin
+            onworker(; tries=retry ? 3 : 1, label="$itr") do
+                try
+                    if timeout == false
+                        return itr => f(itr)
+                    end
+                    t_end = time() + timeout
+                    task = Threads.@spawn f(itr)
+                    while time() <= t_end && !istaskdone(task)
+                        sleep(0.1)
+                    end
+                    if !istaskdone(task)
+                        @debug "Timeout for $(itr)"
+                        @async Base.throwto(task, InterruptException())
+                        throw(ErrorException("Timeout for $(itr)"))
+                    end
+                    return itr => fetch(task)
+                catch e
+                    if e isa TaskFailedException
+                        e = e.task.exception
+                    end
+                    @debug "Write Error log for $(itr): $e"
+                    # distinguish between ch and det logging or iterator logging
+                    log_itr = nothing
+                    if itr isa NamedTuple && haskey(itr, :channel) && haskey(itr, :detector)
+                        log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$e"))
+                    elseif itr isa FileKey
+                        log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$e"))
+                    else
+                        throw(ErrorException("No logging for $(itr)"))
+                    end
+                    return itr => (processed = false, log = log_itr)
                 end
-                t_end = time() + timeout
-                task = Threads.@spawn f(itr)
-                while time() <= t_end && !istaskdone(task)
-                    sleep(0.1)
-                end
-                if !istaskdone(task)
-                    @debug "Timeout for $(itr)"
-                    @async Base.throwto(task, InterruptException())
-                    throw(ErrorException("Timeout for $(itr)"))
-                end
-                return itr => fetch(task)
-            catch e
-                if e isa TaskFailedException
-                    e = e.task.exception
-                end
-                @debug "Write Error log for $(itr): $e"
-                # distinguish between ch and det logging or iterator logging
-                log_itr = nothing
-                if itr isa NamedTuple && haskey(itr, :channel) && haskey(itr, :detector)
-                    log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$e"))
-                elseif itr isa FileKey
-                    log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$e"))
-                else
-                    throw(ErrorException("No logging for $(itr)"))
-                end
-                return itr => (processed = false, log = log_itr)
             end
         end
     end)

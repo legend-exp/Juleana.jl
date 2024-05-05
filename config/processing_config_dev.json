@@ -37,11 +37,11 @@
         "process_peak_split": {
             "enabled": true,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -49,7 +49,7 @@
             "rank": 2
         },
         "process_filter_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -57,14 +57,14 @@
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -100,7 +100,7 @@
             "rank": 9
         },
         "process_dsp_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,

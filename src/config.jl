@@ -99,10 +99,6 @@ function get_processingconfig()
         processing_config.processing.log_path = mkpath(parsed_args["log_path"])
     end
     @info "Log path: $(processing_config.processing.log_path)"
-    if !parsed_args["submit_slurm"]
-        processing_config.processing.worker_log_path = mkpath(joinpath(processing_config.processing.log_path, "workers"))
-        @info "Worker log path: $(processing_config.processing.worker_log_path)"
-    end
 
     # check flags if only partitions or only runs should be processed, if slurm jobs should be submitted or only analysis runs should be processed
     processing_config.analysis_runs_only = getboolkwarg(processing_config, parsed_args, "analysis_runs_only")

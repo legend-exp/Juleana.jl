@@ -206,21 +206,20 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 # end
 
                 # tmp for Heidelberg, instead of reprocessing the data just change format of old peak files
-                old_file = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch]
+                # old_file = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch]
                 labels = collect(keys(energy_windows))
                 slim_data =  Dict{Symbol, TypedTables.Table}()
                 for label in labels
-                    if haskey(old_file, label)
-                        slim_data[label] = old_file[label][:]
-                    end
+                    slim_data[label] = lh5open(l200.tier[:peaks, first(filekeys), ch], "r")[ch][label][:]
                 end
-                close(old_file)
                 n_fep = length(slim_data[:Tl208FEP])
                 n_sep = length(slim_data[:Tl208SEP])
 
-                h5open(output_filename, "w") do output
-                    for label in sort(collect(keys(slim_data)))
-                        LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
+                create_files(output_filename, use_cache = true) do outfile
+                    h5open(outfile, "w") do output
+                        for label in sort(collect(keys(slim_data)))
+                            LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
+                        end
                     end
                 end
                 # lh5open(output_filename, "cw") do output

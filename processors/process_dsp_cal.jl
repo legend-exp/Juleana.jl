@@ -43,84 +43,93 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
 
     function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
-        @timeit dsp_timer "Startup" begin
-            filename    = l200.tier[:raw, fk]
-            outfilename = l200.tier[:jldsp, fk]
-
-            @info "Processing file: $(basename(filename))"
-            data    = lh5open(filename, "r")
-            @info "Using output file: $(basename(outfilename))"
-            if reprocess && isfile(outfilename)
-                @info "Reprocess $(basename(outfilename)), remove old DSP."
-                rm(outfilename)
-            else
-                try
-                    lh5open(outfilename, "cw")
-                catch e
-                    @warn "LoadError: $e"
-                    @warn "Filename $(basename(outfilename)) seems broken, remove it."
-                    rm(outfilename)
-                end
-            end
-            outdata = lh5open(outfilename, "cw")
-        end
-
-        @info "Start DSP"
+        # raw and dsp filename
+        rawfilename    = l200.tier[:raw, fk]
+        @info "Processing file: $(basename(rawfilename))"
+        dspfilename = l200.tier[:jldsp, fk]
+        @info "Using output file: $(basename(dspfilename))"
+        # number of processed detectors
         n_detectors = 0
+        # channel ids of failed detectors
         failed_detectors = DetectorId[]
-        @timeit dsp_timer "DSP" begin
-            # loop over channels
-            @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
-
-                # check if channel can be processed
-                if haskey(outdata, "$ch") && !reprocess
-                    @info "Detector $det ($ch) already processed, skip"
-                    n_detectors += 1
-                    continue
-                end
-                # check for decay time
-                if !haskey(pars_tau, det)
-                    @warn "No decay time for detector $det, skip channel $ch"
-                    push!(failed_detectors, det)
-                    continue
-                end
-                # check if channel has values for RT and FT for different filters
-                if !haskey(pars_fltoptimization, det)
-                    @warn "No optimization parameters for detector $det, skip channel $ch"
-                    push!(failed_detectors, det)
-                    continue
-                end
-
-                @debug "Processing channel $ch ($det)"
-                error_dets = ""
-                @timeit dsp_timer "DSP $det" begin
-                    # process data
-                    outdata_ch = nothing
-                    try
-                        outdata_ch = fast_flatten([dsp_icpc(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
-                                for data_part in Iterators.partition(data[ch].raw[:], max_wvfs)])
-                    catch e
-                        if e isa TaskFailedException
-                            e = e.task.exception
+        # start processing
+        read_files(rawfilename, use_cache = false) do filename
+            modify_files(dspfilename, use_cache = true) do outfilename
+                @timeit dsp_timer "Startup" begin
+                    raw_data = lh5open(filename, "r")
+                    if reprocess && isfile(dspfilename)
+                        @info "Reprocess $(basename(dspfilename)), remove old DSP."
+                        rm(outfilename, force=true)
+                    else
+                        try
+                            close(lh5open(outfilename, "r"))
+                        catch e
+                            @warn "LoadError: $e"
+                            @warn "Filename $(basename(dspfilename)) seems broken, remove old DSP."
+                            rm(outfilename, force=true)
                         end
-                        @error "Error processing channel $ch ($det) in $(fk): $e"
-                        push!(failed_detectors, det)
-                        continue
                     end
-                    # save data to hdf5
-                    outdata["$ch"] = outdata_ch
-                    # free memory
-                    GC.gc()
-                    # count number of detectors processed and Successful
-                    n_detectors += 1
                 end
+
+                processed_channels = keys(lh5open(outfilename, "cw"))
+
+                @info "Start DSP"
+                @timeit dsp_timer "DSP" begin
+                    # loop over channels
+                    @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
+
+                        # check if channel can be processed
+                        if "$ch" in processed_channels && !reprocess
+                            @info "Detector $det ($ch) already processed, skip"
+                            n_detectors += 1
+                            continue
+                        end
+                        # check for decay time
+                        if !haskey(pars_tau, det)
+                            @warn "No decay time for detector $det, skip channel $ch"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+                        # check if channel has values for RT and FT for different filters
+                        if !haskey(pars_fltoptimization, det)
+                            @warn "No optimization parameters for detector $det, skip channel $ch"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+
+                        @debug "Processing channel $ch ($det)"
+                        error_dets = ""
+                        @timeit dsp_timer "DSP $det" begin
+                            # process data
+                            outdata_ch = nothing
+                            try
+                                raw_data_ch = raw_data[ch].raw[:]
+                                outdata_ch = fast_flatten([dsp_icpc(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                        for data_part in Iterators.partition(raw_data_ch, max_wvfs)])
+                            catch e
+                                if e isa TaskFailedException
+                                    e = e.task.exception
+                                end
+                                @error "Error processing channel $ch ($det) in $(fk): $e"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+                            # save data to hdf5
+                            lh5open(outfilename, "cw") do outdata
+                                outdata[ch, :jldsp] = outdata_ch
+                            end
+                            # free memory
+                            GC.gc()
+                            # count number of detectors processed and Successful
+                            n_detectors += 1
+                        end
+                    end
+                end
+
+                @info "Finished processing file: $(basename(filename))"
+                close(raw_data)
             end
         end
-
-        @info "Finished processing file: $(basename(filename))"
-        close(data)
-        close(outdata)
-
         if n_detectors == 0
             @warn "No detectors processed in $(basename(filename))"
         end

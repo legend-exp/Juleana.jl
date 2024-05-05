@@ -2,6 +2,7 @@ using LegendDataManagement
 using ParallelProcessingTools
 
 ParallelProcessingTools.@always_everywhere begin
+    ParallelProcessingTools.pinthreads_auto()
     if !haskey(ENV, "LEGEND_DEBUG")
         @warn "No debug flag set"
     else
