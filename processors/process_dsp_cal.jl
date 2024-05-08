@@ -21,7 +21,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
 
-    pars_fltoptimization = get_values(merge(l200.par.rpars.fltopt[period, run], l200.par.rpars.aoeopt[period, run]))
+    pars_fltoptimization = get_values(merge(l200.par.rpars.fltopt[period, run], PropDict(l200.par.rpars.aoeopt[period, run])))
     @debug "Loaded optimization parameters"
 
     @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :cal, period, run]))"
@@ -47,6 +47,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         rawfilename    = l200.tier[:raw, fk]
         @info "Processing file: $(basename(rawfilename))"
         dspfilename = l200.tier[:jldsp, fk]
+        touch(dspfilename)
         @info "Using output file: $(basename(dspfilename))"
         # number of processed detectors
         n_detectors = 0
@@ -104,7 +105,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                             outdata_ch = nothing
                             try
                                 raw_data_ch = raw_data[ch].raw[:]
-                                outdata_ch = fast_flatten([dsp_icpc(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_ch = fast_flatten([dsp_icpc_compressed(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                                         for data_part in Iterators.partition(raw_data_ch, max_wvfs)])
                             catch e
                                 if e isa TaskFailedException
