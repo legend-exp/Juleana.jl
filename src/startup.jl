@@ -1,16 +1,9 @@
 using LegendDataManagement
+import ClusterManagers
 using ParallelProcessingTools
+using ParallelProcessingTools: getlabel
 
-ParallelProcessingTools.@always_everywhere begin
-    ParallelProcessingTools.pinthreads_auto()
-    if !haskey(ENV, "LEGEND_DEBUG")
-        @warn "No debug flag set"
-    else
-        if ENV["LEGEND_DEBUG"] == "true"
-            ENV["JULIA_DEBUG"] = Main # enable debug
-        end
-    end
-
+@always_everywhere begin
     # load packages
     using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement, LegendDataManagement.LDMUtils
     using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
@@ -20,6 +13,9 @@ ParallelProcessingTools.@always_everywhere begin
     using Plots
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
+
+    # pin threads
+    pinthreads_auto()
 
     using HDF5
     using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked

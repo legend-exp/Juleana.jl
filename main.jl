@@ -1,4 +1,4 @@
-#!/usr/bin/env -S julia -t 1 --project=/lfs/l1/legend/data/juleana/l200/current/jlenv --heap-size-hint=10G
+#!/usr/bin/env -S julia -t 1 --project=/ptmp/fhenkes/l200/current/jlenv --heap-size-hint=10G
 
 # set julia traget to generic for similar compilecache in all workers
 ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
@@ -29,13 +29,19 @@ include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); jo
 
 # create workers
 if !processing_config.submit_slurm
-    # println(get_slurm_flags(processing_config; set_env=true))
-    # mode = SlurmRun(slurm_flags = ` $(get_slurm_flags(processing_config; set_env=true))`, julia_flags = `$(get_julia_flags(processing_config))`, timeout = 3600)
-    default_flex_worker_pool!(FlexWorkerPool(label = "juleana"; oversubscription = 1))
-    slurm_site_flags = `--ntasks=256 --cpus-per-task=1 --time=96:00:00 --mem-bind=local --cpu-bind=cores --threads-per-core=1`
-    julia_site_flags = `--heap-size-hint=8G`
-    mode = SlurmRun(slurm_flags = `$slurm_site_flags`, julia_flags = `$julia_site_flags`, timeout = 3600)
-    addworkers(mode)
+    runmode = SlurmRun(
+        slurm_flags = get_slurm_flags(processing_config),
+        julia_flags = get_julia_flags(processing_config),
+        worker_timeout = 240,
+        redirect_output = false,
+    )
+    @info "Write worker start script to $(joinpath(homedir(), "startjlworkers.sh"))"
+    write_worker_start_script(joinpath(homedir(), "startjlworkers.sh"), runmode)
+    # get wpool
+    wpool = FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1)
+    ppt_worker_pool!(wpool)
+    # run mode 
+    # @async runworkers(runmode)
 end
 
 flush(stdout)

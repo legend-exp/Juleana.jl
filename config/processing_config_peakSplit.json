@@ -5,18 +5,22 @@
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
             "HDF5_USE_FILE_LOCKING": "FALSE",
-            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
+            "JULIA_DEBUG": "Main,ParallelProcessingTools,ClusterManagers"
         },
-        "slurm_settings": {
-            "SLURM_NTASKS": "96",
-            "SLURM_CPUS_PER_TASK": "2",
-            "SLURM_MEM_PER_CPU": "8192",
-            "SLURM_THREADS_PER_CORE": "1",
-            "SBATCH_TIMELIMIT": "08:00:00"
-        },
-        "julia_settings": {
-            "--heap-size-hint": "8G"
-        }
+        "slurm_settings": [
+            "--time=06:00:00",
+            "--mem-bind=local",
+            "--threads-per-core=1",
+            "--cpu-bind=cores",
+            "--nodes=8",
+            "--ntasks-per-node=40",
+            "--cpus-per-task=1",
+            "--mem=84GB"
+        ],
+        "julia_settings": [
+            
+        ]
     },
     "processing": {
         "periods": "all",
@@ -41,7 +45,7 @@
             "rank": 1
         },
         "process_decay_time": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -49,7 +53,7 @@
             "rank": 2
         },
         "process_filter_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -57,14 +61,14 @@
             "rank": 3
         },
         "process_aoe_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -100,7 +104,7 @@
             "rank": 9
         },
         "process_dsp_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,

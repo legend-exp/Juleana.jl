@@ -91,27 +91,18 @@ end
 
 function get_slurm_flags(processing_config::PropDict; set_env::Bool=false)
     # get SLURM config settings
-    slurm_settings = processing_config.config.slurm_settings
-    # get SLURM possible options
-    slurm_options = readprops(joinpath(dirname(@__DIR__), "src/slurm.json"))
-    # get SLURM command line options
-    cmd_opts = get.(Ref(slurm_options), keys(slurm_settings), :none)
-    @assert all(cmd_opts .!= :none) "SLURM options not found in slurm config options."
-    # set ENV variables
-    if set_env
-        for (k, v) in slurm_settings
-            ENV[string(k)] = v
-        end
+    if isempty(processing_config.config.slurm_settings)
+        ``
+    else
+        Cmd(string.(processing_config.config.slurm_settings))
     end
-    # get SLURM command line values
-    cmd_opts_vec = ["$x=$y" for (x, y) in zip(last.(cmd_opts), values(processing_config.config.slurm_settings))]
-    return join(cmd_opts_vec, " ")
 end
 
 function get_julia_flags(processing_config::PropDict)
     # get Julia config settings
-    julia_settings = processing_config.config.julia_settings
-    # get Julia command line values
-    cmd_opts_vec =  ["$k=$v" for (k, v) in julia_settings]
-    return join(cmd_opts_vec, " ")
+    if isempty(processing_config.config.julia_settings)
+        ``
+    else
+        Cmd(string.(processing_config.config.julia_settings))
+    end
 end

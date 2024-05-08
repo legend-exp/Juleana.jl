@@ -5,18 +5,23 @@
             "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
             "HDF5_USE_FILE_LOCKING": "FALSE",
-            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
+            "JULIA_DEBUG": "Main,ParallelProcessingTools,ClusterManagers",
+            "JULIA_WORKER_TIMEOUT": "240"
         },
-        "slurm_settings": {
-            "SLURM_NTASKS": "96",
-            "SLURM_CPUS_PER_TASK": "2",
-            "SLURM_MEM_PER_CPU": "8192",
-            "SLURM_THREADS_PER_CORE": "1",
-            "SBATCH_TIMELIMIT": "08:00:00"
-        },
-        "julia_settings": {
-            "--heap-size-hint": "8G"
-        }
+        "slurm_settings": [
+            "--time=04:00:00",
+            "--mem-bind=local",
+            "--threads-per-core=1",
+            "--cpu-bind=cores",
+            "--nodes=6",
+            "--ntasks-per-node=10",
+            "--cpus-per-task=4",
+            "--mem=84GB"
+        ],
+        "julia_settings": [
+            
+        ]
     },
     "processing": {
         "periods": "all",
@@ -35,9 +40,9 @@
             "reprocess": true
         },
         "process_peak_split": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "rank": 1
         },
         "process_decay_time": {
@@ -64,7 +69,7 @@
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,

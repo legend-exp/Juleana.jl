@@ -74,17 +74,8 @@ function get_processingconfig()
         ENV[String(key)] = processing_config.config.env_variables[key]
         push!(env_args_worker, Pair{String, String}(String(key), processing_config.config.env_variables[key]))
     end
-    # set debug flag
-    if processing_config.config.debug
-        ENV["LEGEND_DEBUG"] = true
-        ENV["JULIA_DEBUG"] = Main # enable debug
-        push!(env_args_worker, Pair{String, String}("LEGEND_DEBUG", "true"))
-    else 
-        ENV["LEGEND_DEBUG"] = false
-        push!(env_args_worker, Pair{String, String}("LEGEND_DEBUG", "false"))
-    end
     processing_config.env_args_worker = env_args_worker
-
+    
     # get remote workers
     processing_config.processing.remote_workers = [Tuple(p) for p in processing_config.processing.remote_workers]
 

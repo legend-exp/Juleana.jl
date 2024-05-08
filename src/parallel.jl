@@ -84,20 +84,20 @@ function retry_check(delay_state, err)
 end
 
 
-function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false)
+function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false, process_name::String="")
     # prevent crash from Base
     Base.exit_on_sigint(false)
 
-    is_logging(io) = isa(io, Base.TTY) == false || (get(ENV, "CI", nothing) == "true")
-    
     flush(stdout)
-    # run parallel
-    result = @showprogress enabled = !is_logging(stderr) showspeed=true broadcast(fetch , broadcast(iterator) do itr
+    # assign tasks to workers 
+    # Non Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
+    tasks = broadcast(iterator) do itr
         Threads.@spawn begin
             onworker(; tries=retry ? 3 : 1, label="$itr") do
                 try
                     if timeout == false
-                        return itr => f(itr)
+                        f_res = f(itr)
+                        return itr => f_res
                     end
                     t_end = time() + timeout
                     task = Threads.@spawn f(itr)
@@ -128,7 +128,29 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
                 end
             end
         end
-    end)
+    end
+    # set up Porgressbar
+    p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
+    update!(p)
+    
+    # create result vector
+    Threads.@spawn begin
+        update!(p)
+        n_finished = 0
+        while n_finished < length(iterator)
+            for t in tasks
+                if !ParallelProcessingTools.wouldwait(t)
+                    n_finished += 1
+                    next!(p)
+                    update!(p)
+                end
+            end
+            sleep(2)
+        end
+    end
+    result = fetch.(tasks)
+
+    finish!(p)
     flush(stdout)
     Base.exit_on_sigint(true)
 
