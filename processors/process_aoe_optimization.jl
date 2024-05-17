@@ -11,6 +11,11 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
     @debug "Loaded DSP config: $(dsp_config)"
 
+    train_data = h5open(get_mltrainfilename(l200, filekey))
+    f_evaluate_qc = get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    close(train_data)
+    @info "Loaded trained SVM model"
+
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
 
@@ -21,7 +26,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @debug "Loaded optimization config: $(optimization_config)"
 
     @debug "Create pars db"
-    mkpath(data_path(l200.par.rpars.aoeopt[period]))
+    mkpath(joinpath(data_path(l200.par.rpars.aoeopt), string(period)))
     pars_db = PropDict(l200.par.rpars.aoeopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -57,15 +62,19 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
         end
         
-        wvfs_ch_sep, wvfs_ch_dep = nothing, nothing
+        wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try 
             data = lh5open(filename, "r")
 
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_ch_dep_bi121fep = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform[:]
-            e_ch_dep_bi121fep    = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
-            wvfs_ch_dep          = wvfs_ch_dep_bi121fep[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, sg_config_ch.dep_sep_quantile)]
-            wvfs_ch_sep          = data[ch].jlpeaks.Tl208SEP.waveform[:]
+            wvfs_ch_dep_bi121fep_wdw = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_windowed[:]
+            wvfs_ch_dep_bi121fep_pre = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
+            presum_rate              = data[ch].jlpeaks.Tl208SEP.presum_rate[1]
+            e_ch_dep_bi121fep        = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
+            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, sg_config_ch.dep_sep_quantile)]
+            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, sg_config_ch.dep_sep_quantile)]
+            wvfs_ch_sep_wdw          = data[ch].jlpeaks.Tl208SEP.waveform_windowed[:]
+            wvfs_ch_sep_pre          = data[ch].jlpeaks.Tl208SEP.waveform_presummed[:]
 
             close(data)
         catch e
@@ -77,8 +86,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         try
             # DSP
             @debug "Generating DSP AoE grid for SEP and DEP data"
-            dsp_dep = dsp_sg_optimization(wvfs_ch_dep, dsp_config, pars_tau[det].tau, pars_fltoptimization[det])
-            dsp_sep = dsp_sg_optimization(wvfs_ch_sep, dsp_config, pars_tau[det].tau, pars_fltoptimization[det])
+            dsp_dep = dsp_sg_optimization_compressed(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+            dsp_sep = dsp_sg_optimization_compressed(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
         catch e
             @error "Failed DSP for DEP or SEP: $e"
             throw(ErrorException("Error in DSP for DEP or SEP: $e"))
@@ -87,8 +96,10 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         dep_sep_after_qc = nothing
         try
             # generate simple QC cuts
-            @debug "Use simple QC cuts for SEP and DEP"
-            dep_sep_after_qc = qc_sg_optimization(dsp_dep, dsp_sep, sg_config_ch)
+            @debug "Apply QC cuts for SEP and DEP"
+            dep_sep_after_qc = (dep = dsp_dep[ljl_propfunc(sg_config_ch.cuts.dep.qc).(dsp_dep)], 
+                        sep = dsp_sep[ljl_propfunc(sg_config_ch.cuts.sep.qc).(dsp_sep)]
+            )
         catch e
             @error "Failed QC for DEP or SEP: $e"
             throw(ErrorException("QC for DEP or SEP: $e"))
@@ -136,11 +147,9 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @info "Finished SG filter optimization"
 
     pars_db = create_pars(pars_db, result_sg)
-    if !isempty(pars_db)
-        writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
-        writevalidity(l200.par.rpars.aoeopt, filekey)
-        @info "Saved pars to disk"
-    end
+    writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
+    writevalidity(l200.par.rpars.aoeopt, filekey)
+    @info "Saved pars to disk"
 
     report = lreport()
     lreport!(report, "# Main Log")

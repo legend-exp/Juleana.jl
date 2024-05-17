@@ -7,16 +7,17 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))[1:2]
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     qc_config = dataprod_config(l200).qc(filekey)
 
     @debug "Create Hit folder"
     mkpath(l200.tier[:jlhitch, :cal, period, run])
+    mkpath(l200.tier[:jlpulsch, :cal, period, run])
 
     @debug "Create pars db"
-    mkpath(data_path(l200.par.rpars.qc[period]))
+    mkpath(joinpath(data_path(l200.par.rpars.qc), string(period)))
     pars_db = PropDict(l200.par.rpars.qc[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -31,12 +32,35 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     # flush stdout
     flush(stdout)
 
+    # write out pulser events
+    chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_channel))
+    onworker(; tries=1, label="Pulser") do
+        # get pulser filename
+        pulserfilename = l200.tier[:jlpulsch, filekey, chinfo_puls.channel]
+
+        if !reprocess && isfile(pulserfilename)
+            return
+        end
+        @info "Get pulser events from raw data"
+        data_puls = load_runch(lh5open, fast_flatten, l200, filekey, :raw, chinfo_puls.channel; check_filekeys=true, keys=(:daqenergy, :timestamp))
+        @info "Write Pulser events to disk"
+        touch(pulserfilename)
+        modify_files(pulserfilename, use_cache=true) do outfilename
+            lh5open(outfilename, "w") do outdata
+                @info "Save Pulser Tags"
+                outdata[chinfo_puls.channel, :jlpuls] = data_puls;
+            end
+        end
+        return 
+    end
+
     function ch_hit_cal(chinfo_ch::NamedTuple)
 
         ch = chinfo_ch.channel
         det = chinfo_ch.detector
 
         hitchfilename = l200.tier[:jlhitch, filekey, ch]
+        pulserfilename = l200.tier[:jlpulsch, filekey, chinfo_puls.channel]
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
             log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))
@@ -66,66 +90,74 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         pulser_config_ch = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
 
         # generate qc cuts
-        qc, data_ch_after_qc, cut_res = nothing, nothing, nothing
+        qc, is_physical, result_qc, report_qc = nothing, nothing, nothing, nothing
         try
             @debug "Get QC cuts"
-            qc, cut_res = qc_cal_energy(data_ch, qc_config_ch)
-            @debug "Total surrival fraction: $(round(count(qc.qc) / length(data_ch) * 100, digits=2))%"
-            data_ch_after_qc =  data_ch[qc.qc]
+            # result_qc, report_qc  = baseline_qc(data_ch, qc_config_ch)
+            qc = Table(ljl_propfunc(qc_config_ch.labels).(data_ch))
+            is_physical = ljl_propfunc(qc_config_ch.is_physical).(qc)
+            @debug "Total surrival fraction: $(round(count(is_physical) / length(is_physical) * 100, digits=2))%"
         catch e
             @error "Error in QC for channel $ch: $e"
             throw(ErrorException("Error in QC cut generation: $e"))
         end
         yield()
 
-        pulser_tag, data_pulser = nothing, nothing
+        # for k in keys(report_qc)
+        #     p = plot(report_qc[k])
+        #     plot!(p, xlabel=string(k), title=get_plottitle(filekey, det, string(k)))
+        #     savelfig(savefig, p, l200, filekey, ch, k)
+        # end
+
+        is_pulser = nothing
         try
             @debug "Get Pulser tags"
-            pulser_tag = pulser_cal_qc(data_ch, pulser_config_ch; n_pulser_identified=100)
-            @debug "Found $(length(pulser_tag)) pulser events"
-            data_pulser = data_ch[pulser_tag]
-            data_ch_after_qc = data_ch[findall(x -> !(x in pulser_tag) && qc.qc[x], eachindex(data_ch))]
+            # pulser_tag = pulser_cal_qc(data_ch, pulser_config_ch; n_pulser_identified=100)
+            data_pulser = lh5open(pulserfilename)[chinfo_puls.channel].jlpuls[:]
+            is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp, ts_window = pulser_config_ch.puls_ts_window)
+            @debug "Found $(count(is_pulser)) pulser events"
         catch e
             @error "Error in Pulser tag for channel $ch: $e"
             throw(ErrorException("Error in Pulser tag for channel: $e"))
         end
 
-        p = stephist(data_ch_after_qc.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Trap - after QC", yscale=:log10)
-        stephist!(p, data_ch.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Trap - before QC", yscale=:log10)
-        if !isempty(data_pulser)
-            stephist!(p, data_pulser.e_trap, bins=0:15:maximum(data_ch_after_qc.e_trap), label="Pulser", yscale=:log10)
-        end
-        plot!(p, xformatter=:plain, xlabel="Energy (ADC)", ylabel="Counts", title=get_plottitle(filekey, det, "Trap Raw Energy Spectrum"), legend=:topright)
+        data_ch_after_qc = data_ch[is_physical .&& .!is_pulser]
+        data_pulser = data_ch[is_physical .&& is_pulser]
+
+        p = stephist(data_ch_after_qc.e_trap, bins=0:8*15:maximum(data_ch_after_qc.e_trap), label="Trap - after QC", yscale=:log10)
+        stephist!(p, data_ch.e_trap, bins=0:8*15:maximum(data_ch_after_qc.e_trap), label="Trap - before QC", yscale=:log10)
+        stephist!(p, data_pulser.e_trap, bins=0:8*15:maximum(data_ch_after_qc.e_trap), label="Pulser", yscale=:log10)
+        plot!(p, xlabel="Energy (ADC)", ylabel="Counts", title=get_plottitle(filekey, det, "Trap Raw Energy Spectrum"))
+        plot!(p, xformatter=:plain, legend=:topright, framestyle=:box, xticks=0:20e3:200e3, thickness_scaling=1.7)
 
         savelfig(savefig, p, l200, filekey, ch, :raw_energy_e_trap)
 
         # save hit file
         @debug "Save hit file"
-        rm(hitchfilename, force=true)
-        lh5open(hitchfilename, "cw") do outdata
-            @info "Save QC"
-            outdata["$ch/qc"] = qc;
-            @info "Save Pulser Tags"
-            outdata["$ch/pulserTag"] = pulser_tag;
-            @info "Save data after QC"
-            outdata["$ch/dataQC"] = data_ch_after_qc;
-            @info "Save data pulser"
-            if !isempty(data_pulser)
-                outdata["$ch/dataPulser"] = data_pulser;
-            else
-                @error "No Pulser data written out!"
+        touch(hitchfilename)
+        modify_files(hitchfilename, use_cache=true) do outfilename
+            lh5open(outfilename, "w") do outdata
+                @info "Save QC"
+                outdata[ch, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
+                @info "Save Pulser Tags"
+                outdata[ch, :pulserTag] = is_pulser;
+                @info "Save data after QC"
+                outdata[ch, :dataQC] = data_ch_after_qc;
+                @info "Save data pulser"
+                outdata[ch, :dataPulser] = data_pulser;
             end
         end
 
-        sf, n_pulser = count(qc.qc) / length(data_ch) * 100u"percent", ifelse(!isempty(data_pulser), length(data_pulser), 0)
+        sf, n_pulser = count(is_physical) / length(is_physical) * 100u"percent", ifelse(!isempty(data_pulser), length(data_pulser), 0)
         log_ch = log_nt((ch, det, ProcessStatus(1), sf, n_pulser, "-"))
 
 
         for cut in columnnames(qc)
-            @info "$(cut) cut: $(count(getproperty(qc, cut)) / length(qc) * 100u"percent")"
+            @info "SF: $(cut) cut: $(count(getproperty(qc, cut)) / length(qc) * 100u"percent")"
         end
 
-        return (result = (sf = sf, n_pulser = n_pulser, cuts = cut_res), log = log_ch, processed=true)
+        # return (result = (sf = sf, n_pulser = n_pulser, baseline = result_qc), log = log_ch, processed=true)
+        return (result = (sf = sf, n_pulser = n_pulser), log = log_ch, processed=true)
     end
 
     # get start time

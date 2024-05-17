@@ -16,8 +16,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     train_data = h5open(get_mltrainfilename(l200, filekey))
     f_evaluate_qc = get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
     close(train_data)
-    
     @info "Loaded trained SVM model"
+    
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
 
@@ -44,40 +44,35 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
         # raw and dsp filename
-        rawfilename    = l200.tier[:raw, fk]
+        rawfilename = l200.tier[:raw, fk]
         @info "Processing file: $(basename(rawfilename))"
         dspfilename = l200.tier[:jldsp, fk]
         touch(dspfilename)
         @info "Using output file: $(basename(dspfilename))"
-        # number of processed detectors
-        n_detectors = 0
-        # channel ids of failed detectors
-        failed_detectors = DetectorId[]
         # start processing
         read_files(rawfilename, use_cache = false) do filename
+            # number of processed detectors
+            global n_detectors = 0
+            # channel ids of failed detectors
+            global failed_detectors = DetectorId[]
             modify_files(dspfilename, use_cache = true) do outfilename
                 @timeit dsp_timer "Startup" begin
                     raw_data = lh5open(filename, "r")
                     if reprocess && isfile(dspfilename)
                         @info "Reprocess $(basename(dspfilename)), remove old DSP."
                         rm(outfilename, force=true)
-                    else
-                        try
-                            close(lh5open(outfilename, "r"))
-                        catch e
-                            @warn "LoadError: $e"
-                            @warn "Filename $(basename(dspfilename)) seems broken, remove old DSP."
-                            rm(outfilename, force=true)
-                        end
                     end
                 end
 
-                processed_channels = keys(lh5open(outfilename, "cw"))
+                # open output file
+                outdata = lh5open(outfilename, "cw")
+                # get processed channels
+                processed_channels = keys(outdata)
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
                     # loop over channels
-                    @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
+                    @showprogress desc="Filekey: $fk" output=stdout for (ch, det) in zip(chinfo.channel, chinfo.detector)
 
                         # check if channel can be processed
                         if "$ch" in processed_channels && !reprocess
@@ -99,14 +94,11 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                         end
 
                         @debug "Processing channel $ch ($det)"
-                        error_dets = ""
                         @timeit dsp_timer "DSP $det" begin
                             # process data
                             outdata_ch = nothing
                             try
-                                raw_data_ch = raw_data[ch].raw[:]
-                                outdata_ch = fast_flatten([dsp_icpc_compressed(data_part, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
-                                        for data_part in Iterators.partition(raw_data_ch, max_wvfs)])
+                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -116,23 +108,25 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            lh5open(outfilename, "cw") do outdata
-                                outdata[ch, :jldsp] = outdata_ch
-                            end
+                            outdata[ch, :jldsp] = outdata_ch
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful
                             n_detectors += 1
+                            # flush streams
+                            flush(stdout)
+                            flush(stderr)
                         end
                     end
+                    # close outdata file
+                    close(outdata)
                 end
-
-                @info "Finished processing file: $(basename(filename))"
+                @info "Finished processing file: $(basename(rawfilename))"
                 close(raw_data)
             end
         end
         if n_detectors == 0
-            @warn "No detectors processed in $(basename(filename))"
+            @warn "No detectors processed in $(basename(rawfilename))"
         end
 
         # create total timer by summing over memory usage and time

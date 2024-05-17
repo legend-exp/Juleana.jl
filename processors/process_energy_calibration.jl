@@ -5,7 +5,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     energy_config = dataprod_config(l200).energy(filekey)
@@ -15,7 +15,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @debug "Loaded CTC parameters"
 
     @debug "Create pars db"
-    mkpath(data_path(l200.par.rpars.ecal[period]))
+    mkpath(joinpath(data_path(l200.par.rpars.ecal), string(period)))
     pars_db = PropDict(l200.par.rpars.ecal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -75,7 +75,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
         try
             @debug "Load hit file"
             data_hit = LHDataStore(hitchfilename, "r");
-            data_ch_after_qc = data_hit["$(ch)/dataQC"][:];
+            data_ch_after_qc = data_hit[ch].dataQC[:];
             close(data_hit)
         catch e
             @error "Error in loading data for channel $ch: $e"
@@ -84,7 +84,6 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
         quantile_perc = if energy_config_ch.quantile_perc isa String parse(Float64, energy_config_ch.quantile_perc) else energy_config_ch.quantile_perc end
         th228_names = Symbol.(energy_config_ch.th228_names)
-        th228_lines = energy_config_ch.th228_lines
         th228_lines_dict = Dict(th228_names .=> energy_config_ch.th228_lines)
 
         @showprogress desc="Detector: $det" for e_type in energy_types

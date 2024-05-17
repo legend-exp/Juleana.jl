@@ -8,14 +8,19 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true)) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     aoe_config = dataprod_config(l200).psd(filekey).aoe.partition
     @debug "Loaded aoe config: $(aoe_config)"
     
     @debug "Create pars db"
-    pars_db = ifelse(l200.par.ppars.aoe(filekey) isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.ppars.aoe(filekey))
+    mkpath(data_path(l200.par.ppars.aoe))
+    pars_db = if isempty(readdir(data_path(l200.par.ppars.aoe)))
+            PropDict()
+        else
+            PropDict(l200.par.ppars.aoe(filekey))
+        end
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
@@ -40,7 +45,6 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
             return (processed = true, log = log_info)
         end
 
-
         # load config
         aoe_config_ch = merge(aoe_config.default, get(aoe_config, det, PropDict()))
 
@@ -50,6 +54,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         e_type_aoe     = Symbol(aoe_config_ch.energy_type_aoe)
         e_type_e       = Symbol(aoe_config_ch.energy_type_e)
         e_type_aoe_cal = Symbol(aoe_config_ch.energy_type_aoe * "_cal")
+        a_type         = Symbol(aoe_config_ch.a_type)
 
         aoe_peaks = aoe_config_ch.aoe_peaks
         aoe_peak_names = Symbol.(aoe_config_ch.aoe_peaks_names)
@@ -63,13 +68,13 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 ds -> begin
                     @debug "Reading from \"$(ds.data_store.filename)\""
                     dsp_out = ds[ch].dataQC[:]
-                    Table(merge((aoe = ustrip.(dsp_out.a ./ ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_aoe].cal.func).(dsp_out)), 
+                    Table(merge((aoe = ustrip.(getproperty(dsp_out, a_type) ./ ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_aoe].cal.func).(dsp_out)), 
                         e = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_e].cal.func).(dsp_out),
-                        a = dsp_out.a, drift_time = dsp_out.drift_time), 
+                        a = getproperty(dsp_out, a_type), drift_time = dsp_out.drift_time),
                         (; e_type_aoe_cal => ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_aoe].cal.func).(dsp_out))
                     ))
                 end,
-                l200.tier[:jlhitch, filekey, ch]
+                l200.tier[:jlhitch, :cal, period, run, ch]
             ) for (period, run) in partinfo])
         catch e
             @error "AoE and E data for $det from cannot be loaded"
@@ -80,7 +85,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         e_cal, aoe = collect(t.e), collect(t.aoe)
         
         # plot raw aoe
-        p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, 0.2:5e-4:0.8), xlims=(0, 3000), ylims=(0.1, 0.9), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
+        p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, 0.05:5e-4:0.8), xlims=(0, 3000), ylims=(0.1, 0.9), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
         plot!(p,guidefontsize=18,xguidefontsize = 18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
         xticks!(p, 0:250:3000)
         title!(p, get_plottitle(filekey, det, "AoE uncalibrated"))
@@ -139,7 +144,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         result_cut = nothing
         try
             @debug "Generate AoE cut"
-            result_cut = get_aoe_cut(aoe, e_cal,; cut_search_interval=(-25.0, 0.0), window=[20.0u"keV", 20.0u"keV"], rtol=1e-5, bin_width_window=3.0u"keV", fixed_position=false, sigma_high_sided=sigma_high_sided)
+            result_cut = get_aoe_cut(aoe, e_cal,; cut_search_interval=(-25.0, 0.0), window=[20.0u"keV", 20.0u"keV"], rtol=1e-5, bin_width_window=3.0u"keV", fixed_position=true)
         catch e
             @error "AoE cut for $det cannot be generated"
             throw(ErrorException("AoE cut for $det from partition $(part) cannot be generated"))
@@ -147,18 +152,20 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
         @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
-        result_peaks, report_peaks = nothing, nothing
+        result_peaks, report_peaks, result_peaks_highsided, report_peaks_highsided = nothing, nothing, nothing, nothing
         try
             @debug "Generate AoE Surrival Fractions"
-            result_peaks, report_peaks = get_peaks_surrival_fractions(aoe, e_cal, aoe_peaks, aoe_peak_names, aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=false, sigma_high_sided=result_cut.highcut)
+            result_peaks, report_peaks                     = get_peaks_surrival_fractions(aoe, e_cal, aoe_peaks, aoe_peak_names, aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=true)
+            result_peaks_highsided, report_peaks_highsided = get_peaks_surrival_fractions(aoe, e_cal, aoe_peaks, aoe_peak_names, aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=true, sigma_high_sided=aoe_config_ch.sigma_high_sided)
         catch e
             @error "AoE peaks SF for $det cannot be generated"
             throw(ErrorException("AoE peaks SF for $det from partition $(part) cannot be generated"))
         end
 
-        qbb_result = nothing
+        qbb_result, qbb_result_highsided = nothing, nothing
         try
-            qbb_result = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
+            qbb_result           = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut)
+            qbb_result_highsided = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
         catch e
             @error "Qbb SF for $det cannot be generated"
             throw(ErrorException("Qbb SF for $det from partition $(part) cannot be generated"))
@@ -175,51 +182,52 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_qbb_sf_$e_type_e"))
 
 
-        peak_sf_plot = plot.([rep.after for rep in values(report_peaks)], titleloc=:left, titlefont=font(8), ticks=:native, legend=:bottomright; show_label=true, show_fit=false)
-        for (p, rep_before) in zip(peak_sf_plot, [rep.before for rep in values(report_peaks)])
-            plot!(p, rep_before,; show_label=true, show_fit=false)
-            p.series_list[1][:label] = "After"
-            p.series_list[2][:label] = "Before"
-        end
-        for (p, peak_name, res) in zip(peak_sf_plot, keys(result_peaks), values(result_peaks))
-            xticks!(p, convert(Int, round(xlims(p)[1], digits=0)):10:convert(Int, round(xlims(p)[2], digits=0)))
-            title!(p, "$peak_name ($(aoe_peak_dict[peak_name])) - SF: $(res.sf)")
-        end
-        p = plot(
-            peak_sf_plot...,
-            layout = @layout[grid(2, 2)], 
-            size=(2000, 1200), legend=:bottomright,
-            framestyle=:box,
-            grid=true, minor=true, gridalpha=0.2, gridcolor=:black, gridlinewidth=0.5,
-            xlabel="Energy (keV)", ylabel="Counts",
-            dpi = 300, thickness_scaling = 2,
-            yformatter=:plain, titlefont=12,
-        )
-        plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1200, 900))
-        plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type_e"))
+        # peak_sf_plot = plot.([rep.after for rep in values(report_peaks)], titleloc=:left, titlefont=font(8), ticks=:native, legend=:bottomright; show_label=true, show_fit=false)
+        # for (p, rep_before) in zip(peak_sf_plot, [rep.before for rep in values(report_peaks)])
+        #     plot!(p, rep_before,; show_label=true, show_fit=false)
+        #     p.series_list[1][:label] = "After"
+        #     p.series_list[2][:label] = "Before"
+        # end
+        # for (p, peak_name, res) in zip(peak_sf_plot, keys(result_peaks), values(result_peaks))
+        #     xticks!(p, convert(Int, round(xlims(p)[1], digits=0)):10:convert(Int, round(xlims(p)[2], digits=0)))
+        #     title!(p, "$peak_name ($(aoe_peak_dict[peak_name])) - SF: $(res.sf)")
+        # end
+        # p = plot(
+        #     peak_sf_plot...,
+        #     layout = @layout[grid(2, 2)], 
+        #     size=(2000, 1200), legend=:bottomright,
+        #     framestyle=:box,
+        #     grid=true, minor=true, gridalpha=0.2, gridcolor=:black, gridlinewidth=0.5,
+        #     xlabel="Energy (keV)", ylabel="Counts",
+        #     dpi = 300, thickness_scaling = 2,
+        #     yformatter=:plain, titlefont=12,
+        # )
+        # plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1200, 900))
+        # plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
+        # savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type_e"))
 
         p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before AoE", ylabel="Counts / 0.2 keV")
-        stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After AoE")
+        stephist!(e_cal[result_cut.lowcut .< aoe], nbins=0:0.5:3000, yscale=:log10, label="After AoE")
         xticks!(0:250:3000)
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600), fontfamily=:sansserif)
+        plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600))
         savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterAoE_$e_type_e"))
 
 
         p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before AoE", ylabel="Counts / 0.5 keV")
-        stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After AoE")
+        stephist!(e_cal[result_cut.lowcut .< aoe], nbins=0:0.5:3000, yscale=:log10, label="After AoE")
         stephist!(e_cal, nbins=1550:0.5:1700, inset = (1, bbox(0.2, 0.72, 0.4, 0.2, :top)), subplot = 2)
-        stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=1550:0.5:1700, subplot = 2, legend=:none, ylabel="Counts / 0.5 keV", xlabel="")
-        xticks!(0:250:3000, subplot = 1)
-        xticks!(1500:20:1700, subplot = 2)
+        stephist!(e_cal[result_cut.lowcut .< aoe], nbins=1550:0.5:1700, subplot = 2, legend=:none, ylabel="Counts / 0.5 keV", xlabel="")
+        xticks!(0:250:3000, subplot = 1, framestyle=:box)
+        xticks!(1500:30:1700, subplot = 2)
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"), subplot=1)
-        plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600), fontfamily=:sansserif)
+        plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600))
         plot!(ylabelfontsize=8, subplot=2)
+        plot!(thickness_scaling=1.5)
         savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterAoE_zoom_$e_type_e"))
 
         p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -25:0.02:10), xlims=(0, 3000), ylims=(-25, 10), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
-        plot!(margin=1mm, thickness_scaling=1.6, dpi=600, size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10), fontfamily=:sansserif)
+        plot!(margin=1mm, thickness_scaling=1.6, dpi=600, size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10))
         hline!([result_cut.lowcut, result_cut.highcut], color=:red, label="Cut", lw=2.5)
         hspan!([-50, result_cut.lowcut, result_cut.highcut, 50], color=:red, alpha=0.2, label="", lw=0)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "A/E Classifier"))
@@ -229,7 +237,9 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         result = (
             cut = result_cut,
             peaks = result_peaks,
+            peaks_highsided = result_peaks_highsided,
             qbb = qbb_result,
+            qbb_highsided = qbb_result_highsided,
             e_type = e_type_e,
             sigma_high_sided = sigma_high_sided,
         )

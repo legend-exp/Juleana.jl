@@ -16,7 +16,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     @debug "Loaded PZ config: $(pz_config)"
 
     @debug "Create pars db"
-    mkpath(data_path(l200.par.rpars.pz[period]))
+    mkpath(joinpath(data_path(l200.par.rpars.pz), string(period)))
     pars_db = PropDict(l200.par.rpars.pz[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)

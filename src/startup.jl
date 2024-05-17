@@ -5,7 +5,7 @@ using ParallelProcessingTools: getlabel
 
 @always_everywhere begin
     # load packages
-    using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement, LegendDataManagement.LDMUtils
+    using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement, LegendDataManagement.LDMUtils, LegendEventAnalysis
     using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
     using Unitful, Formatting, LaTeXStrings, Printf, Measures, Dates, Measurements
     using Measurements: value as mvalue

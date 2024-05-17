@@ -12,7 +12,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     @debug "Loaded energy config: $(energy_config)"
 
     @debug "Create pars db"
-    mkpath(data_path(l200.par.rpars.ctc[period]))
+    mkpath(joinpath(data_path(l200.par.rpars.ctc), string(period)))
     pars_db = PropDict(l200.par.rpars.ctc[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -34,7 +34,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = get_hitchfilename(l200, filekey, ch)
+        hitchfilename = l200.tier[:jlhitch, filekey, ch]
         # load data file
         if !isfile(hitchfilename)
             @error "Hit file $hitchfilename not found"
@@ -67,7 +67,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         try
             @debug "Load hit file"
             data_hit = lh5open(hitchfilename, "r");
-            data_ch_after_qc = data_hit["$(ch)"].dataQC[:];
+            data_ch_after_qc = data_hit[ch].dataQC[:];
             close(data_hit)
         catch e
             @error "Error in loading data for channel $ch: $e"

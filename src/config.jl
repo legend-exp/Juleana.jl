@@ -69,10 +69,9 @@ function get_processingconfig()
     # save parsed args for later
     processing_config.parsed_args = parsed_args
     # get environoment variables
-    env_args_worker = Pair{String, String}[]
+    env_args_worker = Dict{String, String}(string.(keys(processing_config.config.env_variables)) .=> string.(values(processing_config.config.env_variables)))
     for key in keys(processing_config.config.env_variables)
         ENV[String(key)] = processing_config.config.env_variables[key]
-        push!(env_args_worker, Pair{String, String}(String(key), processing_config.config.env_variables[key]))
     end
     processing_config.env_args_worker = env_args_worker
     

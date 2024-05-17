@@ -18,7 +18,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     @debug "Loaded optimization config: $(optimization_config)"
 
     @debug "Create pars db"
-    mkpath(data_path(l200.par.rpars.fltopt[period]))
+    mkpath(joinpath(data_path(l200.par.rpars.fltopt), string(period)))
     pars_db = PropDict(l200.par.rpars.fltopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)

@@ -18,9 +18,14 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     @debug "Loaded energy config: $(energy_config)"
     
     @debug "Create pars db"
-    pars_db = ifelse(l200.par.ppars.ecal(filekey) isa LegendDataManagement.NoSuchPropsDBEntry, PropDict(), l200.par.ppars.ecal(filekey))
-
+    mkpath(data_path(l200.par.ppars.ecal))
+    pars_db = if isempty(readdir(data_path(l200.par.ppars.ecal)))
+            PropDict()
+        else
+            PropDict(l200.par.ppars.ecal(filekey))
+        end
     pars_db = ifelse(reprocess, PropDict(), pars_db)
+
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
@@ -39,13 +44,6 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = get_hitchfilename(l200, filekey, ch)
-        # load data file
-        if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
-            throw(ErrorException("Hit file not found"))
-        end
-
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
@@ -60,18 +58,16 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fwhm.qbb, pars_db[det][e_type].Tl208FEP.fwhm, pars_db[det][e_type].m_calib, "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fwhm.qbb, pars_db[det][e_type].fit.Tl208FEP.fwhm, pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
             end
         end
 
-        quantile_perc = if energy_config_ch.quantile_perc isa String parse(Float64, energy_config_ch.quantile_perc) else energy_config_ch.quantile_perc end
         th228_names = Symbol.(energy_config_ch.th228_names)
         th228_lines = energy_config_ch.th228_lines
         th228_lines_dict = Dict(th228_names .=> energy_config_ch.th228_lines)
-
 
         for e_type in energy_types
             if haskey(processed_dict, e_type)
@@ -79,21 +75,15 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
             end
             try
                 @debug "Calibrate $e_type"
-                e_type_name = Symbol(split(string(e_type), "_ctc")[1])
 
                 energy = nothing
                 try
                     energy = fast_flatten([lh5open(
                         ds -> begin
                             @debug "Reading from \"$(ds.data_store.filename)\""
-                            e_uncal = ds["$(ch)/dataQC/$(e_type_name)"][:]
-                            if endswith(string(e_type), "_ctc")
-                                fct = l200.par.rpars.ctc[period, run][det][e_type_name].fct
-                                e_uncal = e_uncal .+ fct .* ds["$(ch)/dataQC/qdrift"][:]
-                            end
-                            e_uncal .* l200.par.rpars.ecal[period, run][det][e_type].m_calib .+ l200.par.rpars.ecal[period, run][det][e_type].n_calib
+                            ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(ds[ch].dataQC[:])
                         end,
-                        get_hitchfilename(l200, filekey.setup, period, run, filekey.category, ch)
+                        l200.tier[:jlhitch, :cal, period, run, ch]
                     ) for (period, run) in partinfo])
                 catch e
                     @error "E data for $det from cannot be loaded"
@@ -105,7 +95,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                 peakhists, peakstats = nothing, nothing
                 try
                     @debug "Get $e_type peakhists and peakstats"
-                    peakhists, peakstats, _, _ = get_peakhists_th228(energy, energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes; e_unit=e_unit)
+                    peakhists, peakstats, _, _ = get_peakhists_th228(collect(energy), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes; e_unit=e_unit)
                 catch e
                     @error "Error in $e_type simple calibration for channel $ch: $e"
                     throw(ErrorException("Error in $e_type simple calibration"))
@@ -128,53 +118,31 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                 end
                 GC.gc()
 
-                peak_fit_plot = plot.(values(report_fit), titleloc=:center, titlefont=font(family="monospace",halign=:center, pointsize=20), ticks=:native, right_margin=10mm, top_margin=5mm, legend=false; show_label=true)
-                for (i, p) in enumerate(peak_fit_plot)
-                    xticks!(p, convert(Int, round(xlims(p)[1], digits=0)):5:convert(Int, round(xlims(p)[2], digits=0)))
-                    title!(p, string.(keys(report_fit))[i])
-                    if i != 1
-                        plot!(showlegend=false)
-                    end
-                end
-                p = plot(
-                    peak_fit_plot...,
-                    framestyle=:box,
-                    legend=:outerright,
-                    layout=(3, 3),
-                    thickness_scaling=1.5,
-                    grid=true, gridalpha=0.2, gridcolor=:black, gridlinewidth=0.5,
-                    xguidefont=font(family="monospace",halign=:center, pointsize=18),
-                    yguidefont=font(family="monospace",halign=:center, pointsize=18),
-                    xtickfontsize=10,
-                    ytickfontsize=10,
-                    size=(5000, 3000),
-                    margins=15mm,
-                    dpi=300
-                )
+                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
+                plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
                 savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("peak_fits_$e_type"))
 
-
                 yield()
-
                 @debug "Get $e_type calibration values"
-                μ =  [result_fit[p].μ for p in th228_names]
 
-                m_calib, n_calib = nothing, nothing
+                result_calib, report_calib = nothing, nothing
                 try
-                    μ_fit =  get_values([result_fit[p].μ for p in th228_names if p != :Tl208SEP && p != :Tl208DEP])
-                    pp_fit = [th228_lines_dict[p] for p in th228_names if p != :Tl208SEP && p != :Tl208DEP]    
-                    m_calib, n_calib = fit_calibration(ustrip.(e_unit, μ_fit), pp_fit)
-                    @debug "Found $e_type calibration curve: E[keV] = $(round(u"keV", n_calib, digits=2)) + $(round(u"keV", m_calib, digits=2))*E[ADC]"
+                    μ_fit =  [result_fit[p].μ for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
+                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
+                    result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit)
+                    @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
                     @error "Error in $e_type calibration curve fitting for channel $ch: $e"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
-
-                p = scatter(μ, th228_lines, ms=5, color=:black, framestyle=:box, markershape= :x, layout = @layout[grid(2, 1, heights=[0.8, 0.2])], label="Peak Positions", xlabel="Energy (keV)", xlabelfontsize=10, ylabel="Energy", ylabelfontsize=10, legend=:topleft, legendfontsize=8, legendfont=font(8), legendtitlefontsize=8, legendtitlefont=font(8), xlims = (0, 3000), xticks = (200:200:3000), margin=5mm, thickness_scaling=1.5, xformatter=:plain)
-                plot!(ylims = (0, 3000), yticks = (200:200:3000), subplot=1, xlabel="", xticks = :none, bottom_margin=-4mm)
-                plot!(0:1:20000, m_calib .* collect(0:1:20000) .+ n_calib, label="Best Fit: $(round(u"keV", n_calib, digits=2)) + x*$(round(u"keV", m_calib, digits=2))", line_width=2, color=:red, subplot=1, xformatter=_->"")
-                plot!(ustrip.(e_unit, μ), ((m_calib .* ustrip.(μ) .+ n_calib) .- th228_lines) ./ th228_lines .* 100 , label="Residuals", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-0.1, 0.1), markershape=:x, subplot=2, legend=:topleft, top_margin=0mm, framestyle=:box)
-                plot!(legend = :topleft, title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), subplot=1)
+                # add not-fitted peaks to plot 
+                μ_notfit =  ustrip.(report_calib.e_unit, [result_fit[p].μ for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)])
+                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
+        
+                p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
+                plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
+                plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
+                plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
                 savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("calibration_curve_$e_type"))
 
                 yield()
@@ -183,32 +151,29 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
 
                 result_fwhm, report_fwhm = nothing, nothing
                 try
-                    fwhm_fit = get_values([result_fit[p].fwhm for p in th228_names if p != :Tl208SEP && p != :Tl208DEP])
-                    pp_fit = [th228_lines_dict[p] for p in th228_names if p != :Tl208SEP && p != :Tl208DEP]
-                    result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit)
+                    fwhm_fit = [result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]
+                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]    
+                    result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit; pol_order=energy_config_ch.fwhm_pol_order, e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
                     @error "Error in $e_type FWHM fitting for channel $ch: $e"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
+                fwhm_notfit =  [result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
+                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks)]
+        
 
-                p = plot(layout = @layout[grid(2, 1, heights=[0.8, 0.2])], label="Peak FWHMs", xlabel="Energy (keV)", xlabelfontsize=10, ylabel="FWHM (keV)", ylabelfontsize=10, legend=:topleft, legendfontsize=8, legendfont=font(8), legendtitlefontsize=8, legendtitlefont=font(8), xlims = (0, 3000), xticks = (convert(Int, 0):300:convert(Int, round(3000, digits=0))), margin=5mm, thickness_scaling=1.5)
-                scatter!(th228_lines, fwhm, ms=5, color=:black, framestyle=:box, markershape= :x, ylabel="FWHM (keV)", subplot=1)
-                plot!((0:0.1:3000)*u"keV", x -> report_fwhm.f_fit(x), label="Best Fit -  ENC: $(round(u"keV^2", result_fwhm.enc, digits=2))| Fano: $(round(u"keV", result_fwhm.fano*100, digits=2))e-3 | CT: $(round(result_fwhm.ct*1000, digits=2))e-4)", line_width=2, color=:red, subplot=1, xlabel="", xticks=:none, bottom_margin=-4mm)
-                hline!([result_fwhm.qbb], label="Qbb: $(round(u"keV", result_fwhm.qbb, digits=2))", color=:green)
-                hspan!([mvalue(result_fwhm.qbb) - muncert(result_fwhm.qbb), mvalue(result_fwhm.qbb) + muncert(result_fwhm.qbb)], color=:green, alpha=0.2, label="")
-                plot!(ustrip.(u"keV", th228_lines), ((report_fwhm.f_fit.(th228_lines) .- fwhm) ./ fwhm) .* 100 , label="Residuals", ylabel="Residuals (%)", line_width=2, color=:black, st=:scatter, ylims = (-10, 10), markershape=:x, legend=:topleft, subplot=2, framestyle=:box, top_margin=0mm)
-                plot!(legend = :topleft, title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), subplot=1)
+                p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
+                plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
                 savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("fwhm_$e_type"))
 
                 yield()
 
-                log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, m_calib, ""))
+                log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
 
                 result_energy = (
-                    m_calib = m_calib,
-                    n_calib = n_calib,
                     fwhm = result_fwhm,
+                    cal = result_calib,
                     fit  = result_fit,
                 )
 
