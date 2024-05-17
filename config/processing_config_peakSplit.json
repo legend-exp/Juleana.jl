@@ -9,7 +9,7 @@
             "JULIA_DEBUG": "Main,ParallelProcessingTools,ClusterManagers"
         },
         "slurm_settings": [
-            "--time=06:00:00",
+            "--time=12:00:00",
             "--mem-bind=local",
             "--threads-per-core=1",
             "--cpu-bind=cores",

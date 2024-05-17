@@ -32,8 +32,8 @@ if !processing_config.submit_slurm
     runmode = SlurmRun(
         slurm_flags = get_slurm_flags(processing_config),
         julia_flags = get_julia_flags(processing_config),
-        worker_timeout = 240,
         redirect_output = false,
+        # env = processing_config.env_args_worker
     )
     @info "Write worker start script to $(joinpath(homedir(), "startjlworkers.sh"))"
     write_worker_start_script(joinpath(homedir(), "startjlworkers.sh"), runmode)
@@ -57,7 +57,7 @@ if !processing_config.only_partitions
     # process periods
     @sync begin
         for period in periods
-            Threads.@spawn begin 
+            Threads.@spawn begin
                 @info "Process period $period"
 
                 # select runs to process
@@ -108,23 +108,27 @@ if !processing_config.only_runs
     processable_partitions = get_processable_partitions(partitions)
 
     # process partitions 
-    for part in partitions
+    @sync begin 
+        for part in partitions
 
-        @info "Process partition $part"
+            @info "Process partition $part"
 
-        # submit slurm job if enabled
-        if processing_config.submit_slurm
-            sbatch(l200, processing_config, part)
-            continue
-        end
+            # submit slurm job if enabled
+            if processing_config.submit_slurm
+                sbatch(l200, processing_config, part)
+                continue
+            end
 
-        # iterate through process steps
-        for process in process_steps
-            @info "$process"
+            Threads.@spawn begin
+                # iterate through process steps
+                for process in process_steps
+                    @info "$process"
 
-            # run process
-            kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process]) if !(k in [:enabled, :rank, :n_workers])])
-            getfield(Main, process)(processing_config, l200, part,; kwargs...)
+                    # run process
+                    kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process]) if !(k in [:enabled, :rank, :n_workers])])
+                    getfield(Main, process)(processing_config, l200, part,; kwargs...)
+                end
+            end
         end
     end
 end
