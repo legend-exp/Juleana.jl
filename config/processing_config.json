@@ -6,7 +6,7 @@
             "GKSwstype": "100",
             "HDF5_USE_FILE_LOCKING": "FALSE",
             "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
-            "JULIA_DEBUG": "Main",
+            "JULIA_DEBUG": "Main,LegendSpecFits",
             "JULIA_WORKER_TIMEOUT": "240"
         },
         "slurm_settings": [
@@ -24,8 +24,8 @@
         ]
     },
     "processing": {
-        "periods": "all",
-        "runs" : "all", 
+        "periods": [3,4],
+        "runs" : [1,2], 
         "partitions": [1],
         "analysis_runs_only": true,
         "only_partitions": false,
