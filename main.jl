@@ -66,7 +66,7 @@ if !processing_config.only_partitions
                 # process runs
                 for run in processable_runs
                     # check if run is a analysis run if switched on
-                    if processing_config.analysis_runs_only && !is_analysis_run(l200, period, run)
+                    if processing_config.analysis_runs_only && !is_analysis_phy_run(l200, period, run)
                         @warn "Run $run is not a analysis run"
                         continue
                     end

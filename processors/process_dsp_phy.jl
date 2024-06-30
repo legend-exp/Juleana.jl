@@ -191,7 +191,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process data
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception

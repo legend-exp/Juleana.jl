@@ -86,8 +86,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         try
             # DSP
             @debug "Generating DSP AoE grid for SEP and DEP data"
-            dsp_dep = dsp_sg_optimization_compressed(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-            dsp_sep = dsp_sg_optimization_compressed(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config, pars_tau[det].tau, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+            dsp_dep = dsp_sg_optimization_compressed(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+            dsp_sep = dsp_sg_optimization_compressed(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
         catch e
             @error "Failed DSP for DEP or SEP: $e"
             throw(ErrorException("Error in DSP for DEP or SEP: $e"))
