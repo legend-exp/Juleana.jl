@@ -119,7 +119,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
     pars_db = create_pars(pars_db, result_pz)
     writelprops(l200.par.rpars.pz[period], run, pars_db)
-    writevalidity(l200.par.rpars.pz, filekey)
+    writevalidity(l200.par.rpars.pz, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

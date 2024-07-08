@@ -197,7 +197,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
 
     pars_db = create_pars(pars_db, result_flt)
     writelprops(l200.par.rpars.fltopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.fltopt, filekey)
+    writevalidity(l200.par.rpars.fltopt, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

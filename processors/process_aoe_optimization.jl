@@ -148,7 +148,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
     pars_db = create_pars(pars_db, result_sg)
     writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.aoeopt, filekey)
+    writevalidity(l200.par.rpars.aoeopt, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
