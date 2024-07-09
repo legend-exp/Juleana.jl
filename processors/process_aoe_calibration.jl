@@ -69,7 +69,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
             data_hit = LHDataStore(hitchfilename, "r");
             tab_data = data_hit["$(ch)/dataQC/"][:]
             close(data_hit)
-            a = tab_data.a # get a
+            a = tab_data.a_100 # get a
             ecal_func_str = pars_energy[det][e_type_aoe].cal.func  # calibrate energy 
             e_cal = collect(ljl_propfunc(pars_energy[det][e_type_e].cal.func).(tab_data))
             aoe = ustrip.(a ./ ljl_propfunc(ecal_func_str).(tab_data)); # get aoe
