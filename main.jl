@@ -1,8 +1,5 @@
 #!/usr/bin/env -S julia -t 1 --project=/ptmp/fhenkes/l200/current/jlenv --heap-size-hint=10G
 
-# set julia traget to generic for similar compilecache in all workers
-ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
-
 ##################
 # Start Processing
 ##################
@@ -28,23 +25,28 @@ l200, processing_config, runs, periods, partitions = get_processingconfig()
 include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
 # create workers
-if !processing_config.submit_slurm
-    runmode = SlurmRun(
-        slurm_flags = get_slurm_flags(processing_config),
-        julia_flags = get_julia_flags(processing_config),
-        redirect_output = false,
-        # env = processing_config.env_args_worker
-    )
-    @info "Write worker start script to $(joinpath(homedir(), "startjlworkers.sh"))"
-    write_worker_start_script(joinpath(homedir(), "startjlworkers.sh"), runmode)
-    # get wpool
-    wpool = FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1)
-    ppt_worker_pool!(wpool)
-    # run mode 
-    # @async runworkers(runmode)
+runmode = SlurmRun(
+    slurm_flags = get_slurm_flags(processing_config),
+    julia_flags = get_julia_flags(processing_config),
+    redirect_output = false,
+    # env = processing_config.env_args_worker
+)
+@info "Write worker start script to $(joinpath(@__DIR__, "startjlworkers.sh"))"
+write_worker_start_script(joinpath(@__DIR__, "startjlworkers.sh"), runmode)
+# get wpool
+wpool = FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1)
+ppt_worker_pool!(wpool)
+
+# submit to cluster
+if processing_config.submit_slurm
+    @async runworkers(runmode)
 end
 
 flush(stdout)
+using REPL
+term = REPL.Terminals.TTYTerminal("dumb", stdin, stdout, stderr)
+repl = REPL.LineEditREPL(term, true)
+REPL.run_repl(repl)
 
 ####################
 # Process Runs
