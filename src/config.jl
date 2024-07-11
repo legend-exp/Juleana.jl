@@ -30,7 +30,7 @@ function get_argparse()
             help = "process only partitions ignoring periods and runs"
             action = :store_true
         "--submit_slurm"
-            help = "submit slurm jobs to the cluster for each run and period independently"
+            help = "submit slurm jobs to the cluster"
             action = :store_true
         "--ignore_config"
             help = "ignore all settings and config and only take command line arguments"
@@ -135,7 +135,7 @@ function get_processingconfig()
     # get runs and periods
     runs, periods = nothing, nothing
     if !(processing_config.only_partitions)
-        runs, periods = get_runsandperiods(parsed_args, processing_config)
+        runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
     end
 
     # get partitions
@@ -147,7 +147,7 @@ function get_processingconfig()
     return l200, processing_config, runs, periods, partitions
 end
 
-function get_runsandperiods(parsed_args::Dict, processing_config::PropDict)
+function get_runsandperiods(parsed_args::Dict, processing_config::PropDict, l200::LegendData)
     # parse periods and runs from arguments, if not supported use config
     runs, periods = nothing, nothing
     if !isempty(parsed_args["runs"]) && isempty(parsed_args["periods"])
