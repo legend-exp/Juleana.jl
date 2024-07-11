@@ -55,7 +55,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
             global n_detectors = 0
             # channel ids of failed detectors
             global failed_detectors = DetectorId[]
-            modify_files(dspfilename, use_cache = true) do outfilename
+            write_files(dspfilename; mode = CreateOrModify(), use_cache = true) do outfilename
                 @timeit dsp_timer "Startup" begin
                     raw_data = lh5open(filename, "r")
                     if reprocess && isfile(dspfilename)

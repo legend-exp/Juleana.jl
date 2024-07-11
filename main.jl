@@ -1,4 +1,5 @@
 # julia -t 1 --project=/ptmp/lschl/l200/current/jlenv --heap-size-hint=10G main.jl --config ./config/processing_config.json -p 3 -r 0 1 --only_runs
+# julia -t 1 --project=. --heap-size-hint=10G main.jl --config ./config/processing_config.json --only_runs
 
 # set julia traget to generic for similar compilecache in all workers
 ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
@@ -53,7 +54,6 @@ if !processing_config.only_partitions
     
     # get processing steps from config and sort by rank
     process_steps =  processing_config.process_steps
-
     # process periods
     @sync begin
         for period in periods
@@ -66,7 +66,7 @@ if !processing_config.only_partitions
                 # process runs
                 for run in processable_runs
                     # check if run is a analysis run if switched on
-                    if processing_config.analysis_runs_only && !is_analysis_run(l200, period, run)
+                    if false # if processing_config.analysis_runs_only && !is_analysis_run(l200, period, run)
                         @warn "Run $run is not a analysis run"
                         continue
                     end
@@ -95,7 +95,6 @@ if !processing_config.only_partitions
         end
     end
 end
-
 ####################
 # Process Partitions
 ####################

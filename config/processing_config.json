@@ -10,22 +10,22 @@
             "JULIA_WORKER_TIMEOUT": "240"
         },
         "slurm_settings": [
-            "--time=04:00:00",
+            "--time=02:00:00",
             "--mem-bind=local",
             "--threads-per-core=1",
             "--cpu-bind=cores",
-            "--nodes=32",
-            "--ntasks-per-node=10",
-            "--cpus-per-task=4",
-            "--mem=84GB"
+            "--nodes=3",
+            "--ntasks-per-node=36",
+            "--cpus-per-task=2", 
+            "--mem=234GB"
         ],
         "julia_settings": [
             
         ]
     },
     "processing": {
-        "periods": [3,4],
-        "runs" : [1,2], 
+        "periods": [3, 4, 6, 7, 8, 9],
+        "runs" : "all", 
         "partitions": [1],
         "analysis_runs_only": true,
         "only_partitions": false,
@@ -48,7 +48,7 @@
         "process_decay_time": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "timeout": false,
             "max_wvfs": 15000,
             "rank": 2
@@ -56,7 +56,7 @@
         "process_filter_optimization": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "timeout": false,
             "max_wvfs": 12000,
             "rank": 3
@@ -64,14 +64,14 @@
         "process_aoe_optimization": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "timeout": false,
             "rank": 4
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "timeout": false,
             "max_wvfs": 1000,
             "rank": 5
@@ -79,7 +79,7 @@
         "process_hit_cal": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
+            "reprocess": false,
             "timeout": 1000,
             "rank": 6
         },
@@ -98,14 +98,14 @@
             "rank": 8
         },
         "process_aoe_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "reprocess": true,
             "timeout": 1200,
             "rank": 9
         },
         "process_dsp_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,

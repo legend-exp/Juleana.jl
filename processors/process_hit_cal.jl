@@ -45,7 +45,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         data_puls = load_runch(lh5open, fast_flatten, l200, filekey, :raw, chinfo_puls.channel; check_filekeys=true, keys=(:daqenergy, :timestamp))
         @info "Write Pulser events to disk"
         touch(pulserfilename)
-        modify_files(pulserfilename, use_cache=true) do outfilename
+        write_files(pulserfilename; mode = CreateOrModify(), use_cache=true) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
                 outdata[chinfo_puls.channel, :jlpuls] = data_puls;
@@ -135,7 +135,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         # save hit file
         @debug "Save hit file"
         touch(hitchfilename)
-        modify_files(hitchfilename, use_cache=true) do outfilename
+        write_files(hitchfilename; mode = CreateOrModify(), use_cache=true) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save QC"
                 outdata[ch, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
