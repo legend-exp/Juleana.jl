@@ -1,12 +1,10 @@
-# function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
-    period = DataPeriod(3)
+function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
     @info "Process decay time for all partitions containing period $period"
 
-    partinfo = partitioninfo(l200, "default")
-    partperiod = last(partinfo).period
-    @info "Loaded partition info with $(length(partinfo)) runs"
+    rinfo = runinfo(l200, period)
+    @info "Loaded run info with $(length(rinfo)) runs"
 
-    filekey = first(partinfo).cal.startkey
+    filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
@@ -16,25 +14,18 @@
     @debug "Loaded DSP config: $(dsp_config)"
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Decay Time"), Symbol("Number of Events"), :Error)}
+    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    # get subpartitions
-    channels = chinfo.channel
-
-    period = partperiod
-    ch = channels[1]
-    ch = ChannelId(1108800)
-    partinfo_ch = partitioninfo(l200, ch)
-    subpartitions = Vector{DataPartition}([p for (p, pinfo) in partinfo_ch if period in pinfo.period])
+    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period; unfold_partitions=true)
 
     # flush stdout
     flush(stdout)
-
+    
     # function to process decay time
-    # function ch_decay_time(chinfo_ch::NamedTuple)
+    function ch_decay_time(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
@@ -45,15 +36,15 @@
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
     
-        filekey_ch = start_filekey(l200, (period_ch, run_ch, :cal))
+        filekey_ch = start_filekey(l200, (first(partinfo_ch.period), first(partinfo_ch.run), :cal))
         @debug "Found filekey $filekey_ch"
 
-        validity_dict_ch = Dict{@NamedTuple{period::DataPeriod, run::DataRun}, String}(partinfo_ch .=> Ref("$det/$(part).json"))
+        validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
 
         if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $det already processed, skip"
             log_ch = log_nt((ch, det, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].n_tau, "Already processed --> skipped."))
-            return (processed = false, log = log_ch, validity = validity_dict_ch)
+            return (processed = false, log = log_ch, validity = validity_ch)
         end
 
         @debug "Processing channel $ch ($det)"
@@ -100,24 +91,24 @@
         cuts_τ, result, report =  nothing, nothing, nothing
         try
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
-            result, report = fit_single_trunc_gauss(decay_times, cuts_τ)
+            result, report = fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty=true)
         catch e
             @error "Failed decay time extraction: $e"
             throw(ErrorException("Error in decay time extraction: $e"))
         end
         yield()
         
-        p = plot(report, decay_times, cuts_τ, xlabel="Decay Time [µs]", thickness_scaling=1.8, size=(1200, 900))
-        title!(p, get_plottitle(filekey_ch, det, "Decay Time Distribution"))
+        p = plot(report)
+        title!(p, get_plottitle(filekey_ch, det, "Decay Time Distribution"), subplot=1)
 
         savelfig(savefig, p, l200, part, filekey_ch, det, :decay_time)
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
 
-        log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.n, "-"))
+        log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.σ, "-"))
 
         # generate channel result
-        result_ch = (result = (τ = result.μ, fit = result), processed = true, log = log_ch, validity = validity_dict_ch)
+        result_ch = (result = (τ = result.μ, fit = result), processed = true, log = log_ch, validity = validity_ch)
         result_pz_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
         
         pars_db_ch = create_pars(pars_db_ch, result_pz_ch)
@@ -136,13 +127,11 @@
 
     @info "Finished decay time extraction"
 
-    @info "Write $part validity"
-    writevalidity(l200.par.rpars.pz, filekey)
-    props_db = l200.par.ppars.pz
-    partinfo = partitioninfo(l200)[part]
-    result = result_pz
-    
+    @info "Write $period validity"
+    validity_all = create_validity(result_pz)
+    writevalidity(l200.par.ppars.pz, validity_all)
 
+    # create log report
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Date of processing: $(now())")
@@ -159,4 +148,4 @@
     
     # flush stdout
     flush(stdout)
-# end
+end
