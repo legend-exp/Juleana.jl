@@ -98,7 +98,7 @@
             "rank": 8
         },
         "process_aoe_calibration": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": 1200,

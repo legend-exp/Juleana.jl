@@ -1,5 +1,5 @@
 # julia -t 1 --project=/ptmp/lschl/l200/current/jlenv --heap-size-hint=10G main.jl --config ./config/processing_config.json -p 3 -r 0 1 --only_runs
-# julia -t 1 --project=. --heap-size-hint=10G main.jl --config ./config/processing_config.json --only_runs
+# julia -t 1 --project=/ptmp/lschl/l200/current/jlenv --heap-size-hint=10G main.jl --config ./config/processing_config.json --only_runs
 
 # set julia traget to generic for similar compilecache in all workers
 ENV["JULIA_CPU_TARGET"] = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
