@@ -155,7 +155,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
 
     pars_db = create_pars(pars_db, result_ctc)
     writelprops(l200.par.rpars.ctc[period], run, pars_db)
-    writevalidity(l200.par.rpars.ctc, filekey)
+    writevalidity(l200.par.rpars.ctc, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

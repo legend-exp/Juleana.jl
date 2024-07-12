@@ -138,13 +138,13 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         write_files(hitchfilename; mode = CreateOrModify(), use_cache=true) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save QC"
-                outdata[ch, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
+                outdata[ch, :jlhit, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
                 @info "Save Pulser Tags"
-                outdata[ch, :pulserTag] = is_pulser;
+                outdata[ch, :jlhit, :pulserTag] = is_pulser;
                 @info "Save data after QC"
-                outdata[ch, :dataQC] = data_ch_after_qc;
+                outdata[ch, :jlhit, :dataQC] = data_ch_after_qc;
                 @info "Save data pulser"
-                outdata[ch, :dataPulser] = data_pulser;
+                outdata[ch, :jlhit, :dataPulser] = data_pulser;
             end
         end
 
@@ -170,7 +170,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
     pars_db = create_pars(pars_db, result_qc)
     writelprops(l200.par.rpars.qc[period], run, pars_db)
-    writevalidity(l200.par.rpars.qc, filekey; apply_to=:cal)
+    writevalidity(l200.par.rpars.qc, filekey, (period, run); apply_to=:cal)
     @info "Saved pars to disk"
 
     report = lreport()

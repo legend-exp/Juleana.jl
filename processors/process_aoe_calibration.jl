@@ -152,7 +152,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
 
     pars_db = create_pars(pars_db, result_aoecal)
     writelprops(l200.par.rpars.aoecal[period], run, pars_db)
-    writevalidity(l200.par.rpars.aoecal, filekey)
+    writevalidity(l200.par.rpars.aoecal, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

@@ -8,7 +8,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, part::
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true)) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     aoe_config = dataprod_config(l200).psd(filekey).partition

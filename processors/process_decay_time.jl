@@ -39,7 +39,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $det already processed, skip"
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].tau, pars_db[det].n_tau, "Already processed --> skipped."))
+            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].τ, pars_db[det].n_tau, "Already processed --> skipped."))
             return (processed = false, log = log_ch)
         end
 
@@ -106,7 +106,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
 
         log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.n, "-"))
-        return (result = (tau = result.μ, fit = result), processed = true, log = log_ch)
+        return (result = (τ = result.μ, fit = result), processed = true, log = log_ch)
     end
 
     # get start time
@@ -119,7 +119,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
     pars_db = create_pars(pars_db, result_pz)
     writelprops(l200.par.rpars.pz[period], run, pars_db)
-    writevalidity(l200.par.rpars.pz, filekey)
+    writevalidity(l200.par.rpars.pz, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

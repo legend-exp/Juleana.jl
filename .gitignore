@@ -6,6 +6,9 @@ tests/data/
 *.hdf5
 *.lh5
 
+# ignore worker scripts
+*startjlworkers.sh
+
 # ignore Manifest.toml
 Manifest.toml
 
