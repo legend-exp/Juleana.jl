@@ -227,7 +227,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
     pars_db = create_pars(pars_db, result_energy)
     writelprops(l200.par.rpars.ecal[period], run, pars_db)
-    writevalidity(l200.par.rpars.ecal, filekey)
+    writevalidity(l200.par.rpars.ecal, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
