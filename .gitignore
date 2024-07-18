@@ -9,9 +9,6 @@ tests/data/
 # ignore worker scripts
 *startjlworkers.sh
 
-# ignore Manifest.toml
-Manifest.toml
-
 # Jupyter checkpoints
 .ipynb_checkpoints
 
