@@ -1,22 +1,19 @@
 {    
     "config": {
-        "debug": true,
         "env_variables": {
-            "QT_QPA_PLATFORM": "xcb",
             "GKSwstype": "100",
-            "HDF5_USE_FILE_LOCKING": "FALSE",
             "JULIA_DEBUG": "Main",
             "JULIA_WORKER_TIMEOUT": "240"
         },
         "slurm_settings": [
-            "--time=04:00:00",
+            "--time=00:30:00",
             "--mem-bind=local",
             "--threads-per-core=1",
             "--cpu-bind=cores",
             "--nodes=1",
             "--ntasks-per-node=36",
             "--cpus-per-task=2",
-            "--mem=256GB"
+            "--mem=234GB"
         ],
         "julia_settings": [
             
@@ -25,7 +22,6 @@
     "processing": {
         "periods": "all",
         "runs" : "all",
-        "partitions": [1],
         "analysis_runs_only": true,
         "only_partitions": false,
         "only_runs": false,
@@ -49,7 +45,7 @@
             "dependencies": []
         },
         "process_decay_time": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "rank": 2,
             "kwargs": {
@@ -81,15 +77,16 @@
             "dependencies": []
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 5,
             "kwargs": {
                 "reprocess": true,
                 "max_wvfs": 1000,
-                "timeout": false
+                "timeout": false,
+                "use_partition_filter": true
             },
-            "dependencies": ["p_process_decay_time"]
+            "dependencies": ["p_process_aoe_optimization"]
         },
         "process_hit_cal": {
             "enabled": false,
@@ -128,7 +125,7 @@
             "dependencies": []
         },
         "process_dsp_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "reprocess": true,
             "timeout": false,
@@ -149,24 +146,47 @@
             "rank": 1,
             "kwargs": {
                 "reprocess": true,
-                "timeout": false
+                "timeout": false,
+                "max_wvfs": 20000
             },
             "dependencies": ["process_peak_split"]
         },
-        "p_process_energy": {
-            "enabled": true,
+        "p_process_filter_optimization": {
+            "enabled": false,
             "n_workers": "all",
             "rank": 2,
             "kwargs": {
                 "reprocess": true,
-                "timeout": false
+                "timeout": false,
+                "max_wvfs": 20000
             },
             "dependencies": []
         },
-        "p_process_aoe_cut": {
-            "enabled": true,
+        "p_process_aoe_optimization": {
+            "enabled": false,
             "n_workers": "all",
             "rank": 3,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false,
+                "max_wvfs": 20000
+            },
+            "dependencies": []
+        },
+        "p_process_energy": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 4,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
+            "dependencies": ["process_energy_calibration"]
+        },
+        "p_process_aoe_cut": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 5,
             "kwargs": {
                 "reprocess": true,
                 "timeout": false
@@ -174,11 +194,13 @@
             "dependencies": []
         },
         "p_process_aoe_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 6000,
-            "rank": 4,
+            "rank": 6,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 6000
+            },
             "dependencies": []
         }
     }
