@@ -98,7 +98,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
             result_fit, report_fit = fit_aoe_compton(compton_band_peakhists.peakhists, compton_band_peakhists.peakstats, compton_bands,; uncertainty=true)
         catch e
-            @error "AoE compton bands cannot be fitted: $e"
+            @error "AoE compton bands cannot be fitted: $(truncate_string(string(e)))"
             throw(ErrorException("AoE compton bands cannot be fitted"))
         end
         GC.gc()
@@ -120,7 +120,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         try
             result_corrections, report_corrections = fit_aoe_corrections(compton_bands, μ, σ,; e_expression = e_type_aoe_cal)
         catch e
-            @error "AoE corrections cannot be fitted: $e"
+            @error "AoE corrections cannot be fitted: $(truncate_string(string(e)))"
             throw(ErrorException("AoE corrections cannot be fitted"))
         end
         
@@ -271,7 +271,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey.setup, part, filekey.category, :aoe), report)
+    writelreport(get_rreportfilename(l200, filekey.setup, part, filekey.category, :aoe), report)
     @info report
 
     # flush stdout

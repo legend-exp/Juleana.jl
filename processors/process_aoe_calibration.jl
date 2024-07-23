@@ -74,7 +74,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
             e_cal = collect(ljl_propfunc(pars_energy[det][e_type_e].cal.func).(tab_data))
             aoe = ustrip.(a ./ ljl_propfunc(ecal_func_str).(tab_data)); # get aoe
         catch e
-            @error "AoE and E data from $(basename(hitchfilename)) cannot be loaded: $e"
+            @error "AoE and E data from $(basename(hitchfilename)) cannot be loaded: $(truncate_string(string(e)))"
             throw(LoadError(string(basename(hitchfilename)), 154, "AoE and E data from $(basename(hitchfilename)) cannot be loaded"))
         end
 
@@ -91,7 +91,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
 
             result_fit, report_fit = fit_aoe_compton(compton_band_peakhists.peakhists, compton_band_peakhists.peakstats, compton_bands,; uncertainty=true)
         catch e
-            @error "AoE compton bands cannot be fitted: $e"
+            @error "AoE compton bands cannot be fitted: $(truncate_string(string(e)))"
             throw(ErrorException("AoE compton bands cannot be fitted"))
         end
         GC.gc()
@@ -113,7 +113,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
         try
             result, report = fit_aoe_corrections(compton_bands, μ, σ,; e_expression = ecal_func_str)
         catch e
-            @error "AoE corrections cannot be fitted: $e"
+            @error "AoE corrections cannot be fitted: $(truncate_string(string(e)))"
             throw(ErrorException("AoE corrections cannot be fitted"))
         end
         
@@ -166,7 +166,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
     lreport!(report, create_logtbl(result_aoecal))
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :aoe_cal), report)
+    writelreport(get_rreportfilename(l200, filekey, :aoe_cal), report)
     @info report
 
     # flush stdout

@@ -1,8 +1,11 @@
-function process_aoe_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
+function p_process_aoe_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000, only_first_period::Bool=true)
 
-    @info "Optimize PSD filter for period $period and run $run"
+    @info "Optimize PSD filter for all partitions containing period $period"
 
-    filekey = start_filekey(l200, (period, run, :cal))
+    rinfo = runinfo(l200, period)
+    @info "Loaded run info with $(length(rinfo)) runs"
+
+    filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
@@ -16,28 +19,15 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     end
     @info "Loaded trained SVM model"
 
-    pars_tau = get_values(l200.par.rpars.pz[period, run])
-    @debug "Loaded decay times"
-
-    pars_fltoptimization = get_values(l200.par.rpars.fltopt[period, run])
-    @debug "Loaded energy optimization parameters"
-
-    optimization_config = dataprod_config(l200).dsp(filekey).aoe_optimization
-    @debug "Loaded optimization config: $(optimization_config)"
-
-    @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.aoeopt), string(period)))
-    pars_db = PropDict(l200.par.rpars.aoeopt[period, run])
-
-    pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
-
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Surrival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Surrival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
     
+    # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
+    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period; unfold_partitions=true)
+
     # flush stdout
     flush(stdout)
 
@@ -45,12 +35,35 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
+        part = chinfo_ch.partition
 
         @info "Processing channel $ch ($det)"
 
-        aoe_config_ch = merge(optimization_config.default, get(optimization_config, det, PropDict()))
-        qc_string     = aoe_config_ch.qc
+        pars_db_ch = PropDict(l200.par.ppars.fltopt[det, part])
+
+        partinfo_ch = partitioninfo(l200, ch, part)
+        @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
+    
+        filekey_ch = start_filekey(l200, (first(partinfo_ch.period), first(partinfo_ch.run), :cal))
+        @debug "Found filekey $filekey_ch"
+
+        validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
+
+        pars_tau = get_values(l200.par.ppars.pz[det, part])
+        @debug "Loaded decay times"
+
+        pars_fltoptimization = get_values(l200.par.ppars.fltopt[det, part])
+        @debug "Loaded energy optimization parameters"
+
+        optimization_config = dataprod_config(l200).dsp(filekey).aoe_optimization
+        aoe_config_ch = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
+        @debug "Loaded optimization config: $(optimization_config)"
+        
+        # extract config
+        qc_string       = aoe_config_ch.qc
         aoe_filter      = collect(keys(aoe_config_ch.aoe_filter))
+        n_evts          = aoe_config_ch.n_evts
+        select_random   = aoe_config_ch.select_random
 
         result_wl_dict = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
@@ -60,7 +73,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in aoe_filter
                 if haskey(pars_db[det], filter_type)
-                    log_info = log_nt((ch, det, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep, pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep, pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -74,27 +87,33 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             return (processed = processed_dict, log = log_info_dict)
         end
         
-        filename = l200.tier[:jlpeaks, filekey, ch]
-        if !isfile(filename)
-            @warn "File $filename does not exist, Skip channel $ch"
-            throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
-        end
-        
+        # load data
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
-
-            @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_ch_dep_bi121fep_wdw = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_ch_dep_bi121fep_pre = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate              = data[ch].jlpeaks.Tl208SEP.presum_rate[1]
-            e_ch_dep_bi121fep        = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
+            @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
+            data = load_partitionch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(:Tl208DEP_Bi212FEP, :Tl208SEP), n_evts=n_evts, select_random=select_random)
+            wvfs_ch_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
+            wvfs_ch_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
+            presum_rate              = data.Tl208SEP.presum_rate[1]
+            e_ch_dep_bi121fep        = data.Tl208DEP_Bi212FEP.daqenergy[:]
+            # DEP
             wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_sep_wdw          = data[ch].jlpeaks.Tl208SEP.waveform_windowed[:]
-            wvfs_ch_sep_pre          = data[ch].jlpeaks.Tl208SEP.waveform_presummed[:]
-
-            close(data)
+            if length(wvfs_ch_dep_pre) > max_wvfs
+                @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"
+                sel = rand(1:max_wvfs, max_wvfs)
+                wvfs_ch_dep_pre = wvfs_ch_dep_pre[sel]
+                wvfs_ch_dep_wdw = wvfs_ch_dep_wdw[sel]
+            end
+            # SEP
+            wvfs_ch_sep_wdw          = data.Tl208SEP.waveform_windowed[:]
+            wvfs_ch_sep_pre          = data.Tl208SEP.waveform_presummed[:]
+            if length(wvfs_ch_sep_pre) > max_wvfs
+                @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
+                sel = rand(1:max_wvfs, max_wvfs)
+                wvfs_ch_sep_pre = wvfs_ch_sep_pre[sel]
+                wvfs_ch_sep_wdw = wvfs_ch_sep_wdw[sel]
+            end
         catch e
             @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
             throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
@@ -148,8 +167,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 
                 if length(report_wl.sfs) > 0
                     p = plot(report_wl)
-                    title!(p, get_plottitle(filekey, det, "SG Filter Optimization"))
-                    savelfig(savefig, p, l200, filekey, det, Symbol("sg_sweep"))
+                    title!(p, get_plottitle(filekey_ch, part, det, "Filter Optimization"; additiional_type=string(filter_type)))
+                    savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_sweep_$(filter_type)"))
                 else
                     @warn "No SG sweep plot for channel $ch ($det)"
                 end
@@ -157,7 +176,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for channel $ch ($det)"""
 
                 # write log
-                log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
+                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
                 
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = true
@@ -168,28 +187,35 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_string(string(e)))"))
+                log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_string(string(e)))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
             end
         end
+        # generate channel result
+        result_ch = (result = result_wl_dict, processed = processed_dict, log = log_info_dict, validity = validity_ch)
+        result_sg_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
+        
+        pars_db_ch = create_pars(pars_db_ch, result_sg_ch)
+        writelprops(l200.par.ppars.aoeopt[det], part, pars_db_ch)
+        writevalidity(l200.par.ppars.aoeopt[det], filekey_ch, part)
 
-        return (result = result_wl_dict, log = log_info_dict, processed = processed_dict)
+        # return results
+        return result_ch
     end
 
     # get start time
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo, ch_sg_optimization, log_nt, wpool; timeout=timeout, retry=false)
+    result_sg = parallel(chinfo_unfolded, ch_sg_optimization, log_nt, wpool; timeout=timeout, retry=false)
 
     @info "Finished SG filter optimization"
 
-    pars_db = create_pars(pars_db, result_sg)
-    writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.aoeopt, filekey, (period, run))
-    @info "Saved pars to disk"
+    @info "Write $period validity"
+    validity_all = create_validity(result_sg)
+    writevalidity(l200.par.ppars.aoeopt, validity_all)
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -203,7 +229,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :aoe_filter_optimization), report)
+    writelreport(get_preportfilename(l200, filekey, :aoe_filter_optimization), report)
     @info report
 
     # flush stdout

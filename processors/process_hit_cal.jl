@@ -69,7 +69,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
                 @debug "Channel $(det) already processed"
                 return (processed = true, log = log_ch)
             catch e
-                @warn "Error reading hit file for channel $ch ($det): $e"
+                @warn "Error reading hit file for channel $ch ($det): $(truncate_string(string(e)))"
                 @info "Reprocess channel $ch ($det)"
                 rm(hitchfilename)
             end
@@ -98,8 +98,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
             is_physical = ljl_propfunc(qc_config_ch.is_physical).(qc)
             @debug "Total surrival fraction: $(round(count(is_physical) / length(is_physical) * 100, digits=2))%"
         catch e
-            @error "Error in QC for channel $ch: $e"
-            throw(ErrorException("Error in QC cut generation: $e"))
+            @error "Error in QC for channel $ch: $(truncate_string(string(e)))"
+            throw(ErrorException("Error in QC cut generation: $(truncate_string(string(e)))"))
         end
         yield()
 
@@ -117,8 +117,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
             is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp, ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
-            @error "Error in Pulser tag for channel $ch: $e"
-            throw(ErrorException("Error in Pulser tag for channel: $e"))
+            @error "Error in Pulser tag for channel $ch: $(truncate_string(string(e)))"
+            throw(ErrorException("Error in Pulser tag for channel: $(truncate_string(string(e)))"))
         end
 
         data_ch_after_qc = data_ch[is_physical .&& .!is_pulser]
@@ -185,7 +185,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :qc), report)
+    writelreport(get_rreportfilename(l200, filekey, :qc), report)
     @info report
 
     # flush stdout

@@ -104,7 +104,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     if e isa TaskFailedException
                                         e = e.task.exception
                                     end
-                                    @error "Error processing channel $ch ($det) in $(fk): $e"
+                                    @error "Error processing channel $ch ($det) in $(fk): $(truncate_string(string(e)))"
                                     push!(failed_detectors, det)
                                     continue
                                 end
@@ -146,7 +146,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     if e isa TaskFailedException
                                         e = e.task.exception
                                     end
-                                    @error "Error processing channel $ch ($det) in $(fk): $e"
+                                    @error "Error processing channel $ch ($det) in $(fk): $(truncate_string(string(e)))"
                                     push!(failed_detectors, det)
                                     continue
                                 end
@@ -196,7 +196,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 if e isa TaskFailedException
                                     e = e.task.exception
                                 end
-                                @error "Error processing channel $ch ($det) in $(fk): $e"
+                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_string(string(e)))"
                                 push!(failed_detectors, det)
                                 continue
                             end

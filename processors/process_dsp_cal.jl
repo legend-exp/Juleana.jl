@@ -103,7 +103,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 if e isa TaskFailedException
                                     e = e.task.exception
                                 end
-                                @error "Error processing channel $ch ($det) in $(fk): $e"
+                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_string(string(e)))"
                                 push!(failed_detectors, det)
                                 continue
                             end
@@ -162,7 +162,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :dsp), report)
+    writelreport(get_rreportfilename(l200, filekey, :dsp), report)
     @info report
 
     # flush stdout

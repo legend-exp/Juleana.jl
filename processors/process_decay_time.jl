@@ -72,12 +72,13 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
             wvfs_ch = data[ch, :jlpeaks, peakname].waveform_presummed[:]
             close(data)
             if length(wvfs_ch) > max_wvfs
-                @warn "$peakname events exceed $max_wvfs, keep only first $max_wvfs events"
-                wvfs_ch = wvfs_ch[1:max_wvfs]
+                @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
+                sel = rand(1:max_wvfs, max_wvfs)
+                wvfs_ch = wvfs_ch[sel]
             end
         catch e
-            @error "$peakname data from $(basename(filename)) cannot be loaded: $e"
-            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $e"))
+            @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
+            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
         end
         yield()
 
@@ -89,9 +90,10 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
             wvfs_ch = wvfs_ch[qc]
             @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
-            @error "Failed QC cuts: $e"
-            throw(ErrorException("Error in QC cuts: $e"))
+            @error "Failed QC cuts: $(truncate_string(string(e)))"
+            throw(ErrorException("Error in QC cuts: $(truncate_string(string(e)))"))
         end
+        GC.gc()
 
         # DSP
         decay_times = nothing
@@ -99,8 +101,8 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
             @debug "Generating DSP for $peakname decay times"
             decay_times = dsp_decay_times(wvfs_ch, dsp_config)
         catch e
-            @error "Error in DSP for $peakname: $e"
-            throw(ErrorException("Error in DSP for $peakname: $e"))
+            @error "Error in DSP for $peakname: $(truncate_string(string(e)))"
+            throw(ErrorException("Error in DSP for $peakname: $(truncate_string(string(e)))"))
         end
         yield()
 
@@ -110,15 +112,15 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ)
         catch e
-            @error "Failed decay time extraction: $e"
-            throw(ErrorException("Error in decay time extraction: $e"))
+            @error "Failed decay time extraction: $(truncate_string(string(e)))"
+            throw(ErrorException("Error in decay time extraction: $(truncate_string(string(e)))"))
         end
         yield()
         
         p = plot(report)
         title!(p, get_plottitle(filekey, det, "Decay Time Distribution"), subplot=1)
 
-        savelfig(savefig, p, l200, filekey, ch, :decay_time)
+        savelfig(savefig, p, l200, filekey, det, :decay_time)
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
 

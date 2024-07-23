@@ -97,7 +97,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                     @debug "Get $e_type peakhists and peakstats"
                     peakhists, peakstats, _, _ = get_peakhists_th228(collect(energy), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes; e_unit=e_unit)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $e"
+                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
                 GC.gc()
@@ -113,7 +113,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                     @debug "Fit all $e_type peaks"
                     result_fit, report_fit = fit_peaks(peakhists, peakstats, th228_names; e_unit=e_unit, calib_type=:th228)
                 catch e
-                    @error "Error in $e_type peak fitting for channel $ch: $e"
+                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
                 GC.gc()
@@ -132,7 +132,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                     result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
-                    @error "Error in $e_type calibration curve fitting for channel $ch: $e"
+                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
@@ -156,7 +156,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                     result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit; pol_order=energy_config_ch.fwhm_pol_order, e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
-                    @error "Error in $e_type FWHM fitting for channel $ch: $e"
+                    @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
                 fwhm_notfit =  [result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
@@ -184,7 +184,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
 
                 GC.gc()
             catch e
-                @error "Error in $e_type: $e"
+                @error "Error in $e_type: $(truncate_string(string(e)))"
                 log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", e))
 
                 # add results to dict
@@ -220,7 +220,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey.setup, part, filekey.category, :energy), report)
+    writelreport(get_rreportfilename(l200, filekey.setup, part, filekey.category, :energy), report)
     @info report
 
     # flush stdout
