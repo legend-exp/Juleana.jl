@@ -1,4 +1,3 @@
-# function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
 function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
         
     @info "Process decay time for period $period and run $run"
@@ -22,8 +21,13 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
 
+    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    end
+    @info "Loaded trained SVM model"
+
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Decay Time"), Symbol("Number of Events"), :Error)}
+    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -51,7 +55,8 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         min_τ, max_τ = pz_config_ch.min_tau, pz_config_ch.max_tau
         nbins        = pz_config_ch.nbins
         rel_cut_fit  = pz_config_ch.rel_cut_fit
-
+        peakname     = Symbol(pz_config_ch.peakname)
+        qc_string    = pz_config_ch.qc
 
         filename = l200.tier[:jlpeaks, filekey, ch]
         if !isfile(filename)
@@ -60,30 +65,42 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         end
 
         # load data
-        wvfs_ch_fep = nothing
+        wvfs_ch = nothing
         try
             data = lh5open(filename, "r")
-            @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_ch_fep = data[ch].jlpeaks.Tl208FEP.waveform_presummed[:]
+            @debug "Loading $peakname data from $(filename)"
+            wvfs_ch = data[ch, :jlpeaks, peakname].waveform_presummed[:]
             close(data)
-            if length(wvfs_ch_fep) > max_wvfs
-                @warn "Tl208 FEP events exceed $max_wvfs, keep only first $max_wvfs events"
-                wvfs_ch_fep = wvfs_ch_fep[1:max_wvfs]
+            if length(wvfs_ch) > max_wvfs
+                @warn "$peakname events exceed $max_wvfs, keep only first $max_wvfs events"
+                wvfs_ch = wvfs_ch[1:max_wvfs]
             end
         catch e
-            @error "FEP data from $(basename(filename)) cannot be loaded: $e"
-            throw(LoadError(string(basename(filename)), 154,"FEP data from $(basename(filename)) cannot be loaded: $e"))
+            @error "$peakname data from $(basename(filename)) cannot be loaded: $e"
+            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $e"))
         end
         yield()
+
+        # get QC cuts
+        try
+            @debug "Get QC cuts"
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config, 400.0u"µs", f_evaluate_qc)
+            qc = ljl_propfunc(qc_string).(dsp_qc)
+            wvfs_ch = wvfs_ch[qc]
+            @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
+        catch e
+            @error "Failed QC cuts: $e"
+            throw(ErrorException("Error in QC cuts: $e"))
+        end
 
         # DSP
         decay_times = nothing
         try
-            @debug "Generating DSP for FEP decay times"
-            decay_times = dsp_decay_times(wvfs_ch_fep, dsp_config)
+            @debug "Generating DSP for $peakname decay times"
+            decay_times = dsp_decay_times(wvfs_ch, dsp_config)
         catch e
-            @error "Error in DSP for FEP: $e"
-            throw(ErrorException("Error in DSP for FEP: $e"))
+            @error "Error in DSP for $peakname: $e"
+            throw(ErrorException("Error in DSP for $peakname: $e"))
         end
         yield()
 
@@ -98,14 +115,14 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         end
         yield()
         
-        p = plot(report, decay_times, cuts_τ, xlabel="Decay Time [µs]", thickness_scaling=1.8, size=(1200, 900))
-        title!(p, get_plottitle(filekey, det, "Decay Time Distribution"))
+        p = plot(report)
+        title!(p, get_plottitle(filekey, det, "Decay Time Distribution"), subplot=1)
 
         savelfig(savefig, p, l200, filekey, ch, :decay_time)
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
 
-        log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.n, "-"))
+        log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.σ, "-"))
         return (result = (τ = result.μ, fit = result), processed = true, log = log_ch)
     end
 
@@ -114,7 +131,6 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
     # execute in parallel
     result_pz = parallel(chinfo, ch_decay_time, log_nt, wpool; timeout=timeout)
-
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
@@ -133,7 +149,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     lreport!(report, create_logtbl(result_pz))
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :decay_time), report)
+    writelreport(get_rreportfilename(l200, filekey, :decay_time), report)
     @info report
     
     # flush stdout
