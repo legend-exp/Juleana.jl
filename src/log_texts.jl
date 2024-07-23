@@ -1,3 +1,11 @@
+# helper functions for logging
+function truncate_string(s::String, max_length::Int=100)
+    if length(s) > max_length
+        return s[1:max_length] * "..."
+    else
+        return s
+    end
+end
 
 # log texts that are static in each log report
 
