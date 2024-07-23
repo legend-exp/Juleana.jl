@@ -52,11 +52,6 @@ function get_argparse()
             nargs = '+'
             arg_type = Int
             action = :append_arg
-        "--partitions", "--part"
-            help = "Analysis partitions to process"
-            nargs = '+'
-            arg_type = Int
-            action = :append_arg
     end
     parse_args(settings)
 end
@@ -73,7 +68,7 @@ function get_processingconfig()
     for key in keys(processing_config.config.env_variables)
         ENV[String(key)] = processing_config.config.env_variables[key]
     end
-    processing_config.env_args_worker = env_args_worker
+    processing_config.env_args_worker = (env_args_worker, )
     
     # get remote workers
     processing_config.processing.remote_workers = [Tuple(p) for p in processing_config.processing.remote_workers]
@@ -104,33 +99,33 @@ function get_processingconfig()
 
     
     # get processing steps from config and sort by rank
-    process_steps = Symbol.(keys(processing_config.processors))
-    process_steps = process_steps[process_steps .!= :default]
-    process_steps = sort(process_steps[[processing_config.processors[step].enabled for step in process_steps]], by = s -> processing_config.processors[s].rank)
+    possible_process_steps = Symbol.(keys(processing_config.processors))
+    possible_process_steps = possible_process_steps[possible_process_steps .!= :default]
+    possible_process_steps = sort(possible_process_steps, by = s -> processing_config.processors[s].rank)
 
     # if reprocess passed as global argument set reprocess flag for all processors
     if parsed_args["reprocess"]
         @info "Reprocess all processors"
-        for process in process_steps
+        for process in possible_process_steps
             processing_config.processors[process].reprocess = true
         end
     end
-
-    processing_config.process_steps = process_steps
+    processing_config.possible_process_steps = possible_process_steps
+    processing_config.process_steps = possible_process_steps[[processing_config.processors[step].enabled for step in possible_process_steps]]
 
     # get processing steps for partition and sort by rank
-    p_process_steps = Symbol.(keys(processing_config.p_processors))
-    p_process_steps = p_process_steps[p_process_steps .!= :default]
-    p_process_steps = sort(p_process_steps[[processing_config.p_processors[step].enabled for step in p_process_steps]], by = s -> processing_config.p_processors[s].rank)
+    p_possible_process_steps = Symbol.(keys(processing_config.p_processors))
+    p_possible_process_steps = p_possible_process_steps[p_possible_process_steps .!= :default]
+    p_possible_process_steps = sort(p_possible_process_steps, by = s -> processing_config.p_processors[s].rank)
 
     # if reprocess passed as global argument set reprocess flag for all processors
     if parsed_args["reprocess"]
-        for process in p_process_steps
+        for process in p_possible_process_steps
             processing_config.p_processors[process].reprocess = true
         end
     end
-
-    processing_config.p_process_steps = p_process_steps
+    processing_config.p_possible_process_steps = p_possible_process_steps
+    processing_config.p_process_steps = p_possible_process_steps[[processing_config.p_processors[step].enabled for step in p_possible_process_steps]]
 
     # get runs and periods
     runs, periods = nothing, nothing
@@ -138,13 +133,7 @@ function get_processingconfig()
         runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
     end
 
-    # get partitions
-    partitions = nothing
-    if !(processing_config.only_runs)
-        partitions = get_partitions(parsed_args, processing_config)
-    end
-
-    return l200, processing_config, runs, periods, partitions
+    return l200, processing_config, runs, periods
 end
 
 function get_runsandperiods(parsed_args::Dict, processing_config::PropDict, l200::LegendData)
@@ -180,20 +169,6 @@ function get_runsandperiods(parsed_args::Dict, processing_config::PropDict, l200
     return runs, periods
 end
 
-function get_partitions(parsed_args::Dict, processing_config::PropDict)
-    # parse data_partitions from config
-    partitions = [DataPartition(p) for p in processing_config.processing.partitions]
-    if !isempty(parsed_args["partitions"])
-        partitions = [DataPartition(p) for p in parsed_args["partitions"][1]]
-        @info "Process partitions: $(parsed_args["partitions"][1])"
-    end
-    if partitions == "all"
-        partitions = collect(keys(partitioninfo(l200)))
-        @info "Process all partitions from partitioninfo: $(string.(partitions))"
-    end
-    return partitions
-end
-
 function get_proccessable_runs(runs, period)
     # select runs to process
     available_runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
@@ -212,16 +187,4 @@ function get_proccessable_runs(runs, period)
 
     return [r for r in processable_runs if r in available_runs ]
 
-end
-
-function get_processable_partitions(partitions)
-    # select partitions to process
-    possible_partitions = collect(keys(partitioninfo(l200)))
-    for partition in partitions
-        if !(partition in possible_partitions)
-            @warn "Partition $partition is not a valid data partition"
-            continue
-        end
-    end
-    return [p for p in partitions if p in possible_partitions]
 end
