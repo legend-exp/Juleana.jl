@@ -49,7 +49,7 @@ Table(t)
 #         end
 #         append!(t, Table(caloutput))
 #     catch e
-#         @error "Error processing $filekey: $e"
+#         @error "Error processing $filekey: $(truncate_string(string(e)))"
         
 #     end
 # end
@@ -69,7 +69,7 @@ result = @showprogress pmap(filekeys) do filekey
         end
         return (filekey = filekey, success = true)
     catch e
-        @error "Error processing $filekey: $e"
+        @error "Error processing $filekey: $(truncate_string(string(e)))"
         return (filekey = filekey, success = false)
     end
 end
