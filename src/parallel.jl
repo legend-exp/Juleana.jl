@@ -83,7 +83,6 @@ function retry_check(delay_state, err)
     return should_retry
 end
 
-
 function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false, process_name::String="")
     # prevent crash from Base
     Base.exit_on_sigint(false)
@@ -114,13 +113,17 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
                     if e isa TaskFailedException
                         e = e.task.exception
                     end
-                    @debug "Write Error log for $(itr): $e"
+                    @debug "Write Error log for $(itr): $(truncate_string(string(e)))"
                     # distinguish between ch and det logging or iterator logging
                     log_itr = nothing
                     if itr isa NamedTuple && haskey(itr, :channel) && haskey(itr, :detector)
-                        log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$e"))
+                        if haskey(itr, :partition)
+                            log_itr = log_nt((itr.channel, itr.detector, itr.partition, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-5)..., "$(truncate_string(string(e)))"))
+                        else
+                            log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$(truncate_string(string(e)))"))
+                        end
                     elseif itr isa FileKey
-                        log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$e"))
+                        log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$(truncate_string(string(e)))"))
                     else
                         throw(ErrorException("No logging for $(itr)"))
                     end
