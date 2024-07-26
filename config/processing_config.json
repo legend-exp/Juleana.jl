@@ -152,24 +152,24 @@
             "dependencies": ["process_peak_split"]
         },
         "p_process_filter_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "rank": 2,
             "kwargs": {
                 "reprocess": true,
                 "timeout": false,
-                "max_wvfs": 20000
+                "max_wvfs": 35000
             },
             "dependencies": []
         },
         "p_process_aoe_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "rank": 3,
             "kwargs": {
                 "reprocess": true,
                 "timeout": false,
-                "max_wvfs": 20000
+                "max_wvfs": 25000
             },
             "dependencies": []
         },
