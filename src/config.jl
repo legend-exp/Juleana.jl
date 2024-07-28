@@ -129,9 +129,7 @@ function get_processingconfig()
 
     # get runs and periods
     runs, periods = nothing, nothing
-    if !(processing_config.only_partitions)
-        runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
-    end
+    runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
 
     return l200, processing_config, runs, periods
 end
