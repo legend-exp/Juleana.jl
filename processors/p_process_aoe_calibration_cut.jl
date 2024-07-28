@@ -89,7 +89,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         plot!(p,guidefontsize=18,xguidefontsize = 18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
         xticks!(p, 0:250:3000)
         title!(p, get_plottitle(filekey, det, "AoE uncalibrated"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_uncalibrated_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_uncalibrated_$e_type_e"))
 
         result_fit, report_fit, compton_band_peakhists = nothing, nothing, nothing
         try
@@ -126,11 +126,11 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         
         p = plot(report_corrections.report_µ)
         title!(p, get_plottitle(filekey, det, "A/E μ"), subplot=1)
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("compton_bands_mu_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("compton_bands_mu_$e_type_e"))
 
         p = plot(report_corrections.report_σ)
         title!(p, get_plottitle(filekey, det, "A/E σ"), subplot=1)
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("compton_bands_sigma_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("compton_bands_sigma_$e_type_e"))
 
         # correct AoE
         aoe = ljl_propfunc(result_corrections.func).(t)
@@ -139,7 +139,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
         xticks!(0:250:3000)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "normalized A/E"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_normalized_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_normalized_$e_type_e"))
 
         result_cut = nothing
         try
@@ -179,7 +179,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         plot!(margin=1mm, thickness_scaling=1.5, dpi=600, size=(1000, 700))
         title!("Qbb CC ($(qbb_result.window)) - SF: $(qbb_result.sf)", titlefontisze=8)
         plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_qbb_sf_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_qbb_sf_$e_type_e"))
 
 
         # peak_sf_plot = plot.([rep.after for rep in values(report_peaks)], titleloc=:left, titlefont=font(8), ticks=:native, legend=:bottomright; show_label=true, show_fit=false)
@@ -204,14 +204,14 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         # )
         # plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1200, 900))
         # plot!(plot_title=get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
-        # savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_peaks_sf_$e_type_e"))
+        # savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_peaks_sf_$e_type_e"))
 
         p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before AoE", ylabel="Counts / 0.2 keV")
         stephist!(e_cal[result_cut.lowcut .< aoe], nbins=0:0.5:3000, yscale=:log10, label="After AoE")
         xticks!(0:250:3000)
         title!(get_plottitle(filekey.setup, part, filekey.category, det, "A/E Performance"))
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterAoE_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_energy_afterAoE_$e_type_e"))
 
 
         p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before AoE", ylabel="Counts / 0.5 keV")
@@ -224,14 +224,14 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600))
         plot!(ylabelfontsize=8, subplot=2)
         plot!(thickness_scaling=1.5)
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_energy_afterAoE_zoom_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_energy_afterAoE_zoom_$e_type_e"))
 
         p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -25:0.02:10), xlims=(0, 3000), ylims=(-25, 10), size=(1000, 600), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (σ)")
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600, size=(1300, 700), xticks=(0:250:3000), yticks=(-26:2:10))
         hline!([result_cut.lowcut, result_cut.highcut], color=:red, label="Cut", lw=2.5)
         hspan!([-50, result_cut.lowcut, result_cut.highcut, 50], color=:red, alpha=0.2, label="", lw=0)
         title!(p, get_plottitle(filekey.setup, part, filekey.category, det, "A/E Classifier"))
-        savelfig(savefig, p, l200, part, filekey.setup, filekey.category, ch, Symbol("aoe_withcuts_$e_type_e"))
+        savelfig(savefig, p, l200, part, filekey, det, Symbol("aoe_withcuts_$e_type_e"))
 
         # save results
         result = (

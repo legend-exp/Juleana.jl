@@ -107,7 +107,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 # save plots for simple calibration for control
                 p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
                 title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
 
                 yield()
 
