@@ -67,7 +67,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         try
             @debug "Load hit file"
             data_hit = lh5open(hitchfilename, "r");
-            data_ch_after_qc = data_hit[ch].dataQC[:];
+            data_ch_after_qc = data_hit[ch, :jlhit, :dataQC][:];
             close(data_hit)
         catch e
             @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
