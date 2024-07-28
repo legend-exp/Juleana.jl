@@ -64,7 +64,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_puls = parallel([chinfo_puls], ch_puls_cal, log_nt_puls, wpool; timeout=timeout, retry=false)
+    result_puls = parallel([chinfo_puls], ch_puls_cal, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished Pulser channel processing"
     pulser_processing_time = now() - start_time
@@ -175,7 +175,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_qc = parallel(chinfo, ch_hit_cal, log_nt, wpool; timeout=timeout, retry=false)
+    result_qc = parallel(chinfo, ch_hit_cal, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished Hit channel processing"
 

@@ -200,7 +200,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     # get start time
     start_time = now()
 
-    result_energy = parallel(chinfo, ch_energy_calibration, log_nt, wpool; timeout=timeout)
+    result_energy = parallel(chinfo, ch_energy_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished partition calibration"
 

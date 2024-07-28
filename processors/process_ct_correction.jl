@@ -125,7 +125,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 
                 p = plot(report_ctc)
                 plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=14)
-                savelfig(savefig, p, l200, filekey, ch, Symbol("ctc_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("ctc_$(e_type)"))
 
                 yield()
                 log_ch = log_nt((ch, det, ProcessStatus(1), "$e_type", result_ctc.fct*1e6, result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))
@@ -149,7 +149,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     # get start time
     start_time = now()
 
-    result_ctc = parallel(chinfo, ch_ct_correction, log_nt, wpool; timeout=timeout)
+    result_ctc = parallel(chinfo, ch_ct_correction, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished CT correction"
 

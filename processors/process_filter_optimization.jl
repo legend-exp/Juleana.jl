@@ -220,7 +220,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false)
+    result_flt = parallel(chinfo, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished filter optimization"
 

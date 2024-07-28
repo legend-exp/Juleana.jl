@@ -143,7 +143,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo_unfolded, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false)
+    result_pz = parallel(chinfo_unfolded, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished decay time extraction"
 
