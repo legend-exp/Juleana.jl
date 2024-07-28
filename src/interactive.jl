@@ -10,7 +10,7 @@ function menu()
         global l200, processing_config, runs, periods
         l200, processing_config, runs, periods = get_processingconfig()
     elseif choice == 2
-        include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
+        include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
     # add workers according to slurm settings
     elseif choice == 3
         @async runworkers(runmode)

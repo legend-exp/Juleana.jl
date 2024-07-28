@@ -142,7 +142,8 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
         n_finished = 0
         while n_finished < length(iterator)
             for t in tasks
-                if !ParallelProcessingTools.wouldwait(t)
+                # if !ParallelProcessingTools.wouldwait(t)
+                if !istaskdone(t)
                     n_finished += 1
                     next!(p)
                     update!(p)
