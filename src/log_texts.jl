@@ -1,5 +1,5 @@
 # helper functions for logging
-function truncate_string(s::String, max_length::Int=100)
+function truncate_string(s::String, max_length::Int=200)
     if length(s) > max_length
         return s[1:max_length] * "..."
     else
