@@ -58,7 +58,6 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         rawfilename = l200.tier[:raw, fk]
         @info "Processing file: $(basename(rawfilename))"
         dspfilename = l200.tier[:jldsp, fk]
-        touch(dspfilename)
         @info "Using output file: $(basename(dspfilename))"
         # start processing
         read_files(rawfilename, use_cache = false) do filename
