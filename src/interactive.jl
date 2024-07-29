@@ -1,21 +1,37 @@
 function menu()        
     # main menu options
-    options = ["Reload processing config", "Reload processors", "Submit workers", "Execute processors", "Exit"]
+    options = ["Execute processors", "Reload processors", "Select periods", "Reload processing config", "Reload dependency graph", "Submit workers", "Exit"]
     # main menu
     menu = RadioMenu(options)
     choice = request("Select action:", menu)
     
     # reload all processors from files
-    if choice == 1
+    if choice == 4
         global l200, processing_config, runs, periods
         l200, processing_config, runs, periods = get_processingconfig()
-    elseif choice == 2
-        include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
-    # add workers according to slurm settings
+        @info "Reloaded processing config"
+    # redefine periods per user choice
     elseif choice == 3
+        global periods
+        possible_periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
+        periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in periods, possible_periods)])
+        periods = possible_periods[collect(request("Select periods to be executed:", periods_menu))]
+        @info "Selected periods: $periods"
+    # reload processors from all processor files
+    elseif choice == 2
+        r = include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
+        @info "Reloaded processors: $r"
+    # reload dependency graph
+    elseif choice == 5
+        global process_status, p_process_status
+        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        @info "Reloaded dependency graph"
+    # add workers according to slurm settings
+    elseif choice == 6
         @async runworkers(runmode)
+        @info "Submitted workers"
     # execute processing steps
-    elseif choice == 4
+    elseif choice == 1
         execute_processors()
     end
 end
