@@ -114,6 +114,8 @@ function execute_processors()
 
                                         # update process status
                                         process_status[period][process][run] = true
+
+                                        @info "Finished $period-$run $process"
                                     end
                                 end
                             end
@@ -155,9 +157,21 @@ function execute_processors()
                                     kwargs = merge(kwargs, (reprocess = true, ))
                                 end
                                 # process partitions
-                                getfield(Main, process)(processing_config, l200, period,; kwargs...)
+                                has_lower_period_depedency = getfield(Main, process)(processing_config, l200, period,; kwargs...)
+                                
+                                # if process finished but depends on lower period dependency wait till met
+                                if has_lower_period_depedency
+                                    if !p_process_status[DataPeriod(period.no - 1)][process]
+                                        @warn "Processed $period $process but depends on $(DataPeriod(period.no - 1)) --> wait"
+                                    end
+                                    while !p_process_status[DataPeriod(period.no - 1)][process]
+                                        sleep(10)
+                                    end
+                                end
                                 # update process status
                                 p_process_status[period][process] = true
+
+                                @info "Finished $period $process"
                             end
                         end
                     end
