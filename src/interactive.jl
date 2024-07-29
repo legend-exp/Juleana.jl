@@ -75,11 +75,6 @@ function execute_processors()
 
                             # process runs
                             for run in processable_runs
-                                # check if run is a analysis run if switched on
-                                if processing_config.analysis_runs_only && !is_lrun(l200, (period, run, :cal))
-                                    @warn "Run $run is not a analysis run"
-                                    continue
-                                end
 
                                 Threads.@spawn begin
                                     # iterate through process steps
@@ -87,6 +82,15 @@ function execute_processors()
                                     for process in process_steps
                                         @info "$process"
                                         flush(stdout)
+
+                                        # check if run is a analysis run if switched on
+                                        if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config[process].category))
+                                            @warn "$period-$run-$(processing_config[process].category) is not a analysis run, skip $process"
+                                            continue
+                                        elseif !is_lrun(l200, (period, run, processing_config[process].category))
+                                            @warn "$period-$run-$(processing_config[process].category) is not in runinfo, skip $process"
+                                            continue
+                                        end
                                         
                                         # check if process has dependencies
                                         if "check_dependencies" in additional_args
