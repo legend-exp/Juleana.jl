@@ -69,6 +69,17 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
+        if (only_first_period && period != first(partinfo_ch.period))
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            for filter_type in e_filter
+                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
+                # add results to dict
+                log_info_dict[filter_type] = log_info
+                processed_dict[filter_type] = false
+            end
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch)
+        end
+
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in aoe_filter
@@ -84,7 +95,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         # check if all filters are already processed
         if length(keys(processed_dict)) == length(aoe_filter)
             @debug "All filters already processed, skip channel"
-            return (processed = processed_dict, log = log_info_dict)
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch)
         end
         
         # load data

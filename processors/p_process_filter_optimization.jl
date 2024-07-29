@@ -67,8 +67,15 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if (only_first_period && period != last(partinfo_ch.period))
-            @info "Skip channel $ch ($det) for period $period"
+        if (only_first_period && period != first(partinfo_ch.period))
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            for filter_type in e_filter
+                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
+                # add results to dict
+                log_info_dict[filter_type] = log_info
+                processed_dict[filter_type] = false
+            end
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch)
         end
 
         if !reprocess && haskey(pars_db, det)

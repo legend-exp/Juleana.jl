@@ -47,7 +47,13 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
 
-        if (!reprocess && haskey(pars_db_ch, det)) || (only_first_period && period != last(partinfo_ch.period))
+        if only_first_period && period != first(partinfo_ch.period)
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            log_ch = log_nt((ch, det, part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
+            return (processed = false, log = log_ch, validity = validity_ch)
+        end 
+
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $det already processed, skip"
             log_ch = log_nt((ch, det, part, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].n_tau, "Already processed --> skipped."))
             return (processed = false, log = log_ch, validity = validity_ch)
