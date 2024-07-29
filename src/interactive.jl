@@ -160,7 +160,7 @@ function execute_processors()
                                 has_lower_period_depedency = getfield(Main, process)(processing_config, l200, period,; kwargs...)
                                 
                                 # if process finished but depends on lower period dependency wait till met
-                                if has_lower_period_depedency
+                                if has_lower_period_depedency && "check_dependencies" in additional_args
                                     if !p_process_status[DataPeriod(period.no - 1)][process]
                                         @warn "Processed $period $process but depends on $(DataPeriod(period.no - 1)) --> wait"
                                     end
