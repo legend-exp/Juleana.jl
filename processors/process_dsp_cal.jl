@@ -141,7 +141,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished DSP for period $period and run $run"
 

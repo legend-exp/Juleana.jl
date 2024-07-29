@@ -251,7 +251,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     # get start time
     start_time = now()
 
-    result_aoe = parallel(chinfo, ch_aoe_cut, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(chinfo, ch_aoe_cut, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished AoE cut generation"
 
