@@ -80,15 +80,15 @@ function execute_processors()
                                     # iterate through process steps
                                     @info "Process run $run"
                                     for process in process_steps
-                                        @info "$process"
+                                        @info "$(string(process))"
                                         flush(stdout)
 
                                         # check if run is a analysis run if switched on
-                                        if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config[process].category))
-                                            @warn "$period-$run-$(processing_config[process].category) is not a analysis run, skip $process"
+                                        if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config.processors[process].category))
+                                            @warn "$period-$run-$(processing_config.processors[process].category) is not a analysis run, skip $(string(process))"
                                             continue
-                                        elseif !is_lrun(l200, (period, run, processing_config[process].category))
-                                            @warn "$period-$run-$(processing_config[process].category) is not in runinfo, skip $process"
+                                        elseif !is_lrun(l200, (period, run, processing_config.processors[process].category))
+                                            @warn "$period-$run-$(processing_config.processors[process].category) is not in runinfo, skip $(string(process))"
                                             continue
                                         end
                                         
@@ -100,7 +100,7 @@ function execute_processors()
                                             dependencies = unique(vcat([processing_config.p_possible_process_steps[1:findfirst(processing_config.p_possible_process_steps .== dep)] for dep in dependencies]...))
                                             # check if dependencies are met
                                             if !all([p_process_status[period][dep] for dep in dependencies])
-                                                @warn "Dependencies not yet met for $process"
+                                                @warn "Dependencies not yet met for $(string(process))"
                                             end
                                             # if not met wait till met
                                             while !all([p_process_status[period][dep] for dep in dependencies])
@@ -119,7 +119,7 @@ function execute_processors()
                                         # update process status
                                         process_status[period][process][run] = true
 
-                                        @info "Finished $period-$run $process"
+                                        @info "Finished $period-$run $(string(process))"
                                     end
                                 end
                             end
@@ -138,7 +138,7 @@ function execute_processors()
                         Threads.@spawn begin
                             # iterate through process steps
                             for process in p_process_steps
-                                @info "$process"
+                                @info "$(string(process))"
 
                                 if "check_dependencies" in additional_args
                                     # check if p process has dependencies
@@ -146,7 +146,7 @@ function execute_processors()
                                     # add all smaller ranks to list of dependencies and remove duplicates
                                     dependencies = unique(vcat([processing_config.possible_process_steps[1:findfirst(processing_config.possible_process_steps .== dep)] for dep in dependencies]...))
                                     if !all([all(values(process_status[period][dep])) for dep in dependencies])
-                                        @warn "Dependencies not yet met for $process"
+                                        @warn "Dependencies not yet met for $(string(process))"
                                     end
                                     while !all([all(values(process_status[period][dep])) for dep in dependencies])
                                         sleep(10)
@@ -166,7 +166,7 @@ function execute_processors()
                                 # if process finished but depends on lower period dependency wait till met
                                 if has_lower_period_depedency && "check_dependencies" in additional_args
                                     if !p_process_status[DataPeriod(period.no - 1)][process]
-                                        @warn "Processed $period $process but depends on $(DataPeriod(period.no - 1)) --> wait"
+                                        @warn "Processed $period $(string(process)) but depends on $(DataPeriod(period.no - 1)) --> wait"
                                     end
                                     while !p_process_status[DataPeriod(period.no - 1)][process]
                                         sleep(10)
@@ -175,7 +175,7 @@ function execute_processors()
                                 # update process status
                                 p_process_status[period][process] = true
 
-                                @info "Finished $period $process"
+                                @info "Finished $period $(string(process))"
                             end
                         end
                     end
