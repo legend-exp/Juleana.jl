@@ -1043,7 +1043,7 @@ version = "0.2.1"
 
 [[deps.LegendDataManagement]]
 deps = ["ClusterManagers", "Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "ThreadPinning", "TypedTables", "UUIDs", "Unitful"]
-git-tree-sha1 = "b24045ecbfe18789c57850372c2caf61255fb974"
+git-tree-sha1 = "e5ecbe00891c8fd91b0e6bcc711adda06d6c2425"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
