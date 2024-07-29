@@ -28,6 +28,7 @@ if tmux has-session -t $SESSION_NAME 2>/dev/null; then
     if [[ "$delete_session" =~ ^([Yy][Ee][Ss]|[Yy])$ ]]; then
         tmux kill-session -t $SESSION_NAME 2>/dev/null
         echo "Session '$SESSION_NAME' deleted."
+        tmux start-server
     else
         echo "Exiting script."
         exit 0
@@ -36,6 +37,21 @@ fi
 
 # Start a new tmux session
 tmux new-session -d -s $SESSION_NAME -n 'Processing'
+
+# Change directory to the parent directory of where the script is located
+PARENT_DIR=$(dirname "$(readlink -f "$0")")/..
+
+# Function to send the cd command to all panes in a window
+send_cd_command_to_all_panes() {
+    local window_index=$1
+    local pane_count=$(tmux list-panes -t $SESSION_NAME:$window_index -F "#{pane_index}" | wc -l)
+    for ((pane_index=0; pane_index<pane_count; pane_index++)); do
+        tmux send-keys -t $SESSION_NAME:$window_index.$pane_index "cd $PARENT_DIR" C-m
+    done
+}
+
+# Send the cd command to the first window
+send_cd_command_to_all_panes 0
 
 # Enable mouse mode
 tmux set-option -t $SESSION_NAME mouse on
@@ -50,9 +66,15 @@ tmux split-window -v -t $SESSION_NAME:1.1
 tmux select-pane -t $SESSION_NAME:1.0
 tmux split-window -v -t $SESSION_NAME:1.0
 
+# Send the cd command to the second window
+send_cd_command_to_all_panes 1
+
 # Create a new window named "Monitoring" and split it into 2 panes horizontally
 tmux new-window -t $SESSION_NAME -n 'Monitoring'
 tmux split-window -v -t $SESSION_NAME:2
+
+# Send the cd command to the third window
+send_cd_command_to_all_panes 2
 
 # Run monitoring commands in the "Monitoring" window panes
 tmux send-keys -t $SESSION_NAME:2.0 'watch -n 30 "sinfo | grep idle"' C-m
