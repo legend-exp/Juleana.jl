@@ -37,7 +37,12 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         det = chinfo_ch.detector
         part = chinfo_ch.partition
 
-        pars_db_ch = PropDict(l200.par.ppars.pz[det, part])
+        mkpath(joinpath(data_path(l200.par.ppars.pz), string(det)))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.pz[det]), "$part.json"))
+            PropDict(l200.par.ppars.pz[det, part])
+        else
+            PropDict()
+        end
 
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
@@ -50,7 +55,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         if only_first_period && period != first(partinfo_ch.period)
             @info "Only first period in partition $part for $period in $ch ($det)"
             log_ch = log_nt((ch, det, part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
-            return (processed = false, log = log_ch, validity = validity_ch)
+            return (processed = false, log = log_ch, validity = validity_ch, skipped = true)
         end 
 
         if !reprocess && haskey(pars_db_ch, det)
@@ -149,7 +154,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo_unfolded, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period-", "$period-$run"))-$(nameof(var"#self#"))")
+    result_pz = parallel(chinfo_unfolded, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished decay time extraction"
 
@@ -174,4 +179,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     
     # flush stdout
     flush(stdout)
+
+    # return if any channel was skipped so that the partition is not valid until the lower period is finished
+    return any(x -> get(last(x), :skipped, false), values(result_pz))
 end
