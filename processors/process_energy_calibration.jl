@@ -74,7 +74,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
         data_ch_after_qc = nothing
         try
             @debug "Load hit file"
-            data_hit = LHDataStore(hitchfilename, "r");
+            data_hit = lh5open(hitchfilename, "r");
             data_ch_after_qc = data_hit[ch, :jlhit, :dataQC][:];
             close(data_hit)
         catch e
