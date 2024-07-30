@@ -66,10 +66,8 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
 
         e_cal, aoe, tab_data, ecal_func_str = nothing, nothing, nothing, nothing
         try
-            data_hit = LHDataStore(hitchfilename, "r");
-            tab_data = data_hit["$(ch)/dataQC/"][:]
-            close(data_hit)
-            a = tab_data.a # get a
+            tab_data = lh5open(hitchfilename)[ch, :jlhit, :dataQC][:]
+            a = tab_data.a_sg # get a
             ecal_func_str = pars_energy[det][e_type_aoe].cal.func  # calibrate energy 
             e_cal = collect(ljl_propfunc(pars_energy[det][e_type_e].cal.func).(tab_data))
             aoe = ustrip.(a ./ ljl_propfunc(ecal_func_str).(tab_data)); # get aoe
@@ -82,7 +80,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
         plot!(p,guidefontsize=18,xguidefontsize = 18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
         xticks!(p, 0:250:3000)
         title!(p, get_plottitle(filekey, det, "AoE uncalibrated"))
-        savelfig(savefig, p, l200, filekey, ch, Symbol("aoe_uncalibrated_$e_type_e"))
+        savelfig(savefig, p, l200, filekey, det, Symbol("aoe_uncalibrated_$e_type_e"))
 
         result_fit, report_fit, compton_band_peakhists = nothing, nothing, nothing
         try
@@ -119,11 +117,11 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
         
         p = plot(report.report_µ)
         title!(p, get_plottitle(filekey, det, "A/E μ"), subplot=1)
-        savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_mu_$e_type_e"))
+        savelfig(savefig, p, l200, filekey, det, Symbol("compton_bands_mu_$e_type_e"))
 
         p = plot(report.report_σ)
         title!(p, get_plottitle(filekey, det, "A/E σ"), subplot=1)
-        savelfig(savefig, p, l200, filekey, ch, Symbol("compton_bands_sigma_$e_type_e"))
+        savelfig(savefig, p, l200, filekey, det, Symbol("compton_bands_sigma_$e_type_e"))
 
         # correct aoe
         aoe_corr = ljl_propfunc(result.func).(tab_data)
@@ -131,7 +129,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
         plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
         xticks!(0:250:3000)
         title!(p, get_plottitle(filekey, det, "normalized A/E"))
-        savelfig(savefig, p, l200, filekey, ch, Symbol("aoe_normalized_$e_type_e"))
+        savelfig(savefig, p, l200, filekey, det, Symbol("aoe_normalized_$e_type_e"))
 
         @info "AoE calibration for channel $ch ($det) finished"
         log_ch = log_nt(ch, det, ProcessStatus(1), length(compton_bands), mean(result.µ_compton.gof.residuals_norm), mean(result.σ_compton.gof.residuals_norm), "-")
@@ -146,7 +144,7 @@ function process_aoe_calibration(processing_config::PropDict, l200::LegendData, 
     start_time = now()
 
     # execute in parallel
-    result_aoecal = parallel(chinfo, ch_aoe_calibration, log_nt, wpool; timeout=timeout, retry=false)
+    result_aoecal = parallel(chinfo, ch_aoe_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished AoE calibration"
 

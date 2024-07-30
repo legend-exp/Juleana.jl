@@ -220,7 +220,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     end
 
     # execute in parallel
-    result_peaksplit = parallel(chinfo, split_peak_ch, log_peaksplit, wpool; timeout=timeout)
+    result_peaksplit = parallel(chinfo, split_peak_ch, log_peaksplit, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished peak splitting"
 

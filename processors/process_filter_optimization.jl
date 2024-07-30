@@ -166,7 +166,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
 
                 p = plot(report_rt)
                 title!(p, get_plottitle(filekey, det, "Noise Sweep"; additiional_type=string(filter_type)))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("noise_sweep_$(filter_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("noise_sweep_$(filter_type)"))
 
                 # optimize FT
                 yield()
@@ -192,7 +192,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 yield()
                 p = plot(report_ft)
                 title!(get_plottitle(filekey, det, "FEP FT Scan"; additiional_type=string(filter_type)))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("fwhm_ft_scan_$(filter_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 
                 log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
@@ -220,7 +220,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false)
+    result_flt = parallel(chinfo, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished filter optimization"
 

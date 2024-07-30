@@ -38,8 +38,13 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         part = chinfo_ch.partition
 
         @debug "Processing channel $ch ($det)"
-
-        pars_db_ch = PropDict(l200.par.ppars.fltopt[det, part])
+        
+        mkpath(joinpath(data_path(l200.par.ppars.fltopt), string(det)))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.json"))
+            PropDict(l200.par.ppars.fltopt[det, part])
+        else
+            PropDict()
+        end
 
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
@@ -67,7 +72,18 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if !reprocess && haskey(pars_db, det) || (only_first_period && period != last(partinfo_ch.period))
+        if (only_first_period && period != first(partinfo_ch.period))
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            for filter_type in e_filter
+                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
+                # add results to dict
+                log_info_dict[filter_type] = log_info
+                processed_dict[filter_type] = false
+            end
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
+        end
+
+        if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db_ch[det], filter_type)
@@ -87,10 +103,10 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         end
 
         # load data
-        wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing
+        wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = load_partitionch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(peakname, ), n_evts=n_evts, select_random=select_random)
+            data = load_partition_ch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(peakname, ), n_evts=n_evts, select_random=select_random)
             wvfs_ch_pre = getproperty(data, peakname).waveform_presummed[:]
             wvfs_ch_wdw = getproperty(data, peakname).waveform_windowed[:]
             presum_rate = getproperty(data, peakname).presum_rate[:]
@@ -187,7 +203,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 GC.gc()
                 result_ft, report_ft = nothing, nothing
                 try
-                    result_ft, report_ft = fit_fwhm_ft_ctc(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.nbins_e_fep, optimization_config_flt.rel_cut_fit_e_fep; peak=optimization_config.peak, window=(optimization_config.left_window_size, optimization_config.right_window_size))
+                    result_ft, report_ft = fit_fwhm_ft_ctc(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.nbins_e_fep, optimization_config_flt.rel_cut_fit_e_fep; peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size))
                 catch e
                     @error "Failed $filter_type flat-top time extraction: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_string(string(e)))"))
@@ -234,7 +250,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo_unfolded, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false)
+    result_flt = parallel(chinfo_unfolded, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished filter optimization"
 
     @info "Write $period validity"
@@ -257,5 +273,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     
     # flush stdout
     flush(stdout)
+
+    return any(x -> get(last(x), :skipped, false), values(result_flt))
 end
 

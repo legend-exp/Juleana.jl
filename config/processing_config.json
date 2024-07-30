@@ -2,15 +2,15 @@
     "config": {
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "Main",
+            "JULIA_DEBUG": "Main,LegendSpecFits",
             "JULIA_WORKER_TIMEOUT": "240"
         },
         "slurm_settings": [
-            "--time=00:30:00",
+            "--time=02:00:00",
             "--mem-bind=local",
             "--threads-per-core=1",
             "--cpu-bind=cores",
-            "--nodes=1",
+            "--nodes=4",
             "--ntasks-per-node=36",
             "--cpus-per-task=2",
             "--mem=234GB"
@@ -30,13 +30,10 @@
     },
     "processors":
     {
-        "default": {
-            "n_workers": "all",
-            "reprocess": true
-        },
         "process_peak_split": {
             "enabled": false,
             "n_workers": "all",
+            "category": "cal",
             "rank": 1,
             "kwargs": {
                 "reprocess": true,
@@ -47,6 +44,7 @@
         "process_decay_time": {
             "enabled": true,
             "n_workers": "all",
+            "category": "cal",
             "rank": 2,
             "kwargs": {
                 "reprocess": true,
@@ -56,8 +54,9 @@
             "dependencies": []
         },
         "process_filter_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
+            "category": "cal",
             "rank": 3,
             "kwargs": {
                 "reprocess": true,
@@ -67,8 +66,9 @@
             "dependencies": []
         },
         "process_aoe_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
+            "category": "cal",
             "rank": 4,
             "kwargs": {
                 "reprocess": true,
@@ -77,8 +77,9 @@
             "dependencies": []
         },
         "process_dsp_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
+            "category": "cal",
             "rank": 5,
             "kwargs": {
                 "reprocess": true,
@@ -86,60 +87,68 @@
                 "timeout": false,
                 "use_partition_filter": true
             },
-            "dependencies": ["p_process_aoe_optimization"]
+            "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
         },
         "process_hit_cal": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
+            "category": "cal",
             "rank": 6,
             "kwargs": {
                 "reprocess": true,
-                "timeout": 1000
+                "timeout": false
             },
             "dependencies": []
         },
         "process_ct_correction": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
+            "category": "cal",
             "rank": 7,
             "kwargs": {
                 "reprocess": true,
-                "timeout": 1500
+                "timeout": false
             },
             "dependencies": []
         },
         "process_energy_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 1200,
+            "category": "cal",
             "rank": 8,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
             "dependencies": []
         },
         "process_aoe_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 1200,
+            "category": "cal",
             "rank": 9,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
             "dependencies": []
         },
         "process_dsp_phy": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": false,
-            "max_wvfs": 1000,
+            "category": "phy",
             "rank": 10,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false,
+                "max_wvfs": 1000
+
+            },
             "dependencies": []
         }
     },
     "p_processors":
     {
-        "default": {
-            "n_workers": "all",
-            "reprocess": true
-        },
         "p_process_decay_time": {
             "enabled": true,
             "n_workers": "all",
@@ -147,31 +156,31 @@
             "kwargs": {
                 "reprocess": true,
                 "timeout": false,
-                "max_wvfs": 20000
+                "max_wvfs": 35000
             },
             "dependencies": ["process_peak_split"]
         },
         "p_process_filter_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "rank": 2,
             "kwargs": {
                 "reprocess": true,
                 "timeout": false,
-                "max_wvfs": 20000
+                "max_wvfs": 35000
             },
-            "dependencies": []
+            "dependencies": ["process_peak_split"]
         },
         "p_process_aoe_optimization": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "rank": 3,
             "kwargs": {
                 "reprocess": true,
                 "timeout": false,
-                "max_wvfs": 20000
+                "max_wvfs": 35000
             },
-            "dependencies": []
+            "dependencies": ["process_peak_split"]
         },
         "p_process_energy": {
             "enabled": false,
@@ -183,25 +192,25 @@
             },
             "dependencies": ["process_energy_calibration"]
         },
-        "p_process_aoe_cut": {
+        "p_process_aoe_calibration_cut": {
             "enabled": false,
             "n_workers": "all",
             "rank": 5,
             "kwargs": {
                 "reprocess": true,
-                "timeout": false
+                "timeout": 6000
             },
             "dependencies": []
         },
-        "p_process_aoe_calibration_cut": {
+        "p_process_aoe_cut": {
             "enabled": false,
             "n_workers": "all",
             "rank": 6,
             "kwargs": {
                 "reprocess": true,
-                "timeout": 6000
+                "timeout": false
             },
-            "dependencies": []
+            "dependencies": ["process_aoe_calibration"]
         }
     }
 }

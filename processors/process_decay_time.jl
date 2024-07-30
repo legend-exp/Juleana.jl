@@ -132,7 +132,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo, ch_decay_time, log_nt, wpool; timeout=timeout)
+    result_pz = parallel(chinfo, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false)
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)

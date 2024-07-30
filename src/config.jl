@@ -129,9 +129,7 @@ function get_processingconfig()
 
     # get runs and periods
     runs, periods = nothing, nothing
-    if !(processing_config.only_partitions)
-        runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
-    end
+    runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
 
     return l200, processing_config, runs, periods
 end
@@ -187,4 +185,29 @@ function get_proccessable_runs(runs, period)
 
     return [r for r in processable_runs if r in available_runs ]
 
+end
+
+
+function setup_dependency_graph(processing_config, periods, runs)
+    # get all possible steps
+    possible_steps = filter!(x -> x != :default, Symbol.(keys(processing_config.processors)))
+    # generate process status with all possible steps for all possible runs in all periods
+    process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}}()
+    # fill
+    for period in periods
+        # get all processable runs
+        processable_runs = get_proccessable_runs(runs, period)
+        # set up process status for each period
+        process_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}(possible_steps .=> [ConcurrentDict{DataRun, Bool}(processable_runs .=> Ref(p)) for p in .!getproperty.(getproperty.(Ref(processing_config.processors), possible_steps), Ref(:enabled))])
+    end
+
+    # get all possible steps for partition processing
+    possible_p_steps = filter!(x -> x != :default, Symbol.(keys(processing_config.p_processors)))
+    # generate process status with all possible steps for all possible runs in all periods
+    p_process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, Bool}}()
+    for period in periods
+        p_process_status[period] = ConcurrentDict{Symbol, Bool}(possible_p_steps .=> .!getproperty.(getproperty.(Ref(processing_config.p_processors), possible_p_steps), Ref(:enabled)))
+    end
+
+    return process_status, p_process_status
 end

@@ -39,7 +39,12 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
         @info "Processing channel $ch ($det)"
 
-        pars_db_ch = PropDict(l200.par.ppars.fltopt[det, part])
+        mkpath(joinpath(data_path(l200.par.ppars.aoeopt), string(det)))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoeopt[det]), "$part.json"))
+            PropDict(l200.par.ppars.aoeopt[det, part])
+        else
+            PropDict()
+        end
 
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
@@ -69,6 +74,17 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
+        if (only_first_period && period != first(partinfo_ch.period))
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            for filter_type in e_filter
+                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
+                # add results to dict
+                log_info_dict[filter_type] = log_info
+                processed_dict[filter_type] = false
+            end
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
+        end
+
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in aoe_filter
@@ -84,14 +100,14 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         # check if all filters are already processed
         if length(keys(processed_dict)) == length(aoe_filter)
             @debug "All filters already processed, skip channel"
-            return (processed = processed_dict, log = log_info_dict)
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch)
         end
         
         # load data
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = load_partitionch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(:Tl208DEP_Bi212FEP, :Tl208SEP), n_evts=n_evts, select_random=select_random)
+            data = load_partition_ch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(:Tl208DEP_Bi212FEP, :Tl208SEP), n_evts=n_evts, select_random=select_random)
             wvfs_ch_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
             wvfs_ch_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
             presum_rate              = data.Tl208SEP.presum_rate[1]
@@ -209,7 +225,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo_unfolded, ch_sg_optimization, log_nt, wpool; timeout=timeout, retry=false)
+    result_sg = parallel(chinfo_unfolded, ch_sg_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished SG filter optimization"
 
@@ -234,5 +250,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
     # flush stdout
     flush(stdout)
+
+    # return if any channel was skipped so that the partition is not valid until the lower period is finished
+    return any(x -> get(last(x), :skipped, false), values(result_sg))
 end
 

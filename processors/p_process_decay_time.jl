@@ -1,4 +1,4 @@
-function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, only_first_period::Bool=true)
+function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000, only_first_period::Bool=true)
     @info "Process decay time for all partitions containing period $period"
 
     rinfo = runinfo(l200, period)
@@ -37,7 +37,12 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         det = chinfo_ch.detector
         part = chinfo_ch.partition
 
-        pars_db_ch = PropDict(l200.par.ppars.pz[det, part])
+        mkpath(joinpath(data_path(l200.par.ppars.pz), string(det)))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.pz[det]), "$part.json"))
+            PropDict(l200.par.ppars.pz[det, part])
+        else
+            PropDict()
+        end
 
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
@@ -47,7 +52,13 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
 
-        if (!reprocess && haskey(pars_db_ch, det)) || (only_first_period && period != last(partinfo_ch.period))
+        if only_first_period && period != first(partinfo_ch.period)
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            log_ch = log_nt((ch, det, part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
+            return (processed = false, log = log_ch, validity = validity_ch, skipped = true)
+        end 
+
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $det already processed, skip"
             log_ch = log_nt((ch, det, part, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].n_tau, "Already processed --> skipped."))
             return (processed = false, log = log_ch, validity = validity_ch)
@@ -60,19 +71,19 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         @debug "Loaded PZ config: $(pz_config_ch)"
 
         # unpack config
-        min_τ, max_τ = pz_config_ch.min_tau, pz_config_ch.max_tau
-        nbins        = pz_config_ch.nbins
-        rel_cut_fit  = pz_config_ch.rel_cut_fit
-        n_evts       = pz_config_ch.n_evts
+        min_τ, max_τ  = pz_config_ch.min_tau, pz_config_ch.max_tau
+        nbins         = pz_config_ch.nbins
+        rel_cut_fit   = pz_config_ch.rel_cut_fit
+        n_evts        = pz_config_ch.n_evts
         select_random = pz_config_ch.select_random
-        peakname      = Symbol(optimization_config.peakname)
-        qc_string     = optimization_config.qc
+        peakname      = Symbol(pz_config_ch.peakname)
+        qc_string     = pz_config_ch.qc
 
         # load data
         wvfs_ch = nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = load_partitionch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(peakname, ), n_evts=n_evts, select_random=select_random)
+            data = load_partition_ch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(peakname, ), n_evts=n_evts, select_random=select_random)
             wvfs_ch = getproperty(data, peakname).waveform_presummed[:]
             if length(wvfs_ch) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
@@ -87,7 +98,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         # get QC cuts
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config, pars_tau[det].τ, f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             wvfs_ch = wvfs_ch[qc]
             @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
@@ -143,7 +154,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo_unfolded, ch_decay_time, log_nt, wpool; timeout=timeout)
+    result_pz = parallel(chinfo_unfolded, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished decay time extraction"
 
@@ -168,4 +179,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     
     # flush stdout
     flush(stdout)
+
+    # return if any channel was skipped so that the partition is not valid until the lower period is finished
+    return any(x -> get(last(x), :skipped, false), values(result_pz))
 end

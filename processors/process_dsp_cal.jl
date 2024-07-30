@@ -1,4 +1,4 @@
-function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false, max_wvfs::Int=10000)
+function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false, max_wvfs::Int=10000, use_partition_filter::Bool=true)
     
     @info "Process DSP for period $period and run $run"
 
@@ -7,30 +7,28 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found start filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
     @debug "Loaded DSP config: $(dsp_config)"
 
-    train_data = h5open(get_mltrainfilename(l200, filekey))
-    f_evaluate_qc = get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-    close(train_data)
+    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    end
     @info "Loaded trained SVM model"
+
+    pars_type = ifelse(use_partition_filter, :ppars, :rpars)
+    @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
     
-    pars_tau = get_values(l200.par.rpars.pz[period, run])
+    pars_tau = get_values(l200.par[pars_type, :pz](filekey))
     @debug "Loaded decay times"
 
-    pars_fltoptimization = get_values(merge(l200.par.rpars.fltopt[period, run], PropDict(l200.par.rpars.aoeopt[period, run])))
+    pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
 
-    @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :cal, period, run]))"
-
-    if reprocess 
-        @info "Reprocess all filekeys and channels"
-    else
-        @info "Only reprocess filekeys and channels that are not processed yet"
-    end
+    if reprocess @info "Reprocess all filekeys and channels"
+    else @info "Only reprocess filekeys and channels that are not processed yet" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
@@ -47,7 +45,6 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         rawfilename = l200.tier[:raw, fk]
         @info "Processing file: $(basename(rawfilename))"
         dspfilename = l200.tier[:jldsp, fk]
-        touch(dspfilename)
         @info "Using output file: $(basename(dspfilename))"
         # start processing
         read_files(rawfilename, use_cache = false) do filename
@@ -55,7 +52,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
             global n_detectors = 0
             # channel ids of failed detectors
             global failed_detectors = DetectorId[]
-            modify_files(dspfilename, use_cache = true) do outfilename
+            write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 @timeit dsp_timer "Startup" begin
                     raw_data = lh5open(filename, "r")
                     if reprocess && isfile(dspfilename)
@@ -143,7 +140,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout)
+    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished DSP for period $period and run $run"
 

@@ -14,3 +14,6 @@ include("parallel.jl")
 
 # SLURM job submission utilities
 include("slurm.jl")
+
+# interactive utils
+include("interactive.jl")
