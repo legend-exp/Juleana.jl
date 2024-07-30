@@ -123,7 +123,7 @@
             "dependencies": []
         },
         "process_aoe_calibration": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "category": "cal",
             "rank": 9,
