@@ -65,6 +65,66 @@ else
     @sync begin
 
         ####################
+        # Process Partitions
+        ####################
+        if !processing_config.only_runs
+
+            # get processing steps from config for partitions
+            p_process_steps =  processing_config.p_process_steps
+
+            # process partitions 
+            Threads.@spawn begin
+                for period in periods
+
+                    @info "Process partitions in $period"
+
+                    Threads.@spawn begin
+                        # iterate through process steps
+                        for process in p_process_steps
+                            @info "$(string(process))"
+
+                            if !processing_config.only_partitions
+                                # check if p process has dependencies
+                                dependencies = Symbol.(processing_config.p_processors[process].dependencies)
+                                # combined periods and actual period to check for dependency globally
+                                combined_periods = unique(push!(get_partition_combined_periods(l200, period), period))
+                                # add all smaller ranks to list of dependencies and remove duplicates
+                                dependencies = unique(vcat([processing_config.possible_process_steps[1:findfirst(processing_config.possible_process_steps .== dep)] for dep in dependencies]...))
+                                if !all([all(values(process_status[period][dep])) for dep in dependencies for period in combined_periods])
+                                    @warn "Dependencies not yet met for $(string(process))"
+                                end
+                                while !all([all(values(process_status[period][dep])) for dep in dependencies])
+                                    sleep(10)
+                                end
+                            end
+
+                            # get kwargs
+                            kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process].kwargs)])
+                            # make sure that only the first period in each partitions are processed
+                            kwargs = merge(kwargs, (only_first_period = DataPeriod(period.no - 1) in periods, ))
+                            # run process
+                            has_lower_period_depedency = getfield(Main, process)(processing_config, l200, period,; kwargs...)
+
+                            # if process finished but depends on lower period dependency wait till met
+                            if has_lower_period_depedency
+                                if !p_process_status[DataPeriod(period.no - 1)][process]
+                                    @warn "Processed $period $(string(process)) but depends on $(DataPeriod(period.no - 1)) --> wait"
+                                end
+                                while !p_process_status[DataPeriod(period.no - 1)][process]
+                                    sleep(10)
+                                end
+                            end
+                            # update process status
+                            p_process_status[period][process] = true
+
+                            @info "Finished $period $(string(process))"
+                        end
+                    end
+                end
+            end
+        end
+
+        ####################
         # Process Runs
         ####################
         if !processing_config.only_partitions
@@ -130,64 +190,6 @@ else
                                     @info "Finished $period-$run $(string(process))"
                                 end
                             end
-                        end
-                    end
-                end
-            end
-        end
-
-        ####################
-        # Process Partitions
-        ####################
-        if !processing_config.only_runs
-
-            # get processing steps from config for partitions
-            p_process_steps =  processing_config.p_process_steps
-
-            # process partitions 
-            Threads.@spawn begin
-                for period in periods
-
-                    @info "Process partitions in $period"
-
-                    Threads.@spawn begin
-                        # iterate through process steps
-                        for process in p_process_steps
-                            @info "$(string(process))"
-
-                            if !processing_config.only_partitions
-                                # check if p process has dependencies
-                                dependencies = Symbol.(processing_config.p_processors[process].dependencies)
-                                # add all smaller ranks to list of dependencies and remove duplicates
-                                dependencies = unique(vcat([processing_config.possible_process_steps[1:findfirst(processing_config.possible_process_steps .== dep)] for dep in dependencies]...))
-                                if !all([all(values(process_status[period][dep])) for dep in dependencies])
-                                    @warn "Dependencies not yet met for $(string(process))"
-                                end
-                                while !all([all(values(process_status[period][dep])) for dep in dependencies])
-                                    sleep(10)
-                                end
-                            end
-
-                            # get kwargs
-                            kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process].kwargs)])
-                            # make sure that only the first period in each partitions are processed
-                            kwargs = merge(kwargs, (only_first_period = DataPeriod(period.no - 1) in periods, ))
-                            # run process
-                            has_lower_period_depedency = getfield(Main, process)(processing_config, l200, period,; kwargs...)
-
-                            # if process finished but depends on lower period dependency wait till met
-                            if has_lower_period_depedency
-                                if !p_process_status[DataPeriod(period.no - 1)][process]
-                                    @warn "Processed $period $(string(process)) but depends on $(DataPeriod(period.no - 1)) --> wait"
-                                end
-                                while !p_process_status[DataPeriod(period.no - 1)][process]
-                                    sleep(10)
-                                end
-                            end
-                            # update process status
-                            p_process_status[period][process] = true
-
-                            @info "Finished $period $(string(process))"
                         end
                     end
                 end

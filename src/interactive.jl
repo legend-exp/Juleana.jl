@@ -143,9 +143,11 @@ function execute_processors()
                                 if "check_dependencies" in additional_args
                                     # check if p process has dependencies
                                     dependencies = Symbol.(processing_config.p_processors[process].dependencies)
+                                    # combined periods and actual period to check for dependency globally
+                                    combined_periods = unique(push!(get_partition_combined_periods(l200, period), period))
                                     # add all smaller ranks to list of dependencies and remove duplicates
                                     dependencies = unique(vcat([processing_config.possible_process_steps[1:findfirst(processing_config.possible_process_steps .== dep)] for dep in dependencies]...))
-                                    if !all([all(values(process_status[period][dep])) for dep in dependencies])
+                                    if !all([all(values(process_status[period][dep])) for dep in dependencies for period in combined_periods])
                                         @warn "Dependencies not yet met for $(string(process))"
                                     end
                                     while !all([all(values(process_status[period][dep])) for dep in dependencies])
