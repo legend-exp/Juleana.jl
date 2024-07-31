@@ -1,11 +1,12 @@
 # julia -t 1 --project=/ptmp/lschl/l200/current/jlenv --heap-size-hint=10G main.jl --config ./config/processing_config.json -p 3 -r 0 1 --only_runs
 # julia -t 1 --project=/ptmp/lschl/l200/current/jlenv --heap-size-hint=10G main.jl --config ./config/processing_config.json --only_runs
+# julia -t 1 --project=/ptmp/lschl/l200/current/jlenv --heap-size-hint=10G main.jl --config ./config/processing_config_peakshapes.json --only_runs
 
 ##################
 # Start Processing
 ##################
 include(joinpath(@__DIR__,"src/juleana.jl"))
-
+any(arg -> startswith(arg, "--project"), ARGS)
 # load utils
 import Pkg
 @info "Using Julia $VERSION"
@@ -38,17 +39,16 @@ write_worker_start_script(joinpath(@__DIR__, "startjlworkers.sh"), runmode)
 wpool = FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1)
 ppt_worker_pool!(wpool)
 
-# submit to cluster
-if processing_config.submit_slurm
-    @async runworkers(runmode)
-end
+# # submit to cluster
+# if processing_config.submit_slurm
+#     @async runworkers(runmode)
+# end
 
-flush(stdout)
-using REPL
-term = REPL.Terminals.TTYTerminal("dumb", stdin, stdout, stderr)
-repl = REPL.LineEditREPL(term, true)
-REPL.run_repl(repl)
-
+# flush(stdout)
+# using REPL
+# term = REPL.Terminals.TTYTerminal("dumb", stdin, stdout, stderr)
+# repl = REPL.LineEditREPL(term, true)
+# REPL.run_repl(repl)
 ####################
 # Process Runs
 ####################

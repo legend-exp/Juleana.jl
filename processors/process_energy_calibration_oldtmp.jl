@@ -1,4 +1,4 @@
-function process_energy_calibration(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
+function process_energy_calibration_oldtmp(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
     
     @info "Energy calibration for period $period and run $run"
 
@@ -51,7 +51,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
         energy_config_ch = merge(energy_config.default, get(energy_config, det, PropDict()))
 
-        energy_types = [:e_cusp_ctc]#Symbol.(energy_config_ch.energy_types)
+        energy_types = Symbol.(energy_config_ch.energy_types)
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing energy types"
@@ -133,7 +133,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228)
                     # result_fit[p].μ = [result_fit[p].μ./ m_cal_simple for p in th228_names] # save in ADC
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $e"
@@ -228,7 +228,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
     pars_db = create_pars(pars_db, result_energy)
     writelprops(l200.par.rpars.ecal[period], run, pars_db)
-    # writevalidity(l200.par.rpars.ecal, filekey, (period, run))
+    writevalidity(l200.par.rpars.ecal, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

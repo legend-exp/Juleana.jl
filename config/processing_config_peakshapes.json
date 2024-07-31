@@ -1,0 +1,202 @@
+{    
+    "config": {
+        "debug": true,
+        "env_variables": {
+            "QT_QPA_PLATFORM": "xcb",
+            "GKSwstype": "100",
+            "HDF5_USE_FILE_LOCKING": "FALSE",
+            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
+            "JULIA_DEBUG": "Main,LegendSpecFits",
+            "JULIA_WORKER_TIMEOUT": "240"
+        },
+        "slurm_settings": [
+            "--time=02:00:00",
+            "--mem-bind=local",
+            "--threads-per-core=1",
+            "--cpu-bind=cores",
+            "--nodes=3",
+            "--ntasks-per-node=36",
+            "--cpus-per-task=2", 
+            "--mem=234GB"
+        ],
+        "julia_settings": [
+            
+        ]
+    },
+    "processing": {
+        "periods": [3, 4],
+        "runs" : "all", 
+        "partitions": [1],
+        "analysis_runs_only": true,
+        "only_partitions": false,
+        "only_runs": false,
+        "submit_slurm": false,
+        "remote_workers": []
+    },
+    "processors":
+    {
+        "default": {
+            "n_workers": "all",
+            "reprocess": true
+        },
+        "process_peak_split": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 1,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
+            "dependencies": []
+        },
+        "process_decay_time": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 2,
+            "kwargs": {
+                "reprocess": true,
+                "max_wvfs": 15000,
+                "timeout": false
+            },
+            "dependencies": []
+        },
+        "process_filter_optimization": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 3,
+            "kwargs": {
+                "reprocess": true,
+                "max_wvfs": 12000,
+                "timeout": false
+            },
+            "dependencies": []
+        },
+        "process_aoe_optimization": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 4,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
+            "dependencies": []
+        },
+        "process_dsp_cal": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 5,
+            "kwargs": {
+                "reprocess": true,
+                "max_wvfs": 1000,
+                "timeout": false
+            },
+            "dependencies": ["p_process_decay_time"]
+        },
+        "process_hit_cal": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 6,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 1000
+            },
+            "dependencies": []
+        },
+        "process_ct_correction": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 7,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 1500
+            },
+            "dependencies": []
+        },
+        "process_energy_calibration": {
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
+            "timeout": 1200,
+            "rank": 8,
+            "dependencies": []
+        },
+        "process_energy_calibration_tails": {
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
+            "timeout": 1200,
+            "rank": 9,
+            "dependencies": []
+        },
+        "process_energy_calibration_background_slope": {
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
+            "timeout": 1200,
+            "rank": 10,
+            "dependencies": []
+        },
+        "process_aoe_calibration": {
+            "enabled": false,
+            "n_workers": "all",
+            "reprocess": true,
+            "timeout": 1200,
+            "rank": 11,
+            "dependencies": []
+        },
+        "process_dsp_phy": {
+            "enabled": false,
+            "n_workers": "all",
+            "reprocess": true,
+            "timeout": false,
+            "max_wvfs": 1000,
+            "rank": 12,
+            "dependencies": []
+        }
+    },
+    "p_processors":
+    {
+        "default": {
+            "n_workers": "all",
+            "reprocess": true
+        },
+        "p_process_decay_time": {
+            "enabled": true,
+            "n_workers": "all",
+            "rank": 1,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
+            "dependencies": ["process_peak_split"]
+        },
+        "p_process_energy": {
+            "enabled": true,
+            "n_workers": "all",
+            "rank": 2,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
+            "dependencies": []
+        },
+        "p_process_aoe_cut": {
+            "enabled": true,
+            "n_workers": "all",
+            "rank": 3,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": false
+            },
+            "dependencies": []
+        },
+        "p_process_aoe_calibration_cut": {
+            "enabled": true,
+            "n_workers": "all",
+            "reprocess": true,
+            "timeout": 6000,
+            "rank": 4,
+            "dependencies": []
+        }
+    }
+}

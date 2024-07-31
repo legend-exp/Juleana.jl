@@ -1,4 +1,4 @@
-function process_energy_calibration(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
+function process_energy_calibration_background_slope(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
     
     @info "Energy calibration for period $period and run $run"
 
@@ -15,8 +15,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @debug "Loaded CTC parameters"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.ecal), string(period)))
-    pars_db = PropDict(l200.par.rpars.ecal[period, run])
+    mkpath(joinpath(data_path(l200.par.rpars.ecal_bslope), string(period)))
+    pars_db = PropDict(l200.par.rpars.ecal_bslope[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
@@ -133,7 +133,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit_WithBkgSlope)
                     # result_fit[p].μ = [result_fit[p].μ./ m_cal_simple for p in th228_names] # save in ADC
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $e"
@@ -227,8 +227,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @info "Finished energy calibration"
 
     pars_db = create_pars(pars_db, result_energy)
-    writelprops(l200.par.rpars.ecal[period], run, pars_db)
-    # writevalidity(l200.par.rpars.ecal, filekey, (period, run))
+    writelprops(l200.par.rpars.ecal_bslope[period], run, pars_db)
+    # writevalidity(l200.par.rpars.ecal_bslope, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
