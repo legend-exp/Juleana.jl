@@ -37,7 +37,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = l200.tier[:jlhitch, filekey, ch]
+        hitchfilename = l200.tier[:jlhit, filekey, ch]
         # load data file
         if !isfile(hitchfilename)
             @error "Hit file $hitchfilename not found"
@@ -206,8 +206,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 GC.gc()
             catch e
-                @error "Error in $e_type CT correction: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", e))
+                @error "Error in $e_type calibration: $(truncate_string(string(e)))"
+                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", truncate_string(string(e))))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false

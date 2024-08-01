@@ -34,7 +34,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = l200.tier[:jlhitch, filekey, ch]
+        hitchfilename = l200.tier[:jlhit, filekey, ch]
         # load data file
         if !isfile(hitchfilename)
             @error "Hit file $hitchfilename not found"
