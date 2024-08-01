@@ -60,7 +60,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         dspfilename = l200.tier[:jldsp, fk]
         @info "Using output file: $(basename(dspfilename))"
         # start processing
-        read_files(rawfilename, use_cache = false) do filename
+        write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do filename
             # number of processed detectors
             global n_detectors = 0
             # channel ids of failed detectors
