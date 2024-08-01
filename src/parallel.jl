@@ -121,7 +121,7 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
     end
     result = fetch.(tasks)
 
-    finish!(p)
+    # finish!(p)
     flush(stdout)
     Base.exit_on_sigint(true)
 
