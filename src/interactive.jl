@@ -2,7 +2,7 @@ function menu()
     # main menu options
     options = ["Execute processors", "Reload processors", "Select periods", "Reload processing config", "Reload dependency graph", "Submit workers", "Exit"]
     # main menu
-    menu = RadioMenu(options)
+    menu = RadioMenu(options, ctrl_c_interrupt= false)
     choice = request("Select action:", menu)
     
     # reload all processors from files
@@ -38,10 +38,10 @@ end
 
 function execute_processors()
     # create menus for processing steps
-    steps_menu = MultiSelectMenu(String.(processing_config.possible_process_steps))
-    p_steps_menu = MultiSelectMenu(String.(processing_config.p_possible_process_steps))
+    steps_menu = MultiSelectMenu(String.(processing_config.possible_process_steps), ctrl_c_interrupt = false)
+    p_steps_menu = MultiSelectMenu(String.(processing_config.p_possible_process_steps), ctrl_c_interrupt = false)
     additional_args = ["reprocess", "check_dependencies"]
-    additional_args_menu = MultiSelectMenu(additional_args)
+    additional_args_menu = MultiSelectMenu(additional_args, ctrl_c_interrupt = false)
 
     # processing steps menu to select and deselect
     process_steps = processing_config.possible_process_steps[collect(request("Select processing steps to be executed:", steps_menu))]
