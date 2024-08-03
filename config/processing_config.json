@@ -141,8 +141,8 @@
             "kwargs": {
                 "reprocess": true,
                 "timeout": false,
-                "max_wvfs": 1000
-
+                "max_wvfs": 1000,
+                "use_partition_filter": true
             },
             "dependencies": []
         }
@@ -166,7 +166,7 @@
             "rank": 2,
             "kwargs": {
                 "reprocess": true,
-                "timeout": false,
+                "timeout": 900,
                 "max_wvfs": 35000
             },
             "dependencies": ["process_peak_split"]
