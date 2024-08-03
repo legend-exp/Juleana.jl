@@ -1,4 +1,4 @@
-function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false, max_wvfs::Int=10000)
+function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false, max_wvfs::Int=10000, use_partition_filter::Bool=false)
     
     @info "Process DSP for period $period and run $run"
 
@@ -21,27 +21,27 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded DSP config: $(dsp_config)"
     @debug "Loaded SiPM DSP config: $(dsp_meta_sipm)"
 
-    train_data = h5open(get_mltrainfilename(l200, filekey))
-    f_evaluate_qc = get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-    close(train_data)
+    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    end
     @info "Loaded trained SVM model"
 
-    pars_tau = get_values(l200.par.rpars.pz[period, run])
+    pars_type = ifelse(use_partition_filter, :ppars, :rpars)
+    @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
+    
+    pars_type = ifelse(use_partition_filter, :ppars, :rpars)
+    @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
+    
+    pars_tau = get_values(l200.par[pars_type, :pz](filekey))
     @debug "Loaded decay times"
 
-    pars_fltoptimization = get_values(merge(l200.par.rpars.fltopt[period, run], l200.par.rpars.aoeopt[period, run]))
+    pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
-
-    pars_sipm = l200.par.rpars.sipm(filekey)
-    @debug "Loaded SiPM parameters"
 
     @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :phy, period, run]))"
 
-    if reprocess 
-        @info "Reprocess all filekeys and channels"
-    else
-        @info "Only reprocess filekeys and channels that are not processed yet"
-    end
+    if reprocess @info "Reprocess all filekeys and channels"
+    else @info "Only reprocess filekeys and channels that are not processed yet" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
