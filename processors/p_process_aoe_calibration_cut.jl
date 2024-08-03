@@ -74,7 +74,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                         (; e_type_aoe_cal => ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_aoe].cal.func).(dsp_out))
                     ))
                 end,
-                l200.tier[:jlhitch, :cal, period, run, ch]
+                l200.tier[:jlhit, :cal, period, run, ch]
             ) for (period, run) in partinfo])
         catch e
             @error "AoE and E data for $det from cannot be loaded"

@@ -83,7 +83,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                             @debug "Reading from \"$(ds.data_store.filename)\""
                             ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(ds[ch].dataQC[:])
                         end,
-                        l200.tier[:jlhitch, :cal, period, run, ch]
+                        l200.tier[:jlhit, :cal, period, run, ch]
                     ) for (period, run) in partinfo])
                 catch e
                     @error "E data for $det from cannot be loaded"
