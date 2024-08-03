@@ -2,9 +2,17 @@ function menu()
     # main menu options
     options = ["Execute processors", "Reload processors", "Select periods", "Reload processing config", "Reload dependency graph", "Submit workers", "Exit"]
     # main menu
-    menu = RadioMenu(options, ctrl_c_interrupt= false)
-    choice = request("Select action:", menu)
-    
+    choice = try
+        println()
+        menu = RadioMenu(options, ctrl_c_interrupt=true)
+        choice = request("Select action:", menu)
+        println()
+        choice
+    catch e
+        println()
+        @error "Abort"
+        return
+    end
     # reload all processors from files
     if choice == 4
         global l200, processing_config, runs, periods
@@ -13,9 +21,16 @@ function menu()
     # redefine periods per user choice
     elseif choice == 3
         global periods
-        possible_periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
-        periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in periods, possible_periods)])
-        periods = possible_periods[collect(request("Select periods to be executed:", periods_menu))]
+        try
+            possible_periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
+            periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in periods, possible_periods)], ctrl_c_interrupt = true)
+            selected_periods = collect(request("Select periods to be executed:", periods_menu))
+            periods = possible_periods[selected_periods]
+        catch e
+            println()
+            @error "Abort"
+            return
+        end
         @info "Selected periods: $periods"
     # reload processors from all processor files
     elseif choice == 2
@@ -38,23 +53,30 @@ end
 
 function execute_processors()
     # create menus for processing steps
-    steps_menu = MultiSelectMenu(String.(processing_config.possible_process_steps), ctrl_c_interrupt = false)
-    p_steps_menu = MultiSelectMenu(String.(processing_config.p_possible_process_steps), ctrl_c_interrupt = false)
-    additional_args = ["reprocess", "check_dependencies"]
-    additional_args_menu = MultiSelectMenu(additional_args, ctrl_c_interrupt = false)
-
-    # processing steps menu to select and deselect
-    process_steps = processing_config.possible_process_steps[collect(request("Select processing steps to be executed:", steps_menu))]
-    process_steps = sort(process_steps, by = s -> processing_config.processors[s].rank)
-    println()
-    println()
-    p_process_steps = processing_config.p_possible_process_steps[collect(request("Select partition processing steps to be executed:", p_steps_menu))]
-    p_process_steps = sort(p_process_steps, by = s -> processing_config.p_processors[s].rank)
-    println()
-    println()
-    additional_args = additional_args[collect(request("Select additional args:", additional_args_menu))]
-    println()
-    println()
+    process_steps, p_process_steps, additional_args = try
+        steps_menu = MultiSelectMenu(String.(processing_config.possible_process_steps), ctrl_c_interrupt = true)
+        p_steps_menu = MultiSelectMenu(String.(processing_config.p_possible_process_steps), ctrl_c_interrupt = true)
+        additional_args = ["reprocess", "check_dependencies"]
+        additional_args_menu = MultiSelectMenu(additional_args, ctrl_c_interrupt = true)
+    
+        # processing steps menu to select and deselect
+        process_steps = processing_config.possible_process_steps[collect(request("Select processing steps to be executed:", steps_menu))]
+        process_steps = sort(process_steps, by = s -> processing_config.processors[s].rank)
+        println()
+        println()
+        p_process_steps = processing_config.p_possible_process_steps[collect(request("Select partition processing steps to be executed:", p_steps_menu))]
+        p_process_steps = sort(p_process_steps, by = s -> processing_config.p_processors[s].rank)
+        println()
+        println()
+        additional_args = additional_args[collect(request("Select additional args:", additional_args_menu))]
+        println()
+        println()
+        process_steps, p_process_steps, additional_args
+    catch e
+        println()
+        @error "Abort"
+        return
+    end
     
     # execute steps one after each other without period and run parallelization
     if isempty(process_steps) && isempty(p_process_steps)

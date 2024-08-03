@@ -21,14 +21,19 @@ end
 
 # check if LEGEND packages should be updated
 if isinteractive()
-    if request("Update LEGEND packages?", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
-        Pkg.instantiate()
-        Pkg.update(["LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"])
-        Pkg.precompile()
-    elseif request("Update all packages?", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
-        Pkg.instantiate()
-        Pkg.update()
-        Pkg.precompile()
+    try
+        if request("Update LEGEND packages?", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
+            Pkg.instantiate()
+            Pkg.update(["LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"])
+            Pkg.precompile()
+        elseif request("Update all packages?", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
+            Pkg.instantiate()
+            Pkg.update()
+            Pkg.precompile()
+        end
+    catch e
+        @error "Canceled: $e"
+        exit(1)
     end
 end
 
