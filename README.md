@@ -108,7 +108,7 @@ You can configure the `processors` section with the following layout
             "kwargs": {
                 "reprocess": true,
                 "max_wvfs": 1000,
-                "timeout": false,
+                "timeout": 0,
                 "use_partition_filter": true
             },
             "dependencies": ["p_process_aoe_optimization"]

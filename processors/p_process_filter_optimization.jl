@@ -1,4 +1,4 @@
-function p_process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000, only_first_period::Bool=true)
     
     @info "Optimize filter for all partitions containing period $period"
 
@@ -18,6 +18,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
     end
     @info "Loaded trained SVM model"
+
+    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}

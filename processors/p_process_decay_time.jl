@@ -1,4 +1,4 @@
-function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000, only_first_period::Bool=true)
     @info "Process decay time for all partitions containing period $period"
 
     rinfo = runinfo(l200, period)
@@ -21,6 +21,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
+    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
+
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
