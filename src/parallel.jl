@@ -51,32 +51,36 @@ function retry_check(delay_state, err)
     return should_retry
 end
 
-function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false, process_name::String="")
+function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Int=0, retry::Bool=false, process_name::String="")
     # prevent crash from Base
     Base.exit_on_sigint(false)
 
     flush(stdout)
     # assign tasks to workers 
-    # Non Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
+    # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
     tasks = broadcast(iterator) do itr
         Threads.@spawn begin
-            onworker(; tries=retry ? 3 : 1, label="$itr") do
+            # maxtime will be set togehter with internal timeout for better handling
+            onworker(; tries=retry ? 3 : 1, label="$itr", maxtime=1.1*timeout) do
                 try
-                    if timeout == false
+                    # without timeout execute task
+                    if timeout <= 0
                         f_res = f(itr)
                         return itr => f_res
+                    # with timeout execute task inside thread and kill with InterruptException() in case it overruns maxtime
+                    else
+                        t_end = time() + timeout
+                        task = Threads.@spawn f(itr)
+                        while time() <= t_end && !istaskdone(task)
+                            sleep(0.1)
+                        end
+                        if !istaskdone(task)
+                            @debug "Timeout for $(itr)"
+                            @async Base.throwto(task, InterruptException())
+                            throw(ErrorException("Timeout for $(itr)"))
+                        end
+                        return itr => fetch(task)
                     end
-                    t_end = time() + timeout
-                    task = Threads.@spawn f(itr)
-                    while time() <= t_end && !istaskdone(task)
-                        sleep(0.1)
-                    end
-                    if !istaskdone(task)
-                        @debug "Timeout for $(itr)"
-                        @async Base.throwto(task, InterruptException())
-                        throw(ErrorException("Timeout for $(itr)"))
-                    end
-                    return itr => fetch(task)
                 catch e
                     if e isa TaskFailedException
                         e = e.task.exception
@@ -119,6 +123,7 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
             sleep(2)
         end
     end
+    # fetch results
     result = fetch.(tasks)
 
     # finish!(p)
