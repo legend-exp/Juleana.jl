@@ -1,11 +1,7 @@
-function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Union{Int, Bool}=false, max_wvfs::Int=10000, use_partition_filter::Bool=false)
+function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=0, max_wvfs::Int=10000, use_partition_filter::Bool=false)
     
     @info "Process DSP for period $period and run $run"
 
-    if !ispath(l200.tier[:raw, :phy, period, run])
-        @warn "No raw data found for period $period and run $run"
-        return
-    end
     filekeys = search_disk(FileKey, l200.tier[:raw, :phy, period, run])
     
     filekey = start_filekey(l200, (period, run, :phy))
@@ -29,17 +25,16 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     pars_type = ifelse(use_partition_filter, :ppars, :rpars)
     @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
     
-    pars_type = ifelse(use_partition_filter, :ppars, :rpars)
-    @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
-    
     pars_tau = get_values(l200.par[pars_type, :pz](filekey))
     @debug "Loaded decay times"
 
     pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
 
-    @debug "Create DSP folder: $(mkpath(l200.tier[:jldsp, :phy, period, run]))"
-
+    # pars_sipm = get_values(l200.par[pars_type, :sipm](filekey))
+    pars_sipm = get_values(l200.par[:rpars, :sipm](filekey))
+    @debug "Loaded sipm parameters"
+    
     if reprocess @info "Reprocess all filekeys and channels"
     else @info "Only reprocess filekeys and channels that are not processed yet" end
 
@@ -60,12 +55,12 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         dspfilename = l200.tier[:jldsp, fk]
         @info "Using output file: $(basename(dspfilename))"
         # start processing
-        write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do filename
+        read_files(rawfilename, use_cache = false) do filename
             # number of processed detectors
             global n_detectors = 0
             # channel ids of failed detectors
             global failed_detectors = DetectorId[]
-            modify_files(dspfilename, use_cache = true) do outfilename
+            write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 @timeit dsp_timer "Startup" begin
                     raw_data = lh5open(filename, "r")
                     if reprocess && isfile(outfilename)
@@ -119,7 +114,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                     @timeit dsp_timer "DSP" begin
                         # loop over channels
-                        @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo_sipm.channel, chinfo_sipm.detector)
+                        @showprogress desc="Filekey SiPM: $fk" for (ch, det) in zip(chinfo_sipm.channel, chinfo_sipm.detector)
             
                             # check if channel can be processed
                             if !haskey(pars_sipm, det)
@@ -163,7 +158,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     end
 
                     # loop over channels
-                    @showprogress desc="Filekey: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
+                    @showprogress desc="Filekey HPGe: $fk" for (ch, det) in zip(chinfo.channel, chinfo.detector)
 
                         # check if channel can be processed
                         if "$ch" in processed_channels && !reprocess
@@ -185,7 +180,6 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         end
 
                         @debug "Processing channel $ch ($det)"
-                        error_dets = ""
                         @timeit dsp_timer "DSP $det" begin
                             # process data
                             outdata_ch = nothing
