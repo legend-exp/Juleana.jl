@@ -22,9 +22,10 @@ end
 # check if LEGEND packages should be updated
 if isinteractive()
     try
-        if request("Update LEGEND packages?", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
+        legend_packages = ["LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"]
+        if request("Update LEGEND packages? $legend_packages", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
             Pkg.instantiate()
-            Pkg.update(["LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"])
+            Pkg.update(legend_packages)
         end
     catch e
         @error "Canceled: $e"
