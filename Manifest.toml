@@ -1041,7 +1041,7 @@ version = "0.2.0"
 
 [[deps.LegendDSP]]
 deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "FunctionChains", "IntervalSets", "LIBSVM", "LegendDataTypes", "LinearAlgebra", "PropDicts", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Tables", "TypedTables", "Unitful"]
-git-tree-sha1 = "13ec81fd2eb18b10511f5eba0d5cb3b66d31c11e"
+git-tree-sha1 = "26b71852a12310ed654c89ea8cd83724966f6baa"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendDSP.jl.git"
 uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
