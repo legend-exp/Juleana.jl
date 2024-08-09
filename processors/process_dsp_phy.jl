@@ -229,7 +229,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout)
+    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished DSP for period $period and run $run"
 
@@ -248,7 +248,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :dsp), report)
+    writelreport(get_rreportfilename(l200, filekey, :dsp), report)
     @info report
 
     # flush stdout
