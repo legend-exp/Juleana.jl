@@ -1,4 +1,4 @@
-function process_energy_calibration(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
+function process_energy_calibration_background_exp(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
     
     @info "Energy calibration for period $period and run $run"
 
@@ -15,8 +15,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @debug "Loaded CTC parameters"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.ecal), string(period)))
-    pars_db = PropDict(l200.par.rpars.ecal[period, run])
+    mkpath(joinpath(data_path(l200.par.rpars.ecal_exp), string(period)))
+    pars_db = PropDict(l200.par.rpars.ecal_exp[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
@@ -133,7 +133,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit_bckExp)
                     # result_fit[p].μ = [result_fit[p].μ./ m_cal_simple for p in th228_names] # save in ADC
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $e"
@@ -193,25 +193,25 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
 
-                # NEW calib with centroid start
-                result_calib_cen, report_calib_cen = nothing, nothing
-                try
-                    μ_fit_cen =  [peak_centroid(result_fit[p]) for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple
-                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
-                    result_calib_cen, report_calib_cen = fit_calibration(energy_config_ch.cal_pol_order, μ_fit_cen, pp_fit; e_expression=e_uncal_func)
-                    @debug "Found $e_type calibration curve: $(result_calib.func)"
-                catch e
-                    @error "Error in $e_type calibration curve fitting for channel $ch: $e"
-                    throw(ErrorException("Error in $e_type calibration curve fitting"))
-                end
-                # NEW calib with centroid end 
-                result_energy = (
-                    m_cal_simple = m_cal_simple,
-                    fwhm = result_fwhm,
-                    cal = result_calib,
-                    cal_cen = result_calib_cen,
-                    fit  = result_fit,
-                )
+              # NEW calib with centroid start
+              result_calib_cen, report_calib_cen = nothing, nothing
+              try
+                  μ_fit_cen =  [peak_centroid(result_fit[p]) for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple
+                  pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
+                  result_calib_cen, report_calib_cen = fit_calibration(energy_config_ch.cal_pol_order, μ_fit_cen, pp_fit; e_expression=e_uncal_func)
+                  @debug "Found $e_type calibration curve: $(result_calib.func)"
+              catch e
+                  @error "Error in $e_type calibration curve fitting for channel $ch: $e"
+                  throw(ErrorException("Error in $e_type calibration curve fitting"))
+              end
+              # NEW calib with centroid end 
+              result_energy = (
+                  m_cal_simple = m_cal_simple,
+                  fwhm = result_fwhm,
+                  cal = result_calib,
+                  cal_cen = result_calib_cen,
+                  fit  = result_fit,
+              )
 
                 # add results to dict
                 result_dict[e_type]   = result_energy
@@ -240,8 +240,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @info "Finished energy calibration"
 
     pars_db = create_pars(pars_db, result_energy)
-    writelprops(l200.par.rpars.ecal[period], run, pars_db)
-    # writevalidity(l200.par.rpars.ecal, filekey, (period, run))
+    writelprops(l200.par.rpars.ecal_exp[period], run, pars_db)
+    # writevalidity(l200.par.rpars.ecal_exp, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()

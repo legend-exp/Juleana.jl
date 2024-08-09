@@ -75,7 +75,7 @@ function process_energy_calibration_background_slope(processing_config::PropDict
         try
             @debug "Load hit file"
             data_hit = LHDataStore(hitchfilename, "r");
-            data_ch_after_qc = data_hit[ch].dataQC[:];
+            data_ch_after_qc = data_hit[ch, :jlhit].dataQC[:];
             close(data_hit)
         catch e
             @error "Error in loading data for channel $ch: $e"
@@ -133,7 +133,7 @@ function process_energy_calibration_background_slope(processing_config::PropDict
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit_WithBkgSlope)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit_bckSlope)
                     # result_fit[p].μ = [result_fit[p].μ./ m_cal_simple for p in th228_names] # save in ADC
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $e"
@@ -193,12 +193,25 @@ function process_energy_calibration_background_slope(processing_config::PropDict
 
                 log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
 
-                result_energy = (
-                    m_cal_simple = m_cal_simple,
-                    fwhm = result_fwhm,
-                    cal = result_calib,
-                    fit  = result_fit,
-                )
+              # NEW calib with centroid start
+              result_calib_cen, report_calib_cen = nothing, nothing
+              try
+                  μ_fit_cen =  [peak_centroid(result_fit[p]) for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple
+                  pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
+                  result_calib_cen, report_calib_cen = fit_calibration(energy_config_ch.cal_pol_order, μ_fit_cen, pp_fit; e_expression=e_uncal_func)
+                  @debug "Found $e_type calibration curve: $(result_calib.func)"
+              catch e
+                  @error "Error in $e_type calibration curve fitting for channel $ch: $e"
+                  throw(ErrorException("Error in $e_type calibration curve fitting"))
+              end
+              # NEW calib with centroid end 
+              result_energy = (
+                  m_cal_simple = m_cal_simple,
+                  fwhm = result_fwhm,
+                  cal = result_calib,
+                  cal_cen = result_calib_cen,
+                  fit  = result_fit,
+              )
 
                 # add results to dict
                 result_dict[e_type]   = result_energy
@@ -241,9 +254,9 @@ function process_energy_calibration_background_slope(processing_config::PropDict
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_energy))
 
-    @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :energy_calibration), report)
-    @info report
+    # @info "Write log report"
+    # writelreport(get_reportfilename(l200, filekey, :energy_calibration), report)
+    # @info report
 
     # flush stdout
     flush(stdout)

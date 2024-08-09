@@ -1,4 +1,4 @@
-function process_energy_calibration(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
+function process_energy_calibration_conv(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
     
     @info "Energy calibration for period $period and run $run"
 
@@ -139,6 +139,19 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     @error "Error in $e_type peak fitting for channel $ch: $e"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
+                try
+                    niterations = collect(500:100:5000)
+                    converged = falses(length(niterations), length(th228_names))
+                    for (idx, n) in enumerate(niterations)
+                        local result_fit_n, _ = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; niterations = n, e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit)
+                        converged[idx,:] = [result_fit_n[p].gof.converged for p in th228_names]
+                    end
+                    result_fit[:converged] = (niterations = niterations, converged = converged)
+                catch 
+                    @error "Convergence test Error in $e_type peak fitting for channel $ch: $e"
+                    throw(ErrorException("Error in $e_type peak fitting"))
+                end
+
                 GC.gc()
 
                 p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)

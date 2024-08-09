@@ -1,4 +1,4 @@
-function process_energy_calibration(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
+function process_energy_calibration_convergence(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false,  dependencies::Vector{Any})
     
     @info "Energy calibration for period $period and run $run"
 
@@ -125,10 +125,10 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 # get simple calibration constant
                 m_cal_simple = result_simple.c
                 # save plots for simple calibration for control
-                p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
-                title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
-                yield()
+                # p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
+                # title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
+                # savelfig(savefig, p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
+                # yield()
 
                 result_fit, report_fit = nothing, nothing
                 try
@@ -139,11 +139,23 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     @error "Error in $e_type peak fitting for channel $ch: $e"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
-                GC.gc()
-
-                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
-                plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
-                savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
+                # GC.gc()
+                try
+                    ninterations = collect(500:100:5000)
+                    converged = falses(length(ninterations), length(th228_names))
+                    for (idx, n) in enumerate(ninterations)
+                        local result_fit_n, _ = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; ninterations = n, e_unit=result_simple.unit, calib_type=:th228, fit_func = :f_fit)
+                        converged[idx,:] = [result_fit_n[p].converged for p in th228_names]
+                    end
+                    result_fit[:converged] = (niterations = ninterations, converged = converged)
+                catch 
+                    @error "Convergence test Error in $e_type peak fitting for channel $ch: $e"
+                    throw(ErrorException("Error in $e_type peak fitting"))
+                end
+                
+                # p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
+                # plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
+                # savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
 
                 yield()
 
@@ -163,9 +175,9 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 μ_notfit =  [result_fit[p].μ for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
         
-                p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
-                savelfig(savefig, p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
+                # p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
+                # plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
+                # savelfig(savefig, p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
 
                 yield()
 
@@ -185,9 +197,9 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks)]
         
 
-                p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("fwhm_$(e_type)"))
+                # p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
+                # plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
+                # savelfig(savefig, p, l200, filekey, ch, Symbol("fwhm_$(e_type)"))
                 
                 yield()
 
@@ -241,6 +253,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
     pars_db = create_pars(pars_db, result_energy)
     writelprops(l200.par.rpars.ecal[period], run, pars_db)
+
     # writevalidity(l200.par.rpars.ecal, filekey, (period, run))
     @info "Saved pars to disk"
 
