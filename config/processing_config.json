@@ -10,7 +10,7 @@
             "--mem-bind=local",
             "--threads-per-core=1",
             "--cpu-bind=cores",
-            "--nodes=4",
+            "--nodes=8",
             "--ntasks-per-node=18",
             "--cpus-per-task=4",
             "--mem=234GB"
@@ -133,11 +133,23 @@
             },
             "dependencies": []
         },
-        "process_dsp_phy": {
+        "process_sipm_thresholds": {
             "enabled": true,
             "n_workers": "all",
             "category": "phy",
             "rank": 10,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "max_wvfs": 10000
+            },
+            "dependencies": []
+        },
+        "process_dsp_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 11,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
