@@ -1,4 +1,4 @@
-function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
+function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=0)
     
     @info "AoE calibration for partition $part"
 
@@ -64,7 +64,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, part::
                         e = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type_e].cal.func).(dsp_out)
                     )
                 end,
-                l200.tier[:jlhitch, filekey, ch]
+                l200.tier[:jlhit, filekey, ch]
             ) for (period, run) in partinfo])
         catch e
             @error "AoE and E data for $det from cannot be loaded"

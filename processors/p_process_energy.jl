@@ -1,18 +1,18 @@
-function p_process_energy(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
+function p_process_energy(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=0)
     
-    @info "Energy calibration for partition $part"
+    @info "Energy calibration for all partitions containing period $period"
 
-    partinfo = partitioninfo(l200)[part]
-    period = filter(row -> row.period == minimum(partinfo.period), partinfo).period[1]
-    partition_period = partinfo[[p == period for p in partinfo.period]]
-    run = filter(row -> row.run == minimum(partition_period.run), partition_period).run[1]
-    @info "Loaded partition info with $(length(partinfo)) runs"
+    rinfo = runinfo(l200, period)
+    @info "Loaded run info with $(length(rinfo)) runs"
 
-    filekey = start_filekey(l200, (period, run, :cal))
+    filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
+
+
+
 
     energy_config = dataprod_config(l200).energy(filekey).partition
     @debug "Loaded energy config: $(energy_config)"
@@ -26,10 +26,13 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
         end
     pars_db = ifelse(reprocess, PropDict(), pars_db)
 
-    if reprocess @info "Reprocess all channels" end
+
+
+
+    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
+    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -41,8 +44,16 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
         
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
+        part = chinfo_ch.partition
 
         @debug "Processing channel $ch ($det)"
+
+        mkpath(joinpath(data_path(l200.par.ppars.ecal), string(det)))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.ecal[det]), "$part.json"))
+            PropDict(l200.par.ppars.ecal[det, part])
+        else
+            PropDict()
+        end
 
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
@@ -83,7 +94,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                             @debug "Reading from \"$(ds.data_store.filename)\""
                             ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(ds[ch].dataQC[:])
                         end,
-                        l200.tier[:jlhitch, :cal, period, run, ch]
+                        l200.tier[:jlhit, :cal, period, run, ch]
                     ) for (period, run) in partinfo])
                 catch e
                     @error "E data for $det from cannot be loaded"

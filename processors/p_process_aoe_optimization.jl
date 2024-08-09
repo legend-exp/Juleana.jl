@@ -1,4 +1,4 @@
-function p_process_aoe_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_aoe_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000, only_first_period::Bool=true)
 
     @info "Optimize PSD filter for all partitions containing period $period"
 
@@ -18,6 +18,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
     end
     @info "Loaded trained SVM model"
+
+    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Surrival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
@@ -76,7 +78,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
         if (only_first_period && period != first(partinfo_ch.period))
             @info "Only first period in partition $part for $period in $ch ($det)"
-            for filter_type in e_filter
+            for filter_type in aoe_filter
                 log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
@@ -189,7 +191,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                     @warn "No SG sweep plot for channel $ch ($det)"
                 end
 
-                @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for channel $ch ($det)"""
+                @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf; digits=2)) for channel $ch ($det)"""
 
                 # write log
                 log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))

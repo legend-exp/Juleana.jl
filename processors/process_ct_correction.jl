@@ -1,4 +1,4 @@
-function process_ct_correction(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
+function process_ct_correction(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
 
     @info "CT correction for period $period and run $run"
 
@@ -34,7 +34,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = l200.tier[:jlhitch, filekey, ch]
+        hitchfilename = l200.tier[:jlhit, filekey, ch]
         # load data file
         if !isfile(hitchfilename)
             @error "Hit file $hitchfilename not found"

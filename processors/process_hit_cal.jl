@@ -1,4 +1,4 @@
-function process_hit_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
+function process_hit_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
 
     @info "Generate cal hit for period $period and run $run"
 
@@ -41,7 +41,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         det_puls = chinfo_puls.detector
         
         # get pulser filename
-        pulserfilename = l200.tier[:jlpulsch, filekey, ch_puls]
+        pulserfilename = l200.tier[:jlpuls, filekey, ch_puls]
 
         if !reprocess && isfile(pulserfilename)
             return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpuls, :tags]), "Already processed --> skipped.")))
@@ -78,8 +78,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
 
-        hitchfilename = l200.tier[:jlhitch, filekey, ch]
-        pulserfilename = l200.tier[:jlpulsch, filekey, ch_puls]
+        hitchfilename = l200.tier[:jlhit, filekey, ch]
+        pulserfilename = l200.tier[:jlpuls, filekey, ch_puls]
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
             log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))

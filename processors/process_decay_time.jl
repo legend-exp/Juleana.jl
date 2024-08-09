@@ -1,4 +1,4 @@
-function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false, max_wvfs::Int=15000)
+function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000)
         
     @info "Process decay time for period $period and run $run"
 
@@ -132,7 +132,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false)
+    result_pz = parallel(chinfo, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
