@@ -187,7 +187,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             @timeit split_timer "Filter Raw" begin
                 slim_data = flatten_by_key([lh5open(filename) do ds
                     @info "Filtering $(filename), channel $ch"
-                    filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
+                    filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows)
                 end for filename in filelist])
             end
             n_fep = length(slim_data[:Tl208FEP].daqenergy)
@@ -203,7 +203,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
                             # LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
-                            output[ch, :jlpeaks, label] = decode_data(slim_data[label])
+                            output[ch, :jlpeaks, label] = slim_data[label]
                         end
                     end
                 end
