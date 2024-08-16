@@ -77,8 +77,8 @@ tmux split-window -v -t $SESSION_NAME:2
 send_cd_command_to_all_panes 2
 
 # Run monitoring commands in the "Monitoring" window panes
-tmux send-keys -t $SESSION_NAME:2.0 'watch -n 30 "sinfo | grep idle"' C-m
-tmux send-keys -t $SESSION_NAME:2.1 'watch -n 30 squeue -u $USER' C-m
+tmux send-keys -t $SESSION_NAME:2.0 'watch -n 60 "sinfo | grep idle"' C-m
+tmux send-keys -t $SESSION_NAME:2.1 'watch -n 60 squeue -u $USER' C-m
 
 # Attach to the first window in the session
 tmux select-window -t $SESSION_NAME:0
