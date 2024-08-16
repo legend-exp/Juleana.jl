@@ -25,6 +25,7 @@ if isinteractive()
         legend_packages = ["LegendHDF5IO", "LegendDataTypes", "LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"]
         if request("Update LEGEND packages? $legend_packages", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
             Pkg.instantiate()
+            Pkg.resolve()
             Pkg.update(legend_packages)
         end
     catch e
