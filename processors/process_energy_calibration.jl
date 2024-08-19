@@ -37,13 +37,6 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = l200.tier[:jlhit, filekey, ch]
-        # load data file
-        if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
-            throw(ErrorException("Hit file not found"))
-        end
-
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
@@ -65,18 +58,11 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
             end
         end
 
-        # load data file
-        if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
-            throw(ErrorException("Hit file not found"))
-        end
         # get data
         data_ch_after_qc = nothing
         try
             @debug "Load hit file"
-            data_hit = lh5open(hitchfilename, "r");
-            data_ch_after_qc = data_hit[ch, :jlhit, :dataQC][:];
-            close(data_hit)
+            data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
         catch e
             @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error data loader"))
@@ -133,7 +119,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, m_cal_simple=m_cal_simple)
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type peak fitting"))
@@ -150,7 +136,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 result_calib, report_calib = nothing, nothing
                 try
-                    μ_fit =  [result_fit[p].μ for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple
+                    μ_fit =  [result_fit[p].centroid for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
                     pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
                     result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit; e_expression=e_uncal_func)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
@@ -159,7 +145,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
-                μ_notfit =  [result_fit[p].μ for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple
+                μ_notfit =  [result_fit[p].centroid for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
         
                 p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
@@ -168,11 +154,11 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 yield()
 
-                f_cal(x) = report_calib.f_fit(x) .* report_calib.e_unit .- first(report_calib.par)
+                f_cal_widths(x) = report_calib.f_fit(x) .* report_calib.e_unit .- first(report_calib.par)
 
                 result_fwhm, report_fwhm = nothing, nothing
                 try
-                    fwhm_fit = f_cal.([result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))] ./ m_cal_simple)
+                    fwhm_fit = f_cal_widths.([result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))])
                     pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]    
                     result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit; pol_order=energy_config_ch.fwhm_pol_order, e_type_cal=Symbol("$(e_type)_cal"), e_expression=e_uncal_func, uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
@@ -180,7 +166,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
-                fwhm_notfit =  f_cal.([result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple)
+                fwhm_notfit =  f_cal_widths.([result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)])
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks)]
         
 
@@ -188,6 +174,17 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
                 savelfig(savefig, p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
                 
+                f_cal_pos(x) = report_calib.f_fit(x) .* report_calib.e_unit
+
+                # calibrate best fit values
+                width_pars = [:σ, :fwhm]
+                position_pars = [:μ, :centroid]
+                for (peak, result_peak) in result_fit
+                    result_peak = merge(result_peak, NamedTuple{Tuple(width_pars)}([f_cal_widths(result_peak[k]) for k in width_pars]...))
+                    result_peak = merge(result_peak, NamedTuple{Tuple(position_pars)}([f_cal_pos(result_peak[k]) for k in position_pars]...))
+                    result_fit[peak] = result_peak
+                end
+
                 yield()
 
                 log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))

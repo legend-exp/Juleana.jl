@@ -2,17 +2,17 @@
     "config": {
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "LegendSpecFits,Main",
+            "JULIA_DEBUG": "ParallelProcessingTools,LegendSpecFits,Main",
             "JULIA_WORKER_TIMEOUT": "240"
         },
         "slurm_settings": [
-            "--time=02:00:00",
+            "--time=06:00:00",
             "--mem-bind=local",
             "--threads-per-core=1",
             "--cpu-bind=cores",
             "--nodes=8",
-            "--ntasks-per-node=18",
-            "--cpus-per-task=4",
+            "--ntasks-per-node=36",
+            "--cpus-per-task=2",
             "--mem=234GB"
         ],
         "julia_settings": [
@@ -20,8 +20,8 @@
         ]
     },
     "processing": {
-        "periods": "all",
-        "runs" : "all",
+        "periods": [3],
+        "runs" : [0],
         "analysis_runs_only": true,
         "only_partitions": false,
         "only_runs": false,
@@ -42,7 +42,7 @@
             "dependencies": []
         },
         "process_decay_time": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 2,
@@ -54,7 +54,7 @@
             "dependencies": []
         },
         "process_filter_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 3,
@@ -66,7 +66,7 @@
             "dependencies": []
         },
         "process_aoe_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 4,
@@ -77,7 +77,7 @@
             "dependencies": []
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 5,
@@ -90,7 +90,7 @@
             "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
         },
         "process_hit_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 6,
@@ -107,7 +107,7 @@
             "rank": 7,
             "kwargs": {
                 "reprocess": true,
-                "timeout": 0
+                "timeout": 900
             },
             "dependencies": []
         },
@@ -123,7 +123,7 @@
             "dependencies": []
         },
         "process_aoe_calibration": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 9,
@@ -134,7 +134,7 @@
             "dependencies": []
         },
         "process_sipm_thresholds": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "phy",
             "rank": 10,
@@ -146,7 +146,7 @@
             "dependencies": []
         },
         "process_dsp_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "phy",
             "rank": 11,
