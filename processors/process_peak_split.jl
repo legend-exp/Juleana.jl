@@ -172,11 +172,13 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
                 savelfig(savefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
-
+            GC.gc()
+            @info "Filtering channel $ch ($det)"
             @timeit split_timer "Filter Raw" begin
                 slim_data = flatten_by_key([lh5open(filename) do ds
                     @info "Filtering $(filename), channel $ch"
-                    filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows)
+                    filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows; chunk_size=100)
+                    # filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
                 end for filename in filelist])
             end
             n_fep = length(slim_data[:Tl208FEP].daqenergy)
@@ -191,8 +193,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = true, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            # LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
                             output[ch, :jlpeaks, label] = slim_data[label]
+                            # output[ch, :jlpeaks, label] = decode_data(slim_data[label])
                         end
                     end
                 end
@@ -204,6 +206,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(split_timer))
 
         log_ch = log_peaksplit((ch, det, ProcessStatus(1), n_fep, n_sep, "$total_time", total_allocated, ""))
+
+        @info "Finished processing channel $ch ($det) in $total_time"
 
         return (result = (n_fep = n_fep, n_sep = n_sep), processed = true, log = log_ch)
     end
