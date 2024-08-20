@@ -69,7 +69,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db_ch[det], e_type)

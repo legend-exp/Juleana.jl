@@ -87,11 +87,11 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in aoe_filter
-                if haskey(pars_db[det], filter_type)
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep, pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
+                if haskey(pars_db_ch[det], filter_type)
+                    log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, pars_db_ch[det][filter_type].wl, pars_db_ch[det][filter_type].sf, pars_db_ch[det][filter_type].n_dep, pars_db_ch[det][filter_type].n_sep, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
