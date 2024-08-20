@@ -180,7 +180,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 yield()
 
-                log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
+                log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
 
                 result_energy = (
                     fwhm = result_fwhm,
@@ -219,7 +219,6 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
     start_time = now()
 
     result_energy = parallel(chinfo_unfolded, ch_energy_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
-    result_energy = Dict{NamedTuple, NamedTuple}(chinfo_unfolded[1:2] .=> ch_energy_calibration.(chinfo_unfolded[1:2]))
 
     @info "Finished partition calibration"
 
