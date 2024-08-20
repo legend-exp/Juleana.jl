@@ -1,6 +1,6 @@
-function p_process_energy(processing_config::PropDict, l200::LegendData, part::DataPartition,; reprocess::Bool=false, timeout::Int=0)
+function p_process_energy(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     
-    @info "Energy calibration for all partitions containing period $period"
+    @info "Energy calibration for for all partitions containing period $period"
 
     rinfo = runinfo(l200, period)
     @info "Loaded run info with $(length(rinfo)) runs"
@@ -11,24 +11,6 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-
-
-
-    energy_config = dataprod_config(l200).energy(filekey).partition
-    @debug "Loaded energy config: $(energy_config)"
-    
-    @debug "Create pars db"
-    mkpath(data_path(l200.par.ppars.ecal))
-    pars_db = if isempty(readdir(data_path(l200.par.ppars.ecal)))
-            PropDict()
-        else
-            PropDict(l200.par.ppars.ecal(filekey))
-        end
-    pars_db = ifelse(reprocess, PropDict(), pars_db)
-
-
-
-
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
@@ -37,8 +19,11 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
+    # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
+    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period; unfold_partitions=true)
+
     # flush stdout
-    flush(stdout)
+    flush(stdout)    
     
     function ch_energy_calibration(chinfo_ch::NamedTuple)
         
@@ -55,21 +40,41 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
             PropDict()
         end
 
+        partinfo_ch = partitioninfo(l200, ch, part)
+        @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
+    
+        filekey_ch = start_filekey(l200, (first(partinfo_ch.period), first(partinfo_ch.run), :cal))
+        @debug "Found filekey $filekey_ch"
+
+        validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
+
+        energy_config = dataprod_config(l200).energy(filekey).partition
+        energy_config_ch = merge(energy_config.default_all, get(energy_config, det, PropDict()))
+        @debug "Loaded energy config: $(energy_config_ch)"
+
+        energy_types = Symbol.(energy_config_ch.energy_types)
+
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-
-        energy_config_ch = merge(energy_config.default, get(energy_config, det, PropDict()))
-
-        energy_types = Symbol.(energy_config_ch.energy_types)
+        if (only_first_period && period != first(partinfo_ch.period))
+            @info "Only first period in partition $part for $period in $ch ($det)"
+            for e_type in energy_types
+                log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
+                # add results to dict
+                processed_dict[e_type] = false
+                log_info_dict[e_type] = log_info
+            end
+            return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
+        end
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing energy types"
             for e_type in energy_types
-                if haskey(pars_db[det], e_type)
+                if haskey(pars_db_ch[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fwhm.qbb, pars_db[det][e_type].fit.Tl208FEP.fwhm, pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db_ch[det][e_type].fwhm.qbb, pars_db_ch[det][e_type].fit.Tl208FEP.fwhm, pars_db_ch[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -77,7 +82,6 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
         end
 
         th228_names = Symbol.(energy_config_ch.th228_names)
-        th228_lines = energy_config_ch.th228_lines
         th228_lines_dict = Dict(th228_names .=> energy_config_ch.th228_lines)
 
         for e_type in energy_types
@@ -89,13 +93,10 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
 
                 energy = nothing
                 try
-                    energy = fast_flatten([lh5open(
-                        ds -> begin
-                            @debug "Reading from \"$(ds.data_store.filename)\""
-                            ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(ds[ch].dataQC[:])
-                        end,
-                        l200.tier[:jlhit, :cal, period, run, ch]
-                    ) for (period, run) in partinfo])
+                    energy = fast_flatten([begin 
+                            @debug "Reading from $(pinfo.period)-$(pinfo.run)"
+                            ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch)) end
+                    for pinfo in partinfo_ch])
                 catch e
                     @error "E data for $det from cannot be loaded"
                     throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
@@ -113,8 +114,9 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                 end
                 GC.gc()
 
-                p = stephist(energy, bins=0:1:3000, xlabel="Energy", ylabel="Counts", yscale=:log10, label="$e_type")
-                title!(get_plottitle(filekey.setup, part, filekey.category, det, "Partition Spectrum"; additiional_type="$e_type"))
+                p = stephist(energy, bins=0:0.5:3000, xlabel="Energy", ylabel="Counts", yscale=:log10, label="$e_type")
+                plot!(xlims=(0, 3000), ylims=(1, ylims()[2]), framestyle=:box, xticks=0:200:3000, xformatter=:plain)
+                title!(get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additiional_type="$e_type"))
                 savelfig(savefig, p, l200, part, filekey, det, Symbol("partition_spectrum_$e_type"))
 
                 yield()
@@ -130,7 +132,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                 GC.gc()
 
                 p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
-                plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
+                plot!(p, plot_title=get_plottitle(filekey_ch, part, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
                 savelfig(savefig, p, l200, part, filekey, det, Symbol("peak_fits_$e_type"))
 
                 yield()
@@ -138,27 +140,25 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
 
                 result_calib, report_calib = nothing, nothing
                 try
-                    μ_fit =  [result_fit[p].μ for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
+                    μ_fit =  [result_fit[p].centroid for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
                     pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
-                    result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit)
+                    result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit; uncertainty=true)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
                     @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
-                μ_notfit =  ustrip.(report_calib.e_unit, [result_fit[p].μ for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)])
+                μ_notfit =  ustrip.(report_calib.e_unit, [result_fit[p].centroid for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)])
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
         
                 p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
+                plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
                 plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
                 plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
                 savelfig(savefig, p, l200, part, filekey, det, Symbol("calibration_curve_$e_type"))
 
                 yield()
-
-                fwhm     = [result_fit[p].fwhm for p in th228_names]
 
                 result_fwhm, report_fwhm = nothing, nothing
                 try
@@ -170,12 +170,12 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                     @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
-                fwhm_notfit =  [result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
-                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks)]
+                fwhm_notfit =  [result_fit[p].fwhm for p in Symbol.(energy_config_ch.fwhm_fit_excluded_peaks)]
+                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.fwhm_fit_excluded_peaks)]
         
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
+                plot!(plot_title=get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
                 savelfig(savefig, p, l200, part, filekey, det, Symbol("fwhm_$e_type"))
 
                 yield()
@@ -196,7 +196,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
                 GC.gc()
             catch e
                 @error "Error in $e_type: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", e))
+                log_info = log_nt((ch, det, part, ProcessStatus(0), e_type, "-", "-", "-", e))
 
                 # add results to dict
                 log_info_dict[e_type] = log_info
@@ -204,21 +204,28 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
             end
         end
 
+        result_ch = (result = result_dict, processed = processed_dict, log = log_info_dict, validity = validity_ch)
+        result_energy_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
 
-        return (result = result_dict, log = log_info_dict, processed = processed_dict)
+        pars_db_ch = create_pars(pars_db_ch, result_energy_ch)
+        writelprops(l200.par.ppars.ecal[det], part, pars_db_ch)
+        writevalidity(l200.par.ppars.ecal[det], filekey_ch, part)
+
+        # return results
+        return result_ch
     end
 
     # get start time
     start_time = now()
 
-    result_energy = parallel(chinfo, ch_energy_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = parallel(chinfo_unfolded, ch_energy_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = Dict{NamedTuple, NamedTuple}(chinfo_unfolded[1:2] .=> ch_energy_calibration.(chinfo_unfolded[1:2]))
 
     @info "Finished partition calibration"
 
-    pars_db = create_pars(pars_db, result_energy)
-    writelprops(l200.par.ppars.ecal, part, pars_db)
-    writevalidity(l200.par.ppars.ecal, filekey, part)
-    @info "Saved pars to disk"
+    @info "Write $period validity"
+    validity_all = create_validity(result_energy)
+    writevalidity(l200.par.ppars.ecal, validity_all)
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -231,10 +238,12 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, part::D
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey.setup, part, filekey.category, :energy), report)
+    writelreport(get_preportfilename(l200, filekey, :energy), report)
     @info report
 
     # flush stdout
     flush(stdout)
+
+    return any(x -> get(last(x), :skipped, false), values(result_energy))
 end
 
