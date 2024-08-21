@@ -48,8 +48,8 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
         validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
 
-        energy_config = dataprod_config(l200).energy(filekey).partition
-        energy_config_ch = merge(energy_config.default_all, get(energy_config, det, PropDict()))
+        energy_config = dataprod_config(l200).energy(filekey_ch).full
+        energy_config_ch = merge(energy_config.p_default, get(energy_config.p, det, PropDict()))
         @debug "Loaded energy config: $(energy_config_ch)"
 
         energy_types = Symbol.(energy_config_ch.energy_types)
@@ -117,7 +117,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 p = stephist(energy, bins=0:0.5:3000, xlabel="Energy", ylabel="Counts", yscale=:log10, label="$e_type")
                 plot!(xlims=(0, 3000), ylims=(1, ylims()[2]), framestyle=:box, xticks=0:200:3000, xformatter=:plain)
                 title!(get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additiional_type="$e_type"))
-                savelfig(savefig, p, l200, part, filekey, det, Symbol("partition_spectrum_$e_type"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("partition_spectrum_$e_type"))
 
                 yield()
 
@@ -133,7 +133,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
                 plot!(p, plot_title=get_plottitle(filekey_ch, part, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
-                savelfig(savefig, p, l200, part, filekey, det, Symbol("peak_fits_$e_type"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("peak_fits_$e_type"))
 
                 yield()
                 @debug "Get $e_type calibration values"
@@ -156,7 +156,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
                 plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
                 plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
-                savelfig(savefig, p, l200, part, filekey, det, Symbol("calibration_curve_$e_type"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
 
                 yield()
 
@@ -176,7 +176,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
-                savelfig(savefig, p, l200, part, filekey, det, Symbol("fwhm_$e_type"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("fwhm_$e_type"))
 
                 yield()
 

@@ -62,7 +62,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         pars_fltoptimization = get_values(l200.par.ppars.fltopt[det, part])
         @debug "Loaded energy optimization parameters"
 
-        optimization_config = dataprod_config(l200).dsp(filekey).aoe_optimization
+        optimization_config = dataprod_config(l200).dsp(filekey_ch).aoe_optimization
         aoe_config_ch = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
         @debug "Loaded optimization config: $(optimization_config)"
         

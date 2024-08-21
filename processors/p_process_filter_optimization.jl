@@ -59,7 +59,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         pars_tau = get_values(l200.par.ppars.pz[det, part])
         @debug "Loaded decay times"
 
-        optimization_config = dataprod_config(l200).dsp(filekey).flt_optimization
+        optimization_config = dataprod_config(l200).dsp(filekey_ch).flt_optimization
         optimization_config_ch = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
         @debug "Loaded optimization config: $(optimization_config_ch)"
         
