@@ -1,4 +1,4 @@
-# function p_process_aoe_calibration_cut(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
+function p_process_aoe_calibration_cut(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     
     @info "Generate AoE cut for all partitions containing period $period"
 
@@ -324,7 +324,6 @@
     start_time = now()
 
     result_aoe = parallel(chinfo_unfolded, ch_aoe_cut, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
-    result_aoe =  Dict(chinfo_unfolded[1:2] .=> ch_aoe_cut.(chinfo_unfolded[1:2]))
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"
