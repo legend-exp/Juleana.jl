@@ -122,7 +122,7 @@
             },
             "dependencies": []
         },
-        "process_aoe_calibration": {
+        "process_aoe_calibration_cut": {
             "enabled": false,
             "n_workers": "all",
             "category": "cal",
