@@ -32,6 +32,23 @@ The script also offers command line options to have a handy way of processing th
 | `--analysis_runs_only` | Process only runs which are marked as analysis runs |
 | `--submit_slurm` | Automatically add a SLURM process to the session |
 
+# Debug mode
+To enable the `debug` mode for fast and interactive dataflow debugging and testing, the `-i` flag for `interactive` has to be passed as argument upfront the `main.jl` script.
+``` bash
+julia -i main.jl -c utils/processing_config.json
+```
+This will start a `debug` menu with the following options:
+- **Execute Processors**: Execute individual processors which can be selected from two sub-menus consisting of `processors` and `p-processors`. Additionally, the `reprocess` flag as well as a `check_dependency` flag can be set globally.
+- **Reload Processors**: Reload all processor scripts from disk. Good to modify scripts without exiting session.
+- **Select Periods**: Select periods which should be processed.
+- **Reload processing config**: Reload processing config and `argparse` new from disk. Good to modify `processor` and `p-processor` settings without exiting session.
+- **Reset dependency graph**: Reset the dependency graph and restore initial graph before any processing happened and recheck all dependencies.
+- **Submit Workers**: Submit new workers to the session. This can be useful to add new workers to the session without exiting the session.
+- **Exit**: Exit the debug menu and continue with the processing.
+
+The `debug` menu can be exited with the `Ctrl+c` command.
+It can also be manually invoked by calling `menu()` in the julia REPL.
+
 # Setup
 To set up the dataflow, you need to have a running `julia` configuration on a login node of a SLURM based cluster with the corresponding acces to the *LEGEND data*. To help you set this up, the folder `setup/` contains helper scripts based on `bash` to guide you through the setup process. 
 
