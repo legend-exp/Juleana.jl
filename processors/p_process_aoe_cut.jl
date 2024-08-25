@@ -221,7 +221,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, aoe_part_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, create_metadatatbl(filekey, part))
+    lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_aoe))
 

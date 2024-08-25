@@ -232,7 +232,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, energy_part_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, create_metadatatbl(filekey, part))
+    lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_energy))
 

@@ -60,14 +60,14 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
             for aoe_type in aoe_types
                 if !haskey(pars_db[det], aoe_type)
                     pars_db_det_aoe_type = pars_db[det][aoe_type]
-                    log_ch = log_nt(ch, det, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
+                    log_ch = log_nt_cal(ch, det, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
                     log_info_dict[aoe_type] = log_ch
                 end
             end
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db[det], aoe_classifier)
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db[det][aoe_classifier].lowcut, pars_db[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, ProcessStatus(1), aoe_classifier, pars_db[det][aoe_classifier].lowcut, pars_db[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -81,8 +81,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
             hit_cal = calibrate_ged_channel_data(l200, filekey, det, read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch); keep_chdata=true)
             e_cal = getproperty(hit_cal, e_type)
         catch e
-            @error "E data for $det from cannot be loaded"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
+            @error "Hit data for $det from cannot be loaded: $(truncate_string(string(e)))"
+            throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_string(string(e)))"))
         end
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
@@ -105,7 +105,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 end
                 GC.gc()
 
-                p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, 0.1:5e-3:1.8), xlims=(0, 3000), ylims=(0.1, 1.8), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
+                p = histogram2d(e_cal[isfinite.(aoe)], aoe[isfinite.(aoe)], nbins=(0:0.5:3000, 0.1:5e-3:1.8), xlims=(0, 3000), ylims=(0.1, 1.8), size=(1200, 800), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel="A/E (a.u.)", margin=5mm)
                 plot!(p, guidefontsize=18, xguidefontsize=18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
                 xticks!(p, 0:250:3000)
                 title!(p, get_plottitle(filekey, det, "AoE uncalibrated"; additiional_type=string(aoe_type)))
@@ -177,7 +177,6 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
         pars_db_ch = create_pars(pars_db_ch, result_aoe_ch)
 
-
         @showprogress desc="Detector: $det" for aoe_classifier in aoe_classifiers
             if haskey(processed_dict, aoe_classifier)
                 continue
@@ -190,7 +189,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     aoe = ljl_propfunc(pars_db_ch[det][Symbol(first(split(string(aoe_classifier), "_classifier")))].func).(hit_cal)
                 catch e
                     @error "AoE for $det from cannot be loaded"
-                    throw(LoadError("AoE", 154, "AoE and E data for $det from partition $(part) cannot be loaded"))
+                    throw(LoadError("AoE", 154, "AoE data for $det cannot be loaded"))
                 end
 
                 p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
@@ -205,7 +204,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     result_cut = get_aoe_cut(aoe, e_cal,; dep=aoe_config_ch.dep, window=aoe_config_ch.dep_window, cut_search_interval=Tuple(aoe_config_ch.dep_cut_search_interval), rtol=aoe_config_ch.dep_cut_search_rtol, bin_width_window=aoe_config_ch.dep_bin_width_window, fixed_position=aoe_config_ch.dep_cut_search_fixed_position, sigma_high_sided=sigma_high_sided)
                 catch e
                     @error "AoE cut for $det cannot be generated"
-                    throw(ErrorException("AoE cut for $det from partition $(part) cannot be generated"))
+                    throw(ErrorException("AoE cut for $det from $period-$run cannot be generated"))
                 end
 
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
@@ -216,7 +215,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     result_peaks, report_peaks = get_peaks_surrival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=true, sigma_high_sided=sigma_high_sided)
                 catch e
                     @error "AoE peaks SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks SF for $det from partition $(part) cannot be generated"))
+                    throw(ErrorException("AoE peaks SF for $det from $period-$run cannot be generated"))
                 end
 
                 @debug "Found SEP Surrival Fraction at $(round(u"percent", result_peaks[:Tl208SEP].sf, digits=2))"
@@ -231,7 +230,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     qbb_result = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=sigma_high_sided)
                 catch e
                     @error "Qbb SF for $det cannot be generated"
-                    throw(ErrorException("Qbb SF for $det from partition $(part) cannot be generated"))
+                    throw(ErrorException("Qbb SF for $det from $period-$run cannot be generated"))
                 end
 
                 p = stephist(e_cal, nbins=2039-35:0.5:2039+35, label="Before", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
@@ -287,7 +286,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     start_time = now()
 
     # execute in parallel
-    result_aoe = parallel(chinfo, ch_aoe_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(chinfo, ch_aoe_cut, merge(log_nt_cal, log_nt_cut), wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished AoE calibration"
 

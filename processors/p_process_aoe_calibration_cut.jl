@@ -323,7 +323,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     # get start time
     start_time = now()
 
-    result_aoe = parallel(chinfo_unfolded, ch_aoe_cut, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(chinfo_unfolded, ch_aoe_cut, merge(log_nt_cal, log_nt_cut), wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"
@@ -337,7 +337,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, aoe_part_log_text)
     lreport!(report, "# Metadata")
-    lreport!(report, create_metadatatbl(filekey, part))
+    lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_aoe))
 
@@ -347,5 +347,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
     # flush stdout
     flush(stdout)
+
+    return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
 
