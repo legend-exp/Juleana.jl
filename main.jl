@@ -52,7 +52,7 @@ runmode = SlurmRun(
     slurm_flags = get_slurm_flags(processing_config),
     julia_flags = get_julia_flags(processing_config),
     redirect_output = false,
-    # env = first(processing_config.env_args_worker)
+    env = first(processing_config.env_args_worker)
 )
 @info "Write worker start script to $(joinpath(@__DIR__, "startjlworkers.sh"))"
 write_worker_start_script(joinpath(@__DIR__, "startjlworkers.sh"), runmode)
