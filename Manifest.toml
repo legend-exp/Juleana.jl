@@ -1078,7 +1078,7 @@ version = "0.2.1"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful"]
-git-tree-sha1 = "f8bb341c0730fb88a9f9ecb3cac97793aa56e989"
+git-tree-sha1 = "2c513ee804f59d652d69cb2e26a5dd2f96ed0508"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
@@ -1104,7 +1104,7 @@ version = "0.1.13"
 
 [[deps.LegendEventAnalysis]]
 deps = ["ArraysOfArrays", "IntervalSets", "LegendDataManagement", "LegendDataTypes", "ProgressMeter", "PropertyFunctions", "StructArrays", "Tables", "Unitful"]
-git-tree-sha1 = "69c94361f8ca5237332015d73bfb1842e87f0b08"
+git-tree-sha1 = "647ee0b4502cc8e4550b8d6c6882eed655e04088"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendEventAnalysis.jl.git"
 uuid = "ca666546-4c2a-41e4-9648-72713d810efe"
@@ -1118,7 +1118,7 @@ version = "0.1.15"
 
 [[deps.LegendSpecFits]]
 deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Format", "ForwardDiff", "IntervalSets", "InverseFunctions", "IrrationalConstants", "LaTeXStrings", "LinearAlgebra", "LinearRegression", "LsqFit", "Measurements", "Measures", "Optim", "PropDicts", "RadiationSpectra", "Random", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
-git-tree-sha1 = "e7daa3c1937b82310075fcf46d52f767bd638d25"
+git-tree-sha1 = "d46c6caf38f74e286d8b7f6f146f58bf39a6883d"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendSpecFits.jl.git"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
