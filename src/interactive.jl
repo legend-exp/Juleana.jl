@@ -1,6 +1,6 @@
 function menu()        
     # main menu options
-    options = ["Execute processors", "Reload processors", "Select periods", "Reload processing config", "Reload dependency graph", "Submit workers", "Exit"]
+    options = ["Execute processors", "Reload processors", "Select periods", "Reload processing config", "Reset dependency graph", "Submit workers", "Exit"]
     # main menu
     choice = try
         println()
@@ -47,7 +47,17 @@ function menu()
         @info "Submitted workers"
     # execute processing steps
     elseif choice == 1
-        execute_processors()
+        Base.exit_on_sigint(false)
+        try
+            execute_processors()
+        catch e
+            e = ParallelProcessingTools.onlyfirst_exception(e)
+            if e isa TaskFailedException
+                e = e.task.exception
+            end
+            @error "Error in `execute_processors`: $(truncate_string(string(e)))"
+        end
+        Base.exit_on_sigint(true)
     end
 end
 
