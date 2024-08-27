@@ -62,7 +62,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $det already processed, skip"
-            log_ch = log_nt((ch, det, part, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].n_tau, "Already processed --> skipped."))
+            log_ch = log_nt((ch, det, part, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].fit.σ, "Already processed --> skipped."))
             return (processed = false, log = log_ch, validity = validity_ch)
         end
 
