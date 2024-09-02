@@ -1,10 +1,10 @@
-function getboolkwarg(processing_config::PropDict, parsed_args::Dict, key::String)
+function getboolkwarg(processing_config::PropDict, parsed_args::Dict, key::String; section::Symbol=:processing)
     if parsed_args["ignore_config"]
         parsed_args[key]
     elseif parsed_args[key]
         true
     else
-        get(processing_config.processing, Symbol(key), true)
+        get(processing_config[section], Symbol(key), true)
     end
 end
 
@@ -25,13 +25,19 @@ function get_argparse()
             action = :store_true
         "--only_runs", "--or"
             help = "process only period and runs ignoring partitions"
+            dest_name = "only_runs"
             action = :store_true
         "--only_partitions", "--op"
             help = "process only partitions ignoring periods and runs"
+            dest_name = "only_partitions"
             action = :store_true
-        "--submit_slurm"
-            help = "submit slurm jobs to the cluster"
+        "--submit_jobs"
+            help = "submit slurm jobs to the selected run mode"
             action = :store_true
+        "--runmode", "--rm"
+            help = "run mode to use for processing"
+            dest_name = "runmode"
+            arg_type = String
         "--ignore_config"
             help = "ignore all settings and config and only take command line arguments"
             action = :store_true
@@ -71,7 +77,7 @@ function get_processingconfig()
     processing_config.env_args_worker = (env_args_worker, )
     
     # get remote workers
-    processing_config.processing.remote_workers = [Tuple(p) for p in processing_config.processing.remote_workers]
+    processing_config.config.remote_workers = [Tuple(p) for p in get(processing_config.processing, :remote_workers, [])]
 
     # load metadata
     @info "Loading Legend MetaData"
@@ -87,16 +93,28 @@ function get_processingconfig()
 
     # check flags if only partitions or only runs should be processed, if slurm jobs should be submitted or only analysis runs should be processed
     processing_config.analysis_runs_only = getboolkwarg(processing_config, parsed_args, "analysis_runs_only")
-    processing_config.only_partitions    = getboolkwarg(processing_config, parsed_args, "only_partitions")
-    processing_config.only_runs          = getboolkwarg(processing_config, parsed_args, "only_runs")
-    processing_config.submit_slurm       = getboolkwarg(processing_config, parsed_args, "submit_slurm")
-    if processing_config.only_runs @info "Process only runs" end
     if processing_config.analysis_runs_only @info "Process only analysis runs" end
+    processing_config.only_partitions    = getboolkwarg(processing_config, parsed_args, "only_partitions")
     if processing_config.only_partitions @info "Process only partitions" end
-    if processing_config.submit_slurm @info "Submit slurm jobs" end
+    processing_config.only_runs          = getboolkwarg(processing_config, parsed_args, "only_runs")
+    if processing_config.only_runs @info "Process only runs" end
 
-    @assert !(processing_config.only_partitions && processing_config.only_runs) "Only one of only_partitions or only_runs can be set"
+    if processing_config.only_partitions && processing_config.only_runs
+        throw(ArgumentError("Only one of `only_partitions` or `only_runs` can be set"))
+    end
 
+    # get runmode and runmode flags
+    processing_config.runmode = parsed_args["runmode"]
+    if isnothing(processing_config.runmode)
+        processing_config.runmode = get(processing_config.config, :runmode, "")
+    end
+    if !(processing_config.runmode in ["local", "slurm"])
+        @error "Runmode $(processing_config.runmode) not supported"
+        throw(ArgumentError("Runmode $(processing_config.runmode) not supported"))
+    end
+    @info "Runmode: $(processing_config.runmode)"
+    processing_config.submit_jobs       = getboolkwarg(processing_config, parsed_args, "submit_jobs"; section=:config)
+    if processing_config.submit_jobs @info "Will submit $(processing_config.runmode) jobs" end
     
     # get processing steps from config and sort by rank
     possible_process_steps = Symbol.(keys(processing_config.processors))
@@ -126,6 +144,10 @@ function get_processingconfig()
     end
     processing_config.p_possible_process_steps = p_possible_process_steps
     processing_config.p_process_steps = p_possible_process_steps[[processing_config.p_processors[step].enabled for step in p_possible_process_steps]]
+
+    if isempty(processing_config.process_steps) && isempty(processing_config.p_process_steps) 
+        throw(ArgumentError("No processing steps enabled"))
+    end
 
     # get runs and periods
     runs, periods = nothing, nothing
@@ -169,7 +191,24 @@ end
 
 function get_proccessable_runs(runs, period)
     # select runs to process
-    available_runs = search_disk(DataRun, l200.tier[:raw, :cal, period])
+    tiers = [:raw, :jldsp, :jlevt]
+    categories = [:cal, :phy]
+    tier, cat = nothing, nothing
+    for t in tiers
+        for c in categories
+            if ispath(l200.tier[t, c, period])
+                tier = t
+                cat = c
+                break
+            end
+        end
+    end
+    available_runs = if isnothing(tier) || isnothing(cat)
+        @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
+        []
+    else
+        search_disk(DataRun, l200.tier[tier, cat, period])
+    end
     processable_runs = runs
     if runs == "all"
         processable_runs = available_runs
