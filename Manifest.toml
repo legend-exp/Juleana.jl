@@ -1070,15 +1070,15 @@ version = "0.2.0"
 
 [[deps.LegendDSP]]
 deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "FunctionChains", "IntervalSets", "LIBSVM", "LegendDataTypes", "LinearAlgebra", "PropDicts", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Tables", "TypedTables", "Unitful"]
-git-tree-sha1 = "422bc6b3ff8b4b72f129ccab585a99475f2bf5b4"
+git-tree-sha1 = "acd1bdee814e51e865dd89a90cc05d283bab29b8"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendDSP.jl.git"
 uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
-version = "0.2.1"
+version = "0.2.2"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful"]
-git-tree-sha1 = "2c513ee804f59d652d69cb2e26a5dd2f96ed0508"
+git-tree-sha1 = "acabdc561e6619c42398b996d143ff3a5a591a14"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
@@ -1104,7 +1104,7 @@ version = "0.1.13"
 
 [[deps.LegendEventAnalysis]]
 deps = ["ArraysOfArrays", "IntervalSets", "LegendDataManagement", "LegendDataTypes", "ProgressMeter", "PropertyFunctions", "StructArrays", "Tables", "Unitful"]
-git-tree-sha1 = "647ee0b4502cc8e4550b8d6c6882eed655e04088"
+git-tree-sha1 = "736d721bd49dbc50810f59933dbc24603d094a31"
 repo-rev = "dev"
 repo-url = "https://github.com/legend-exp/LegendEventAnalysis.jl.git"
 uuid = "ca666546-4c2a-41e4-9648-72713d810efe"
