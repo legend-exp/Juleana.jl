@@ -42,21 +42,3 @@ function get_slurm_job_ids_by_name(name::String)
     # Filter the lines that contain the job name and return the job IDs
     return [split(line)[1] for line in lines if occursin(name, line)]
 end
-
-function get_slurm_flags(processing_config::PropDict; set_env::Bool=false)
-    # get SLURM config settings
-    if isempty(processing_config.config.slurm_settings)
-        ``
-    else
-        Cmd(string.(processing_config.config.slurm_settings))
-    end
-end
-
-function get_julia_flags(processing_config::PropDict)
-    # get Julia config settings
-    if isempty(processing_config.config.julia_settings)
-        ``
-    else
-        Cmd(string.(processing_config.config.julia_settings))
-    end
-end
