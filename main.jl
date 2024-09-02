@@ -47,23 +47,32 @@ l200, processing_config, runs, periods = get_processingconfig()
 # load all available processors
 include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
-# create workers
-runmode = SlurmRun(
-    slurm_flags = get_slurm_flags(processing_config),
-    julia_flags = get_julia_flags(processing_config),
-    redirect_output = false,
-    env = first(processing_config.env_args_worker)
-)
-@info "Write worker start script to $(joinpath(@__DIR__, "startjlworkers.sh"))"
-write_worker_start_script(joinpath(@__DIR__, "startjlworkers.sh"), runmode)
+if processing_config.runmode == "local"
+    runmode = OnLocalhost(
+        n = processing_config.config.runmode_settings.local.n,
+        env = first(processing_config.env_args_worker)
+        )
+    @async runworkers(runmode)
+elseif processing_config.runmode == "slurm"
+    # create workers
+    runmode = SlurmRun(
+        slurm_flags = Cmd(Vector{String}(string.(processing_config.config.runmode_settings.slurm.flags))),
+        julia_flags = Cmd(Vector{String}(string.(processing_config.config.runmode_settings.slurm.julia_settings))),
+        redirect_output = false,
+        env = first(processing_config.env_args_worker)
+    )
+    @info "Write worker start script to $(joinpath(@__DIR__, "startjlworkers.sh"))"
+    write_worker_start_script(joinpath(@__DIR__, "startjlworkers.sh"), runmode)
+    # submit to cluster
+    if processing_config.submit_jobs
+        @async runworkers(runmode)
+    end
+end
+
 # get wpool
 wpool = FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1)
 ppt_worker_pool!(wpool)
-
-# submit to cluster
-if processing_config.submit_slurm
-    @async runworkers(runmode)
-end
+    
 
 # set up dependency graph
 process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
