@@ -1,32 +1,39 @@
 {    
     "config": {
+        "runmode": "slurm",
+        "submit_jobs": false,
+        "remote_workers": [],
+        "runmode_settings": {
+            "slurm": {
+                "flags": [
+                    "--time=08:00:00",
+                    "--mem-bind=local",
+                    "--threads-per-core=1",
+                    "--cpu-bind=cores",
+                    "--nodes=16",
+                    "--ntasks-per-node=18",
+                    "--cpus-per-task=4",
+                    "--mem=234GB"
+                    ],
+                "julia_settings": []
+            },
+            "local": {
+                "n": 12,
+                "julia_settings": []
+            }
+        },
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "LegendSpecFits,Main",
+            "JULIA_DEBUG": "LegendEventAnalysis,LegendSpecFits,Main",
             "JULIA_WORKER_TIMEOUT": "240"
-        },
-        "slurm_settings": [
-            "--time=08:00:00",
-            "--mem-bind=local",
-            "--threads-per-core=1",
-            "--cpu-bind=cores",
-            "--nodes=16",
-            "--ntasks-per-node=18",
-            "--cpus-per-task=4",
-            "--mem=234GB"
-        ],
-        "julia_settings": [
-            
-        ]
+        }
     },
     "processing": {
         "periods": [3],
         "runs" : [0],
         "analysis_runs_only": true,
         "only_partitions": false,
-        "only_runs": false,
-        "submit_slurm": false,
-        "remote_workers": []
+        "only_runs": false
     },
     "processors":
     {
@@ -90,7 +97,7 @@
             "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
         },
         "process_hit_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 6,
@@ -101,7 +108,7 @@
             "dependencies": []
         },
         "process_ct_correction": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 7,
@@ -112,7 +119,7 @@
             "dependencies": []
         },
         "process_energy_calibration": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 8,
@@ -123,7 +130,7 @@
             "dependencies": []
         },
         "process_aoe_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 9,
@@ -155,6 +162,17 @@
                 "timeout": 0,
                 "max_wvfs": 1000,
                 "use_partition_filter": true
+            },
+            "dependencies": []
+        },
+        "process_evt_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 12,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
             },
             "dependencies": []
         }
@@ -195,7 +213,7 @@
             "dependencies": ["process_peak_split"]
         },
         "p_process_energy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 4,
             "kwargs": {
@@ -205,7 +223,7 @@
             "dependencies": ["process_energy_calibration"]
         },
         "p_process_aoe_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 5,
             "kwargs": {
@@ -215,7 +233,7 @@
             "dependencies": []
         },
         "p_process_aoe_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 6,
             "kwargs": {

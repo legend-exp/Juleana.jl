@@ -68,3 +68,7 @@ After a mini DSP, the baseline distributions of the normal and flipped waveforms
 Then, the distributions are truncated around the peak to fit a truncated gaussian function.
 The sigma of the distrbutions is extracted as the trigger threshold.
 """
+
+
+const evt_log_text = """## Evt
+This is the log for the event level. The algorithm iterates through each file each file and generates the event level table for each subsystem including correct calibrations and cut generation."""
