@@ -66,7 +66,9 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         data_ch_after_qc = nothing
         try
             @debug "Load hit file"
-            data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
+            if !all([haskey(processed_dict, e_type) for e_type in energy_types])
+                data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
+            end
         catch e
             @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error data loader"))
