@@ -90,16 +90,16 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing filters"
             for aoe_type in aoe_types
-                if !haskey(pars_db[det], aoe_type)
-                    pars_db_det_aoe_type = pars_db[det][aoe_type]
-                    log_ch = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
+                if !haskey(pars_db_ch[det], aoe_type)
+                    pars_db_det_aoe_type = pars_db_ch[det][aoe_type]
+                    log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
-                    log_info_dict[aoe_type] = log_ch
+                    log_info_dict[aoe_type] = log_info
                 end
             end
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db_ch[det], aoe_classifier)
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
