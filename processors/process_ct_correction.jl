@@ -73,12 +73,6 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
             @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error data loader"))
         end
-        
-
-        if length(data_ch_after_qc) < 50000
-            @error "Not enough data points for channel $ch ($det), skip"
-            throw(ErrorException("Not enough data points for channel $ch ($det)"))
-        end
 
         quantile_perc = if energy_config_ch.quantile_perc isa String parse(Float64, energy_config_ch.quantile_perc) else energy_config_ch.quantile_perc end
 
