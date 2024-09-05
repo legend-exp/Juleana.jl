@@ -202,6 +202,9 @@ function get_proccessable_runs(runs, period)
                 break
             end
         end
+        if !isnothing(tier)
+            break
+        end
     end
     available_runs = if isnothing(tier) || isnothing(cat)
         @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
