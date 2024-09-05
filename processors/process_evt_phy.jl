@@ -35,7 +35,8 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                     rm(outfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(outfilename)) already exists, skip"
-                    n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do evt_data
+                    n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
+                        evt_data = ds[:jlevt][:]
                         n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
                         n_pulser = count(evt_data.aux.pulser.aux_trig)
                         n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_ch) .> 1)
