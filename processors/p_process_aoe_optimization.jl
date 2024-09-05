@@ -8,7 +8,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
