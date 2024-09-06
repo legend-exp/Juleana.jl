@@ -10,8 +10,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
+    dsp_config_pd = dataprod_config(l200).dsp(filekey)
+    @debug "Loaded DSP config: $(dsp_config_pd)"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -70,9 +70,13 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                 @timeit dsp_timer "DSP" begin
                     # loop over channels
                     @showprogress desc="Filekey: $fk" output=stdout for chinfo_ch in chinfo
-
+                        
                         ch = chinfo_ch.channel
                         det = chinfo_ch.detector
+
+                        dsp_config_pd_ch = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
+                        dsp_config_ch = DSPConfig(dsp_config_pd_ch)
+                        @debug "Loaded DSP config: $(dsp_config_ch)"
 
                         # check if channel can be processed
                         if "$ch" in processed_channels && !reprocess
@@ -114,6 +118,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                         end
+                        
                         # check for decay time
                         if !haskey(pars_tau, det)
                             @warn "No decay time for detector $det, skip channel $ch"
@@ -127,12 +132,26 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                             continue
                         end
 
+                        # check if channel has all required flt opt pars
+                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_fltopt)))
+                            @warn "Not all required energy filter optimization parameters for detector $det, skip channel $ch"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+
+                        # check if channel has all required aoe opt pars
+                        if !!all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
+                            @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+
                         @debug "Processing channel $ch ($det)"
                         @timeit dsp_timer "DSP $det" begin
                             # process data
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception

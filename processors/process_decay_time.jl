@@ -8,8 +8,8 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
+    dsp_config_pd = dataprod_config(l200).dsp(filekey)
+    @debug "Loaded DSP config: $(dsp_config_pd)"
 
     pz_config = dataprod_config(l200).dsp(filekey).pz
     @debug "Loaded PZ config: $(pz_config)"
@@ -49,8 +49,11 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         @debug "Processing channel $ch ($det)"
 
-        pz_config_ch = merge(pz_config.default, get(pz_config, det, PropDict()))
+        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_ch)"
 
+        pz_config_ch = merge(pz_config.default, get(pz_config, det, PropDict()))
+        
         # unpack config
         min_τ, max_τ = pz_config_ch.min_tau, pz_config_ch.max_tau
         nbins        = pz_config_ch.nbins
@@ -85,7 +88,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         # get QC cuts
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config, 400.0u"µs", f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             wvfs_ch = wvfs_ch[qc]
             @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
@@ -99,7 +102,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         decay_times = nothing
         try
             @debug "Generating DSP for $peakname decay times"
-            decay_times = dsp_decay_times(wvfs_ch, dsp_config)
+            decay_times = dsp_decay_times(wvfs_ch, dsp_config_ch)
         catch e
             @error "Error in DSP for $peakname: $(truncate_string(string(e)))"
             throw(ErrorException("Error in DSP for $peakname: $(truncate_string(string(e)))"))
