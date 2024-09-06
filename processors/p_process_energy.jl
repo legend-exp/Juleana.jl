@@ -74,7 +74,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
             for e_type in energy_types
                 if haskey(pars_db_ch[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db_ch[det][e_type].fwhm.qbb, pars_db_ch[det][e_type].fit.Tl208FEP.fwhm, pars_db_ch[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, pars_db_ch[det][e_type].fwhm.qbb, pars_db_ch[det][e_type].fit.Tl208FEP.fwhm, pars_db_ch[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
