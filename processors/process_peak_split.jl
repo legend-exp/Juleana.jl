@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
-function process_peak_split(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
-          
+function process_peak_split(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+
     @info "Process peak splitting for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
@@ -9,10 +9,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
-
-    energy_config = dataprod_config(l200).energy(filekey)
+    raw_config = dataprod_config(l200).raw(filekey)
 
     if reprocess @info "Reprocess all channels" end
 
@@ -25,16 +22,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     # get start time
     start_time = now()
-
-    # energy windows of extracted peaks --> Should move to metadata config
-    energy_windows = IdDict(
-        :Tl208a => 558u"keV"..608u"keV",
-        :Bi212a => 702u"keV"..752u"keV",
-        :Tl208b => 836u"keV"..886u"keV",
-        :Tl208DEP_Bi212FEP => 1568u"keV"..1646u"keV",
-        :Tl208SEP => 2079u"keV"..2129u"keV",
-        :Tl208FEP => 2590u"keV"..2640u"keV"
-    )
 
     # get input and output directories
     input_datadir = l200.tier[:raw, :cal, period, run]
@@ -68,7 +55,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     keylist_filename = joinpath(output_datadir, "filekeys.txt")
     broken_keylist_filename = joinpath(output_datadir, "broken_filekeys.txt")
 
-    if isfile(keylist_filename)
+    if isfile(keylist_filename) && !reprocess
         filekeys = read_filekeys(keylist_filename)
         files_checked = true
     else
@@ -120,7 +107,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             return (result = is_ok, timer = fk_timer, log = log_fk, processed = true)
         end
 
-        result_fkcheck = Dict(parallel(filekeys, check_filekey, log_fkcheck, wpool,; timeout=timeout))
+        result_fkcheck = Dict(parallel(filekeys, check_filekey, log_fkcheck, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))"))
 
         good_filekeys = [fk for fk in keys(result_fkcheck) if result_fkcheck[fk].result]
         write_filekeys(keylist_filename, good_filekeys)
@@ -145,8 +132,10 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         @info "Processing channel $ch"
 
-        energy_config_ch = merge(energy_config.default, get(energy_config, det, PropDict()))
-        quantile_perc = if energy_config_ch.quantile_perc isa String parse(Float64, energy_config_ch.quantile_perc) else energy_config_ch.quantile_perc end
+        raw_config_ch = merge(raw_config.default, get(raw_config, det, PropDict()))
+
+        # energy windows of extracted peaks --> Should move to metadata config
+        energy_windows = IdDict(keys(raw_config_ch.peaks) .=> [first(v)..last(v) for v in values(raw_config_ch.peaks)])
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
         output_filename = l200.tier[:jlpeaks, first(filekeys), ch]
@@ -160,7 +149,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 n_fep = length(output[ch].jlpeaks.Tl208FEP.daqenergy)
                 close(output)
             catch e
-                @error "Error reading SEP and FEP events from $(basename(output_filename)): $e"
+                @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_string(string(e)))"
                 @warn "Filename $(basename(output_filename)) seems broken, remove it."
                 rm(output_filename)
             end
@@ -176,18 +165,20 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         @timeit split_timer "$ch" begin
             # get raw daqenergy
             @timeit split_timer "Get DAQ Energy" begin
-                E_raw = get_daqenergy_for_ch(filelist, ch)
-                result_autocal = autocal_energy(E_raw,; quantile_perc=quantile_perc)
-                f_calib, diagnostics = result_autocal.result, result_autocal.diagnostics
+                e_raw = get_daqenergy_for_ch(filelist, ch)
+                result_autocal, report_autocal = autocal_energy(e_raw, raw_config_ch.th228_cal_lines; min_e=raw_config_ch.min_e, max_e_binning_quantile=raw_config_ch.max_e_binning_quantile, σ=raw_config_ch.σ, threshold=raw_config_ch.threshold, min_n_peaks=raw_config_ch.min_n_peaks, max_n_peaks=raw_config_ch.max_n_peaks, α=raw_config_ch.α, rtol=raw_config_ch.rtol)
+                f_calib = result_autocal.f_calib
+                p = plot(report_autocal.h_cal, xlabel="Energy", ylabel="Counts", label="e_fc", legend=:topright, yscale=:log10, st=:stepbins)
+                title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+                savelfig(savefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
-            p = stephist(f_calib.(E_raw[E_raw .> 50.0]), bins=0:0.5:3000, xlabel="Energy", ylabel="Counts", legend=:none, yscale=:log10)
-            title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
-            savelfig(savefig, p, l200, first(filekeys), ch, Symbol("daq_energy"))
-
+            GC.gc()
+            @info "Filtering channel $ch ($det)"
             @timeit split_timer "Filter Raw" begin
                 slim_data = flatten_by_key([lh5open(filename) do ds
                     @info "Filtering $(filename), channel $ch"
-                    filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
+                    filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows; chunk_size=100)
+                    # filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
                 end for filename in filelist])
             end
             n_fep = length(slim_data[:Tl208FEP].daqenergy)
@@ -199,11 +190,11 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             @info "Writing $output_filename"
             
             @timeit split_timer "Write Data" begin
-                create_files(output_filename, use_cache = true) do outfile
+                write_files(output_filename, use_cache = true, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            # LegendDataTypes.writedata(output, "$ch/jlpeaks/$label", slim_data[label])
-                            output[ch, :jlpeaks, label] = decode_data(slim_data[label])
+                            output[ch, :jlpeaks, label] = slim_data[label]
+                            # output[ch, :jlpeaks, label] = decode_data(slim_data[label])
                         end
                     end
                 end
@@ -216,11 +207,13 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         log_ch = log_peaksplit((ch, det, ProcessStatus(1), n_fep, n_sep, "$total_time", total_allocated, ""))
 
+        @info "Finished processing channel $ch ($det) in $total_time"
+
         return (result = (n_fep = n_fep, n_sep = n_sep), processed = true, log = log_ch)
     end
 
     # execute in parallel
-    result_peaksplit = parallel(chinfo, split_peak_ch, log_peaksplit, wpool; timeout=timeout)
+    result_peaksplit = parallel(chinfo, split_peak_ch, log_peaksplit, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished peak splitting"
 
@@ -240,7 +233,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     lreport!(report, create_logtbl(result_peaksplit))
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :peak_splitting), report)
+    writelreport(get_rreportfilename(l200, filekey, :peak_splitting), report)
     @info report
 
     # flush stdout

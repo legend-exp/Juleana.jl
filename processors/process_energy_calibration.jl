@@ -37,13 +37,6 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = l200.tier[:jlhitch, filekey, ch]
-        # load data file
-        if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
-            throw(ErrorException("Hit file not found"))
-        end
-
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
@@ -65,20 +58,16 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
             end
         end
 
-        # load data file
-        if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
-            throw(ErrorException("Hit file not found"))
-        end
         # get data
         data_ch_after_qc = nothing
         try
             @debug "Load hit file"
-            data_hit = LHDataStore(hitchfilename, "r");
-            data_ch_after_qc = data_hit[ch].dataQC[:];
-            close(data_hit)
+            # prevent from loading if all energy types are already processed
+            if !all([haskey(processed_dict, e_type) for e_type in energy_types])
+                data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
+            end
         catch e
-            @error "Error in loading data for channel $ch: $e"
+            @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -107,7 +96,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                         e_uncal = ljl_propfunc(e_uncal_func).(data_ch_after_qc)
                     end
                 catch e
-                    @error "Error in $e_type data extraction for channel $ch: $e"
+                    @error "Error in $e_type data extraction for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type data extraction"))
                 end
                 GC.gc()
@@ -117,7 +106,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     @debug "Get $e_type simple calibration"
                     result_simple, report_simple = simple_calibration(e_uncal, energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, n_bins=energy_config_ch.n_bins, quantile_perc=quantile_perc, binning_peak_window=energy_config_ch.binning_peak_window)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $e"
+                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
                 GC.gc()
@@ -127,22 +116,22 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 # save plots for simple calibration for control
                 p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
                 title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("simple_calibration_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
                 yield()
 
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, m_cal_simple=m_cal_simple)
                 catch e
-                    @error "Error in $e_type peak fitting for channel $ch: $e"
+                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
                 GC.gc()
 
                 p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
                 plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
-                savelfig(savefig, p, l200, filekey, ch, Symbol("peak_fits_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("peak_fits_$(e_type)"))
 
                 yield()
 
@@ -150,44 +139,55 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 result_calib, report_calib = nothing, nothing
                 try
-                    μ_fit =  [result_fit[p].μ for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))] ./ m_cal_simple
+                    μ_fit =  [result_fit[p].centroid for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
                     pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
                     result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit; e_expression=e_uncal_func)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
-                    @error "Error in $e_type calibration curve fitting for channel $ch: $e"
+                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
-                μ_notfit =  [result_fit[p].μ for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple
+                μ_notfit =  [result_fit[p].centroid for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
         
                 p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
                 plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
-                savelfig(savefig, p, l200, filekey, ch, Symbol("calibration_curve_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("calibration_curve_$(e_type)"))
 
                 yield()
 
-                f_cal(x) = report_calib.f_fit(x) .* report_calib.e_unit .- first(report_calib.par)
+                f_cal_widths(x) = report_calib.f_fit(x) .* report_calib.e_unit .- first(report_calib.par)
 
                 result_fwhm, report_fwhm = nothing, nothing
                 try
-                    fwhm_fit = f_cal.([result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))] ./ m_cal_simple)
+                    fwhm_fit = f_cal_widths.([result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))])
                     pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]    
                     result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit; pol_order=energy_config_ch.fwhm_pol_order, e_type_cal=Symbol("$(e_type)_cal"), e_expression=e_uncal_func, uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
-                    @error "Error in $e_type FWHM fitting for channel $ch: $e"
+                    @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
-                fwhm_notfit =  f_cal.([result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)] ./ m_cal_simple)
+                fwhm_notfit =  f_cal_widths.([result_fit[p].fwhm for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)])
                 pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks)]
         
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
                 plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
-                savelfig(savefig, p, l200, filekey, ch, Symbol("fwhm_$(e_type)"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
                 
+                f_cal_pos(x) = report_calib.f_fit(x) .* report_calib.e_unit
+
+                # calibrate best fit values
+                width_pars = [:σ, :fwhm]
+                position_pars = [:μ, :centroid]
+                for (peak, result_peak) in result_fit
+                    result_peak = merge(result_peak, NamedTuple{Tuple(width_pars)}([f_cal_widths(result_peak[k]) for k in width_pars]...))
+                    result_peak = merge(result_peak, NamedTuple{Tuple(position_pars)}([f_cal_pos(result_peak[k]) for k in position_pars]...))
+                    result_fit[peak] = result_peak
+                end
+
                 yield()
 
                 log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
@@ -206,8 +206,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 GC.gc()
             catch e
-                @error "Error in $e_type CT correction: $e"
-                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", e))
+                @error "Error in $e_type calibration: $(truncate_string(string(e)))"
+                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", truncate_string(string(e))))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false
@@ -221,13 +221,13 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     # get start time
     start_time = now()
 
-    result_energy = parallel(chinfo, ch_energy_calibration, log_nt, wpool; timeout=timeout)
+    result_energy = parallel(chinfo, ch_energy_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished energy calibration"
 
     pars_db = create_pars(pars_db, result_energy)
     writelprops(l200.par.rpars.ecal[period], run, pars_db)
-    writevalidity(l200.par.rpars.ecal, filekey)
+    writevalidity(l200.par.rpars.ecal, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -241,7 +241,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_reportfilename(l200, filekey, :energy_calibration), report)
+    writelreport(get_rreportfilename(l200, filekey, :energy_calibration), report)
     @info report
 
     # flush stdout

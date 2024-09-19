@@ -1,151 +1,246 @@
 {    
     "config": {
-        "debug": true,
-        "env_variables": {
-            "QT_QPA_PLATFORM": "xcb",
-            "GKSwstype": "100",
-            "HDF5_USE_FILE_LOCKING": "FALSE",
-            "JULIA_CPU_TARGET": "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)",
-            "JULIA_DEBUG": "Main",
-            "JULIA_WORKER_TIMEOUT": "240"
+        "runmode": "slurm",
+        "submit_jobs": false,
+        "remote_workers": [],
+        "runmode_settings": {
+            "slurm": {
+                "flags": [
+                    "--time=08:00:00",
+                    "--mem-bind=local",
+                    "--threads-per-core=1",
+                    "--cpu-bind=cores",
+                    "--nodes=16",
+                    "--ntasks-per-node=18",
+                    "--cpus-per-task=4",
+                    "--mem=234GB"
+                    ],
+                "julia_settings": []
+            },
+            "local": {
+                "n": 12,
+                "julia_settings": []
+            }
         },
-        "slurm_settings": [
-            "--time=04:00:00",
-            "--mem-bind=local",
-            "--threads-per-core=1",
-            "--cpu-bind=cores",
-            "--nodes=32",
-            "--ntasks-per-node=10",
-            "--cpus-per-task=4",
-            "--mem=84GB"
-        ],
-        "julia_settings": [
-            
-        ]
+        "env_variables": {
+            "GKSwstype": "100",
+            "JULIA_DEBUG": "LegendEventAnalysis,LegendSpecFits,Main",
+            "JULIA_WORKER_TIMEOUT": "240"
+        }
     },
     "processing": {
-        "periods": "all",
-        "runs" : "all", 
-        "partitions": [1],
+        "periods": [3],
+        "runs" : [0],
         "analysis_runs_only": true,
         "only_partitions": false,
-        "only_runs": false,
-        "submit_slurm": false,
-        "remote_workers": []
+        "only_runs": false
     },
     "processors":
     {
-        "default": {
-            "n_workers": "all",
-            "reprocess": true
-        },
         "process_peak_split": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": false,
-            "rank": 1
+            "category": "cal",
+            "rank": 1,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
         },
         "process_decay_time": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": false,
-            "max_wvfs": 15000,
-            "rank": 2
+            "category": "cal",
+            "rank": 2,
+            "kwargs": {
+                "reprocess": true,
+                "max_wvfs": 15000,
+                "timeout": 0
+            },
+            "dependencies": []
         },
         "process_filter_optimization": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": false,
-            "max_wvfs": 12000,
-            "rank": 3
+            "category": "cal",
+            "rank": 3,
+            "kwargs": {
+                "reprocess": true,
+                "max_wvfs": 15000,
+                "timeout": 0
+            },
+            "dependencies": []
         },
         "process_aoe_optimization": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": false,
-            "rank": 4
+            "category": "cal",
+            "rank": 4,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": false,
-            "max_wvfs": 1000,
-            "rank": 5
+            "category": "cal",
+            "rank": 5,
+            "kwargs": {
+                "reprocess": false,
+                "max_wvfs": 1000,
+                "timeout": 0,
+                "use_partition_filter": true
+            },
+            "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
         },
         "process_hit_cal": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 1000,
-            "rank": 6
+            "category": "cal",
+            "rank": 6,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
         },
         "process_ct_correction": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 1500,
-            "rank": 7
+            "category": "cal",
+            "rank": 7,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
         },
         "process_energy_calibration": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 1200,
-            "rank": 8
+            "category": "cal",
+            "rank": 8,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
         },
-        "process_aoe_calibration": {
+        "process_aoe_calibration_cut": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 1200,
-            "rank": 9
+            "category": "cal",
+            "rank": 9,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
+        "process_sipm_thresholds": {
+            "enabled": false,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 10,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "max_wvfs": 10000
+            },
+            "dependencies": []
         },
         "process_dsp_phy": {
-            "enabled": true,
-            "n_workers": "all",
-            "reprocess": true,
-            "timeout": false,
-            "max_wvfs": 1000,
-            "rank": 10
-        },
-        "process_dsp_sipm": {
             "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 6000,
-            "rank": 11
+            "category": "phy",
+            "rank": 11,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "max_wvfs": 1000,
+                "use_partition_filter": true
+            },
+            "dependencies": []
+        },
+        "process_evt_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 12,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
         }
     },
     "p_processors":
     {
-        "default": {
+        "p_process_decay_time": {
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true
+            "rank": 1,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "max_wvfs": 35000
+            },
+            "dependencies": ["process_peak_split"]
+        },
+        "p_process_filter_optimization": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 2,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 900,
+                "max_wvfs": 35000
+            },
+            "dependencies": ["process_peak_split"]
+        },
+        "p_process_aoe_optimization": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 3,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "max_wvfs": 35000
+            },
+            "dependencies": ["process_peak_split"]
         },
         "p_process_energy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 600,
-            "rank": 1
-        },
-        "p_process_aoe_cut": {
-            "enabled": true,
-            "n_workers": "all",
-            "reprocess": true,
-            "timeout": 6000,
-            "rank": 2
+            "rank": 4,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": ["process_energy_calibration"]
         },
         "p_process_aoe_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
-            "reprocess": true,
-            "timeout": 6000,
-            "rank": 3
+            "rank": 5,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
+        "p_process_aoe_cut": {
+            "enabled": false,
+            "n_workers": "all",
+            "rank": 6,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": ["process_aoe_calibration"]
         }
     }
 }

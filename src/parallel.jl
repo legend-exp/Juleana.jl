@@ -1,38 +1,6 @@
-# creates workers for the parallel processing and sets up the environment
-function create_workers(workers, n_threads::Int; env_args::Vector{Pair{String, String}}=Pair{String, String}[])
-    # config for MPP servers
-    addprocs(workers, exeflags=`--threads=$(n_threads) --project=$(dirname(Pkg.project().path)) --heap-size-hint=10G`, topology=:master_worker, env=env_args) #, enable_threaded_blas=true)
-    
-    # Sanity check:
-    worker_ids = Distributed.remotecall_fetch.(Ref(Distributed.myid), Distributed.workers())
-    @assert length(worker_ids) == Distributed.nworkers()
-
-    @info "$(Distributed.nworkers()) Julia worker processes active."
-end
-
-function create_workers(processing_config::PropDict)
-    # number of threads
-    n_threads = processing_config.processing.n_threads
-    # number of local workers
-    @info "Create $(processing_config.processing.local_workers) local workers for parallel processing"
-    create_workers(processing_config.processing.local_workers, n_threads; env_args=processing_config.env_args_worker)
-    # number of remote workers
-    if !isempty(processing_config.processing.remote_workers)
-        @info "Create remote workers: $(processing_config.processing.remote_workers)"
-        create_workers([Tuple(p) for p in processing_config.processing.remote_workers], n_threads; env_args=processing_config.env_args_worker)
-    end
-    # check for precompile on the workers and debug flag
-    worker_instantiate, worker_precompile, debug = processing_config.config.worker_instantiate, processing_config.config.worker_precompile, processing_config.config.debug
-    @everywhere begin
-        worker_instantiate, worker_precompile, debug = $worker_instantiate, $worker_precompile, $debug
-    end
-    @info "Load packages on workers"
-    # set up startup on each worker
-    @everywhere include(joinpath(@__DIR__, "startup.jl"))
-end
-
+# get worker pool
 function get_workerPool(processing_config::PropDict, process::Symbol)
-    n_workers = get(processing_config.processors[process], :n_workers, processing_config.processors.default.n_workers)
+    n_workers = get(processing_config.processors[process], :n_workers, "all")
     @assert typeof(n_workers) <: Int || n_workers == "all" "Number of workers must be an integer or 'all'."
     if n_workers == "all" || n_workers >= nworkers()
         wp = default_worker_pool()
@@ -83,44 +51,51 @@ function retry_check(delay_state, err)
     return should_retry
 end
 
-
-function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false, process_name::String="")
+function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Int=0, retry::Bool=false, process_name::String="")
     # prevent crash from Base
     Base.exit_on_sigint(false)
 
     flush(stdout)
     # assign tasks to workers 
-    # Non Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
+    # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
     tasks = broadcast(iterator) do itr
         Threads.@spawn begin
-            onworker(; tries=retry ? 3 : 1, label="$itr") do
+            # maxtime will be set togehter with internal timeout for better handling
+            onworker(; tries=retry ? 3 : 1, label="$itr", maxtime=1.1*timeout) do
                 try
-                    if timeout == false
+                    # without timeout execute task
+                    if timeout <= 0
                         f_res = f(itr)
                         return itr => f_res
+                    # with timeout execute task inside thread and kill with InterruptException() in case it overruns maxtime
+                    else
+                        t_end = time() + timeout
+                        task = Threads.@spawn f(itr)
+                        while time() <= t_end && !istaskdone(task)
+                            sleep(0.1)
+                        end
+                        if !istaskdone(task)
+                            @debug "Timeout for $(itr)"
+                            @async Base.throwto(task, InterruptException())
+                            throw(ErrorException("Timeout for $(itr)"))
+                        end
+                        return itr => fetch(task)
                     end
-                    t_end = time() + timeout
-                    task = Threads.@spawn f(itr)
-                    while time() <= t_end && !istaskdone(task)
-                        sleep(0.1)
-                    end
-                    if !istaskdone(task)
-                        @debug "Timeout for $(itr)"
-                        @async Base.throwto(task, InterruptException())
-                        throw(ErrorException("Timeout for $(itr)"))
-                    end
-                    return itr => fetch(task)
                 catch e
                     if e isa TaskFailedException
                         e = e.task.exception
                     end
-                    @debug "Write Error log for $(itr): $e"
+                    @debug "Write Error log for $(itr): $(truncate_string(string(e)))"
                     # distinguish between ch and det logging or iterator logging
                     log_itr = nothing
                     if itr isa NamedTuple && haskey(itr, :channel) && haskey(itr, :detector)
-                        log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$e"))
+                        if haskey(itr, :partition)
+                            log_itr = log_nt((itr.channel, itr.detector, itr.partition, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-5)..., "$(truncate_string(string(e)))"))
+                        else
+                            log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$(truncate_string(string(e)))"))
+                        end
                     elseif itr isa FileKey
-                        log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$e"))
+                        log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$(truncate_string(string(e)))"))
                     else
                         throw(ErrorException("No logging for $(itr)"))
                     end
@@ -148,60 +123,12 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
             sleep(2)
         end
     end
+    # fetch results
     result = fetch.(tasks)
 
-    finish!(p)
+    # finish!(p)
     flush(stdout)
     Base.exit_on_sigint(true)
 
     return result
 end
-
-
-# function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Union{Int, Bool}=false, retry::Bool=false)
-#     # prevent crash from Base
-#     Base.exit_on_sigint(false)
-
-#     is_logging(io) = isa(io, Base.TTY) == false || (get(ENV, "CI", nothing) == "true")
-#     p = Progress(length(iterator); output = stderr, enabled = !is_logging(stderr))
-    
-#     flush(stdout)
-#     # run parallel
-#     result =  progress_pmap(wpool, iterator; progress=p, batch_size=1, retry_check=ifelse(retry, retry_check, nothing), retry_delays=ExponentialBackOff(n=3)) do itr
-#         try
-#             # if timeout == false
-#                 return itr => f(itr)
-#             # end
-#             # t_end = time() + timeout
-#             # task = Threads.@spawn f(itr)
-#             # while time() <= t_end && !istaskdone(task)
-#             #     sleep(0.1)
-#             # end
-#             # if !istaskdone(task)
-#             #     @debug "Timeout for $(itr)"
-#             #     @async Base.throwto(task, InterruptException())
-#             #     throw(ErrorException("Timeout for $(itr)"))
-#             # end
-#             # return itr => fetch(task)
-#         catch e
-#             if e isa TaskFailedException
-#                 e = e.task.exception
-#             end
-#             @debug "Write Error log for $(itr): $e"
-#             # distinguish between ch and det logging or iterator logging
-#             log_itr = nothing
-#             if itr isa NamedTuple && haskey(itr, :channel) && haskey(itr, :detector)
-#                 log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$e"))
-#             elseif itr isa FileKey
-#                 log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$e"))
-#             else
-#                 throw(ErrorException("No logging for $(itr)"))
-#             end
-#             return itr => (processed = false, log = log_itr)
-#         end
-#     end
-#     flush(stdout)
-#     Base.exit_on_sigint(true)
-
-#     return result
-# end
