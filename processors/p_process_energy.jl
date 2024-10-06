@@ -136,12 +136,22 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("peak_fits_$e_type"))
 
                 yield()
+
+                # peak fitting QC
+                fwhm_cut = [result_fit[th228_names[i]].fwhm > energy_config_ch.qc.min_fwhm && result_fit[th228_names[i]].fwhm .< energy_config_ch.qc.max_fwhm_per_window * (energy_config_ch.left_window_sizes[i] + energy_config_ch.right_window_sizes[i]) for i in eachindex(th228_names)]
+                qc_cut = ljl_propfunc(fit_qc).([result_fit[k] for k in th228_names]) .&& fwhm_cut
+        
+                th228_names_qc = th228_names[qc_cut]
+                th228_names_cut = th228_names[.!qc_cut]
+
                 @debug "Get $e_type calibration values"
+
+                th228_names_qc_cal_fit = [p for p in th228_names_qc if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
 
                 result_calib, report_calib = nothing, nothing
                 try
-                    μ_fit =  [result_fit[p].centroid for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
-                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.cal_fit_excluded_peaks))]
+                    μ_fit =  [result_fit[p].centroid for p in th228_names_qc_cal_fit]
+                    pp_fit = [th228_lines_dict[p] for p in th228_names_qc_cal_fit]
                     result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit; uncertainty=true)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
@@ -149,8 +159,8 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
-                μ_notfit =  ustrip.(report_calib.e_unit, [result_fit[p].centroid for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)])
-                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.cal_fit_excluded_peaks)]
+                μ_notfit =  [result_fit[p].centroid for p in th228_names if !(p in th228_names_qc_cal_fit)]
+                pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
         
                 p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
@@ -160,19 +170,20 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 yield()
 
+                th228_names_qc_fwhm_fit = [p for p in th228_names_qc if !(p in Symbol.(energy_config_ch.fwhm_fit_excluded_peaks))]
+
                 result_fwhm, report_fwhm = nothing, nothing
                 try
-                    fwhm_fit = [result_fit[p].fwhm for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]
-                    pp_fit = [th228_lines_dict[p] for p in th228_names if !(p in Symbol.(energy_config_ch.:fwhm_fit_excluded_peaks))]    
-                    result_fwhm, report_fwhm = fit_fwhm(pp_fit, fwhm_fit; pol_order=energy_config_ch.fwhm_pol_order, e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
+                    fwhm_fit = [result_fit[p].fwhm for p in th228_names_qc_fwhm_fit]
+                    pp_fit = [th228_lines_dict[p] for p in th228_names_qc_fwhm_fit]    
+                    result_fwhm, report_fwhm = fit_fwhm(energy_config_ch.fwhm_pol_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
                     @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
-                fwhm_notfit =  [result_fit[p].fwhm for p in Symbol.(energy_config_ch.fwhm_fit_excluded_peaks)]
-                pp_notfit = [th228_lines_dict[p] for p in Symbol.(energy_config_ch.fwhm_fit_excluded_peaks)]
-        
+                fwhm_notfit =  f_cal_widths.([result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)])
+                pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]        
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
