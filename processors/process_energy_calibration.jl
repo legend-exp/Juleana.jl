@@ -122,7 +122,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; e_unit=result_simple.unit, calib_type=:th228, m_cal_simple=m_cal_simple)
+                    result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; 
+                                                e_unit=result_simple.unit, calib_type=:th228, fit_func=Symbol.(energy_config_ch.th228_fit_func), m_cal_simple=m_cal_simple)
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type peak fitting"))
