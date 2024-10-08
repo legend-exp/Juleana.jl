@@ -124,7 +124,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 @debug "Found $e_type FCTs: $(round.(result_ctc.fct .* 1e6, digits=2))E-6"
                 
                 p = plot(report_ctc)
-                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=14)
+                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=8)
                 savelfig(savefig, p, l200, filekey, det, Symbol("ctc_$(e_type)"))
 
                 yield()
