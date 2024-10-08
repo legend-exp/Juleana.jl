@@ -23,7 +23,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Drift Correction Type"), Symbol("Lq classifier function") :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Drift Correction Type"), Symbol("Lq classifier function"), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("LQ cut Value"), Symbol("Continuum SF"), Symbol("DEP SF"), :CutError)}
 
     # get worker pool
@@ -33,6 +33,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     flush(stdout)
 
     function ch_lq_cut(chinfo_ch::NamedTuple)
+        chinfo_ch = chinfo[1]
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
@@ -44,7 +45,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        lq_modes = [Symbol("gaussian"), Symbol("percentile")] # In ein config file auslagern
+        lq_modes = [Symbol("gaussian"), Symbol("percentile")]
 
         #=
         if !reprocess && haskey(pars_db, det)
@@ -68,35 +69,42 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         end
         =#
 
-        e_cal, lq_e_corr, qdrift = nothing, nothing, nothing
+        hit_cal = nothing
+        e_cal, lq, qdrift = nothing, nothing, nothing
         DEP_σ, DEP_µ = nothing, nothing
 
-        try #!! get das laden hier schlauer oder gut so? !!
-            #load data of one detector for all in one period + estimate mean of raw lq in DEP
-            data_path = l200.tier[:jlhitch, filekey, ch]
-            data = LHDataStore(data_path)
-            table = data[ch].dataQC[:]
+
+        e_type = :e_cusp_ctc_cal 
+
+        try 
+            @debug("Load data")
+
+            hit_cal = calibrate_ged_channel_data(l200, filekey, det, read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch); keep_chdata=true)
             
-            #load data from one run
-            pd = l200.par.rpars.ecal(filekey)     ##Das Laden hier dauert ewig
-            f_cal = ljl_propfunc(pd[det].e_cusp_ctc.cal.func)
-            #ctc energy
-            e_cal = Vector(f_cal.(table))
+            e_cal = getproperty(hit_cal, e_type)
+            lq = getproperty(hit_cal, :lq)
+            qdrift = getproperty(hit_cal, :qdrift)
 
-            #qdrift
-            qdrift = table.qdrift ./ (e_cal)
-            #lq adter energy correction
-            lq_e_corr = ustrip.(table.lq ./ e_cal)
-
+            pd = l200.par.rpars.ecal(filekey) 
             DEP_σ = pd[det].e_cusp_ctc.fit.Tl208DEP.σ
             DEP_µ = pd[det].e_cusp_ctc.fit.Tl208DEP.μ
 
-            
-            println("Data loaded")
         catch e
             @error "Error in loading data: $e"
             throw(ErrorException("Error in loading data: $e"))
         end
+
+        lq_e_corr, dt_eff = nothing, nothing
+
+        try
+            @debug "Calculate energy corrected lq and effective drift time"
+            lq_e_corr = ustrip.(lq ./ e_cal)
+            dt_eff = qdrift ./ e_cal
+        catch e
+            @error "Error in energy correction: $e"
+            throw(ErrorException("Error in energy correction: $e"))
+        end
+
 
         @showprogress desc="Detector: $det" for lq_mode in lq_modes
             if haskey(processed_dict, lq_mode)
@@ -104,34 +112,32 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 continue
             end
             try
+                
                 @debug "Calibrate $lq_mode"
-
                 drift_result, drift_report = nothing, nothing
                 try 
-                    drift_result, drift_report = lq_drift_time_correction(lq_e_corr, qdrift, e_cal, DEP_µ, DEP_σ;e_expression="e_cusp", mode=lq_mode)
+                    drift_result, drift_report = lq_drift_time_correction(lq_e_corr, dt_eff, e_cal, DEP_µ, DEP_σ;e_expression="e_cusp_ctc_cal", mode=lq_mode)
                 catch e
                     @error "Error in drift time correction: $e"
                     throw(ErrorException("Error in drift time correction: $e"))
                 end
 
-                #plot: dirft time vs lq plot mit box und fit
 
-                #Für den plot brauch ich die daten auf den DEP gecutted, bin mir unsicher wo genau ich das hinpacken soll. Also die daten zuschneiden hier im processor, oder das plotten in der function? Beider doof...
-                DEP_edgesigma = 2.0
-                DEP_left = DEP_µ - DEP_edgesigma * DEP_σ
-                DEP_right = DEP_µ + DEP_edgesigma * DEP_σ
-
+                #plot: drift time vs lq plot mit box und fit
+                DEP_left = drift_report.DEP_left
+                DEP_right = drift_report.DEP_right
                 box = drift_report.lq_box
-                p = histogram2d(qdrift[DEP_left .< e_cal .< DEP_right], lq_e_corr[DEP_left .< e_cal .< DEP_right], 
+
+                p = histogram2d(dt_eff[DEP_left .< e_cal .< DEP_right], lq_e_corr[DEP_left .< e_cal .< DEP_right], 
                 xlabel="Drift Time", ylabel="LQ (A.U.)", framestyle=:box, nbins=(0:6:600,2.0:0.02:4.4), 
-                left_margin = -15Plots.mm, bottom_margin = -13Plots.mm, c=:viridis, fontfamily="Computer Modern", formatter=:plain, thickness_scaling=3, size=(1200,900))
+                left_margin = -15Plots.mm, bottom_margin = -13Plots.mm, c=:viridis, formatter=:plain, thickness_scaling=3, size=(1200,900))
                 vline!([box.t_lower, box.t_upper], label = "", linewidth = 1.5, color = :red)
                 hline!([box.lq_lower, box.lq_upper], label = "", linewidth = 1.5, color = :red)
                 plot!(drift_report.drift_time_func, label = "Linear Fit", linewidth = 1.5, color = :blue,
                 legend=:topright)
                 savefig(p, joinpath("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test", "drift_time_vs_lq_plot.png"))
 
-                log_info = log_nt_cal(ch, det, ProcessStatus(1), lq_mode, result.func, "-")
+                log_info = log_nt_cal(ch, det, ProcessStatus(1), lq_mode, drift_result.func, "-")
 
                 # add results to dict
                 result_dict[lq_mode]   = drift_result
@@ -151,6 +157,11 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         end
         @info "LQ constructor construction for channel $ch ($det) finished"
 
+        # add lq constructor results to pars_db
+        result_ch = (result = result_dict, processed = processed_dict, log = log_info_dict)
+        result_lq_cons = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
+        pars_db_ch = create_pars(pars_db_ch, result_lq_cons)
+
         # continue with lq cut
         lq_mode = lq_modes[1]
 
@@ -160,22 +171,15 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             end
             try
                 @debug "Generate lq cut"
-                
-                #calculate lq classifier
+
+                #get lq classifier
                 lq_class = nothing
                 try
-                    datapath = l200.tier[:jlhitch, filekey, ch]
-                    data = LHDataStore(datapath)
-                    table = data[ch].dataQC[:]
-                    f_lq = ljl_propfunc(result_dict[lq_mode].func)
-                
-                    lq_class = Vector(f_lq.(table))
+                    lq_class = ljl_propfunc(pars_db_ch[det][lq_mode].func).(hit_cal)
                 catch
                     @error "Error in lq class calculation: $e"
                     throw(ErrorException("Error in lq class calculation"))
                 end
-                histogram2d(e_cal, lq_class , xlabel="Energy", ylabel="LQ (A.U.)")
-
                 
                 #calculate LQ cut parameter value
                 result, report = nothing, nothing
@@ -189,16 +193,16 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 #plot LQ cut: LQ verteilung mit cut wert als rote linie
                 histogram2d(e_cal, lq_class , xlabel="Energy", ylabel="LQ (A.U.)", title="LQ Cut for Detector: $det",
                 nbins=(0:2:3000, -2.3:0.001:-2),
-                colorbar_scale=:log10, c=:viridis, framestyle=:box, fontfamily="Computer Modern", formatter=:plain, thickness_scaling=1.6, size=(1200,800),
+                colorbar_scale=:log10, c=:viridis, framestyle=:box, formatter=:plain, thickness_scaling=1.6, size=(1200,800),
                 left_margin = -5Plots.mm, bottom_margin = -Plots.mm)
                 hline!([mvalue(result.cut)], label = "3σ exclusion", linewidth = 2, color = :red, legend=:topright)
 
                 #Energy histogram before/after LQ
-                stephist(e_cal, xlabel="Energy", ylabel="Counts", title="Energy Spectrum of Detector:$det", nbins=(0:1:3500), framestyle=:box, fontfamily="Computer Modern", formatter=:plain,
+                stephist(e_cal, xlabel="Energy", ylabel="Counts", title="Energy Spectrum of Detector:$det", nbins=(0:1:3500), framestyle=:box, formatter=:plain,
                 dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10, label="Data before LQ Cut")
-                stephist!(e_cal[lq_class .< result.cut], nbins=0:1:3500, label="Surviving LQ Cut", framestyle=:box, fontfamily="Computer Modern", formatter=:plain, 
+                stephist!(e_cal[lq_class .< result.cut], nbins=0:1:3500, label="Surviving LQ Cut", framestyle=:box, formatter=:plain, 
                 dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10)
-                stephist!(e_cal[lq_class .> result.cut], nbins=0:1:3500, label="Cut by LQ Cut", framestyle=:box, fontfamily="Computer Modern", formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10)
+                stephist!(e_cal[lq_class .> result.cut], nbins=0:1:3500, label="Cut by LQ Cut", framestyle=:box, formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10)
                 #savefig("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test/$(det)_Energy_hist.png")
 
                 #percentual cut plot
@@ -206,8 +210,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 h2 = fit(Histogram, ustrip.(e_cal[lq_class .> result.cut]), 0:1:3500)
                 h_diff = h2.weights ./ h1.weights
 
-                plot(h_diff, xlabel="Energy", ylabel="Counts", title="Energy of", framestyle=:box, fontfamily="Computer Modern", formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900),
-                label="Survival Fraction", legend=:bottomleft)
+                plot(h_diff, xlabel="Energy", ylabel="Fraction", title="LQ cutted events in $det", framestyle=:box, formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900),
+                label="Cut Fraction", legend=:bottomleft)
                 savefig("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test/$(det)_Energy_diff.png")
 
 
@@ -219,7 +223,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 peak_values = [1592.53, 2614.51] * u"keV"
                 
 
-                @info("starting to calculate SF values")
+                @debug("starting to calculate SF values")
                 sf_values = Dict{String, Any}()
                 try    
                     for (i,name) in enumerate(peaknames)
@@ -237,7 +241,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                     @error "Error in continuum surrival fraction calculation: $e"
                     throw(ErrorException("Error in continuum surrival fraction calculation: $e"))
                 end
-
 
 
                 # save results
