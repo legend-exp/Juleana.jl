@@ -11,7 +11,7 @@ using ParallelProcessingTools: getlabel
     using Unitful, Format, LaTeXStrings, Printf, Measures, Dates, Measurements
     using Measurements: value as mvalue
     using Measurements: uncertainty as muncert
-    using Plots
+    using Plots, StatsPlots
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
 
