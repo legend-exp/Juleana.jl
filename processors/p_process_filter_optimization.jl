@@ -85,7 +85,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db_ch[det], filter_type)

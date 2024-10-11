@@ -66,7 +66,9 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         data_ch_after_qc = nothing
         try
             @debug "Load hit file"
-            data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
+            if !all([haskey(processed_dict, e_type) for e_type in energy_types])
+                data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
+            end
         catch e
             @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error data loader"))
@@ -112,17 +114,17 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 result_ctc, report_ctc = nothing, nothing
                 try
                     @debug "Get $e_type Charge Trapping Alpha"
-                    result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_config_ch.peak, (ctc_config_ch.left_window_size, ctc_config_ch.right_window_size), m_cal_simple; e_expression="$e_type")
+                    result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_config_ch.peak, (ctc_config_ch.left_window_size, ctc_config_ch.right_window_size), m_cal_simple; e_expression="$e_type", pol_order=ctc_config_ch.ctc_order)
                 catch e
                     @error "Error in $e_type alpha generation $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type alpha generation"))
                 end
                 
                 @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"
-                @debug "Found $e_type FCT: $(round(result_ctc.fct*1e6, digits=2))E-6"
+                @debug "Found $e_type FCTs: $(round.(result_ctc.fct .* 1e6, digits=2))E-6"
                 
                 p = plot(report_ctc)
-                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=14)
+                plot!(p, plot_title=get_plottitle(filekey, det, "Charge Trapping Correction"; additiional_type="$e_type $ctc_cal_peak keV"), plot_titlefontsize=8)
                 savelfig(savefig, p, l200, filekey, det, Symbol("ctc_$(e_type)"))
 
                 yield()
