@@ -38,7 +38,7 @@ function process_sipm_thresholds(processing_config::PropDict, l200::LegendData, 
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $det already processed, skip"
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].τ, pars_db[det].n_tau, "Already processed --> skipped."))
+            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].trig.σ, pars_db[det].dc.σ, "Already processed --> skipped."))
             return (processed = false, log = log_ch)
         end
 
@@ -118,6 +118,7 @@ function process_sipm_thresholds(processing_config::PropDict, l200::LegendData, 
         @info "Found 1-σ DC trigger threshold at $(round(result_trig_dc.σ, digits=2)) for channel $ch ($det)"
 
         log_ch = log_nt((ch, det, ProcessStatus(1), result_trig.σ, result_trig_dc.σ, "-"))
+
         return (result = (trig = result_trig, dc = result_trig_dc), processed = true, log = log_ch)
     end
 

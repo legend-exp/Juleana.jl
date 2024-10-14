@@ -8,7 +8,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
@@ -118,66 +118,81 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 xticks!(0:250:3000)
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
 
-                result_cut = nothing
+                result_cut, report_cut = nothing, nothing
                 try
                     @debug "Generate AoE cut"
-                    result_cut = get_aoe_cut(aoe, e_cal,; dep=aoe_config_ch.dep, window=aoe_config_ch.dep_window, cut_search_interval=Tuple(aoe_config_ch.dep_cut_search_interval), rtol=aoe_config_ch.dep_cut_search_rtol, bin_width_window=aoe_config_ch.dep_bin_width_window, fixed_position=aoe_config_ch.dep_cut_search_fixed_position, sigma_high_sided=sigma_high_sided)
+                    result_cut, report_cut = get_low_aoe_cut(aoe, e_cal,; dep=aoe_config_ch.dep, window=aoe_config_ch.dep_window, 
+                                    cut_search_interval=Tuple(aoe_config_ch.dep_cut_search_interval), bin_width_window=aoe_config_ch.dep_bin_width_window,
+                                    rtol=aoe_config_ch.dep_cut_search_rtol, maxiters=aoe_config_ch.dep_cut_search_maxiters, dep_sf=aoe_config_ch.dep_cut_search_target_sf,
+                                    fixed_position=aoe_config_ch.dep_cut_search_fixed_position, sigma_high_sided=sigma_high_sided,
+                                    fit_func=Symbol(aoe_config_ch.dep_cut_search_fit_func), uncertainty=true)
                 catch e
                     @error "AoE cut for $det cannot be generated"
-                    throw(ErrorException("AoE cut for $det from partition $(part) cannot be generated"))
+                    throw(ErrorException("AoE cut for $det from $period-$run cannot be generated"))
                 end
 
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
-                result_peaks, report_peaks = nothing, nothing
+                # plot spectrum before and after cut
+                p = plot(report_cut)
+                title!(get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)), subplot=1)
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
+
+                result_peaks_low, report_peaks_low = nothing, nothing
                 try
-                    @debug "Generate AoE Surrival Fractions"
-                    result_peaks, report_peaks = get_peaks_surrival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; bin_width_window=3.0u"keV", low_e_tail=true, sigma_high_sided=sigma_high_sided)
+                    @debug "Generate A/E low Surrival Fractions"
+                    result_peaks_low, report_peaks_low = get_peaks_surrival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; 
+                                                    bin_width_window=aoe_config_ch.aoe_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(aoe_config_ch.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks SF for $det from partition $(part) cannot be generated"))
+                    @error "AoE peaks low SF for $det cannot be generated"
+                    throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated"))
                 end
 
-                @debug "Found SEP Surrival Fraction at $(round(u"percent", result_peaks[:Tl208SEP].sf, digits=2))"
-                @debug "Found FEP Surrival Fraction at $(round(u"percent", result_peaks[:Tl208FEP].sf, digits=2))"
+                @debug "Found low SEP Surrival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
+                @debug "Found low FEP Surrival Fraction at $(round(u"percent", result_peaks_low[:Tl208FEP].sf, digits=2))"
 
-                p = plot(broadcast(k -> plot(report_peaks[k].after, show_components=false, left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, peak_name=string(k), ms=2), keys(report_peaks))..., layout=(length(report_peaks), 1), size=(1000,710*length(report_peaks)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
+                qbb_result_low = nothing
+                try
+                    qbb_result_low, _ = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=Inf)
+                catch e
+                    @error "Qbb low SF for $det cannot be generated"
+                    throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated"))
+                end
+
+                @debug "Found low Qbb Surrival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
+
+                result_peaks_ds, report_peaks_ds = nothing, nothing
+                try
+                    @debug "Generate A/E DS Surrival Fractions"
+                    result_peaks_ds, report_peaks_ds = get_peaks_surrival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; 
+                                                    bin_width_window=aoe_config_ch.aoe_peaks_bin_width_window, sigma_high_sided=result_cut.highcut, fit_funcs=Symbol.(aoe_config_ch.aoe_peaks_fit_funcs), uncertainty=true)
+                catch e
+                    @error "AoE peaks DS SF for $det cannot be generated"
+                    throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
+                end
+
+                @debug "Found DS SEP Surrival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
+                @debug "Found DS FEP Surrival Fraction at $(round(u"percent", result_peaks_ds[:Tl208FEP].sf, digits=2))"
+
+                qbb_result_ds = nothing
+                try
+                    qbb_result_ds, _ = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
+                catch e
+                    @error "Qbb DS SF for $det cannot be generated"
+                    throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
+                end
+
+                @debug "Found DS Qbb Surrival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
+
+
+                p = plot(broadcast(k -> plot(report_peaks_ds[k].after, show_components=false, left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, peak_name=string(k), ms=2), keys(report_peaks_ds))..., layout=(length(report_peaks_ds), 1), size=(1000,710*length(report_peaks_ds)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 9)
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
 
-                qbb_result = nothing
-                try
-                    qbb_result = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=sigma_high_sided)
-                catch e
-                    @error "Qbb SF for $det cannot be generated"
-                    throw(ErrorException("Qbb SF for $det from partition $(part) cannot be generated"))
-                end
-
-                
-
-                p = stephist(e_cal, nbins=2039-35:0.5:2039+35, label="Before", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
-                stephist!(e_cal[aoe .> result_cut.lowcut], nbins=2039-35:0.5:2039+35, label="After", xlabel="Energy", ylabel="Counts / 0.5 keV", yscale=:log10)
-                plot!(margin=1mm, thickness_scaling=1.5, dpi=600, size=(1000, 700))
-                title!("Qbb CC ($(qbb_result.window)) - SF: $(qbb_result.sf)", titlefontisze=8)
-                plot!(plot_title=get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)), plot_titlefontsize = 12)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_qbb_sf_runcal_$aoe_classifier"))
-
-                # plot spectrum before and after cut
-                p = stephist(e_cal, nbins=0:0.5:3000, yscale=:log10, xlabel="Energy", label="Before AoE", ylabel="Counts / 0.5 keV", framestyle=:box)
-                stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=0:0.5:3000, yscale=:log10, label="After AoE")
-                stephist!(e_cal, nbins=1550:0.5:1700, inset = (1, bbox(0.2, 0.72, 0.4, 0.2, :top)), subplot = 2, framestyle=:box)
-                stephist!(e_cal[result_cut.lowcut .< aoe .< result_cut.highcut], nbins=1550:0.5:1700, subplot = 2, legend=:none, ylabel="Counts / 0.5 keV", xlabel="")
-                xticks!(0:250:3000, subplot = 1)
-                xticks!(1500:20:1700, subplot = 2)
-                title!(get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)), subplot=1)
-                plot!(margin=1mm, thickness_scaling=1.2, dpi=600, size=(1000, 600))
-                plot!(ylabelfontsize=8, subplot=2)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
-
                 # save results
-                result = merge(result_cut, (peaks = result_peaks, ), qbb_result)
+                result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
 
-                log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks[:Tl208SEP].sf, result.peaks[:Tl208FEP].sf, "-"))
+                log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[aoe_classifier]   = result

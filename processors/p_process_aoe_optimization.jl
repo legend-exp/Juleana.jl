@@ -8,11 +8,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
-
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -61,6 +58,10 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
         pars_fltoptimization = get_values(l200.par.ppars.fltopt[det, part])
         @debug "Loaded energy optimization parameters"
+
+        dsp_config_pd = dataprod_config(l200).dsp(filekey_ch)
+        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_ch)"
 
         optimization_config = dataprod_config(l200).dsp(filekey_ch).aoe_optimization
         aoe_config_ch = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
@@ -151,8 +152,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 try
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
-                    dsp_dep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                    dsp_sep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_dep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_sep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
                 catch e
                     @error "Failed DSP for DEP or SEP: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_string(string(e)))"))
@@ -177,7 +178,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 try
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc, dsp_config.a_grid_wl_sg, aoe_config_flt)
+                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc, dsp_config_ch.a_grid_wl_sg, aoe_config_flt)
                 catch e
                     @error "Failed SG window length optimization: $(truncate_string(string(e)))"
                     throw(ErrorException("SG window length optimization: $(truncate_string(string(e)))"))

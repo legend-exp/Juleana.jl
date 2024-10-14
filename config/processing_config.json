@@ -18,13 +18,13 @@
                 "julia_settings": []
             },
             "local": {
-                "n": 12,
+                "n": 14,
                 "julia_settings": []
             }
         },
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "LegendEventAnalysis,LegendSpecFits,Main",
+            "JULIA_DEBUG": "LegendEventAnalysis,Main",
             "JULIA_WORKER_TIMEOUT": "240"
         }
     },

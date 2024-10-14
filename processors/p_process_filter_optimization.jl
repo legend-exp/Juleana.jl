@@ -11,9 +11,6 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
-
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
     end
@@ -58,6 +55,10 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
         pars_tau = get_values(l200.par.ppars.pz[det, part])
         @debug "Loaded decay times"
+
+        dsp_config_pd = dataprod_config(l200).dsp(filekey_ch)
+        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_ch)"
 
         optimization_config = dataprod_config(l200).dsp(filekey_ch).flt_optimization
         optimization_config_ch = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
@@ -129,7 +130,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         blmean_wdw = nothing
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config, pars_tau[det].τ, f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
             wvfs_ch_pre = wvfs_ch_pre[qc]
@@ -145,7 +146,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         qdrift = nothing
         try
             @debug "Get QDrift"
-            qdrift = dsp_qdrift_flt_optimization(wvfs_ch_wdw, blmean_wdw, dsp_config, pars_tau[det].τ)
+            qdrift = dsp_qdrift_flt_optimization(wvfs_ch_wdw, blmean_wdw, dsp_config_ch, pars_tau[det].τ)
         catch e
             @error "Failed QDrift: $(truncate_string(string(e)))"
             throw(ErrorException("Error in QDrift: $(truncate_string(string(e)))"))
@@ -162,14 +163,14 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
                 optimization_config_flt = optimization_config_ch.e_filter[filter_type]
                 # unpack config
-                e_grid_rt            = getproperty(dsp_config, Symbol("e_grid_rt_$(filter_type)"))
-                e_grid_ft            = getproperty(dsp_config, Symbol("e_grid_ft_$(filter_type)"))
+                e_grid_rt            = getproperty(dsp_config_ch, Symbol("e_grid_rt_$(filter_type)"))
+                e_grid_ft            = getproperty(dsp_config_ch, Symbol("e_grid_ft_$(filter_type)"))
 
                 # optimize RT
                 enc_grid = nothing
                 try
                     @debug "Generate $filter_type ENC filter grid"
-                    enc_grid = getfield(Main, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_ch_pre, dsp_config, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
+                    enc_grid = getfield(Main, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
                 catch e
                     @error "Filter: $filter_type RT DSP for FEP: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $filter_type RT DSP for FEP: $(truncate_string(string(e)))"))
@@ -196,7 +197,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 e_grid = nothing
                 try
                     @debug "Generate $filter_type FT energy grid"
-                    e_grid = getfield(Main, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_ch_pre, dsp_config, pars_tau[det].τ, mvalue(result_rt.rt))
+                    e_grid = getfield(Main, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, mvalue(result_rt.rt))
                 catch e
                     @error "Filter: $filter_type FT DSP for FEP: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $filter_type FT DSP for FEP: $(truncate_string(string(e)))"))
