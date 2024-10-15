@@ -138,6 +138,9 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 yield()
 
+                # fit QC peaks
+                fit_qc = energy_config_ch.qc.fit
+                
                 # peak fitting QC
                 fwhm_cut = [result_fit[th228_names[i]].fwhm > energy_config_ch.qc.min_fwhm && result_fit[th228_names[i]].fwhm .< energy_config_ch.qc.max_fwhm_per_window * (energy_config_ch.left_window_sizes[i] + energy_config_ch.right_window_sizes[i]) for i in eachindex(th228_names)]
                 qc_cut = ljl_propfunc(fit_qc).([result_fit[k] for k in th228_names]) .&& fwhm_cut
