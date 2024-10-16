@@ -11,9 +11,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     lq_config = dataprod_config(l200).psd(filekey).lq
     @debug "Loaded lq config: $(lq_config)"
 
-    #fill config with:
-
-
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.lq), string(period)))
     pars_db = PropDict(l200.par.rpars.lq[period, run])
@@ -26,13 +23,41 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("LQ cut Value"), Symbol("Continuum SF"), Symbol("DEP SF"), :CutError)}
 
     # get worker pool
-    #wpool = get_workerPool(processing_config, nameof(var"#self#"))
-    
+    #wpool = get_workerPool(processing_config, nameof(var"#self#"))   
+
     # flush stdout
     flush(stdout)
 
     function ch_lq_cut(chinfo_ch::NamedTuple)
-        chinfo_ch = chinfo[1]
+
+        ############
+        ############
+        #fill config with:
+
+        DEP_edgesigma=3.0 
+        mode= :percentile   # ich würde jetzt mal für alle den percentile mode nehmen, der scheint am besten zu funktionieren
+        drift_cutoff_sigma= 2.0 
+        prehist_sigma=2.5
+
+        e_expression="e_cusp_ctc_cal" # hier vermtulich der energy type der am besten funktioniert
+        e_type = :e_cusp_ctc_cal 
+
+        dt_eff_low_quantile=0.15 
+        dt_eff_high_quantile=0.95
+
+        cut_sigma=3.0 
+        truncation_sigma=2.0
+        lq_modes = [Symbol("percentile")] # aktuell nur dieser standard lq_mode
+
+
+        #für die surrival fraction berechnung, frage ist welche/wie viele peaks
+        window = [10.0u"keV", 10.0u"keV"]
+        peaknames = ["Tl208DEP", "Tl208FEP"]
+        peak_values = [1592.53, 2614.51] * u"keV"        
+
+        ##############
+        ##############
+
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
@@ -44,8 +69,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        lq_modes = [Symbol("gaussian"), Symbol("percentile")]
 
+        ###### das hier hab ich nicht angefasst
         #=
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing energy types"
@@ -71,9 +96,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         hit_cal = nothing
         e_cal, lq, qdrift = nothing, nothing, nothing
         DEP_σ, DEP_µ = nothing, nothing
-
-
-        e_type = :e_cusp_ctc_cal 
 
         try 
             @debug("Load data")
@@ -115,7 +137,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 @debug "Calibrate $lq_mode"
                 drift_result, drift_report = nothing, nothing
                 try 
-                    drift_result, drift_report = lq_drift_time_correction(lq_e_corr, dt_eff, e_cal, DEP_µ, DEP_σ;e_expression="e_cusp_ctc_cal", mode=lq_mode)
+                    drift_result, drift_report = lq_drift_time_correction(lq_e_corr, dt_eff, e_cal, DEP_µ, DEP_σ;
+                    DEP_edgesigma=DEP_edgesigma , mode=mode, drift_cutoff_sigma = drift_cutoff_sigma, prehist_sigma=prehist_sigma, e_expression=e_expression, dt_eff_low_quantile=dt_eff_low_quantile, dt_eff_high_quantile=dt_eff_high_quantile)
                 catch e
                     @error "Error in drift time correction: $e"
                     throw(ErrorException("Error in drift time correction: $e"))
@@ -165,7 +188,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         lq_mode = lq_modes[1]
 
         @showprogress desc="Detector: $det" for lq_mode in lq_modes
-            if haskey(processed_dict, lq_mode)
+            if haskey(processed_dict, Symbol("lq_cut_of_$lq_mode"))
                 continue
             end
             try
@@ -175,7 +198,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 lq_class = nothing
                 try
                     lq_class = ljl_propfunc(pars_db_ch[det][lq_mode].func).(hit_cal)
-                catch
+                catch e
                     @error "Error in lq class calculation: $e"
                     throw(ErrorException("Error in lq class calculation"))
                 end
@@ -183,7 +206,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 #calculate LQ cut parameter value
                 result, report = nothing, nothing
                 try
-                    result, report = LQ_cut(DEP_µ, DEP_σ, e_cal, lq_class)
+                    result, report = LQ_cut(DEP_µ, DEP_σ, e_cal, lq_class; cut_sigma=cut_sigma, truncation_sigma=truncation_sigma)
                 catch e
                     @error "Error in LQ cut calculation: $e"
                     throw(ErrorException("Error in LQ cut calculation: $e"))
@@ -212,14 +235,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 plot(h_diff, xlabel="Energy", ylabel="Fraction", title="LQ cutted events in $det", framestyle=:box, formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900),
                 label="Cut Fraction", legend=:bottomleft)
                 savefig("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test/$(det)_Energy_diff.png")
-
-
-                #In ein config file auslagern
-                window = [10.0u"keV", 10.0u"keV"]
-                #peaknames = ["Tl208DEP", "Bi212FEP", "Tl208SEP", "Tl208FEP"]
-                #peak_values = [1592.53, 1620.50, 2103.53, 2614.51] * u"keV"
-                peaknames = ["Tl208DEP", "Tl208FEP"]
-                peak_values = [1592.53, 2614.51] * u"keV"
                 
 
                 @debug("starting to calculate SF values")
@@ -235,7 +250,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 end
 
                 try
-                    sf_values["Continuum"] = get_continuum_surrival_fraction(lq_class, e_cal, 2029.0u"keV", 10.0u"keV", result.cut, inverted_mode=true).sf
+                    c_result, c_report = get_continuum_surrival_fraction(lq_class, e_cal, 2029.0u"keV", 10.0u"keV", result.cut, inverted_mode=true)
+                    sf_values["Continuum"] = c_result.sf
                 catch e
                     @error "Error in continuum surrival fraction calculation: $e"
                     throw(ErrorException("Error in continuum surrival fraction calculation: $e"))
@@ -266,7 +282,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         # cleanup log and combine
         log_info_dict_cleaned = Dict{Symbol, NamedTuple}()
         for lq_mode in lq_modes
-            log_info_dict_cleaned[lq_mode] = merge(log_info_dict[lq_mode], log_info_dict[Symbol("$(string(lq_mode))_classifier")])
+            log_info_dict_cleaned[lq_mode] = merge(log_info_dict[lq_mode], log_info_dict[Symbol("lq_cut_of_$(string(lq_mode))")])
         end
 
         return (result = result_dict, log = log_info_dict_cleaned, processed = processed_dict)
