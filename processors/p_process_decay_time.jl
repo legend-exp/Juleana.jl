@@ -93,8 +93,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
                 wvfs_ch = wvfs_ch[rand(1:max_wvfs, max_wvfs)]
             end
         catch e
-            @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"
+            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
         end
         yield()
 

@@ -80,7 +80,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         filename = l200.tier[:jlpeaks, filekey, ch]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip channel $ch"
-            throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
+            throw(LoadError(string(part), 154,"File $(part) does not exist"))
         end
         
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
@@ -99,8 +99,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
             close(data)
         catch e
-            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_string(string(e)))"
+            throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
