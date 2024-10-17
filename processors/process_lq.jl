@@ -144,21 +144,16 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                     throw(ErrorException("Error in drift time correction: $e"))
                 end
 
+                #create and save plots
+                p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP)
+                plot!(title="Drift Time vs LQ in DEP for Detector: $det")
+                savelfig(savefig, p, l200, filekey, det, Symbol("drift_time_vs_lq_plot_DEP_$lq_mode"))
 
-                #plot: drift time vs lq plot mit box und fit
-                DEP_left = drift_report.DEP_left
-                DEP_right = drift_report.DEP_right
-                box = drift_report.lq_box
+                p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :whole) 
+                plot!(title="Drift Time vs LQ for Detector: $det")
+                savelfig(savefig, p, l200, filekey, det, Symbol("drift_time_vs_lq_plot_$lq_mode"))
 
-                p = histogram2d(dt_eff[DEP_left .< e_cal .< DEP_right], lq_e_corr[DEP_left .< e_cal .< DEP_right], 
-                xlabel="Drift Time", ylabel="LQ (A.U.)", framestyle=:box, nbins=(0:6:600,2.0:0.02:4.4), 
-                left_margin = -15Plots.mm, bottom_margin = -13Plots.mm, c=:viridis, formatter=:plain, thickness_scaling=3, size=(1200,900))
-                vline!([box.t_lower, box.t_upper], label = "", linewidth = 1.5, color = :red)
-                hline!([box.lq_lower, box.lq_upper], label = "", linewidth = 1.5, color = :red)
-                plot!(drift_report.drift_time_func, label = "Linear Fit", linewidth = 1.5, color = :blue,
-                legend=:topright)
-                savefig(p, joinpath("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test", "drift_time_vs_lq_plot.png"))
-
+                #create log entry
                 log_info = log_nt_cal(ch, det, ProcessStatus(1), lq_mode, drift_result.func, "-")
 
                 # add results to dict
@@ -212,29 +207,18 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                     throw(ErrorException("Error in LQ cut calculation: $e"))
                 end
 
-                #plot LQ cut: LQ verteilung mit cut wert als rote linie
-                histogram2d(e_cal, lq_class , xlabel="Energy", ylabel="LQ (A.U.)", title="LQ Cut for Detector: $det",
-                nbins=(0:2:3000, -2.3:0.001:-2),
-                colorbar_scale=:log10, c=:viridis, framestyle=:box, formatter=:plain, thickness_scaling=1.6, size=(1200,800),
-                left_margin = -5Plots.mm, bottom_margin = -Plots.mm)
-                hline!([mvalue(result.cut)], label = "3σ exclusion", linewidth = 2, color = :red, legend=:topright)
+                #create and save plots
+                p = plot(report, lq_class, e_cal, :lq_cut)
+                plot!(title="LQ Cut for Detector: $det")
+                savelfig(savefig, p, l200, filekey, det, Symbol("lq_cut_$lq_mode"))
 
-                #Energy histogram before/after LQ
-                stephist(e_cal, xlabel="Energy", ylabel="Counts", title="Energy Spectrum of Detector:$det", nbins=(0:1:3500), framestyle=:box, formatter=:plain,
-                dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10, label="Data before LQ Cut")
-                stephist!(e_cal[lq_class .< result.cut], nbins=0:1:3500, label="Surviving LQ Cut", framestyle=:box, formatter=:plain, 
-                dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10)
-                stephist!(e_cal[lq_class .> result.cut], nbins=0:1:3500, label="Cut by LQ Cut", framestyle=:box, formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900), yscale=:log10)
-                #savefig("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test/$(det)_Energy_hist.png")
+                p = plot(report, lq_class, e_cal, :energy_hist)
+                plot!(title="Energy Spectrum of Detector: $det")
+                savelfig(savefig, p, l200, filekey, det, Symbol("energy_hist_$lq_mode"))
 
-                #percentual cut plot
-                h1 = fit(Histogram, ustrip.(e_cal), 0:1:3500)
-                h2 = fit(Histogram, ustrip.(e_cal[lq_class .> result.cut]), 0:1:3500)
-                h_diff = h2.weights ./ h1.weights
-
-                plot(h_diff, xlabel="Energy", ylabel="Fraction", title="LQ cutted events in $det", framestyle=:box, formatter=:plain, dpi=300, thickness_scaling=1.6, size=(1200,900),
-                label="Cut Fraction", legend=:bottomleft)
-                savefig("/mnt/artemis02/users/gieb/MPP_Code/Documents/Plots/LQ_Processor_Test/$(det)_Energy_diff.png")
+                p = plot(report, lq_class, e_cal, :cut_fraction)
+                plot!(title="LQ cutted events in $det")
+                savelfig(savefig, p, l200, filekey, det, Symbol("cut_fraction_$lq_mode"))
                 
 
                 @debug("starting to calculate SF values")
@@ -261,6 +245,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 # save results
                 final_result = (lq_cut_result = result, sf = sf_values)
 
+                #create log entry
                 log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_mode, final_result.lq_cut_result.cut, final_result.sf["Continuum"], final_result.sf["Tl208DEP"], "-"))
 
                 # add results to dict
