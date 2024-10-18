@@ -145,7 +145,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 end
 
                 #create and save plots
-                P = plot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP)
+                p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP)
                 plot!(title="Drift Time vs LQ in DEP for Detector: $det")
                 savelfig(savefig, p, l200, filekey, det, Symbol("drift_time_vs_lq_plot_DEP_$lq_mode"))
 
