@@ -32,6 +32,9 @@ function menu()
             return
         end
         @info "Selected periods: $periods"
+        global process_status, p_process_status
+        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        @info "Reloaded dependency graph"
     # reload processors from all processor files
     elseif choice == 2
         r = include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
