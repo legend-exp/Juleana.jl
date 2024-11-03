@@ -15,6 +15,9 @@ using ParallelProcessingTools: getlabel
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
 
+    # package settings
+    LegendSpecFits.set_timelimit(10.0)
+
     # pin threads
     pinthreads_auto()
 
