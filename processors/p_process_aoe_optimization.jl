@@ -178,19 +178,21 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 try
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc, dsp_config_ch.a_grid_wl_sg, aoe_config_flt)
+                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.e, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.e, dep_sep_after_qc.sep.aoe, dsp_config_ch.a_grid_wl_sg;
+                                                dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
+                                                dep_rel_cut=aoe_config_flt.dep_rel_cut, 
+                                                min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
+                                                min_aoe_offset=aoe_config_flt.min_aoe_offset, max_aoe_offset=aoe_config_flt.max_aoe_offset,
+                                                dep_cut_search_fit_func=aoe_config_flt.dep_cut_search_fit_func, sep_cut_search_fit_func=aoe_config_flt.sep_cut_search_fit_func
+                                                )
                 catch e
                     @error "Failed SG window length optimization: $(truncate_string(string(e)))"
                     throw(ErrorException("SG window length optimization: $(truncate_string(string(e)))"))
                 end
                 
-                if length(report_wl.sfs) > 0
-                    p = plot(report_wl)
-                    title!(p, get_plottitle(filekey_ch, part, det, "Filter Optimization"; additiional_type=string(filter_type)))
-                    savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_sweep_$(filter_type)"))
-                else
-                    @warn "No SG sweep plot for channel $ch ($det)"
-                end
+                p = plot(report_wl)
+                title!(p, get_plottitle(filekey_ch, part, det, "Filter Optimization"; additiional_type=string(filter_type)))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_sweep_$(filter_type)"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf; digits=2)) for channel $ch ($det)"""
 
