@@ -92,8 +92,10 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             wvfs_ch_dep_bi121fep_pre = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
             presum_rate              = data[ch].jlpeaks.Tl208SEP.presum_rate[1]
             e_ch_dep_bi121fep        = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
-            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
+            # wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
+            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw
+            # wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
+            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre
             wvfs_ch_sep_wdw          = data[ch].jlpeaks.Tl208SEP.waveform_windowed[:]
             wvfs_ch_sep_pre          = data[ch].jlpeaks.Tl208SEP.waveform_presummed[:]
 
@@ -145,23 +147,19 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
                     result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.e, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.e, dep_sep_after_qc.sep.aoe, dsp_config_ch.a_grid_wl_sg;
                                                 dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
-                                                dep_rel_cut=aoe_config_flt.dep_rel_cut, 
+                                                sep_rel_cut=aoe_config_flt.sep_rel_cut, 
                                                 min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
                                                 min_aoe_offset=aoe_config_flt.min_aoe_offset, max_aoe_offset=aoe_config_flt.max_aoe_offset,
-                                                dep_cut_search_fit_func=aoe_config_flt.dep_cut_search_fit_func, sep_cut_search_fit_func=aoe_config_flt.sep_cut_search_fit_func
+                                                dep_cut_search_fit_func=Symbol(aoe_config_flt.dep_cut_search_fit_func), sep_cut_search_fit_func=Symbol(aoe_config_flt.sep_cut_search_fit_func)
                                                 )
                 catch e
                     @error "Failed SG window length optimization: $(truncate_string(string(e)))"
                     throw(ErrorException("SG window length optimization: $(truncate_string(string(e)))"))
                 end
                 
-                if length(report_wl.sfs) > 0
-                    p = plot(report_wl)
-                    title!(p, get_plottitle(filekey, det, "SG Filter Optimization"))
-                    savelfig(savefig, p, l200, filekey, det, Symbol("sg_sweep"))
-                else
-                    @warn "No SG sweep plot for channel $ch ($det)"
-                end
+                p = plot(report_wl)
+                title!(p, get_plottitle(filekey, det, "SG Filter Optimization"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("sg_sweep"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for channel $ch ($det)"""
 
