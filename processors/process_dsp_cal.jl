@@ -134,14 +134,14 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
 
                         # check if channel has all required flt opt pars
                         if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_fltopt)))
-                            @warn "Not all required energy filter optimization parameters for detector $det, skip channel $ch"
+                            @warn "Not all required energy filter optimization parameters available for detector $det, skip channel $ch"
                             push!(failed_detectors, det)
                             continue
                         end
 
                         # check if channel has all required aoe opt pars
-                        if !!all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
-                            @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
+                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
+                            @warn "Not all required A/E optimization parameters available for detector $det, skip channel $ch"
                             push!(failed_detectors, det)
                             continue
                         end
