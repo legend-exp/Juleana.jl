@@ -13,7 +13,7 @@ folder.
 # Quick Start
 To start the processing just execute the `main.jl` script with the julia interpreter.
 ``` bash
-julia main.jl -c utils/processing_config.json
+julia main.jl -c config/processing_config.json
 ```
 You should consider to put all necessary packages in a single environment. The current standard environment is found in the `Project.toml` and `Manifest.toml` files in the dataflow folder and will be automatically activated if no other project is specified. 
 
@@ -35,7 +35,7 @@ The script also offers command line options to have a handy way of processing th
 # Debug mode
 To enable the `debug` mode for fast and interactive dataflow debugging and testing, the `-i` flag for `interactive` has to be passed as argument upfront the `main.jl` script.
 ``` bash
-julia -i main.jl -c utils/processing_config.json
+julia -i main.jl -c config/processing_config.json
 ```
 This will start a `debug` menu with the following options:
 - **Execute Processors**: Execute individual processors which can be selected from two sub-menus consisting of `processors` and `p-processors`. Additionally, the `reprocess` flag as well as a `check_dependency` flag can be set globally.
