@@ -131,7 +131,7 @@ You can configure the `processors` section with the following layout
             "dependencies": ["p_process_aoe_optimization"]
         },
 ```
-which will result in adding the `process_energy_calibration` processor to the list and process it according to its settings. 
+which will result in adding the `process_dsp_cal` processor to the list and process it according to its settings. 
 
 **Info**: The `p_processors` work in a similar manner as the `processor` with the one difference that they act on partitions rather then runs.
 
