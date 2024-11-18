@@ -170,7 +170,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
                 plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
                 plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
+                # savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
 
                 yield()
 
@@ -186,7 +186,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                     @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
-                fwhm_notfit =  f_cal_widths.([result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)])
+                fwhm_notfit =  [result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]        
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
