@@ -32,6 +32,9 @@ function menu()
             return
         end
         @info "Selected periods: $periods"
+        global process_status, p_process_status
+        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        @info "Reloaded dependency graph"
     # reload processors from all processor files
     elseif choice == 2
         r = include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
@@ -66,7 +69,7 @@ function execute_processors()
     process_steps, p_process_steps, additional_args = try
         steps_menu = MultiSelectMenu(String.(processing_config.possible_process_steps), ctrl_c_interrupt = true)
         p_steps_menu = MultiSelectMenu(String.(processing_config.p_possible_process_steps), ctrl_c_interrupt = true)
-        additional_args = ["reprocess", "check_dependencies"]
+        additional_args = ["reprocess", "no-reprocess", "check_dependencies"]
         additional_args_menu = MultiSelectMenu(additional_args, ctrl_c_interrupt = true)
     
         # processing steps menu to select and deselect
@@ -145,6 +148,9 @@ function execute_processors()
                                         if "reprocess" in additional_args
                                             kwargs = merge(kwargs, (reprocess = true, ))
                                         end
+                                        if "no-reprocess" in additional_args
+                                            kwargs = merge(kwargs, (reprocess = false, ))
+                                        end
                                         getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
                                         flush(stdout)
 
@@ -193,6 +199,9 @@ function execute_processors()
                                 kwargs = merge(kwargs, (only_first_period = DataPeriod(period.no - 1) in periods, ))
                                 if "reprocess" in additional_args
                                     kwargs = merge(kwargs, (reprocess = true, ))
+                                end
+                                if "no-reprocess" in additional_args
+                                    kwargs = merge(kwargs, (reprocess = false, ))
                                 end
                                 # process partitions
                                 has_lower_period_depedency = getfield(Main, process)(processing_config, l200, period,; kwargs...)

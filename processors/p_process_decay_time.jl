@@ -10,9 +10,6 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
-
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
     end
@@ -68,6 +65,10 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         @debug "Processing channel $ch ($det)"
 
+        dsp_config_pd = dataprod_config(l200).dsp(filekey_ch)
+        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_ch)"
+
         pz_config = dataprod_config(l200).dsp(filekey_ch).pz
         pz_config_ch = merge(pz_config.p_default, get(pz_config.p, det, PropDict()))
         @debug "Loaded PZ config: $(pz_config_ch)"
@@ -92,15 +93,15 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
                 wvfs_ch = wvfs_ch[rand(1:max_wvfs, max_wvfs)]
             end
         catch e
-            @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"
+            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
         end
         yield()
 
         # get QC cuts
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config, 400.0u"µs", f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             wvfs_ch = wvfs_ch[qc]
             @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
@@ -113,7 +114,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         decay_times = nothing
         try
             @debug "Generating DSP for FEP decay times"
-            decay_times = dsp_decay_times(wvfs_ch, dsp_config)
+            decay_times = dsp_decay_times(wvfs_ch, dsp_config_ch)
         catch e
             @error "Error in DSP for FEP: $(truncate_string(string(e)))"
             throw(ErrorException("Error in DSP for FEP: $(truncate_string(string(e)))"))

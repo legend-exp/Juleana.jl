@@ -8,7 +8,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
