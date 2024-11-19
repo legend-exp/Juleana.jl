@@ -36,8 +36,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         det = chinfo_ch.detector
         part = chinfo_ch.partition
 
-        mkpath(joinpath(data_path(l200.par.ppars.pz), string(det)))
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.pz[det]), "$part.json"))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.pz), "$det", "$part.json"))
             PropDict(l200.par.ppars.pz[det, part])
         else
             PropDict()

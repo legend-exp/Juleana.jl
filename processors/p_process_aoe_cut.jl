@@ -33,8 +33,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
         @info "Processing channel $ch ($det)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.aoecut), string(det)))
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoecut[det]), "$part.json"))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoecut), "$det", "$part.json"))
             PropDict(l200.par.ppars.aoecut[det, part])
         else
             PropDict()

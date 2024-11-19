@@ -34,8 +34,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
         @info "Processing channel $ch ($det)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.aoe), string(det)))
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoe[det]), "$part.json"))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoe), "$det", "$part.json"))
             PropDict(l200.par.ppars.aoe[det, part])
         else
             PropDict()
@@ -116,7 +115,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
             e_cal = getproperty(hit_cal, e_type)
         catch e
             @error "E data for $det from cannot be loaded"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
+            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_string(string(e)))"))
         end
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
@@ -331,8 +330,10 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         result_aoe_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
 
         pars_db_ch = create_pars(pars_db_ch, result_aoe_ch)
-        writelprops(l200.par.ppars.aoe[det], part, pars_db_ch)
-        writevalidity(l200.par.ppars.aoe[det], filekey_ch, part)
+        if !isempty(pars_db_ch)
+            writelprops(l200.par.ppars.aoe[det], part, pars_db_ch)
+            writevalidity(l200.par.ppars.aoe[det], filekey_ch, part)
+        end
 
         return result_ch
     end
