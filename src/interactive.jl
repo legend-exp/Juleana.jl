@@ -22,7 +22,27 @@ function menu()
     elseif choice == 3
         global periods
         try
-            possible_periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
+            tiers = [:raw, :jldsp, :jlevt]
+            categories = [:cal, :phy]
+            tier, cat = nothing, nothing
+            for t in tiers
+                for c in categories
+                    if ispath(l200.tier[t, c])
+                        tier = t
+                        cat = c
+                        break
+                    end
+                end
+                if !isnothing(tier)
+                    break
+                end
+            end
+            possible_periods = if isnothing(tier) || isnothing(cat)
+                @warn "No `DataPeriod` found for in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
+                []
+            else
+                search_disk(DataPeriod, l200.tier[tier, cat])
+            end
             periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in periods, possible_periods)], ctrl_c_interrupt = true)
             selected_periods = collect(request("Select periods to be executed:", periods_menu))
             periods = possible_periods[selected_periods]
