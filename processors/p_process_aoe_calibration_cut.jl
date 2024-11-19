@@ -8,7 +8,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
@@ -304,7 +304,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
 
-                log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[aoe_classifier]   = result
