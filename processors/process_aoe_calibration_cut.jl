@@ -141,12 +141,21 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     @error "AoE corrections cannot be fitted: $(truncate_string(string(e)))"
                     throw(ErrorException("AoE corrections cannot be fitted"))
                 end
+
+                # perform A/E combined fit
+                result_fit_combined, report_fit_combined = nothing, nothing
+                try
+                    result_fit_combined, report_fit_combined = fit_aoe_compton_combined(compton_band_peakhists.peakhists, compton_band_peakhists.peakstats, compton_bands, result_correction; e_expression = e_type_aoe_cal, uncertainty = true);
+                catch e
+                    @error "AoE compton bands cannot be fitted using a combined fit: $e"
+                    throw(ErrorException("AoE compton bands cannot be fitted using a combined fit"))
+                end
                 
-                p = plot(report_correction.report_µ)
+                p = plot(report_correction.report_µ, report_fit_combined.report_µ)
                 title!(p, get_plottitle(filekey, det, "A/E μ"; additiional_type=string(aoe_type)), subplot=1)
                 savelfig(savefig, p, l200, filekey, det, Symbol("compton_bands_mu_$aoe_type"))
 
-                p = plot(report_correction.report_σ)
+                p = plot(report_correction.report_σ, report_fit_combined.report_σ)
                 title!(p, get_plottitle(filekey, det, "A/E σ"; additiional_type=string(aoe_type)), subplot=1)
                 savelfig(savefig, p, l200, filekey, det, Symbol("compton_bands_sigma_$aoe_type"))
 
