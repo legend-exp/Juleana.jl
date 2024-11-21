@@ -61,7 +61,6 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         aoe_funcs      = aoe_config_ch.aoe_funcs
 
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
-        e_type         = Symbol(aoe_config_ch.e_type)
 
         # sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
         sigma_high_sided = aoe_config_ch.sigma_high_sided
@@ -224,9 +223,27 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 title!(p, get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_type)))
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_normalized_$aoe_type"))
 
+                # charge trapping correction
+                result_aoe_ctc, report_aoe_ctc = nothing, nothing
+                try
+                    # determine qdrift/e (TODO: can we use e_cal here ? It should be the same used for A/E)
+                    qdrift_e = hit_cal.qdrift ./ e_cal;
+                    result_aoe_ctc, report_aoe_ctc = LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands,
+                        aoe_expression = result_correction.func, e_expression = e_type,
+                        # TODO: the choice of optimal pseudo priors for B and B2 should go into LegendSpecFits rather than here
+                        pseudo_prior = NamedTupleDist(B = LogUniform(0.01,10000000), B2 = LogUniform(0.01,1000000)),
+                        pseudo_prior_all = NamedTupleDist(B = LogUniform(5,1000000000), B2 = LogUniform(0.01,1000000000)))
+                catch e
+                    @error "AoE classifier cannot be charge-trapping corrected: $(truncate_string(string(e)))"
+                    throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
+                end
+
+                # TODO: Add plot code here
+
                 log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), "-")
 
                 # add results to dict
+                # TODO: Decide what to save (result_aoe_ctc ?)
                 result_dict[aoe_type]   = result_correction
                 log_info_dict[aoe_type] = log_info
                 processed_dict[aoe_type] = true
