@@ -12,7 +12,7 @@ echo -e "\n\n\n"
 while true; do
     echo "#############################################"
     read -p "Please enter the production name (single string, no spaces): " production_name
-    if [[ "$production_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    if [[ "$production_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
         break
     else
         echo "The production name '$production_name' is not valid. Please enter a single string with no spaces."
