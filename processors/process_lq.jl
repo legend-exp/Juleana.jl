@@ -54,6 +54,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         window = [10.0u"keV", 10.0u"keV"]
         peaknames = ["Tl208DEP", "Tl208FEP"]
         peak_values = [1592.53, 2614.51] * u"keV"        
+        qbb_pos = 2029.0u"keV"
+        qbb_window = 10.0u"keV"
 
         ##############
         ##############
@@ -222,20 +224,18 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 
 
                 @debug("starting to calculate SF values")
-                sf_values = Dict{String, Any}()
-                try    
-                    for (i,name) in enumerate(peaknames)
-                        sf_result, sf_report = get_peak_surrival_fraction(lq_class, e_cal, peak_values[i], window, result.cut; inverted_mode=true)
-                        sf_values[name] = sf_result.sf
-                    end
+
+                result_peaks, report_peaks = nothing, nothing
+                try
+                    result_peaks, report_peaks = get_peaks_surrival_fractions(lq_class, e_cal, peak_values, peaknames, window, window, result.cut; inverted_mode=true)
                 catch e
                     @error "Error in peak surrival fraction calculation: $e"
                     throw(ErrorException("Error in peak surrival fraction calculation: $e"))
                 end
 
+                c_result, c_report = nothing, nothing
                 try
-                    c_result, c_report = get_continuum_surrival_fraction(lq_class, e_cal, 2029.0u"keV", 10.0u"keV", result.cut, inverted_mode=true)
-                    sf_values["Continuum"] = c_result.sf
+                    c_result, c_report = get_continuum_surrival_fraction(lq_class, e_cal, qbb_pos, qbb_window, result.cut, inverted_mode=true)
                 catch e
                     @error "Error in continuum surrival fraction calculation: $e"
                     throw(ErrorException("Error in continuum surrival fraction calculation: $e"))
@@ -243,7 +243,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
 
                 # save results
-                final_result = (lq_cut_result = result, sf = sf_values)
+                final_result = (lq_cut_result = result, peaks = result_peaks, qbb = c_result)
 
                 #create log entry
                 log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_mode, final_result.lq_cut_result.cut, final_result.sf["Continuum"], final_result.sf["Tl208DEP"], "-"))
