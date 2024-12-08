@@ -19,7 +19,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Number of fitted Bands"), Symbol("μ Correction Mean normalized Residuals"), Symbol("σ Correction Mean normalized Residuals"), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Number of fitted Bands"), Symbol("μ Corr. Mean norm. Resid."), Symbol("σ Corr. Mean norm. Resid."), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
@@ -53,7 +53,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
         e_type         = Symbol(aoe_config_ch.e_type)
 
-        sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
+        # sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
+        sigma_high_sided = aoe_config_ch.sigma_high_sided
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing energy types"
@@ -77,8 +78,11 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
         e_cal, hit_cal = nothing, nothing
         try
-            @debug "Reading from $(period)-$(run)"
-            hit_cal = calibrate_ged_channel_data(l200, filekey, det, read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch); keep_chdata=true)
+            hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                @debug "Reading from $(period)-$(run)"
+                # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                    Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                end
             e_cal = getproperty(hit_cal, e_type)
         catch e
             @error "Hit data for $det from cannot be loaded: $(truncate_string(string(e)))"
