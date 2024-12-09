@@ -14,7 +14,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("Number of fitted Bands"), Symbol("μ Corr. Mean norm. Resid."), Symbol("σ Corr. Mean norm. Resid."), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("μ Corr. Mean norm. Resid."), Symbol("σ Corr. Mean norm. Resid."), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
@@ -90,7 +90,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing filters"
             for aoe_type in aoe_types
-                if !haskey(pars_db_ch[det], aoe_type)
+                if haskey(pars_db_ch[det], aoe_type)
                     pars_db_det_aoe_type = pars_db_ch[det][aoe_type]
                     log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
@@ -109,14 +109,16 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
         e_cal, hit_cal = nothing, nothing
         try
-            hit_cal = fast_flatten([
-                let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
-                    @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                    # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
-                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
-                end
-                for pinfo in partinfo_ch])
-            e_cal = getproperty(hit_cal, e_type)
+            if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
+                hit_cal = fast_flatten([
+                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                        @debug "Reading from $(pinfo.period)-$(pinfo.run)"
+                        # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                            Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                    end
+                    for pinfo in partinfo_ch])
+                e_cal = getproperty(hit_cal, e_type)
+            end
         catch e
             @error "E data for $det from cannot be loaded"
             throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_string(string(e)))"))

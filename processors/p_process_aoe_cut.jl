@@ -55,7 +55,8 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
         e_type         = Symbol(aoe_config_ch.e_type)
 
-        sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, NaN)
+        # sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
+        sigma_high_sided = aoe_config_ch.sigma_high_sided
 
         result_dict = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
@@ -76,7 +77,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             @debug "Channel $(det) already processed, check missing filters"
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db_ch[det], aoe_classifier)
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -86,11 +87,13 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
         e_cal, hit_cal = nothing, nothing
         try
-            hit_cal = fast_flatten([begin
-                @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); psd_cal_pars_type=:rpars, psd_cal_pars_cat=:aoe) end
-                for pinfo in partinfo_ch])
-            e_cal = getproperty(hit_cal, e_type)
+            if !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
+                hit_cal = fast_flatten([begin
+                    @debug "Reading from $(pinfo.period)-$(pinfo.run)"
+                    calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); psd_cal_pars_type=:rpars, psd_cal_pars_cat=:aoe) end
+                    for pinfo in partinfo_ch])
+                e_cal = getproperty(hit_cal, e_type)
+            end
         catch e
             @error "E data for $det from cannot be loaded"
             throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
@@ -111,7 +114,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                     throw(LoadError("AoE", 154, "AoE and E data for $det from partition $(part) cannot be loaded"))
                 end
 
-                p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
+                p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), clims=(0.9, Inf), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
                 plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
                 title!(p, get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_classifier)))
                 xticks!(0:250:3000)
