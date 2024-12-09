@@ -69,6 +69,12 @@ Then, the distributions are truncated around the peak to fit a truncated gaussia
 The sigma of the distrbutions is extracted as the trigger threshold.
 """
 
+const sipm_cal_log_text = """## SiPM calibration
+This is the log for the SiPM calibration. The algorithm loads the physics data for one SiPM channel from a defined number of filekeys.
+After a mini DSP, the calibration is performed by fitting the 1 p.e. and 2 p.e. peaks with a gaussian function.
+The calibration constant and offset are extracted from the fit.
+"""
+
 
 const evt_log_text = """## Evt
 This is the log for the event level. The algorithm iterates through each file each file and generates the event level table for each subsystem including correct calibrations and cut generation."""
