@@ -140,7 +140,7 @@
             },
             "dependencies": []
         },
-        "process_sipm_thresholds": {
+        "process_sipm_thresholds_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
