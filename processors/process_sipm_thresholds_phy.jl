@@ -1,4 +1,4 @@
-function process_sipm_thresholds(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000)
+function process_sipm_thresholds_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000)
         
     @info "Process SiPM thresholds for period $period and run $run"
 

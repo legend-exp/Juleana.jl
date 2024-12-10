@@ -6,12 +6,11 @@
         "runmode_settings": {
             "slurm": {
                 "flags": [
-                    "--time=01:59:00",
-                    "--partition=interactive",
+                    "--time=08:00:00",
                     "--mem-bind=local",
                     "--threads-per-core=1",
                     "--cpu-bind=cores",
-                    "--nodes=1",
+                    "--nodes=16",
                     "--ntasks-per-node=18",
                     "--cpus-per-task=4",
                     "--mem=234GB"
@@ -25,7 +24,7 @@
         },
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "LegendEventAnalysis,Main",
+            "JULIA_DEBUG": "Main,LegendSpecFits",
             "JULIA_WORKER_TIMEOUT": "240"
         }
     },
@@ -85,7 +84,7 @@
             "dependencies": []
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 5,
@@ -98,18 +97,18 @@
             "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
         },
         "process_hit_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 6,
             "kwargs": {
-                "reprocess": false,
+                "reprocess": true,
                 "timeout": 0
             },
             "dependencies": []
         },
         "process_ct_correction": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 7,
@@ -120,18 +119,18 @@
             "dependencies": []
         },
         "process_energy_calibration": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 8,
             "kwargs": {
-                "reprocess": false,
+                "reprocess": true,
                 "timeout": 0
             },
             "dependencies": []
         },
         "process_aoe_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 9,
@@ -141,8 +140,8 @@
             },
             "dependencies": []
         },
-        "process_sipm_thresholds": {
-            "enabled": true,
+        "process_sipm_thresholds_phy": {
+            "enabled": false,
             "n_workers": "all",
             "category": "phy",
             "rank": 10,
@@ -154,23 +153,34 @@
             "dependencies": []
         },
         "process_dsp_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "phy",
             "rank": 11,
             "kwargs": {
-                "reprocess": false,
+                "reprocess": true,
                 "timeout": 0,
                 "max_wvfs": 1000,
                 "use_partition_filter": true
             },
             "dependencies": []
         },
-        "process_evt_phy": {
-            "enabled": false,
+        "process_sipm_calibration_phy": {
+            "enabled": true,
             "n_workers": "all",
             "category": "phy",
             "rank": 12,
+            "kwargs": {
+                "reprocess": false,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
+        "process_evt_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 13,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
@@ -181,7 +191,7 @@
     "p_processors":
     {
         "p_process_decay_time": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 1,
             "kwargs": {
@@ -192,7 +202,7 @@
             "dependencies": ["process_peak_split"]
         },
         "p_process_filter_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 2,
             "kwargs": {
@@ -203,7 +213,7 @@
             "dependencies": ["process_peak_split"]
         },
         "p_process_aoe_optimization": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 3,
             "kwargs": {
@@ -214,7 +224,7 @@
             "dependencies": ["process_peak_split"]
         },
         "p_process_energy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 4,
             "kwargs": {
@@ -224,7 +234,7 @@
             "dependencies": ["process_energy_calibration"]
         },
         "p_process_aoe_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "rank": 5,
             "kwargs": {
