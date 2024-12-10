@@ -31,7 +31,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded optimization parameters"
 
     # pars_sipm = get_values(l200.par[pars_type, :sipm](filekey))
-    pars_sipm = get_values(l200.par[:rpars, :sipm](filekey))
+    pars_sipm = get_values(l200.par[:rpars, :sipmopt](filekey))
     @debug "Loaded sipm parameters"
     
     if reprocess @info "Reprocess all filekeys and channels"
@@ -117,7 +117,10 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                     @timeit dsp_timer "DSP" begin
                         # loop over channels
-                        @showprogress desc="Filekey SiPM: $fk" for (ch, det) in zip(chinfo_sipm.channel, chinfo_sipm.detector)
+                        @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_ch in chinfo_sipm
+
+                            ch = chinfo_ch.channel
+                            det = chinfo_ch.detector
             
                             # check if channel can be processed
                             if !haskey(pars_sipm, det)
@@ -232,7 +235,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         end
 
                         # check if channel has all required aoe opt pars
-                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
+                        if chinfo_ch.usability == :on && chinfo_ch.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
                             @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
                             push!(failed_detectors, det)
                             continue

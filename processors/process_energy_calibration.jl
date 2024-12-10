@@ -165,7 +165,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
 
                 p = plot(report_calib, xerrscaling=100, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
+                plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3), plot_titlefontsize=12)
                 savelfig(savefig, p, l200, filekey, det, Symbol("calibration_curve_$(e_type)"))
 
                 yield()
@@ -188,7 +188,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
+                plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3))
                 savelfig(savefig, p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
                 
                 f_cal_pos(x) = report_calib.f_fit(x) .* report_calib.e_unit

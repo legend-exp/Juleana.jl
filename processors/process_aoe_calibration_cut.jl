@@ -5,7 +5,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     aoe_config = dataprod_config(l200).psd(filekey).aoe
@@ -19,7 +19,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Number of fitted Bands"), Symbol("μ Correction Mean normalized Residuals"), Symbol("σ Correction Mean normalized Residuals"), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("μ Corr. Mean norm. Resid."), Symbol("σ Corr. Mean norm. Resid."), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
@@ -53,12 +53,13 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
         e_type         = Symbol(aoe_config_ch.e_type)
 
-        sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
+        # sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
+        sigma_high_sided = aoe_config_ch.sigma_high_sided
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing energy types"
             for aoe_type in aoe_types
-                if !haskey(pars_db[det], aoe_type)
+                if haskey(pars_db[det], aoe_type)
                     pars_db_det_aoe_type = pars_db[det][aoe_type]
                     log_ch = log_nt_cal(ch, det, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
@@ -67,7 +68,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
             end
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db[det], aoe_classifier)
-                    log_info = log_nt_cut((ch, det, ProcessStatus(1), aoe_classifier, pars_db[det][aoe_classifier].lowcut, pars_db[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, ProcessStatus(1), aoe_classifier, pars_db[det][aoe_classifier].lowcut, pars_db[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -77,9 +78,14 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
         e_cal, hit_cal = nothing, nothing
         try
-            @debug "Reading from $(period)-$(run)"
-            hit_cal = calibrate_ged_channel_data(l200, filekey, det, read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch); keep_chdata=true)
-            e_cal = getproperty(hit_cal, e_type)
+            if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
+                hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                    @debug "Reading from $(period)-$(run)"
+                    # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                    end
+                e_cal = getproperty(hit_cal, e_type)
+            end
         catch e
             @error "Hit data for $det from cannot be loaded: $(truncate_string(string(e)))"
             throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_string(string(e)))"))

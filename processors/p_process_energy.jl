@@ -33,8 +33,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
         @debug "Processing channel $ch ($det)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.ecal), string(det)))
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.ecal[det]), "$part.json"))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.ecal), "$det", "$part.json"))
             PropDict(l200.par.ppars.ecal[det, part])
         else
             PropDict()
@@ -167,7 +166,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
         
                 p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
-                plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3), plot_titlefontsize=12)
+                plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3), plot_titlefontsize=12)
                 plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
                 plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
                 # savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
@@ -190,7 +189,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]        
 
                 p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
-                plot!(plot_title=get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,-0.3))
+                plot!(plot_title=get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3))
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("fwhm_$e_type"))
 
                 yield()

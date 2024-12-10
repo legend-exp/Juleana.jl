@@ -140,7 +140,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                         end
 
                         # check if channel has all required aoe opt pars
-                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
+                        if chinfo_ch.usability == :on && chinfo_ch.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
                             @warn "Not all required A/E optimization parameters available for detector $det, skip channel $ch"
                             push!(failed_detectors, det)
                             continue

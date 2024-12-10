@@ -8,13 +8,13 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("Number of fitted Bands"), Symbol("μ Correction Mean normalized Residuals"), Symbol("σ Correction Mean normalized Residuals"), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("μ Corr. Mean norm. Resid."), Symbol("σ Corr. Mean norm. Resid."), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
@@ -34,8 +34,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
         @info "Processing channel $ch ($det)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.aoe), string(det)))
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoe[det]), "$part.json"))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoe), "$det", "$part.json"))
             PropDict(l200.par.ppars.aoe[det, part])
         else
             PropDict()
@@ -64,7 +63,8 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
         e_type         = Symbol(aoe_config_ch.e_type)
 
-        sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, NaN)
+        # sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
+        sigma_high_sided = aoe_config_ch.sigma_high_sided
 
         result_dict = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
@@ -90,7 +90,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing filters"
             for aoe_type in aoe_types
-                if !haskey(pars_db_ch[det], aoe_type)
+                if haskey(pars_db_ch[det], aoe_type)
                     pars_db_det_aoe_type = pars_db_ch[det][aoe_type]
                     log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
@@ -99,7 +99,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
             end
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db_ch[det], aoe_classifier)
-                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -109,14 +109,19 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
         e_cal, hit_cal = nothing, nothing
         try
-            hit_cal = fast_flatten([begin
-                @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
-                for pinfo in partinfo_ch])
-            e_cal = getproperty(hit_cal, e_type)
+            if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
+                hit_cal = fast_flatten([
+                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                        @debug "Reading from $(pinfo.period)-$(pinfo.run)"
+                        # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                            Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                    end
+                    for pinfo in partinfo_ch])
+                e_cal = getproperty(hit_cal, e_type)
+            end
         catch e
             @error "E data for $det from cannot be loaded"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
+            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_string(string(e)))"))
         end
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
@@ -305,7 +310,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
 
-                log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[aoe_classifier]   = result
@@ -331,8 +336,10 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         result_aoe_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
 
         pars_db_ch = create_pars(pars_db_ch, result_aoe_ch)
-        writelprops(l200.par.ppars.aoe[det], part, pars_db_ch)
-        writevalidity(l200.par.ppars.aoe[det], filekey_ch, part)
+        if !isempty(pars_db_ch)
+            writelprops(l200.par.ppars.aoe[det], part, pars_db_ch)
+            writevalidity(l200.par.ppars.aoe[det], filekey_ch, part)
+        end
 
         return result_ch
     end
