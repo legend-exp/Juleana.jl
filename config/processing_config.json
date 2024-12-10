@@ -24,13 +24,13 @@
         },
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "LegendEventAnalysis,Main",
+            "JULIA_DEBUG": "Main,LegendSpecFits",
             "JULIA_WORKER_TIMEOUT": "240"
         }
     },
     "processing": {
         "periods": [3],
-        "runs" : [0],
+        "runs" : "all",
         "analysis_runs_only": true,
         "only_partitions": false,
         "only_runs": false
@@ -165,11 +165,22 @@
             },
             "dependencies": []
         },
-        "process_evt_phy": {
+        "process_sipm_calibration_phy": {
             "enabled": true,
             "n_workers": "all",
             "category": "phy",
             "rank": 12,
+            "kwargs": {
+                "reprocess": false,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
+        "process_evt_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 13,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0

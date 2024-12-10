@@ -48,7 +48,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fit.positions[1], pars_db[det][e_type].fit.resolutions_cal[1], pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -58,7 +58,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         # get data
         data_ch_after_qc = nothing
         try
-            @debug "Load hit file"
+            @debug "Load hit data"
             # load DSP data and apply QC cut
             data_dsp = read_ldata(l200, :jldsp, :phy, period, run, ch)
             data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp))]
@@ -90,7 +90,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = sipm_simple_calibration(pe_uncal; 
+                    result_simple, report_simple = sipm_simple_calibration(e_uncal; 
                             initial_min_amp=calibration_config_ch.simple.initial_min_amp, initial_max_quantile=calibration_config_ch.simple.initial_max_quantile,
                             peakfinder_σ=calibration_config_ch.simple.peakfinder_σ, peakfinder_threshold=calibration_config_ch.simple.peakfinder_threshold)
                 catch e
@@ -154,7 +154,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 GC.gc()
             catch e
                 @error "Error in processing channel $ch: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, ProcessStatus(0), "-", "-", string(e)))
+                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false
