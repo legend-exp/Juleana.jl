@@ -233,7 +233,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     lreport!(report, create_logtbl(result_peaksplit))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :peak_splitting), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout

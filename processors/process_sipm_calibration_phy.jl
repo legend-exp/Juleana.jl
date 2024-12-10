@@ -187,7 +187,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     lreport!(report, create_logtbl(result_sipm_calibration))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :sipm_calibration), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
     
     # flush stdout

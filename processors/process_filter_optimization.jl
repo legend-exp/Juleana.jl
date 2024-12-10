@@ -243,7 +243,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     lreport!(report, create_logtbl(result_flt))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :filter_optimization), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
     
     # flush stdout

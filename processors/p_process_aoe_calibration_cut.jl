@@ -366,7 +366,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :aoe), report)
+    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout

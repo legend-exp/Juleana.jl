@@ -154,7 +154,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     lreport!(report, create_logtbl(result_pz))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :decay_time), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
     
     # flush stdout

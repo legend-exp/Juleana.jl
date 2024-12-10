@@ -199,7 +199,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :qc), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout
