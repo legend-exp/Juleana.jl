@@ -6,8 +6,7 @@
 include(joinpath(@__DIR__,"logo/juleana.jl"))
 
 # load default packages
-import Pkg, REPL
-using REPL.TerminalMenus
+import Pkg
 
 # check if environment is default environment, than activate project
 @info "Using Julia $VERSION"
@@ -18,6 +17,14 @@ else
     @info "Using Julia project $(dirname(Pkg.project().path))"
 end
 @info "Load LEGEND packages"
+
+# precompile all packages
+Pkg.instantiate()
+Pkg.precompile()
+
+# import REPL TerminalMenus
+import REPL
+using REPL.TerminalMenus
 
 # check if LEGEND packages should be updated
 if isinteractive()
@@ -33,9 +40,6 @@ if isinteractive()
         exit(1)
     end
 end
-
-# precompile all packages
-Pkg.precompile()
 
 # load packages
 include(joinpath(@__DIR__,"src/LegendJuliaDataflow.jl"))
