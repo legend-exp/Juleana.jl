@@ -1219,8 +1219,8 @@ uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
 version = "0.2.3"
 
 [[deps.LegendDataManagement]]
-deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful"]
-git-tree-sha1 = "d892b7e09422e282f0a5b3a44ebe02fbb73235b9"
+deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful", "UnitfulAtomic"]
+git-tree-sha1 = "c229aca7d8fc2b75abfd4b4ad6be543b8c7aeebf"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
@@ -1264,9 +1264,7 @@ weakdeps = ["Measurements"]
 
 [[deps.LegendSpecFits]]
 deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Format", "ForwardDiff", "GaussianMixtures", "IntervalSets", "InverseFunctions", "IrrationalConstants", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "LinearRegression", "LogExpFunctions", "LsqFit", "Measurements", "Measures", "Optim", "Optimization", "OptimizationBBO", "OptimizationNLopt", "OptimizationOptimJL", "PropDicts", "RadiationSpectra", "Random", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
-git-tree-sha1 = "298da29dab75c41e70583ae0a9d10230be7b9b67"
-repo-rev = "dev"
-repo-url = "https://github.com/legend-exp/LegendSpecFits.jl.git"
+path = "/Users/flo/.julia/dev/LegendSpecFits"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
 version = "0.2.3"
 weakdeps = ["Plots", "RecipesBase"]

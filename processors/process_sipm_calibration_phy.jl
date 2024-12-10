@@ -117,7 +117,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 end
                 GC.gc()
 
-                p = plot(report_fit, show_peaks=true, xerrscaling=10, show_residuals=true, show_components=true)
+                p = plot(report_fit, show_peaks=true, xerrscaling=5, show_residuals=true, show_components=true)
                 plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
                 savelfig(savefig, p, l200, filekey, det, Symbol("sipm_peak_fits_$(e_type)"))
 
@@ -134,7 +134,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
 
-                p = plot(report_calib, xerrscaling=10)
+                p = plot(report_calib, xerrscaling=5)
                 plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3), plot_titlefontsize=12)
                 savelfig(savefig, p, l200, filekey, det, Symbol("sipm_calibration_curve_$(e_type)"))
                 
