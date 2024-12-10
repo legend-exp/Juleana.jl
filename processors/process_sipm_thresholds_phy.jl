@@ -145,7 +145,7 @@ function process_sipm_thresholds_phy(processing_config::PropDict, l200::LegendDa
     lreport!(report, create_logtbl(result_sipm_threshold))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :sipm_threshold), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
     
     # flush stdout

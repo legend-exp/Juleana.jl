@@ -215,7 +215,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :dsp), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout

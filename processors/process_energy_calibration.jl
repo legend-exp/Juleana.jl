@@ -255,7 +255,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :energy_calibration), report)
+    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout

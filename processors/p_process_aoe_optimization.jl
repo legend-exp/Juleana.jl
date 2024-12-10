@@ -251,7 +251,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :aoe_filter_optimization), report)
+    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout

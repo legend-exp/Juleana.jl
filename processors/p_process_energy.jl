@@ -251,7 +251,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :energy), report)
+    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout
