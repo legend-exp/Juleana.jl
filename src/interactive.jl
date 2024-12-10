@@ -18,6 +18,9 @@ function menu()
         global l200, processing_config, runs, periods
         l200, processing_config, runs, periods = get_processingconfig()
         @info "Reloaded processing config"
+        global process_status, p_process_status
+        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        @info "Necessary reload of dependency graph"
     # redefine periods per user choice
     elseif choice == 3
         global periods
