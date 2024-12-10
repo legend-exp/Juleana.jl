@@ -118,6 +118,7 @@ function process_sipm_thresholds_phy(processing_config::PropDict, l200::LegendDa
         @info "Found 1-σ DC trigger threshold at $(round(result_trig_dc.σ, digits=2)) for channel $ch ($det)"
 
         log_ch = log_nt((ch, det, ProcessStatus(1), result_trig.σ, result_trig_dc.σ, "-"))
+
         return (result = (trig = result_trig, dc = result_trig_dc), processed = true, log = log_ch)
     end
 

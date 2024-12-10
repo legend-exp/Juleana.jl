@@ -82,7 +82,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         pulserfilename = l200.tier[:jlpuls, filekey, ch_puls]
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "-"))
+            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
             try
                 close(lh5open(hitchfilename, "r"))
                 @debug "Channel $(det) already processed"
@@ -181,7 +181,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
     pars_db = create_pars(pars_db, result_qc)
     writelprops(l200.par.rpars.qc[period], run, pars_db)
-    writevalidity(l200.par.rpars.qc, filekey, (period, run); apply_to=:cal)
+    writevalidity(l200.par.rpars.qc, filekey, (period, run); category=:cal)
     @info "Saved pars to disk"
 
     report = lreport()

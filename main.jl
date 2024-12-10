@@ -87,6 +87,7 @@ flush(stdout)
 # Interactive Mode
 #################
 if isinteractive()
+    Base.exit_on_sigint(false)
     # execute interactive menu
     menu()
 else

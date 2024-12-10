@@ -5,11 +5,11 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status .== :valid)
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
-    @debug "Loaded DSP config: $(dsp_config)"
+    dsp_config_pd = dataprod_config(l200).dsp(filekey)
+    @debug "Loaded DSP config: $(dsp_config_pd)"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -48,6 +48,9 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
         @info "Processing channel $ch ($det)"
 
+        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_ch)"
+
         aoe_config_ch = merge(optimization_config.default, get(optimization_config, det, PropDict()))
         qc_string     = aoe_config_ch.qc
         aoe_filter      = collect(keys(aoe_config_ch.aoe_filter))
@@ -77,7 +80,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         filename = l200.tier[:jlpeaks, filekey, ch]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip channel $ch"
-            throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
+            throw(LoadError(string(part), 154,"File $(part) does not exist"))
         end
         
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
@@ -89,15 +92,17 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             wvfs_ch_dep_bi121fep_pre = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
             presum_rate              = data[ch].jlpeaks.Tl208SEP.presum_rate[1]
             e_ch_dep_bi121fep        = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
-            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
+            # wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
+            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw
+            # wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
+            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre
             wvfs_ch_sep_wdw          = data[ch].jlpeaks.Tl208SEP.waveform_windowed[:]
             wvfs_ch_sep_pre          = data[ch].jlpeaks.Tl208SEP.waveform_presummed[:]
 
             close(data)
         catch e
-            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_string(string(e)))"
+            throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
@@ -114,8 +119,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 try
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
-                    dsp_dep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                    dsp_sep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_dep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_sep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
                 catch e
                     @error "Failed DSP for DEP or SEP: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_string(string(e)))"))
@@ -140,19 +145,21 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 try
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc, dsp_config.a_grid_wl_sg, aoe_config_flt)
+                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.e, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.e, dep_sep_after_qc.sep.aoe, dsp_config_ch.a_grid_wl_sg;
+                                                dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
+                                                sep_rel_cut=aoe_config_flt.sep_rel_cut, 
+                                                min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
+                                                min_aoe_offset=aoe_config_flt.min_aoe_offset, max_aoe_offset=aoe_config_flt.max_aoe_offset,
+                                                dep_cut_search_fit_func=Symbol(aoe_config_flt.dep_cut_search_fit_func), sep_cut_search_fit_func=Symbol(aoe_config_flt.sep_cut_search_fit_func)
+                                                )
                 catch e
                     @error "Failed SG window length optimization: $(truncate_string(string(e)))"
                     throw(ErrorException("SG window length optimization: $(truncate_string(string(e)))"))
                 end
                 
-                if length(report_wl.sfs) > 0
-                    p = plot(report_wl)
-                    title!(p, get_plottitle(filekey, det, "SG Filter Optimization"))
-                    savelfig(savefig, p, l200, filekey, det, Symbol("sg_sweep"))
-                else
-                    @warn "No SG sweep plot for channel $ch ($det)"
-                end
+                p = plot(report_wl)
+                title!(p, get_plottitle(filekey, det, "SG Filter Optimization"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("sg_sweep"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for channel $ch ($det)"""
 
