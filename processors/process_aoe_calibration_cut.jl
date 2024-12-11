@@ -195,12 +195,10 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 result_aoe_ctc, report_aoe_ctc = nothing, nothing
                 try
                     # determine qdrift/e (TODO: can we use e_cal here ? It should be the same used for A/E)
-                    qdrift_e = hit_cal.qdrift ./ e_cal;
+                    # TODO: define q_drift_expression!!
+                    qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
                     result_aoe_ctc, report_aoe_ctc = LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands,
-                        aoe_expression = result_correction.func, e_expression = e_type,
-                        # TODO: the choice of optimal pseudo priors for B and B2 should go into LegendSpecFits rather than here
-                        pseudo_prior = NamedTupleDist(B = LogUniform(0.01,10000000), B2 = LogUniform(0.01,1000000)),
-                        pseudo_prior_all = NamedTupleDist(B = LogUniform(5,1000000000), B2 = LogUniform(0.01,1000000000)))
+                        aoe_expression = result_correction.func, qdrift_expression = qdrift_expression)
                 catch e
                     @error "AoE classifier cannot be charge-trapping corrected: $(truncate_string(string(e)))"
                     throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
