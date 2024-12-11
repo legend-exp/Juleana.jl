@@ -1,15 +1,18 @@
 function process_lq_calibration_cut(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
 
-    @info "LQ for period $period and run $run"
+    @info "Calibrate LQ for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) 
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $lq_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
+    pars_energy = get_values(l200.par.rpars.ecal[period, run])
+    @debug "Loaded energy calibration pars"
+
     lq_config = dataprod_config(l200).psd(filekey).lq
-    @debug "Loaded lq config: $(lq_config)"
+    @debug "Loaded LQ config: $(lq_config)"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.lq), string(period)))
@@ -19,11 +22,11 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Drift Correction Type"), Symbol("Lq classifier function"), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Drift Correction Type"), Symbol("LQ classifier function"), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("LQ cut Value"), Symbol("Continuum SF"), Symbol("DEP SF"), :CutError)}
 
     # get worker pool
-    #wpool = get_workerPool(processing_config, nameof(var"#self#"))   
+    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -83,6 +86,19 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
+        lq_config_ch = merge(lq_config.default, get(lq_config, det, PropDict()))
+
+        e_cal_type              = Symbol(lq_config_ch.e_cal_type)
+        e_uncal_type            = Symbol(lq_config_ch.e_uncal_type)
+        
+        DEP_edgesigma           = lq_config_ch.ctc_dep_edgesigma
+        ctc_mode                = Symbol(lq_config_ch.ctc_mode)
+        ctc_qdrift_cutoff_sigma = lq_config_ch.ctc_qdrift_cutoff_sigma
+        ctc_prehist_sigma       = lq_config_ch.ctc_prehist_sigma
+        lq_types                = collect(keys(lq_config_ch.lq_funcs))
+        lq_funcs                = lq_config_ch.lq_funcs
+
+        lq_classifiers          = Symbol.(lq_config_ch.lq_classifiers)
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing lq_classifiers"
@@ -105,7 +121,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         end
 
         hit_cal = nothing
-        e_cal, lq, qdrift = nothing, nothing, nothing
+        e_cal, e_uncal, lq, qdrift = nothing, nothing, nothing, nothing
         DEP_σ = nothing
 
         try 
