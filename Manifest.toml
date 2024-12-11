@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.7"
+julia_version = "1.10.6"
 manifest_format = "2.0"
-project_hash = "d8e520673179fbdb9227ef3e081439fe343010d4"
+project_hash = "5a21d9e848160985f2e47400066987ff2cb436f9"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "72af59f5b8f09faee36b4ec48e014a79210f2f4f"
@@ -866,11 +866,9 @@ version = "0.73.9+0"
 
 [[deps.GaussianMixtures]]
 deps = ["Arpack", "Clustering", "Compat", "DelimitedFiles", "Distributed", "Distributions", "FileIO", "JLD2", "LinearAlgebra", "Logging", "PDMats", "Printf", "Random", "ScikitLearnBase", "SpecialFunctions", "Statistics", "StatsBase"]
-git-tree-sha1 = "0fca384d79c0eaab45135949ed61f61d1738c5b9"
-repo-rev = "parallel"
-repo-url = "https://github.com/fhagemann/GaussianMixtures.jl"
+git-tree-sha1 = "1e1bd48b31658dd3b864d0330b434bed78c88282"
 uuid = "cc18c42c-b769-54ff-9e2a-b28141a64aae"
-version = "0.3.10"
+version = "0.3.11"
 
 [[deps.GenericLinearAlgebra]]
 deps = ["LinearAlgebra", "Printf", "Random", "libblastrampoline_jll"]
@@ -1264,11 +1262,11 @@ weakdeps = ["Measurements"]
 
 [[deps.LegendSpecFits]]
 deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Format", "ForwardDiff", "GaussianMixtures", "IntervalSets", "InverseFunctions", "IrrationalConstants", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "LinearRegression", "LogExpFunctions", "LsqFit", "Measurements", "Measures", "Optim", "Optimization", "OptimizationBBO", "OptimizationNLopt", "OptimizationOptimJL", "PropDicts", "RadiationSpectra", "Random", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
-git-tree-sha1 = "9770eab7892745ab7830c672256c21ad89cf74e2"
-repo-rev = "dev"
+git-tree-sha1 = "27c55ab0d1dadf3d947a0dbdd6fe815f89ee6081"
+repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendSpecFits.jl.git"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
-version = "0.2.3"
+version = "0.3.0"
 weakdeps = ["Plots", "RecipesBase"]
 
     [deps.LegendSpecFits.extensions]
@@ -2337,9 +2335,9 @@ version = "0.1.6"
 
 [[deps.SpecialFunctions]]
 deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "2f5d4697f21388cbe1ff299430dd169ef97d7e14"
+git-tree-sha1 = "64cca0c26b4f31ba18f13f6c12af7c85f478cfde"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.4.0"
+version = "2.5.0"
 weakdeps = ["ChainRulesCore"]
 
     [deps.SpecialFunctions.extensions]
