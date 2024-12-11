@@ -21,7 +21,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Surrival Fraction"), Symbol("Number Pulser Events"), :Error)}
+    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
     log_nt_puls = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number Pulser Events"), :Error)}
 
     # get worker pool
@@ -115,7 +115,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
             # result_qc, report_qc  = baseline_qc(data_ch, qc_config_ch)
             qc = Table(ljl_propfunc(qc_config_ch.labels).(data_ch))
             is_physical = ljl_propfunc(qc_config_ch.is_physical).(qc)
-            @debug "Total surrival fraction: $(round(count(is_physical) / length(is_physical) * 100, digits=2))%"
+            @debug "Total survival fraction: $(round(count(is_physical) / length(is_physical) * 100, digits=2))%"
         catch e
             @error "Error in QC for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error in QC cut generation: $(truncate_string(string(e)))"))

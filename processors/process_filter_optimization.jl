@@ -115,7 +115,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             wvfs_ch_pre = wvfs_ch_pre[qc]
             wvfs_ch_wdw = wvfs_ch_wdw[qc]
             blmean_wdw = blmean_wdw[qc]
-            @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
+            @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"
             throw(ErrorException("Error in QC cuts: $(truncate_string(string(e)))"))

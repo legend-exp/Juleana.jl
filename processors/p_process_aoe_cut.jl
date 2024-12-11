@@ -142,49 +142,49 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
                 result_peaks_low, report_peaks_low = nothing, nothing
                 try
-                    @debug "Generate A/E low Surrival Fractions"
-                    result_peaks_low, report_peaks_low = get_peaks_surrival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; 
+                    @debug "Generate A/E low Survival Fractions"
+                    result_peaks_low, report_peaks_low = get_peaks_survival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; 
                                                     bin_width_window=aoe_config_ch.aoe_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(aoe_config_ch.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks low SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated"))
                 end
 
-                @debug "Found low SEP Surrival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
-                @debug "Found low FEP Surrival Fraction at $(round(u"percent", result_peaks_low[:Tl208FEP].sf, digits=2))"
+                @debug "Found low SEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
+                @debug "Found low FEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208FEP].sf, digits=2))"
 
                 qbb_result_low = nothing
                 try
-                    qbb_result_low, _ = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=Inf)
+                    qbb_result_low, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=Inf)
                 catch e
                     @error "Qbb low SF for $det cannot be generated"
                     throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated"))
                 end
 
-                @debug "Found low Qbb Surrival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
+                @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
 
                 result_peaks_ds, report_peaks_ds = nothing, nothing
                 try
-                    @debug "Generate A/E DS Surrival Fractions"
-                    result_peaks_ds, report_peaks_ds = get_peaks_surrival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; 
+                    @debug "Generate A/E DS Survival Fractions"
+                    result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(aoe, e_cal, aoe_config_ch.aoe_peaks, Symbol.(aoe_config_ch.aoe_peaks_names), aoe_config_ch.aoe_peaks_windows_left, aoe_config_ch.aoe_peaks_windows_right, result_cut.lowcut,; 
                                                     bin_width_window=aoe_config_ch.aoe_peaks_bin_width_window, sigma_high_sided=result_cut.highcut, fit_funcs=Symbol.(aoe_config_ch.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks DS SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
                 end
 
-                @debug "Found DS SEP Surrival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
-                @debug "Found DS FEP Surrival Fraction at $(round(u"percent", result_peaks_ds[:Tl208FEP].sf, digits=2))"
+                @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
+                @debug "Found DS FEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208FEP].sf, digits=2))"
 
                 qbb_result_ds = nothing
                 try
-                    qbb_result_ds, _ = get_continuum_surrival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
+                    qbb_result_ds, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_ch.qbb, aoe_config_ch.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
                 catch e
                     @error "Qbb DS SF for $det cannot be generated"
                     throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
                 end
 
-                @debug "Found DS Qbb Surrival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
+                @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
 
                 p = plot(broadcast(k -> plot(report_peaks_ds[k].after, show_components=false, left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, peak_name=string(k), ms=2), keys(report_peaks_ds))..., layout=(length(report_peaks_ds), 1), size=(1000,710*length(report_peaks_ds)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
