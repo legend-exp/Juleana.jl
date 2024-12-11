@@ -14,7 +14,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("μ Corr. Mean norm. Resid."), Symbol("σ Corr. Mean norm. Resid."), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("Median norm. Resid."), Symbol("StD norm. Resid."), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
@@ -162,7 +162,10 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 end
                 GC.gc()
 
-                compton_bands = filter(band -> result_fit[band].gof.pvalue >= p_value_cut, [band for band in keys(result_fit) if result_fit[band].gof.converged])
+                qc_compton_bands = findall(band -> band in keys(result_fit) && result_fit[band].gof.converged && result_fit[band].gof.pvalue >= p_value_cut, compton_bands)
+                compton_bands = compton_bands[qc_compton_bands]
+                peakhists = compton_band_peakhists.peakhists[qc_compton_bands]
+                peakstats = compton_band_peakhists.peakstats[qc_compton_bands]
                 μ = [result_fit[band].μ for band in compton_bands]
                 σ = [result_fit[band].σ for band in compton_bands]
 
@@ -174,24 +177,54 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                     @error "AoE corrections cannot be fitted: $(truncate_string(string(e)))"
                     throw(ErrorException("AoE corrections cannot be fitted"))
                 end
+
+                # perform A/E combined fit
+                if aoe_config_ch.use_combined_fit
+                    result_fit_combined, report_fit_combined = nothing, nothing
+                    try
+                        result_fit_combined, report_fit_combined = fit_aoe_compton_combined(peakhists, peakstats, compton_bands, result_fit_single; 
+                                        e_expression = e_type, aoe_expression = aoe_expression, uncertainty = true)
+                    catch e
+                        @error "AoE compton bands cannot be fitted using a combined fit: $e"
+                        throw(ErrorException("AoE compton bands cannot be fitted using a combined fit"))
+                    end
+                    
+                    # create plots
+                    p_μ = plot(report_fit_single.report_µ, report_fit_combined.report_µ)
+                    p_σ = plot(report_fit_single.report_σ, report_fit_combined.report_σ)
+                    
+                    # create corrected A/E values
+                    aoe_corr = ljl_propfunc(result_fit_combined.func).(hit_cal)
+
+                    # create result
+                    result_correction = result_fit_combined
+                else
+                    # create plots
+                    p_μ = plot(report_fit_single.report_µ)
+                    p_σ = plot(report_fit_single.report_σ)
+
+                    # create corrected A/E values
+                    aoe_corr = ljl_propfunc(result_fit_single.func).(hit_cal)
+
+                    # add GoF to result
+                    single_fit_residuals = vcat([result_fit[band].gof.residuals_norm for band in compton_bands]...)
+                    result_correction = merge(result_fit_single, (gof = (mean_residuals = mean(single_fit_residuals), median_residuals = median(single_fit_residuals), std_residuals = std(single_fit_residuals)), ))
+                end
+                    
+                title!(p_μ, get_plottitle(filekey_ch, part, det, "A/E μ"; additiional_type=string(aoe_type)), subplot=1)
+                savelfig(savefig, p_μ, l200, part, filekey_ch, det, Symbol("compton_bands_mu_$aoe_type"))
+
+                title!(p_σ, get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)), subplot=1)
+                savelfig(savefig, p_σ, l200, part, filekey_ch, det, Symbol("compton_bands_sigma_$aoe_type"))
                 
-                p = plot(report_correction.report_µ)
-                title!(p, get_plottitle(filekey_ch, part, det, "A/E μ"; additiional_type=string(aoe_type)), subplot=1)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("compton_bands_mu_$aoe_type"))
-
-                p = plot(report_correction.report_σ)
-                title!(p, get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)), subplot=1)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("compton_bands_sigma_$aoe_type"))
-
-                # correct aoe
-                aoe_corr = ljl_propfunc(result_correction.func).(hit_cal)
+                # plot corrected A/E 2D histogram
                 p = histogram2d(e_cal, aoe_corr, nbins=(0:0.5:3000, -30:0.1:10), xlims=(0, 3000), ylims=(-30, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel=L"A/E\ (\sigma_{A/E})")
                 plot!(margin=1mm, thickness_scaling=1.6, dpi=300, framestyle=:box)
                 xticks!(0:250:3000)
-                title!(p, get_plottitle(filekey, det, "normalized A/E"; additiional_type=string(aoe_type)))
+                title!(p, get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_type)))
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_normalized_$aoe_type"))
 
-                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(compton_bands), mean(result_correction.µ_compton.gof.residuals_norm), mean(result_correction.σ_compton.gof.residuals_norm), "-")
+                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), "-")
 
                 # add results to dict
                 result_dict[aoe_type]   = result_correction
