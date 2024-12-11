@@ -91,7 +91,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             wvfs_ch = wvfs_ch[qc]
-            @debug "Surrival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
+            @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"
             throw(ErrorException("Error in QC cuts: $(truncate_string(string(e)))"))

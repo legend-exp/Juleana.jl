@@ -33,7 +33,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Surrival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
