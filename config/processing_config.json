@@ -6,7 +6,7 @@
         "runmode_settings": {
             "slurm": {
                 "flags": [
-                    "--time=08:00:00",
+                    "--time=06:00:00",
                     "--mem-bind=local",
                     "--threads-per-core=1",
                     "--cpu-bind=cores",
@@ -252,6 +252,16 @@
                 "timeout": 0
             },
             "dependencies": ["process_aoe_calibration"]
+        },
+        "p_process_sipm_calibration_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "rank": 7,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": ["process_dsp_phy"]
         }
     }
 }
