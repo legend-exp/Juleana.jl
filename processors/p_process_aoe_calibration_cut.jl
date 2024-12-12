@@ -170,9 +170,9 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 σ = [result_fit[band].σ for band in compton_bands]
 
                 # fit μ and σ with correction functions
-                result_correction, report_correction = nothing, nothing
+                result_fit_single, report_fit_single = nothing, nothing
                 try
-                    result_correction, report_correction = fit_aoe_corrections(compton_bands, μ, σ,; aoe_expression = aoe_expression, e_expression = e_type)
+                    result_fit_single, report_fit_single = fit_aoe_corrections(compton_bands, μ, σ,; aoe_expression = aoe_expression, e_expression = e_type)
                 catch e
                     @error "AoE corrections cannot be fitted: $(truncate_string(string(e)))"
                     throw(ErrorException("AoE corrections cannot be fitted"))
