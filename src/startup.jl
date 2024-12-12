@@ -16,7 +16,7 @@ using ParallelProcessingTools: getlabel
     using ParallelProcessingTools
 
     # package settings
-    LegendSpecFits.set_timelimit(10.0)
+    LegendSpecFits.set_timelimit(60.0)
 
     # pin threads
     pinthreads_auto()
