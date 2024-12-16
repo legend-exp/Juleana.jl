@@ -1,4 +1,4 @@
-function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
+function p_process_sipm_calibration_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
         
     @info "Process SiPM calibration for all partitions containing period $period"
 
@@ -40,10 +40,10 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             PropDict()
         end
 
-        partinfo_ch = partitioninfo(l200, ch, part)
+        partinfo_ch = partitioninfo(l200, ch, part; category=:phy)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
     
-        filekey_ch = start_filekey(l200, (first(partinfo_ch.period), first(partinfo_ch.run), :phy))
+        filekey_ch = first(getproperty(partinfo_ch, :phy)).startkey
         @debug "Found filekey $filekey_ch"
 
         validity_ch = get_partitionvalidity(l200, ch, det, part, :phy)
@@ -63,18 +63,18 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             for e_type in energy_types
                 log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
-                log_info_dict[aoe_type] = log_info
-                processed_dict[aoe_type] = false
+                log_info_dict[energy_types] = log_info
+                processed_dict[energy_types] = false
             end
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing energy types"
             for e_type in energy_types
-                if haskey(pars_db[det], e_type)
+                if haskey(pars_db_ch[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, pars_db[det][e_type].fit.positions[1], pars_db[det][e_type].fit.resolutions_cal[1], pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, pars_db_ch[det][e_type].fit.positions[1], pars_db_ch[det][e_type].fit.resolutions_cal[1], pars_db_ch[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -105,7 +105,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 try
                     @debug "Get $e_type data"
                     # open hit data file
-                    e_uncal = reduce(vcat, getproperty(data_ch_after_qc, e_type))
+                    e_uncal = filter(isfinite, reduce(vcat, getproperty(data_ch_after_qc, e_type)))
                     e_uncal_func = "$e_type"
                 catch e
                     @error "Error in $e_type data extraction for channel $ch: $(truncate_string(string(e)))"
