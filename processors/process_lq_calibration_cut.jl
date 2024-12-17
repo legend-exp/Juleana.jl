@@ -36,8 +36,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         ############
         ############
         #fill config with:
-
-        #fill config with:
         lq_classifiers=[:lq_classifier]
 
         #for lq_ctc_correction:
@@ -61,9 +59,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         cut_truncation_sigma=2.0
         
         #for get_peaks_surrival_fractions
-
-
-        #In ein config file auslagern
         lq_peaks_names = [:Tl208DEP, :Tl208FEP]
         lq_peaks = [1592.53, 2614.51] * u"keV"
         lq_peaks_windows_left = [10.0u"keV", 10.0u"keV"]
@@ -122,6 +117,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
         hit_cal = nothing
         e_cal, e_uncal, lq, qdrift = nothing, nothing, nothing, nothing
+        aoe_cut = nothing
         DEP_σ = nothing
 
         try 
@@ -140,7 +136,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             pd = l200.par.rpars.ecal(filekey) 
             DEP_σ = mvalue(pd[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
 
-
         catch e
             @error "Error in loading data: $e"
             throw(ErrorException("Error in loading data: $e"))
@@ -153,15 +148,11 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
             lq_e_corr = lq ./ e_uncal
             dt_eff = qdrift ./ e_uncal
-
-            #cuts_lq = cut_single_peak(lq, 0.0, quantile(filter(isfinite, lq), 0.99); n_bins=-1)
-            #lq ./= cuts_lq.max
-
             lq_e_corr_expression = "(lq / $e_uncal_type)"
             dt_eff_expression = "(qdrift / $e_uncal_type)"
         catch e
-            @error "Error in energy correction: $e"
-            throw(ErrorException("Error in energy correction: $e"))
+            @error "Error in energy correction and normalization: $e"
+            throw(ErrorException("Error in energy correction and normalization: $e"))
         end
 
 
@@ -269,7 +260,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
                 result_peaks, report_peaks = nothing, nothing
                 try
-                    result_peaks, report_peaks = get_peaks_surrival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true)
+                    result_peaks, report_peaks = get_peaks_surrival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
                 catch e
                     @error "Error in peak surrival fraction calculation: $e"
                     throw(ErrorException("Error in peak surrival fraction calculation: $e"))
@@ -287,7 +278,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
                 result_peaks_aoe, report_peaks_aoe = nothing, nothing
                 try
-                    result_peaks_aoe, report_peaks_aoe = get_peaks_surrival_fractions(lq_class[aoe_cut], e_cal[aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true)
+                    result_peaks_aoe, report_peaks_aoe = get_peaks_surrival_fractions(lq_class[aoe_cut], e_cal[aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true. fit_funcs=lq_peaks_fit_funcs)
                 catch e
                     @error "Error in peak surrival fraction calculation: $e"
                     throw(ErrorException("Error in peak surrival fraction calculation: $e"))
@@ -301,11 +292,10 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                     throw(ErrorException("Error in qbb surrival fraction calculation: $e"))
                 end
 
-
                 # save results
                 final_result = merge(result, (peaks = (lq = result_peaks, lq_aoe = result_peaks_aoe), qbb = (lq = result_qbb, lq_aoe = result_qbb_aoe)))
 
-                log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_class, final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "-"))
+                log_info = log_nt_cut((ch, det, ProcessStatus(1), classifier, final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "-"))
 
                 # add results to dict
                 result_dict[Symbol("lq_cut_of_$classifier")] = final_result
@@ -315,7 +305,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 GC.gc()
             catch e
                 @error "Error in lq cut generation: $(truncate_string(string(e)))"
-                log_info = log_nt_cut((ch, det, ProcessStatus(0), lq_class, "-", "-", "-", truncate_string(string(e))))
+                log_info = log_nt_cut((ch, det, ProcessStatus(0), classifier, "-", "-", "-", truncate_string(string(e))))
                 
                 # add results to dict
                 log_info_dict[Symbol("lq_cut_of_$classifier")] = log_info
