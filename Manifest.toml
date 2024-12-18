@@ -1142,9 +1142,9 @@ version = "4.0.0+0"
 
 [[deps.LIBLINEAR]]
 deps = ["Libdl", "SparseArrays", "liblinear_jll"]
-git-tree-sha1 = "711256dbb32d0a85ef0ea721d7729f154014c2b2"
+git-tree-sha1 = "2cd424d3bf9b36098009df5b1f399614c12b2ee4"
 uuid = "2d691ee1-e668-5016-a719-b2531b85e0f5"
-version = "0.7.0"
+version = "0.7.1"
 
 [[deps.LIBSVM]]
 deps = ["LIBLINEAR", "LinearAlgebra", "ScikitLearnBase", "SparseArrays", "libsvm_jll"]
@@ -1219,7 +1219,7 @@ version = "0.2.3"
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful", "UnitfulAtomic"]
 git-tree-sha1 = "fcecee0d994e4f8079ffc1d19d6984a7f96ec5cf"
-repo-rev = "patch_partitioninfo"
+repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
 version = "0.4.0"
@@ -2649,9 +2649,15 @@ uuid = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 version = "1.0.6"
 
 [[deps.UnsafeAtomics]]
-git-tree-sha1 = "6331ac3440856ea1988316b46045303bef658278"
+git-tree-sha1 = "b13c4edda90890e5b04ba24e20a310fbe6f249ff"
 uuid = "013be700-e6cd-48c3-b4a1-df204f14c38f"
-version = "0.2.1"
+version = "0.3.0"
+
+    [deps.UnsafeAtomics.extensions]
+    UnsafeAtomicsLLVM = ["LLVM"]
+
+    [deps.UnsafeAtomics.weakdeps]
+    LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"
 
 [[deps.Unzip]]
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
