@@ -49,7 +49,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         validity_ch = get_partitionvalidity(l200, ch, det, part, :phy)
 
         calibration_config = dataprod_config(l200).sipm(filekey_ch).calibration
-        calibration_config_ch = merge(calibration_config.default, get(calibration_config, det, PropDict()))
+        calibration_config_ch = merge(calibration_config.p_default, get(calibration_config.p, det, PropDict()))
         @debug "Loaded calibration config: $(calibration_config_ch)"
 
         energy_types = Symbol.(calibration_config_ch.energy_types)
