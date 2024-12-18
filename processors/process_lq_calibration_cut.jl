@@ -32,46 +32,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     flush(stdout)
 
     function ch_lq_cut(chinfo_ch::NamedTuple)
-
-        ############
-        ############
-        #fill config with:
-        lq_classifiers=[:lq_classifier]
-
-        # only e_cusp, the best energy type from calibration?
-        e_cal_type = :e_cusp_ctc_cal            # energy type for calibrated energy
-        e_uncal_type = :e_cusp                  # energy type for uncalibrated energy
-        lq_type = :lq                            # lq type
-
-        #for lq_ctc_correction:
-        DEP_µ = 1592.53u"keV"
-        ctc_dep_edgesigma=3.0               # sigma window for DEP peak
-        ctc_driftime_cutoff_method= :percentile     # method for drift time cutoff
-        lq_outlier_sigma= 2.0                   # sigma for lq outlier #### in your pars as ctc_qdrift_cutoff_sigma
-        drift_time_outlier_sigma=2.0            # sigma for drift time outlier                  
-
-        ctc_dt_eff_low_quantile=0.15 
-        ctc_dt_eff_high_quantile=0.95
-        pol_fit_order=1
-
-        #for lq_cut
-        cut_sigma=3.0 
-        dep_sideband_sigma = 4.5
-        cut_truncation_sigma=2.0
-        
-        #for get_peaks_surrival_fractions
-        lq_peaks_names = [:Tl208DEP, :Tl208FEP]
-        lq_peaks = [1592.53, 2614.51] * u"keV"
-        lq_peaks_windows_left = [10.0u"keV", 10.0u"keV"]
-        lq_peaks_windows_right = [10.0u"keV", 10.0u"keV"]
-        lq_peaks_fit_funcs = [:gamma_tails_bckFlat, :gamma_def]
-        qbb_pos = 2039.0u"keV"
-        qbb_window = 10.0u"keV"
-
-
-        ##############
-        ##############
-
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
@@ -83,19 +43,36 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
+        # load lq config
         lq_config_ch = merge(lq_config.default, get(lq_config, det, PropDict()))
 
-        e_cal_type              = Symbol(lq_config_ch.e_cal_type)
-        e_uncal_type            = Symbol(lq_config_ch.e_uncal_type)
-        
-        DEP_edgesigma           = lq_config_ch.ctc_dep_edgesigma
-        ctc_mode                = Symbol(lq_config_ch.ctc_mode)
-        ctc_qdrift_cutoff_sigma = lq_config_ch.ctc_qdrift_cutoff_sigma
-        ctc_prehist_sigma       = lq_config_ch.ctc_prehist_sigma
-        lq_types                = collect(keys(lq_config_ch.lq_funcs))
-        lq_funcs                = lq_config_ch.lq_funcs
+        e_cal_type                  = Symbol(lq_config_ch.e_cal_type)
+        e_uncal_type                = Symbol(lq_config_ch.e_uncal_type)
+        lq_type                     = Symbol(lq_config_ch.lq_type)
+        lq_classifiers              = Symbol.(lq_config_ch.lq_classifiers)
 
-        lq_classifiers          = Symbol.(lq_config_ch.lq_classifiers)
+        #for lq_ctc_correction
+        ctc_dep_edgesigma           = lq_config_ch.ctc_dep_edgesigma
+        ctc_driftime_cutoff_method  = Symbol(lq_config_ch.ctc_driftime_cutoff_method)
+        lq_outlier_sigma            = lq_config_ch.lq_outlier_sigma
+        dt_eff_outlier_sigma        = lq_config_ch.dt_eff_outlier_sigma
+        ctc_dt_eff_low_quantile     = lq_config_ch.ctc_dt_eff_low_quantile
+        ctc_dt_eff_high_quantile    = lq_config_ch.ctc_dt_eff_high_quantile
+        pol_fit_order               = lq_config_ch.pol_fit_order
+
+        #for lq_cut
+        cut_sigma                   = lq_config_ch.cut_sigma
+        dep_sideband_sigma          = lq_config_ch.dep_sideband_sigma
+        cut_truncation_sigma        = lq_config_ch.cut_truncation_sigma
+
+        #for get_peaks_surrival_fractions
+        lq_peaks_names              = Symbol.(lq_config_ch.lq_peaks_names)
+        lq_peaks                    = lq_config_ch.lq_peaks
+        lq_peaks_windows_left       = lq_config_ch.lq_peaks_windows_left
+        lq_peaks_windows_right      = lq_config_ch.lq_peaks_windows_right
+        lq_peaks_fit_funcs          = Symbol.(lq_config_ch.lq_peaks_fit_funcs)
+        qbb_pos                     = lq_config_ch.qbb
+        qbb_window                  = lq_config_ch.qbb_window
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing lq_classifiers"
@@ -119,7 +96,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         hit_cal = nothing
         e_cal, e_uncal, lq, qdrift = nothing, nothing, nothing, nothing
         aoe_cut = nothing
-        DEP_σ = nothing
+        dep_σ = nothing
 
         try 
             @debug("Load data")
@@ -135,7 +112,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
 
             pd = l200.par.rpars.ecal(filekey) 
-            DEP_σ = mvalue(pd[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
+            dep_σ = mvalue(pd[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
 
         catch e
             @error "Error in loading data: $e"
@@ -169,8 +146,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 @debug "Calibrate $classifier"
                 drift_result, drift_report = nothing, nothing
                 try 
-                    drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, DEP_µ, DEP_σ;
-                    ctc_dep_edgesigma=ctc_dep_edgesigma , ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, lq_outlier_sigma = lq_outlier_sigma, drift_time_outlier_sigma=drift_time_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
+                    drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
+                    ctc_dep_edgesigma=ctc_dep_edgesigma , ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, lq_outlier_sigma = lq_outlier_sigma, dt_eff_outlier_sigma=dt_eff_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
                 catch e
                     @error "Error in drift time correction: $e"
                     throw(ErrorException("Error in drift time correction: $e"))
@@ -231,7 +208,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 #calculate LQ cut parameter value
                 result, report = nothing, nothing
                 try
-                    result, report = lq_cut(DEP_µ, DEP_σ, e_cal, lq_class; cut_sigma=cut_sigma, dep_sideband_sigma=dep_sideband_sigma, cut_truncation_sigma=cut_truncation_sigma)
+                    result, report = lq_cut(dep_µ, dep_σ, e_cal, lq_class; cut_sigma=cut_sigma, dep_sideband_sigma=dep_sideband_sigma, cut_truncation_sigma=cut_truncation_sigma)
                 catch e
                     @error "Error in LQ cut calculation: $e"
                     throw(ErrorException("Error in LQ cut calculation: $e"))
