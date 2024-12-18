@@ -15,8 +15,8 @@ function process_sipm_thresholds_phy(processing_config::PropDict, l200::LegendDa
     @debug "Loaded Optimization config: $(optimization_config)"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.sipmopt), string(period)))
-    pars_db = PropDict(l200.par.rpars.sipmopt[period, run])
+    mkpath(joinpath(data_path(l200.par.rpars.sipmthres), string(period)))
+    pars_db = PropDict(l200.par.rpars.sipmthres[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
@@ -130,8 +130,8 @@ function process_sipm_thresholds_phy(processing_config::PropDict, l200::LegendDa
     @info "Finished SiPM threshold extraction"
 
     pars_db = create_pars(pars_db, result_sipm_threshold)
-    writelprops(l200.par.rpars.sipmopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.sipmopt, filekey, (period, run))
+    writelprops(l200.par.rpars.sipmthres[period], run, pars_db)
+    writevalidity(l200.par.rpars.sipmthres, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
