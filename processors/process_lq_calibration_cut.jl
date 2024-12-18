@@ -38,16 +38,17 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         #fill config with:
         lq_classifiers=[:lq_classifier]
 
+        # only e_cusp, the best energy type from calibration?
+        e_cal_type = :e_cusp_ctc_cal            # energy type for calibrated energy
+        e_uncal_type = :e_cusp                  # energy type for uncalibrated energy
+        lq_type = :lq                            # lq type
+
         #for lq_ctc_correction:
         DEP_µ = 1592.53u"keV"
         ctc_dep_edgesigma=3.0               # sigma window for DEP peak
         ctc_driftime_cutoff_method= :percentile     # method for drift time cutoff
         lq_outlier_sigma= 2.0                   # sigma for lq outlier #### in your pars as ctc_qdrift_cutoff_sigma
         drift_time_outlier_sigma=2.0            # sigma for drift time outlier                  
-
-        # only e_cusp, the best energy type from calibration?
-        e_cal_type = :e_cusp_ctc_cal            # energy type for calibrated energy
-        e_uncal_type = :e_cusp                  # energy type for uncalibrated energy
 
         ctc_dt_eff_low_quantile=0.15 
         ctc_dt_eff_high_quantile=0.95
@@ -66,6 +67,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         lq_peaks_fit_funcs = [:gamma_tails_bckFlat, :gamma_def]
         qbb_pos = 2039.0u"keV"
         qbb_window = 10.0u"keV"
+
 
         ##############
         ##############
@@ -99,15 +101,14 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             @debug "Channel $(det) already processed, check missing lq_classifiers"
             for classifier in lq_classifiers
                 if !haskey(pars_db[det], classifier)
-                    pars_db_det_classifier = pars_db[det][classifier]
-                    log_info = log_nt_cal(ch, det, ProcessStatus(1), classifier, drift_result.func,"Already processed --> skipped.")
+                    log_ch = log_nt_cal(ch, det, ProcessStatus(1), classifier, pars_db[det][classifier].drift_result.func,"Already processed --> skipped.")
                     processed_dict[classifier] = false
                     log_info_dict[classifier] = log_ch
                 end
             end
             for classifier in lq_classifiers
                 if haskey(pars_db[det], Symbol("lq_cut_of_$classifier"))
-                    log_info = log_nt_cut((ch, det, ProcessStatus(1), classifier, final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, ProcessStatus(1), classifier, pars_db[det][classifier].final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -141,28 +142,30 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             throw(ErrorException("Error in loading data: $e"))
         end
 
-        lq_e_corr, dt_eff = nothing, nothing
-        lq_e_corr_expression, dt_eff_expression = nothing, nothing
-        try
-            @debug "Calculate energy corrected and normalized lq and effective drift time"
-
-            lq_e_corr = lq ./ e_uncal
-            dt_eff = qdrift ./ e_uncal
-            lq_e_corr_expression = "(lq / $e_uncal_type)"
-            dt_eff_expression = "(qdrift / $e_uncal_type)"
-        catch e
-            @error "Error in energy correction and normalization: $e"
-            throw(ErrorException("Error in energy correction and normalization: $e"))
-        end
-
-
         @showprogress desc="Detector: $det" for classifier in lq_classifiers
             if haskey(processed_dict, classifier)
                 println("Already processed")
                 continue
             end
             try
-                
+                @debug "Calculate energy corrected and normalized lq and effective drift time"
+                lq_e_corr, dt_eff = nothing, nothing
+                lq_e_corr_expression, dt_eff_expression = nothing, nothing
+                try
+                    lq_e_corr = lq ./ e_uncal
+                    dt_eff = qdrift ./ e_uncal
+
+                    #normalization
+                    cuts_lq = cut_single_peak(lq_e_corr, 0.0, quantile(filter(isfinite, lq_e_corr), 0.99); n_bins=-1)
+                    lq_e_corr ./= cuts_lq.max
+
+                    lq_e_corr_expression = "(($lq_type / $e_uncal_type) / $(cuts_lq.max))"
+                    dt_eff_expression = "(qdrift / $e_uncal_type)"
+                catch e
+                    @error "Error in energy correction and normalization: $e"
+                    throw(ErrorException("Error in energy correction and normalization: $e"))
+                end
+
                 @debug "Calibrate $classifier"
                 drift_result, drift_report = nothing, nothing
                 try 
