@@ -53,6 +53,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
         #for lq_ctc_correction
         ctc_dep_edgesigma           = lq_config_ch.ctc_dep_edgesigma
+        ctc_lq_precut_relative_cut  = lq_config_ch.ctc_lq_precut_relative_cut
         ctc_driftime_cutoff_method  = Symbol(lq_config_ch.ctc_driftime_cutoff_method)
         lq_outlier_sigma            = lq_config_ch.lq_outlier_sigma
         dt_eff_outlier_sigma        = lq_config_ch.dt_eff_outlier_sigma
@@ -147,7 +148,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 drift_result, drift_report = nothing, nothing
                 try 
                     drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
-                    ctc_dep_edgesigma=ctc_dep_edgesigma , ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, lq_outlier_sigma = lq_outlier_sigma, dt_eff_outlier_sigma=dt_eff_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
+                    ctc_dep_edgesigma=ctc_dep_edgesigma , ctc_lq_precut_relative_cut=ctc_lq_precut_relative_cut, lq_outlier_sigma = lq_outlier_sigma, ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, dt_eff_outlier_sigma=dt_eff_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
                 catch e
                     @error "Error in drift time correction: $e"
                     throw(ErrorException("Error in drift time correction: $e"))
