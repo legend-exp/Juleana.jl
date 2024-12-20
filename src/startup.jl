@@ -11,12 +11,12 @@ using ParallelProcessingTools: getlabel
     using Unitful, UnitfulAtomic, Format, LaTeXStrings, Printf, Measures, Dates, Measurements
     using Measurements: value as mvalue
     using Measurements: uncertainty as muncert
-    using Plots, StatsPlots
+    using Plots, StatsPlots, KernelDensity
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
 
     # package settings
-    LegendSpecFits.set_timelimit(60.0)
+    LegendSpecFits.set_timelimit(180.0)
 
     # pin threads
     pinthreads_auto()
