@@ -31,7 +31,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded optimization parameters"
 
     # pars_sipm = get_values(l200.par[pars_type, :sipm](filekey))
-    pars_sipm = get_values(l200.par[:rpars, :sipmopt](filekey))
+    pars_sipm = get_values(l200.par[:rpars, :sipmthres](filekey))
     @debug "Loaded sipm parameters"
     
     if reprocess @info "Reprocess all filekeys and channels"
