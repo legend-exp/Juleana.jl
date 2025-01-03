@@ -22,7 +22,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Drift Correction Type"), Symbol("LQ classifier function"), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("Drift Correction Type"), Symbol("LQ classifier function"), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("LQ cut Value"), Symbol("Continuum SF"), Symbol("DEP SF"), :CutError)}
 
     # get worker pool
@@ -52,6 +52,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         lq_classifiers              = Symbol.(lq_config_ch.lq_classifiers)
 
         #for lq_ctc_correction
+        dep_µ                       = lq_config_ch.dep_µ
         ctc_dep_edgesigma           = lq_config_ch.ctc_dep_edgesigma
         ctc_lq_precut_relative_cut  = lq_config_ch.ctc_lq_precut_relative_cut
         ctc_driftime_cutoff_method  = Symbol(lq_config_ch.ctc_driftime_cutoff_method)
@@ -79,7 +80,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             @debug "Channel $(det) already processed, check missing lq_classifiers"
             for classifier in lq_classifiers
                 if !haskey(pars_db[det], classifier)
-                    log_ch = log_nt_cal(ch, det, ProcessStatus(1), classifier, pars_db[det][classifier].drift_result.func,"Already processed --> skipped.")
+                    log_ch = log_nt_cal(ch, det, ProcessStatus(1), classifier, ctc_driftime_cutoff_method, pars_db[det][classifier].drift_result.func,"Already processed --> skipped.")
                     processed_dict[classifier] = false
                     log_info_dict[classifier] = log_ch
                 end
@@ -88,8 +89,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 if haskey(pars_db[det], Symbol("lq_cut_of_$classifier"))
                     log_info = log_nt_cut((ch, det, ProcessStatus(1), classifier, pars_db[det][classifier].final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "Already processed --> skipped."))
                     # add results to dict
-                    log_info_dict[aoe_classifier] = log_info
-                    processed_dict[aoe_classifier] = false
+                    log_info_dict[classifier] = log_info
+                    processed_dict[classifier] = false
                 end
             end
         end
