@@ -41,10 +41,10 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         det_puls = chinfo_puls.detector
         
         # get pulser filename
-        pulserfilename = l200.tier[:jlpuls, filekey, ch_puls]
+        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpuls, :tags]), "Already processed --> skipped.")))
+            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpls, :tags]), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
@@ -54,7 +54,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
-                outdata[ch_puls, :jlpuls, :tags] = data_puls;
+                outdata[ch_puls, :jlpls, :tags] = data_puls;
             end
         end
         return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
@@ -79,7 +79,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         det_puls = chinfo_puls.detector
 
         hitchfilename = l200.tier[:jlhit, filekey, ch]
-        pulserfilename = l200.tier[:jlpuls, filekey, ch_puls]
+        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
             log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
@@ -126,7 +126,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         try
             @debug "Get Pulser tags"
             # pulser_tag = pulser_cal_qc(data_ch, pulser_config_ch; n_pulser_identified=100)
-            data_pulser = lh5open(pulserfilename)[ch_puls, :jlpuls, :tags][:]
+            data_pulser = lh5open(pulserfilename)[ch_puls, :jlpls, :tags][:]
             is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp, ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
