@@ -18,8 +18,8 @@
                 "julia_settings": []
             },
             "local": {
-                "n": 14,
-                "julia_settings": []
+                "n": 32,
+                "julia_settings": ["-t 2"]
             }
         },
         "env_variables": {
@@ -140,7 +140,7 @@
             },
             "dependencies": []
         },
-        "process_sipm_thresholds_phy": {
+        "process_sipm_optimization_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
@@ -148,7 +148,7 @@
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
-                "max_wvfs": 10000
+                "max_wvfs": 1000000
             },
             "dependencies": []
         },
