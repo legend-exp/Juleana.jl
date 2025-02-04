@@ -1,4 +1,4 @@
-function process_sipm_optimization_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=1000000, max_wvfs_parallel::Int=1000)
+function process_sipm_optimization_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
         
     @info "Process SiPM optimization for period $period and run $run"
 
@@ -103,6 +103,8 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         pulser_config_ch       = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
         e_filter               = collect(keys(optimization_config_ch.e_filter))
 
+        max_wvfs = optimization_config_ch.max_wvfs
+
         result_wl_dict = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
@@ -144,8 +146,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         wvfs_ch = nothing
         try
             @debug "Get Pulser tags"
-            pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
-            data_pulser = lh5open(pulserfilename)[ch_puls, :jlpls, :tags][:]
+            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
             is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             wvfs_ch = data_ch[findall(.!is_pulser)].waveform_bit_drop[:]
@@ -170,7 +171,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
                 trig_max_grid, thresholds_grid = nothing, nothing
                 try
                     @debug "Generate $filter_type DSP filter grid"
-                    dsp_grid = getfield(Main, Symbol("dsp_$(filter_type)_sipm_optimization_compressed"))(1000, decode_data(wvfs_ch), dsp_config_ch, optimization_config_flt)
+                    dsp_grid = getfield(Main, Symbol("dsp_$(filter_type)_sipm_optimization_compressed"))(10000, decode_data(wvfs_ch), dsp_config_ch, optimization_config_flt)
                     trig_max_grid = dsp_grid.trig_max_grid
                     thresholds_grid = dsp_grid.thresholds_grid
                 catch e
