@@ -1,4 +1,4 @@
-function process_sipm_optimization_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+function process_sipm_optimization_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, only_pulser::Bool=false)
         
     @info "Process SiPM optimization for period $period and run $run"
 
@@ -257,14 +257,16 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     # get start time
     start_time = now()
 
-    # execute in parallel
-    result_sipm_optimization = parallel(chinfo, ch_sipm_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
-    @info "Finished SiPM optimization extraction"
+    if !only_pulser
+        # execute in parallel
+        result_sipm_optimization = parallel(chinfo, ch_sipm_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+        @info "Finished SiPM optimization extraction"
 
-    pars_db = create_pars(pars_db, result_sipm_optimization)
-    writelprops(l200.par.rpars.sipmopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.sipmopt, filekey, (period, run))
-    @info "Saved pars to disk"
+        pars_db = create_pars(pars_db, result_sipm_optimization)
+        writelprops(l200.par.rpars.sipmopt[period], run, pars_db)
+        writevalidity(l200.par.rpars.sipmopt, filekey, (period, run))
+        @info "Saved pars to disk"
+    end
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -276,8 +278,10 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results Pulser")
     lreport!(report, create_logtbl(result_puls))
-    lreport!(report, "# Results")
-    lreport!(report, create_logtbl(result_sipm_optimization))
+    if !only_pulser
+        lreport!(report, "# Results")
+        lreport!(report, create_logtbl(result_sipm_optimization))
+    end
 
     @info "Write log report"
     writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)

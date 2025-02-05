@@ -140,7 +140,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                 trig_max_grid, thresholds_grid = nothing, nothing
                 try
                     @debug "Generate $filter_type DSP filter grid"
-                    dsp_grid = getfield(Main, Symbol("dsp_$(filter_type)_sipm_optimization_compressed"))(10000, decode_data(wvfs_ch), dsp_config_ch, optimization_config_flt)
+                    dsp_grid = getfield(Main, Symbol("dsp_$(filter_type)_sipm_optimization_compressed"))(1000, decode_data(wvfs_ch), dsp_config_ch, optimization_config_flt)
                     trig_max_grid = dsp_grid.trig_max_grid
                     thresholds_grid = dsp_grid.thresholds_grid
                 catch e

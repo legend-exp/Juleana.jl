@@ -1,6 +1,6 @@
 {    
     "config": {
-        "runmode": "slurm",
+        "runmode": "local",
         "submit_jobs": false,
         "remote_workers": [],
         "runmode_settings": {
@@ -30,7 +30,7 @@
     },
     "processing": {
         "periods": [3],
-        "runs" : [0],
+        "runs" : "all",
         "analysis_runs_only": true,
         "only_partitions": false,
         "only_runs": false
@@ -147,7 +147,8 @@
             "rank": 10,
             "kwargs": {
                 "reprocess": true,
-                "timeout": 0
+                "timeout": 0,
+                "only_pulser": true
             },
             "dependencies": []
         },
