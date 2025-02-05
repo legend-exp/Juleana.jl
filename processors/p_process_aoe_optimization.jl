@@ -38,6 +38,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
         @info "Processing channel $ch ($det)"
 
+        mkpath(joinpath(data_path(l200.par.ppars.aoeopt), string(det)))
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoeopt), "$det", "$part.json"))
             PropDict(l200.par.ppars.aoeopt[det, part])
         else

@@ -34,6 +34,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
         @info "Processing channel $ch ($det)"
 
+        mkpath(joinpath(data_path(l200.par.ppars.aoe), string(det)))
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoe), "$det", "$part.json"))
             PropDict(l200.par.ppars.aoe[det, part])
         else
