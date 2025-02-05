@@ -1,4 +1,4 @@
-function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     @info "Process decay time for all partitions containing period $period"
 
     rinfo = runinfo(l200, period)
@@ -36,6 +36,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         det = chinfo_ch.detector
         part = chinfo_ch.partition
 
+        mkpath(joinpath(data_path(l200.par.ppars.pz), string(det)))
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.pz), "$det", "$part.json"))
             PropDict(l200.par.ppars.pz[det, part])
         else
@@ -77,6 +78,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         nbins         = pz_config_ch.nbins
         rel_cut_fit   = pz_config_ch.rel_cut_fit
         n_evts        = pz_config_ch.n_evts
+        max_wvfs      = pz_config_ch.max_wvfs
         select_random = pz_config_ch.select_random
         peakname      = Symbol(pz_config_ch.peakname)
         qc_string     = pz_config_ch.qc
@@ -85,8 +87,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         wvfs_ch = nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = load_partition_ch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(peakname, ), n_evts=n_evts, select_random=select_random)
-            wvfs_ch = getproperty(data, peakname).waveform_presummed[:]
+            data = read_ldata(peakname, l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
+            wvfs_ch = data.waveform_presummed[:]
             if length(wvfs_ch) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 wvfs_ch = wvfs_ch[rand(1:max_wvfs, max_wvfs)]
@@ -102,7 +104,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
             @debug "Get QC cuts"
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
-            wvfs_ch = wvfs_ch[qc]
+            wvfs_ch = wvfs_ch[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"
