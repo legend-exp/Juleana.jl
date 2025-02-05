@@ -31,6 +31,7 @@
     "processing": {
         "periods": [3],
         "runs" : "all",
+        "runs" : "all",
         "analysis_runs_only": true,
         "only_partitions": false,
         "only_runs": false

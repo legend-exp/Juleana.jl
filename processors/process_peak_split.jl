@@ -37,7 +37,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         fast_flatten([
             LHDataStore(
                 ds -> begin
-                    @info "Reading DAQ energy for channel $ch from \"$(ds.data_store.filename)\""
+                    @debug "Reading DAQ energy for channel $ch from \"$(ds.data_store.filename)\""
                     ds[ch].raw.daqenergy[:]
                 end,
                 filename
@@ -134,7 +134,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         raw_config_ch = merge(raw_config.default, get(raw_config, det, PropDict()))
 
-        # energy windows of extracted peaks --> Should move to metadata config
         energy_windows = IdDict(keys(raw_config_ch.peaks) .=> [first(v)..last(v) for v in values(raw_config_ch.peaks)])
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
@@ -166,17 +165,20 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             # get raw daqenergy
             @timeit split_timer "Get DAQ Energy" begin
                 e_raw = get_daqenergy_for_ch(filelist, ch)
-                result_autocal, report_autocal = autocal_energy(e_raw, raw_config_ch.th228_cal_lines; min_e=raw_config_ch.min_e, max_e_binning_quantile=raw_config_ch.max_e_binning_quantile, σ=raw_config_ch.σ, threshold=raw_config_ch.threshold, min_n_peaks=raw_config_ch.min_n_peaks, max_n_peaks=raw_config_ch.max_n_peaks, α=raw_config_ch.α, rtol=raw_config_ch.rtol)
+                @info "Auto calibrating $ch ($det)"
+                result_autocal, report_autocal = autocal_energy(e_raw, raw_config_ch.th228_cal_lines; mode=:ratio, min_e=raw_config_ch.min_e, max_e=raw_config_ch.max_e, max_e_binning_quantile=raw_config_ch.max_e_binning_quantile, σ=raw_config_ch.σ, threshold=raw_config_ch.threshold, min_n_peaks=raw_config_ch.min_n_peaks, max_n_peaks=raw_config_ch.max_n_peaks, α=raw_config_ch.α, rtol=raw_config_ch.rtol)
                 f_calib = result_autocal.f_calib
                 p = plot(report_autocal.h_cal, xlabel="Energy", ylabel="Counts", label="e_fc", legend=:topright, yscale=:log10, st=:stepbins)
+                vline!(p, ustrip.(raw_config_ch.th228_cal_lines), label="Th228 Calibration Lines", color=:red)
                 title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+                plot!(p, xticks=0:250:3000, framestyle=:box)
                 savelfig(savefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
             GC.gc()
             @info "Filtering channel $ch ($det)"
             @timeit split_timer "Filter Raw" begin
                 slim_data = flatten_by_key([lh5open(filename) do ds
-                    @info "Filtering $(filename), channel $ch"
+                    @debug "Filtering $(filename) for channel $ch ($det)"
                     filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows; chunk_size=100)
                     # filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
                 end for filename in filelist])
@@ -190,7 +192,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             @info "Writing $output_filename"
             
             @timeit split_timer "Write Data" begin
-                write_files(output_filename, use_cache = true, mode = CreateOrReplace()) do outfile
+                write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
                             output[ch, :jlpeaks, label] = slim_data[label]
