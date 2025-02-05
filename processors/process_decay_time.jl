@@ -1,4 +1,4 @@
-function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000)
+function process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
         
     @info "Process decay time for period $period and run $run"
 
@@ -60,6 +60,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         rel_cut_fit  = pz_config_ch.rel_cut_fit
         peakname     = Symbol(pz_config_ch.peakname)
         qc_string    = pz_config_ch.qc
+        max_wvfs     = pz_config_ch.max_wvfs
 
         filename = l200.tier[:jlpeaks, filekey, ch]
         if !isfile(filename)
@@ -90,7 +91,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
             @debug "Get QC cuts"
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
-            wvfs_ch = wvfs_ch[qc]
+            wvfs_ch = wvfs_ch[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"

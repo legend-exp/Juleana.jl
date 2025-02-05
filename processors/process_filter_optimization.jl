@@ -1,4 +1,4 @@
-function process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000)
+function process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
     
     @info "Optimize filter for period $period and run $run"
 
@@ -83,6 +83,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         end
         yield()
 
+        max_wvfs = optimization_config_ch.max_wvfs
+
         # load data
         wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
         try
@@ -112,9 +114,9 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
-            wvfs_ch_pre = wvfs_ch_pre[qc]
-            wvfs_ch_wdw = wvfs_ch_wdw[qc]
-            blmean_wdw = blmean_wdw[qc]
+            wvfs_ch_pre = wvfs_ch_pre[findall(qc)]
+            wvfs_ch_wdw = wvfs_ch_wdw[findall(qc)]
+            blmean_wdw = blmean_wdw[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"
