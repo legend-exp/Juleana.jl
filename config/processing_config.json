@@ -1,6 +1,6 @@
 {    
     "config": {
-        "runmode": "slurm",
+        "runmode": "local",
         "submit_jobs": false,
         "remote_workers": [],
         "runmode_settings": {
@@ -18,8 +18,8 @@
                 "julia_settings": []
             },
             "local": {
-                "n": 64,
-                "julia_settings": []
+                "n": 32,
+                "julia_settings": ["-t 2"]
             }
         },
         "env_variables": {
@@ -30,6 +30,7 @@
     },
     "processing": {
         "periods": [3],
+        "runs" : "all",
         "runs" : "all",
         "analysis_runs_only": true,
         "only_partitions": false,
@@ -140,7 +141,7 @@
             },
             "dependencies": []
         },
-        "process_sipm_thresholds_phy": {
+        "process_sipm_optimization_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
@@ -148,7 +149,7 @@
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
-                "max_wvfs": 10000
+                "only_pulser": true
             },
             "dependencies": []
         },
@@ -163,7 +164,7 @@
                 "max_wvfs": 1000,
                 "use_partition_filter": true
             },
-            "dependencies": []
+            "dependencies": ["p_process_sipm_optimization_phy"]
         },
         "process_sipm_calibration_phy": {
             "enabled": true,
@@ -253,10 +254,21 @@
             },
             "dependencies": ["process_aoe_calibration"]
         },
+        "p_process_sipm_optimization_phy": {
+            "enabled": false,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 7,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": ["process_sipm_optimization_phy"]
+        },
         "p_process_sipm_calibration_phy": {
             "enabled": true,
             "n_workers": "all",
-            "rank": 7,
+            "rank": 8,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
