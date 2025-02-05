@@ -188,7 +188,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 GC.gc()
                 result_ft, report_ft = nothing, nothing
                 try
-                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size))
+                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; 
+                                            n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size), ft_fwhm_tol=optimization_config_ch.ft_fwhm_tol)
                 catch e
                     @error "Failed $filter_type flat-top time extraction: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_string(string(e)))"))
