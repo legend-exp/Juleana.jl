@@ -126,9 +126,7 @@ version = "3.5.1+1"
 [[deps.ArrayInterface]]
 deps = ["Adapt", "LinearAlgebra"]
 git-tree-sha1 = "017fcb757f8e921fb44ee063a7aafe5f89b86dd1"
-git-tree-sha1 = "017fcb757f8e921fb44ee063a7aafe5f89b86dd1"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "7.18.0"
 version = "7.18.0"
 
     [deps.ArrayInterface.extensions]
@@ -468,9 +466,7 @@ version = "0.1.1"
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
 git-tree-sha1 = "f36e5e8fdffcb5646ea5da81495a5a7566005127"
-git-tree-sha1 = "f36e5e8fdffcb5646ea5da81495a5a7566005127"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
-version = "2.4.3"
 version = "2.4.3"
 
 [[deps.ConsoleProgressMonitor]]
@@ -847,9 +843,7 @@ version = "2.13.3+1"
 [[deps.FriBidi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "846f7026a9decf3679419122b49f8a1fdb48d2d5"
-git-tree-sha1 = "846f7026a9decf3679419122b49f8a1fdb48d2d5"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
-version = "1.0.16+0"
 version = "1.0.16+0"
 
 [[deps.FunctionChains]]
@@ -1075,9 +1069,7 @@ weakdeps = ["Dates", "Test"]
 
 [[deps.InvertedIndices]]
 git-tree-sha1 = "6da3c4316095de0f5ee2ebd875df8721e7e0bdbe"
-git-tree-sha1 = "6da3c4316095de0f5ee2ebd875df8721e7e0bdbe"
 uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
-version = "1.3.1"
 version = "1.3.1"
 
 [[deps.IrrationalConstants]]
@@ -1237,9 +1229,7 @@ version = "0.2.0"
 
 [[deps.LegendDSP]]
 deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "FunctionChains", "IntervalSets", "LIBSVM", "LegendDataTypes", "LinearAlgebra", "PropDicts", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Tables", "TypedTables", "Unitful"]
-git-tree-sha1 = "baafd482024fa1146557f0f37b791120f8159945"
-repo-rev = "main"
-repo-url = "https://github.com/legend-exp/LegendDSP.jl.git"
+path = "/home/iwsatlas1/henkes/.julia/dev/LegendDSP"
 uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
 version = "0.2.3"
 
@@ -1289,9 +1279,7 @@ weakdeps = ["Measurements"]
 
 [[deps.LegendSpecFits]]
 deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Format", "ForwardDiff", "GaussianMixtures", "IntervalSets", "InverseFunctions", "IrrationalConstants", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "LinearRegression", "LogExpFunctions", "LsqFit", "Measurements", "Measures", "Optim", "Optimization", "OptimizationBBO", "OptimizationNLopt", "OptimizationOptimJL", "PropDicts", "RadiationSpectra", "Random", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
-git-tree-sha1 = "3bee796d68c47c9b710e284fe4dac821095b925a"
-repo-rev = "main"
-repo-url = "https://github.com/legend-exp/LegendSpecFits.jl.git"
+path = "/home/iwsatlas1/henkes/.julia/dev/LegendSpecFits"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
 version = "0.3.0"
 weakdeps = ["Plots", "RecipesBase"]
@@ -1329,9 +1317,7 @@ uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 [[deps.Libffi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "27ecae93dd25ee0909666e6835051dd684cc035e"
-git-tree-sha1 = "27ecae93dd25ee0909666e6835051dd684cc035e"
 uuid = "e9f186c6-92d2-5b65-8a66-fee21dc1b490"
-version = "3.2.2+2"
 version = "3.2.2+2"
 
 [[deps.Libgcrypt_jll]]
@@ -1395,9 +1381,7 @@ version = "0.2.1"
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
 git-tree-sha1 = "13ca9e2586b89836fd20cccf56e57e2b9ae7f38f"
-git-tree-sha1 = "13ca9e2586b89836fd20cccf56e57e2b9ae7f38f"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.29"
 version = "0.3.29"
 weakdeps = ["ChainRulesCore", "ChangesOfVariables", "InverseFunctions"]
 
@@ -1433,9 +1417,7 @@ version = "0.15.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "1833212fd6f580c20d4291da9c1b4e8a655b128e"
-git-tree-sha1 = "1833212fd6f580c20d4291da9c1b4e8a655b128e"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
-version = "1.0.0"
 version = "1.0.0"
 
 [[deps.MKL_jll]]
@@ -1612,9 +1594,7 @@ version = "0.5.5"
 
 [[deps.OffsetArrays]]
 git-tree-sha1 = "5e1897147d1ff8d98883cda2be2187dcf57d8f0c"
-git-tree-sha1 = "5e1897147d1ff8d98883cda2be2187dcf57d8f0c"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.15.0"
 version = "1.15.0"
 weakdeps = ["Adapt"]
 
@@ -1979,9 +1959,7 @@ version = "0.3.8"
 [[deps.RadiationSpectra]]
 deps = ["DelimitedFiles", "DensityInterface", "Distributions", "EmpiricalDistributions", "IntervalSets", "LinearAlgebra", "NamedTupleTools", "Optim", "Random123", "RecipesBase", "Requires", "SpecialFunctions", "StaticArrays", "StaticUnivariatePolynomials", "Statistics", "StatsBase", "ValueShapes"]
 git-tree-sha1 = "b1facfd4ea21a09d8c4c70067476bf7671e19b9e"
-git-tree-sha1 = "b1facfd4ea21a09d8c4c70067476bf7671e19b9e"
 uuid = "4f207c7e-01da-51d7-a1a0-c8c06dd1d883"
-version = "0.5.12"
 version = "0.5.12"
 
 [[deps.Random]]
@@ -2178,9 +2156,7 @@ version = "1.2.1"
 [[deps.SentinelArrays]]
 deps = ["Dates", "Random"]
 git-tree-sha1 = "712fb0231ee6f9120e005ccd56297abbc053e7e0"
-git-tree-sha1 = "712fb0231ee6f9120e005ccd56297abbc053e7e0"
 uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.4.8"
 version = "1.4.8"
 
 [[deps.Serialization]]
@@ -2561,9 +2537,7 @@ version = "1.3.243+0"
 [[deps.Wayland_jll]]
 deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "85c7811eddec9e7f22615371c3cc81a504c508ee"
-git-tree-sha1 = "85c7811eddec9e7f22615371c3cc81a504c508ee"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
-version = "1.21.0+2"
 version = "1.21.0+2"
 
 [[deps.Wayland_protocols_jll]]
@@ -2629,10 +2603,7 @@ version = "1.0.12+0"
 [[deps.Xorg_libXcursor_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXfixes_jll", "Xorg_libXrender_jll"]
 git-tree-sha1 = "807c226eaf3651e7b2c468f687ac788291f9a89b"
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXfixes_jll", "Xorg_libXrender_jll"]
-git-tree-sha1 = "807c226eaf3651e7b2c468f687ac788291f9a89b"
 uuid = "935fb764-8cf2-53bf-bb30-45bb1f8bf724"
-version = "1.2.3+0"
 version = "1.2.3+0"
 
 [[deps.Xorg_libXdmcp_jll]]
@@ -2650,45 +2621,31 @@ version = "1.3.6+3"
 [[deps.Xorg_libXfixes_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
 git-tree-sha1 = "6fcc21d5aea1a0b7cce6cab3e62246abd1949b86"
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
-git-tree-sha1 = "6fcc21d5aea1a0b7cce6cab3e62246abd1949b86"
 uuid = "d091e8ba-531a-589c-9de9-94069b037ed8"
-version = "6.0.0+0"
 version = "6.0.0+0"
 
 [[deps.Xorg_libXi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll", "Xorg_libXfixes_jll"]
 git-tree-sha1 = "984b313b049c89739075b8e2a94407076de17449"
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll", "Xorg_libXfixes_jll"]
-git-tree-sha1 = "984b313b049c89739075b8e2a94407076de17449"
 uuid = "a51aa0fd-4e3c-5386-b890-e753decda492"
-version = "1.8.2+0"
 version = "1.8.2+0"
 
 [[deps.Xorg_libXinerama_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll"]
 git-tree-sha1 = "a1a7eaf6c3b5b05cb903e35e8372049b107ac729"
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll"]
-git-tree-sha1 = "a1a7eaf6c3b5b05cb903e35e8372049b107ac729"
 uuid = "d1454406-59df-5ea1-beac-c340f2130bc3"
-version = "1.1.5+0"
 version = "1.1.5+0"
 
 [[deps.Xorg_libXrandr_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll", "Xorg_libXrender_jll"]
 git-tree-sha1 = "b6f664b7b2f6a39689d822a6300b14df4668f0f4"
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll", "Xorg_libXrender_jll"]
-git-tree-sha1 = "b6f664b7b2f6a39689d822a6300b14df4668f0f4"
 uuid = "ec84b674-ba8e-5d96-8ba1-2a689ba10484"
-version = "1.5.4+0"
 version = "1.5.4+0"
 
 [[deps.Xorg_libXrender_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
 git-tree-sha1 = "a490c6212a0e90d2d55111ac956f7c4fa9c277a6"
-git-tree-sha1 = "a490c6212a0e90d2d55111ac956f7c4fa9c277a6"
 uuid = "ea2f1a96-1ddc-540d-b46f-429655e07cfa"
-version = "0.9.11+1"
 version = "0.9.11+1"
 
 [[deps.Xorg_libpthread_stubs_jll]]
@@ -2706,9 +2663,7 @@ version = "1.17.0+3"
 [[deps.Xorg_libxkbfile_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
 git-tree-sha1 = "dbc53e4cf7701c6c7047c51e17d6e64df55dca94"
-git-tree-sha1 = "dbc53e4cf7701c6c7047c51e17d6e64df55dca94"
 uuid = "cc61e674-0454-545c-8b26-ed2c68acab7a"
-version = "1.1.2+1"
 version = "1.1.2+1"
 
 [[deps.Xorg_xcb_util_cursor_jll]]
@@ -2750,9 +2705,7 @@ version = "0.4.1+1"
 [[deps.Xorg_xkbcomp_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libxkbfile_jll"]
 git-tree-sha1 = "ab2221d309eda71020cdda67a973aa582aa85d69"
-git-tree-sha1 = "ab2221d309eda71020cdda67a973aa582aa85d69"
 uuid = "35661453-b289-5fab-8a00-3d9160c6a3a4"
-version = "1.4.6+1"
 version = "1.4.6+1"
 
 [[deps.Xorg_xkeyboard_config_jll]]
