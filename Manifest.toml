@@ -2,7 +2,7 @@
 
 julia_version = "1.10.8"
 manifest_format = "2.0"
-project_hash = "5a21d9e848160985f2e47400066987ff2cb436f9"
+project_hash = "026f2260a0851e341de3d09419d48e6c1c416a12"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e1ce448a0d7f88168ffe2eeac4549c32d45a42d1"
@@ -358,9 +358,9 @@ version = "3.1.0"
 
 [[deps.ClusterManagers]]
 deps = ["Distributed", "Logging", "Pkg", "Sockets"]
-git-tree-sha1 = "6a678b98d5ea4d2773e92c7ae607cf7371043684"
+git-tree-sha1 = "91d2b9e428bb96cdbbee8a7bef6b1936a3ebe8e7"
 uuid = "34f1f09b-3a8b-5176-ab39-66d58a4d544e"
-version = "0.4.6"
+version = "0.4.9"
 
 [[deps.Clustering]]
 deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
@@ -876,10 +876,10 @@ uuid = "77dc65aa-8811-40c2-897b-53d922fa7daf"
 version = "0.1.3"
 
 [[deps.Functors]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "64d8e93700c7a3f28f717d265382d52fac9fa1c1"
+deps = ["Compat", "ConstructionBase", "LinearAlgebra", "Random"]
+git-tree-sha1 = "60a0339f28a233601cb74468032b5c302d5067de"
 uuid = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
-version = "0.4.12"
+version = "0.5.2"
 
 [[deps.Future]]
 deps = ["Random"]
@@ -1203,9 +1203,9 @@ version = "1.4.0"
 
 [[deps.Latexify]]
 deps = ["Format", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "OrderedCollections", "Requires"]
-git-tree-sha1 = "ce5f5621cac23a86011836badfedf664a612cee4"
+git-tree-sha1 = "cd714447457c660382fe634710fb56eb255ee42e"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.16.5"
+version = "0.16.6"
 
     [deps.Latexify.extensions]
     DataFramesExt = "DataFrames"
@@ -1229,13 +1229,15 @@ version = "0.2.0"
 
 [[deps.LegendDSP]]
 deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "FunctionChains", "IntervalSets", "LIBSVM", "LegendDataTypes", "LinearAlgebra", "PropDicts", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Tables", "TypedTables", "Unitful"]
-path = "/home/iwsatlas1/henkes/.julia/dev/LegendDSP"
+git-tree-sha1 = "d4d945686861ebbeaceb26b4e8e1632c1b99c321"
+repo-rev = "patch_flt-opt"
+repo-url = "https://github.com/legend-exp/LegendDSP.jl.git"
 uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
 version = "0.2.3"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "fcecee0d994e4f8079ffc1d19d6984a7f96ec5cf"
+git-tree-sha1 = "5d36e2393a5934d4f5e7f77ea4a78854d86d7e57"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
@@ -1279,7 +1281,9 @@ weakdeps = ["Measurements"]
 
 [[deps.LegendSpecFits]]
 deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Format", "ForwardDiff", "GaussianMixtures", "IntervalSets", "InverseFunctions", "IrrationalConstants", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "LinearRegression", "LogExpFunctions", "LsqFit", "Measurements", "Measures", "Optim", "Optimization", "OptimizationBBO", "OptimizationNLopt", "OptimizationOptimJL", "PropDicts", "RadiationSpectra", "Random", "Roots", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
-path = "/home/iwsatlas1/henkes/.julia/dev/LegendSpecFits"
+git-tree-sha1 = "50491720e4ffd2de2d41bce2a0a0697f90d0ae2c"
+repo-rev = "patch_flt-opt"
+repo-url = "https://github.com/legend-exp/LegendSpecFits.jl.git"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
 version = "0.3.0"
 weakdeps = ["Plots", "RecipesBase"]
@@ -1416,9 +1420,9 @@ uuid = "2fda8390-95c7-5789-9bda-21331edee243"
 version = "0.15.0"
 
 [[deps.MIMEs]]
-git-tree-sha1 = "1833212fd6f580c20d4291da9c1b4e8a655b128e"
+git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
-version = "1.0.0"
+version = "0.1.4"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "oneTBB_jll"]
@@ -1481,14 +1485,15 @@ uuid = "fa1605e6-acd5-459c-a1e6-7e635759db14"
 version = "0.14.12"
 
 [[deps.Measurements]]
-deps = ["Calculus", "LinearAlgebra", "Printf", "Requires"]
-git-tree-sha1 = "bdcde8ec04ca84aef5b124a17684bf3b302de00e"
+deps = ["Calculus", "LinearAlgebra", "Printf"]
+git-tree-sha1 = "3019b28107f63ee881f5883da916dd9b6aa294c1"
 uuid = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
-version = "2.11.0"
+version = "2.12.0"
 
     [deps.Measurements.extensions]
     MeasurementsBaseTypeExt = "BaseType"
     MeasurementsJunoExt = "Juno"
+    MeasurementsMakieExt = "Makie"
     MeasurementsRecipesBaseExt = "RecipesBase"
     MeasurementsSpecialFunctionsExt = "SpecialFunctions"
     MeasurementsUnitfulExt = "Unitful"
@@ -1496,6 +1501,7 @@ version = "2.11.0"
     [deps.Measurements.weakdeps]
     BaseType = "7fbed51b-1ef5-4d67-9085-a4a9b26f478c"
     Juno = "e5e0dc1b-0480-54bc-9374-aad01c23163d"
+    Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
     RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
     SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
@@ -1544,9 +1550,9 @@ version = "7.8.3"
 
 [[deps.NLopt]]
 deps = ["CEnum", "NLopt_jll"]
-git-tree-sha1 = "dd79cb2a2d779209e42d76795edfde1c778eb5e0"
+git-tree-sha1 = "ddb22a00a2dd27c98e0a94879544eb92d192184a"
 uuid = "76087f3c-5699-56af-9a33-bf431cd00edd"
-version = "1.1.2"
+version = "1.1.3"
 
     [deps.NLopt.extensions]
     NLoptMathOptInterfaceExt = ["MathOptInterface"]
@@ -1556,9 +1562,9 @@ version = "1.1.2"
 
 [[deps.NLopt_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "dd645a206cc1e8bc4ff0dcfe3da08e39b60dd662"
+git-tree-sha1 = "b0154a615d5b2b6cf7a2501123b793577d0b9950"
 uuid = "079eb43e-fd8e-5478-9966-2cf3e3edb778"
-version = "2.9.0+0"
+version = "2.10.0+0"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -1869,10 +1875,14 @@ uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.10.2"
 
 [[deps.PropDicts]]
-deps = ["Functors", "JSON"]
-git-tree-sha1 = "7677e3a034868d66de3da7c45395475e03a0e93c"
+deps = ["JSON"]
+git-tree-sha1 = "05c688c5e867f57a7ed2ebf9d3ccbd995786481e"
 uuid = "4dc08600-4268-439e-8673-d706fafbb426"
-version = "0.2.5"
+version = "0.2.7"
+weakdeps = ["Functors"]
+
+    [deps.PropDicts.extensions]
+    PropDictsFunctorsExt = "Functors"
 
 [[deps.PropertyDicts]]
 git-tree-sha1 = "a6b4c12d38387a4382fa53b8a6591f9c219add16"
@@ -1916,9 +1926,9 @@ version = "6.7.1+1"
 
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "cda3b045cf9ef07a08ad46731f5a3165e56cf3da"
+git-tree-sha1 = "9da16da70037ba9d701192e27befedefb91ec284"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.11.1"
+version = "2.11.2"
 
     [deps.QuadGK.extensions]
     QuadGKEnzymeExt = "Enzyme"
@@ -2008,9 +2018,9 @@ version = "0.6.12"
 
 [[deps.RecursiveArrayTools]]
 deps = ["Adapt", "ArrayInterface", "DocStringExtensions", "GPUArraysCore", "IteratorInterfaceExtensions", "LinearAlgebra", "RecipesBase", "StaticArraysCore", "Statistics", "SymbolicIndexingInterface", "Tables"]
-git-tree-sha1 = "ea6ad53c168c7c1c2e8f870aefda269692a8a91f"
+git-tree-sha1 = "fe9d37a17ab4d41a98951332ee8067f8dca8c4c2"
 uuid = "731186ca-8d62-57ce-b412-fbd966d074cd"
-version = "3.28.0"
+version = "3.29.0"
 
     [deps.RecursiveArrayTools.extensions]
     RecursiveArrayToolsFastBroadcastExt = "FastBroadcast"
@@ -2211,9 +2221,9 @@ version = "1.10.0"
 
 [[deps.SparseConnectivityTracer]]
 deps = ["ADTypes", "DocStringExtensions", "FillArrays", "LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "f6d636dcf886cf498b3bc484f48c37741d8aac6e"
+git-tree-sha1 = "970a24559004d9c2a3f8edbcb78eb416007c8616"
 uuid = "9f842d2f-2579-4b1d-911e-f412cf18a3f5"
-version = "0.6.10"
+version = "0.6.11"
 
     [deps.SparseConnectivityTracer.extensions]
     SparseConnectivityTracerDataInterpolationsExt = "DataInterpolations"
@@ -2474,9 +2484,9 @@ version = "0.4.1"
 
 [[deps.Unitful]]
 deps = ["Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "01915bfcd62be15329c9a07235447a89d588327c"
+git-tree-sha1 = "c0667a8e676c53d390a09dc6870b3d8d6650e2bf"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.21.1"
+version = "1.22.0"
 weakdeps = ["ConstructionBase", "InverseFunctions"]
 
     [deps.Unitful.extensions]
