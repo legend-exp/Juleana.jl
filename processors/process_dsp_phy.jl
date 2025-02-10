@@ -30,7 +30,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
 
-    pars_sipm = get_values(l200.par[:rpars, :sipmopt](filekey))
+    mkpath(l200.par[pars_type, :sipmopt])
+    pars_sipm = get_values(l200.par[pars_type, :sipmopt](filekey))
     @debug "Loaded sipm parameters"
     
     if reprocess @info "Reprocess all filekeys and channels"
