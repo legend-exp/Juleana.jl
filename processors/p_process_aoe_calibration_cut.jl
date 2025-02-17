@@ -14,7 +14,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("Median norm. Resid."), Symbol("StD norm. Resid."), :CalError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("Median norm. Resid."), Symbol("StD norm. Resid."), Symbol("FCT"), :CalError)}
     log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
@@ -53,12 +53,13 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         aoe_config_ch = merge(aoe_config.p_default, get(aoe_config.p, det, PropDict()))
         @debug "Loaded aoe config: $(aoe_config_ch)"
 
-        compton_bands  = aoe_config_ch.compton_bands
-        compton_window = aoe_config_ch.compton_window
-        p_value_cut    = aoe_config_ch.p_value # what is this? p values threshold 
-        e_type         = Symbol(aoe_config_ch.e_type)
-        aoe_types      = collect(keys(aoe_config_ch.aoe_funcs))
-        aoe_funcs      = aoe_config_ch.aoe_funcs
+        compton_bands     = aoe_config_ch.compton_bands
+        compton_window    = aoe_config_ch.compton_window
+        p_value_cut       = aoe_config_ch.p_value # what is this? p values threshold 
+        e_type            = Symbol(aoe_config_ch.e_type)
+        aoe_types         = collect(keys(aoe_config_ch.aoe_funcs))
+        aoe_funcs         = aoe_config_ch.aoe_funcs
+        qdrift_expression = aoe_config_ch.qdrift_expression
 
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
 
@@ -72,7 +73,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         if (only_first_period && period != first(partinfo_ch.period))
             @info "Only first period in partition $part for $period in $ch ($det)"
             for aoe_type in aoe_types
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(1), aoe_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt_cal((ch, det, part, ProcessStatus(1), aoe_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[aoe_type] = log_info
                 processed_dict[aoe_type] = false
@@ -91,7 +92,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
             for aoe_type in aoe_types
                 if haskey(pars_db_ch[det], aoe_type)
                     pars_db_det_aoe_type = pars_db_ch[det][aoe_type]
-                    log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), "Already processed --> skipped.")
+                    log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), get(pars_db_det_aoe_type.ctc, :fct, NaN), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
                     log_info_dict[aoe_type] = log_info
                 end
@@ -215,7 +216,34 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
                 title!(p_σ, get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)), subplot=1)
                 savelfig(savefig, p_σ, l200, part, filekey_ch, det, Symbol("compton_bands_sigma_$aoe_type"))
-                
+
+                # charge trapping correction
+                result_aoe_ctc, report_aoe_ctc = NamedTuple(), NamedTuple()
+                if aoe_config_ch.apply_ctc
+                    try
+                        qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
+                        result_aoe_ctc, report_aoe_ctc = LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands,
+                            aoe_expression = result_correction.func, qdrift_expression = qdrift_expression)
+                    catch e
+                        @error "AoE classifier cannot be charge-trapping corrected: $(truncate_string(string(e)))"
+                        throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
+                    end
+
+                    # This should become a plot recipe at some point
+                    let aoe_final = ljl_propfunc(result_aoe_ctc.func).(hit_cal), _aoe = ljl_propfunc(result_correction.func).(hit_cal), _qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
+                        sel = abs.(aoe_final) .< 100 #.&& mask
+                        p = plot(fit(Histogram, _aoe[sel], -9:0.1:9), fill = true, xlims = (-9,5), color = :darkgrey, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "Before correction")
+                        plot!(p, fit(Histogram, aoe_final[sel], -9:0.1:9), fill = true, xlims = (-9,5), alpha = 0.5, color = :purple, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "After correction", legend = :topleft, ylabel = "counts / 0.1")
+                        plot!(p, kde((_aoe[sel], (_qdrift_e)[sel])), subplot = 2, c = :binary, colorbar = :none, st = :line, fill = true, label = "After correction", yformatter = :plain, link = :x)
+                        plot!(p, kde((aoe_final[sel], (_qdrift_e)[sel])), subplot = 2, c = :plasma, link = :x, framestyle = :semi, colorbar = :none, st = :line, fill = false, label = "After correction", yformatter = :plain, xlims = (-9,5), ylims = (0,11), ylabel = "Eff. Drift time / Energy (a.u.)")
+                        plot!(p, xlabel = "A/E classifier", xtickfontsize = 12, xlabelfontsize = 14, ylabelfontsize = 14, ytickfontsize = 12, legendfontsize = 12, foreground_color_legend = :silver, background_color_legend = :white, fmt = :png)
+                        title!(p, get_plottitle(filekey_ch, part, det, "A/E CT Correction"; additiional_type=string(aoe_type)))
+                        savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_ctc_$aoe_type"))
+                    end
+
+                    aoe_corr = ljl_propfunc(result_aoe_ctc.func).(hit_cal)
+                end
+
                 # plot corrected A/E 2D histogram
                 p = histogram2d(e_cal, aoe_corr, nbins=(0:0.5:3000, -30:0.1:10), xlims=(0, 3000), ylims=(-30, 10), size=(1300, 700), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Energy", ylabel=L"A/E\ (\sigma_{A/E})")
                 plot!(margin=1mm, thickness_scaling=1.6, dpi=300, framestyle=:box)
@@ -223,35 +251,18 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 title!(p, get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_type)))
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_normalized_$aoe_type"))
 
-                # charge trapping correction
-                result_aoe_ctc, report_aoe_ctc = nothing, nothing
-                try
-                    # determine qdrift/e (TODO: can we use e_cal here ? It should be the same used for A/E)
-                    # TODO: define q_drift_expression!!
-                    qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
-                    result_aoe_ctc, report_aoe_ctc = LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands,
-                        aoe_expression = result_correction.func, qdrift_expression = qdrift_expression)
-                catch e
-                    @error "AoE classifier cannot be charge-trapping corrected: $(truncate_string(string(e)))"
-                    throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
-                end
+                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), get(result_aoe_ctc, :fct, NaN), "-")
 
-                # This should become a plot recipe at some point
-                # TODO: Check if packages are needed to let this run (KernelDensity, StatsPlots...)
-                let aoe_final = ljl_propfunc(result_aoe_ctc.func).(hit_cal), _aoe = ljl_propfunc(result_correction.func).(hit_cal), _qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
-                    sel = abs.(aoe_final) .< 100 #.&& mask
-                    plot(fit(Histogram, _aoe[sel], -9:0.1:9), fill = true, xlims = (-9,5), color = :darkgrey, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "Before correction")
-                    plot!(fit(Histogram, aoe_final[sel], -9:0.1:9), fill = true, xlims = (-9,5), alpha = 0.5, color = :purple, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "After correction", legend = :topleft, ylabel = "counts / 0.1")
-                    plot!(kde((_aoe[sel], (_qdrift_e)[sel])), subplot = 2, c = :binary, colorbar = :none, st = :line, fill = true, label = "Before correction", yformatter = :plain, link = :x)
-                    plot!(kde((aoe_final[sel], (_qdrift_e)[sel])), subplot = 2, c = :plasma, link = :x, framestyle = :semi, colorbar = :none, st = :line, fill = false, label = "After correction", yformatter = :plain, xlims = (-9,5), ylims = (0,11), ylabel = "Eff. Drift time / Energy (a.u.)")
-                    plot!(xlabel = "A/E classifier", xtickfontsize = 12, xlabelfontsize = 14, ylabelfontsize = 14, ytickfontsize = 12, legendfontsize = 12, foreground_color_legend = :silver, background_color_legend = :white, fmt = :png)
-                end
-
-                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), "-")
-
+                # create result
+                result = (
+                            func = get(result_aoe_ctc, :func, result_correction.func),
+                            ctc = result_aoe_ctc,
+                            correction = result_correction,
+                            apply_ctc = aoe_config_ch.apply_ctc,
+                            use_combined_fit = aoe_config_ch.use_combined_fit,
+                        )
                 # add results to dict
-                # TODO: Decide what to save (result_aoe_ctc ?)
-                result_dict[aoe_type]   = result_correction
+                result_dict[aoe_type]   = result
                 log_info_dict[aoe_type] = log_info
                 processed_dict[aoe_type] = true
 
@@ -259,7 +270,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 GC.gc()
             catch e
                 @error "Error in $aoe_type calibration: $(truncate_string(string(e)))"
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), aoe_type, "-", "-", "-", truncate_string(string(e))))
+                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), aoe_type, fill("-", 4)..., truncate_string(string(e))))
                 # add results to dict
                 log_info_dict[aoe_type] = log_info
                 processed_dict[aoe_type] = false
