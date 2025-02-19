@@ -6,11 +6,11 @@
         "runmode_settings": {
             "slurm": {
                 "flags": [
-                    "--time=06:00:00",
+                    "--time=04:00:00",
                     "--mem-bind=local",
                     "--threads-per-core=1",
                     "--cpu-bind=cores",
-                    "--nodes=16",
+                    "--nodes=4",
                     "--ntasks-per-node=18",
                     "--cpus-per-task=4",
                     "--mem=234GB"
