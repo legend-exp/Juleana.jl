@@ -38,6 +38,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
         @info "Processing channel $ch ($det)"
 
+        mkpath(joinpath(data_path(l200.par.ppars.aoeopt), string(det)))
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoeopt), "$det", "$part.json"))
             PropDict(l200.par.ppars.aoeopt[det, part])
         else
@@ -109,7 +110,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = load_partition_ch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(:Tl208DEP_Bi212FEP, :Tl208SEP), n_evts=n_evts, select_random=select_random)
+            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
             wvfs_ch_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
             wvfs_ch_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
             presum_rate              = data.Tl208SEP.presum_rate[1]

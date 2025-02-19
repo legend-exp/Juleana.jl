@@ -1,4 +1,4 @@
-function p_process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     
     @info "Optimize filter for all partitions containing period $period"
 
@@ -66,6 +66,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         
         # extract config
         n_evts        = optimization_config_ch.n_evts
+        max_wvfs      = optimization_config_ch.max_wvfs
         select_random = optimization_config_ch.select_random
         qc_string     = optimization_config_ch.qc
         peakname      = Symbol(optimization_config_ch.peakname)
@@ -109,10 +110,10 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = load_partition_ch(lh5open, fast_flatten, l200, partinfo_ch, :jlpeaks, :cal, ch; data_keys=(peakname, ), n_evts=n_evts, select_random=select_random)
-            wvfs_ch_pre = getproperty(data, peakname).waveform_presummed[:]
-            wvfs_ch_wdw = getproperty(data, peakname).waveform_windowed[:]
-            presum_rate = getproperty(data, peakname).presum_rate[:]
+            data = read_ldata(peakname, l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
+            wvfs_ch_pre = data.waveform_presummed[:]
+            wvfs_ch_wdw = data.waveform_windowed[:]
+            presum_rate = data.presum_rate[:]
             if length(wvfs_ch_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
@@ -133,9 +134,9 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
-            wvfs_ch_pre = wvfs_ch_pre[qc]
-            wvfs_ch_wdw = wvfs_ch_wdw[qc]
-            blmean_wdw = blmean_wdw[qc]
+            wvfs_ch_pre = wvfs_ch_pre[findall(qc)]
+            wvfs_ch_wdw = wvfs_ch_wdw[findall(qc)]
+            blmean_wdw = blmean_wdw[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"
@@ -206,7 +207,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 GC.gc()
                 result_ft, report_ft = nothing, nothing
                 try
-                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size))
+                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; 
+                                            n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size), ft_fwhm_tol=optimization_config_ch.ft_fwhm_tol)
                 catch e
                     @error "Failed $filter_type flat-top time extraction: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_string(string(e)))"))
@@ -214,7 +216,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 @debug "Found optimal $filter_type FT at $(result_ft.ft) with FWHM $(round(u"keV", result_ft.min_fwhm, digits=2))"
                 yield()
                 
-                p = plot(report_ft)
+                p = plot(report_ft, ylims=(1, 15))
                 title!(p, get_plottitle(filekey_ch, part, det, "FEP FT Scan"; additiional_type=string(filter_type)))
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 

@@ -1,4 +1,4 @@
-function process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000)
+function process_filter_optimization(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
     
     @info "Optimize filter for period $period and run $run"
 
@@ -83,6 +83,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         end
         yield()
 
+        max_wvfs = optimization_config_ch.max_wvfs
+
         # load data
         wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
         try
@@ -112,9 +114,9 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
-            wvfs_ch_pre = wvfs_ch_pre[qc]
-            wvfs_ch_wdw = wvfs_ch_wdw[qc]
-            blmean_wdw = blmean_wdw[qc]
+            wvfs_ch_pre = wvfs_ch_pre[findall(qc)]
+            wvfs_ch_wdw = wvfs_ch_wdw[findall(qc)]
+            blmean_wdw = blmean_wdw[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_string(string(e)))"
@@ -186,7 +188,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 GC.gc()
                 result_ft, report_ft = nothing, nothing
                 try
-                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size))
+                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; 
+                                            n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size), ft_fwhm_tol=optimization_config_ch.ft_fwhm_tol)
                 catch e
                     @error "Failed $filter_type flat-top time extraction: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_string(string(e)))"))
