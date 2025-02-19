@@ -187,7 +187,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), "$(n_detectors)/$(length(chinfo))", string.(failed_detectors), total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo))", string.(failed_detectors), total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
