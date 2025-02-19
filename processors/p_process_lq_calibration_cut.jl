@@ -72,13 +72,15 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         ctc_dt_eff_low_quantile     = lq_config_ch.ctc_dt_eff_low_quantile
         ctc_dt_eff_high_quantile    = lq_config_ch.ctc_dt_eff_high_quantile
         pol_fit_order               = lq_config_ch.pol_fit_order
+        ctc_uncertainty             = lq_config_ch.ctc_uncertainty
 
         #for lq_cut
         cut_sigma                   = lq_config_ch.cut_sigma
         dep_sideband_sigma          = lq_config_ch.dep_sideband_sigma
         cut_truncation_sigma        = lq_config_ch.cut_truncation_sigma
+        cut_uncertainty             = lq_config_ch.cut_uncertainty
 
-        #for get_peaks_surrival_fractions
+        #for get_peaks_survival_fractions
         lq_peaks_names              = Symbol.(lq_config_ch.lq_peaks_names)
         lq_peaks                    = lq_config_ch.lq_peaks
         lq_peaks_windows_left       = lq_config_ch.lq_peaks_windows_left
@@ -147,11 +149,11 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
             aoe_cut = getproperty(hit_cal, :aoe_sg_classifier_low_cut)
 
-            dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
+            dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
 
         catch e
-            @error "Hit_cal data for $det from cannot be loaded"
-            throw(LoadError("Hit_cal data", 154, "Hkit_cal data for $det from partition $(part) cannot be loaded"))
+            @error "Hit_cal data for $det cannot be loaded"
+            throw(LoadError("Hit_cal data", 154, "Hit_cal data for $det from partition $(part) cannot be loaded"))
         end
 
         @showprogress desc="Detector: $det" for classifier in lq_classifiers
@@ -186,7 +188,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 drift_result, drift_report = nothing, nothing
                 try 
                     drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
-                    ctc_dep_edgesigma=ctc_dep_edgesigma, ctc_lq_precut_relative_cut=ctc_lq_precut_relative_cut, lq_outlier_sigma = lq_outlier_sigma, ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, dt_eff_outlier_sigma=dt_eff_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
+                    ctc_dep_edgesigma, ctc_lq_precut_relative_cut, lq_outlier_sigma, ctc_driftime_cutoff_method, dt_eff_outlier_sigma, lq_e_corr_expression, dt_eff_expression, ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile, pol_fit_order, uncertainty=ctc_uncertainty)
                 catch e
                     @error "Error in drift time correction: $e"
                     throw(ErrorException("Error in drift time correction: $e"))
@@ -248,7 +250,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 #calculate LQ cut parameter value
                 result, report = nothing, nothing
                 try
-                    result, report = lq_cut(dep_µ, dep_σ, e_cal, lq_class; cut_sigma=cut_sigma, dep_sideband_sigma=dep_sideband_sigma, cut_truncation_sigma=cut_truncation_sigma)
+                    result, report = lq_cut(dep_µ, dep_σ, e_cal, lq_class; cut_sigma, dep_sideband_sigma, cut_truncation_sigma, uncertainty=cut_uncertainty)
                 catch e
                     @error "Error in LQ cut calculation: $e"
                     throw(ErrorException("Error in LQ cut calculation: $e"))
@@ -256,7 +258,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 #create and save plots
                 p=plot(report, lq_class, e_cal, :fit)
-                plot!(title="Fit of LQ Cut for Detector: $det")
+                plot!(title="Fit of LQ Cut for Detector: $det", subplot = 1)
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$classifier"))
 
                 p=plot(report, lq_class, e_cal, :sideband)
@@ -314,7 +316,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 end
 
 
-                @debug("starting to calculate Total SF after lq and low AoE cut")
+                @debug("starting to calculate Total SF after lq and low aoe cut")
 
                 result_peaks_total, report_peaks_total = nothing, nothing
                 try
