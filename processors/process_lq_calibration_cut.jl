@@ -52,7 +52,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         lq_classifiers              = Symbol.(lq_config_ch.lq_classifiers)
 
         #for lq_ctc_correction
-        dep_µ                       = lq_config_ch.dep_µ
+        dep_µ                       = lq_config_ch.dep_mu
         ctc_dep_edgesigma           = lq_config_ch.ctc_dep_edgesigma
         ctc_lq_precut_relative_cut  = lq_config_ch.ctc_lq_precut_relative_cut
         ctc_driftime_cutoff_method  = Symbol(lq_config_ch.ctc_driftime_cutoff_method)
@@ -112,13 +112,11 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
             aoe_cut = getproperty(hit_cal, :aoe_sg_classifier_low_cut)
 
-
-            pd = l200.par.rpars.ecal(filekey) 
-            dep_σ = mvalue(pd[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
+            dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
 
         catch e
-            @error "Error in loading data: $e"
-            throw(ErrorException("Error in loading data: $e"))
+            @error "E data for $det from cannot be loaded"
+            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
         end
 
         @showprogress desc="Detector: $det" for classifier in lq_classifiers
@@ -149,7 +147,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 drift_result, drift_report = nothing, nothing
                 try 
                     drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
-                    ctc_dep_edgesigma=ctc_dep_edgesigma , ctc_lq_precut_relative_cut=ctc_lq_precut_relative_cut, lq_outlier_sigma = lq_outlier_sigma, ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, dt_eff_outlier_sigma=dt_eff_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
+                    ctc_dep_edgesigma=ctc_dep_edgesigma, ctc_lq_precut_relative_cut=ctc_lq_precut_relative_cut, lq_outlier_sigma = lq_outlier_sigma, ctc_driftime_cutoff_method=ctc_driftime_cutoff_method, dt_eff_outlier_sigma=dt_eff_outlier_sigma, lq_e_corr_expression=lq_e_corr_expression, dt_eff_expression=dt_eff_expression, ctc_dt_eff_low_quantile=ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile=ctc_dt_eff_high_quantile, pol_fit_order=pol_fit_order)
                 catch e
                     @error "Error in drift time correction: $e"
                     throw(ErrorException("Error in drift time correction: $e"))
@@ -165,7 +163,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 savelfig(savefig, p, l200, filekey, det, Symbol("drift_time_vs_lq_plot_$classifier"))
 
                 #create log entry
-                log_info = log_nt_cal(ch, det, ProcessStatus(1), classifier, drift_result.func, "-")
+                log_info = log_nt_cal(ch, det, ProcessStatus(1), classifier, ctc_driftime_cutoff_method, drift_result.func, "-")
 
                 # add results to dict
                 result_dict[classifier]   = drift_result
@@ -176,7 +174,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 GC.gc()
             catch e
                 @error "Error in $classifier calibration: $(truncate_string(string(e)))"
-                log_info = log_nt_cal((ch, det, ProcessStatus(0), classifier, "-", truncate_string(string(e))))
+                log_info = log_nt_cal((ch, det, ProcessStatus(0), classifier, "-", "-", truncate_string(string(e))))
 
                 # add results to dict
                 log_info_dict[classifier] = log_info
@@ -203,8 +201,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 try
                     lq_class = ljl_propfunc(pars_db_ch[det][classifier].func).(hit_cal)
                 catch e
-                    @error "Error in lq class calculation: $e"
-                    throw(ErrorException("Error in lq class calculation"))
+                    @error "lq classifier for $det from cannot be loaded"
+                    throw(LoadError("lq", 154, "lq classifier data for $det from partition $(part) cannot be loaded"))
                 end
                 
                 #calculate LQ cut parameter value
@@ -223,7 +221,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
                 p=plot(report, lq_class, e_cal, :sideband)
                 plot!(title="Sidebands for Detector: $det")
-                savelfig(savefig, p, l200, filekey, det, Symbol("sidebands_$classifier"))
+                savelfig(savefig, p, l200, filekey, det, Symbol("sideband_$classifier"))
 
                 p = plot(report, lq_class, e_cal, :lq_cut)
                 plot!(title="LQ Cut for Detector: $det")
@@ -260,7 +258,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
                 result_peaks_aoe, report_peaks_aoe = nothing, nothing
                 try
-                    result_peaks_aoe, report_peaks_aoe = get_peaks_surrival_fractions(lq_class[aoe_cut], e_cal[aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true. fit_funcs=lq_peaks_fit_funcs)
+                    result_peaks_aoe, report_peaks_aoe = get_peaks_surrival_fractions(lq_class[.!aoe_cut], e_cal[.!aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
                 catch e
                     @error "Error in peak surrival fraction calculation: $e"
                     throw(ErrorException("Error in peak surrival fraction calculation: $e"))
@@ -268,7 +266,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
                 result_qbb_aoe, report_qbb_aoe = nothing, nothing
                 try
-                    result_qbb_aoe, report_qbb_aoe = get_continuum_surrival_fraction(lq_class[aoe_cut], e_cal[aoe_cut], qbb_pos, qbb_window, result.cut, inverted_mode=true)
+                    result_qbb_aoe, report_qbb_aoe = get_continuum_surrival_fraction(lq_class[.!aoe_cut], e_cal[.!aoe_cut], qbb_pos, qbb_window, result.cut, inverted_mode=true)
                 catch e
                     @error "Error in qbb surrival fraction calculation: $e"
                     throw(ErrorException("Error in qbb surrival fraction calculation: $e"))
