@@ -8,7 +8,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
