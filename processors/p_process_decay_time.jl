@@ -1,7 +1,7 @@
 function p_process_decay_time(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     @info "Process decay time for all partitions containing period $period"
 
-    rinfo = runinfo(l200, period)
+    rinfo = runinfo(l200, period) |> filterby(@pf $cal.is_analysis_run)
     @info "Loaded run info with $(length(rinfo)) runs"
 
     filekey = first(rinfo).cal.startkey

@@ -2,7 +2,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     
     @info "Optimize filter for all partitions containing period $period"
 
-    rinfo = runinfo(l200, period)
+    rinfo = runinfo(l200, period) |> filterby(@pf $cal.is_analysis_run)
     @info "Loaded run info with $(length(rinfo)) runs"
 
     filekey = first(rinfo).cal.startkey

@@ -2,7 +2,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         
     @info "Process SiPM optimization for all partitions containing period $period"
 
-    rinfo = runinfo(l200, period)
+    rinfo = runinfo(l200, period) |> filterby(@pf $phy.is_analysis_run)
     @info "Loaded run info with $(length(rinfo)) runs"
 
     filekey = first(rinfo).phy.startkey
