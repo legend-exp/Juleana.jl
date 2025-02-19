@@ -29,7 +29,7 @@
         }
     },
     "processing": {
-        "periods": [3, 4, 6, 7, 8, 9],
+        "periods": [6,7,8,9],
         "runs" : "all",
         "analysis_runs_only": true,
         "only_partitions": false,
@@ -138,11 +138,22 @@
             },
             "dependencies": []
         },
+        "process_lq_calibration_cut": {
+            "enabled": false,
+            "n_workers": "all",
+            "category": "cal",
+            "rank": 10,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
         "process_sipm_optimization_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 10,
+            "rank": 11,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
@@ -154,7 +165,7 @@
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 11,
+            "rank": 12,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
@@ -164,10 +175,10 @@
             "dependencies": ["p_process_sipm_optimization_phy"]
         },
         "process_sipm_calibration_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 12,
+            "rank": 13,
             "kwargs": {
                 "reprocess": false,
                 "timeout": 0
@@ -175,10 +186,10 @@
             "dependencies": []
         },
         "process_evt_phy": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 13,
+            "rank": 14,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
@@ -249,11 +260,21 @@
             },
             "dependencies": ["process_aoe_calibration"]
         },
+        "p_process_lq_calibration_cut": {
+            "enabled": true,
+            "n_workers": "all",
+            "rank": 7,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
         "p_process_sipm_optimization_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 7,
+            "rank": 8,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
@@ -263,7 +284,7 @@
         "p_process_sipm_calibration_phy": {
             "enabled": true,
             "n_workers": "all",
-            "rank": 8,
+            "rank": 9,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
