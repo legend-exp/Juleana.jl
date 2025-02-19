@@ -41,6 +41,9 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
             PropDict()
         end
 
+        pars_energy = get_values(l200.par.ppars.ecal[det, part])
+        @debug "Loaded energy calibration parameters"
+
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
     
@@ -144,8 +147,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
             aoe_cut = getproperty(hit_cal, :aoe_sg_classifier_low_cut)
 
-            #dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
-            dep_σ = 1.0u"keV"
+            dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / 2.355)
 
         catch e
             @error "Hit_cal data for $det from cannot be loaded"
@@ -160,9 +162,14 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 @debug "Calculate energy corrected and normalized lq and effective drift time"
                 lq_e_corr, dt_eff = nothing, nothing
                 lq_e_corr_expression, dt_eff_expression = nothing, nothing
+                mean_lq, std_lq, median_lq = nothing, nothing, nothing
                 try
                     lq_e_corr = lq ./ e_uncal
                     dt_eff = qdrift ./ e_uncal
+
+                    mean_lq = mean(filter(isfinite, lq_e_corr))
+                    std_lq = std(filter(isfinite, lq_e_corr))
+                    median_lq = median(filter(isfinite, lq_e_corr))
 
                     #normalization
                     cuts_lq = cut_single_peak(lq_e_corr, 0.0, quantile(filter(isfinite, lq_e_corr), 0.99); n_bins=-1)
@@ -198,7 +205,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 log_info = log_nt_cal(ch, det, part, ProcessStatus(1), classifier, ctc_driftime_cutoff_method, drift_result.func, "-")
 
                 # add results to dict
-                result_dict[classifier]   = drift_result
+                result_dict[classifier]   =  (drift_result = drift_result, mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq)
                 log_info_dict[classifier] = log_info
                 processed_dict[classifier] = true
 
@@ -232,7 +239,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 #get lq classifier
                 lq_class = nothing
                 try
-                    lq_class = ljl_propfunc(pars_db_ch[det][classifier].func).(hit_cal)
+                    lq_class = ljl_propfunc(pars_db_ch[det][classifier].drift_result.func).(hit_cal)
                 catch e
                     @error "lq classifier for $det from cannot be loaded"
                     throw(LoadError("lq", 154, "lq classifier data for $det from partition $(part) cannot be loaded"))
@@ -273,40 +280,61 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 result_peaks, report_peaks = nothing, nothing
                 try
-                    result_peaks, report_peaks = get_peaks_surrival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
+                    result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
                 catch e
-                    @error "Error in peak surrival fraction calculation: $e"
-                    throw(ErrorException("Error in peak surrival fraction calculation: $e"))
+                    @error "Error in peak lq survival fraction calculation: $e"
+                    throw(ErrorException("Error in peak lq survival fraction calculation: $e"))
                 end
 
                 result_qbb, report_qbb = nothing, nothing
                 try
-                    result_qbb, report_qbb = get_continuum_surrival_fraction(lq_class, e_cal, qbb_pos, qbb_window, result.cut, inverted_mode=true)
+                    result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window, result.cut, inverted_mode=true)
                 catch e
-                    @error "Error in qbb surrival fraction calculation: $e"
-                    throw(ErrorException("Error in qbb surrival fraction calculation: $e"))
+                    @error "Error in qbb lq survival fraction calculation: $e"
+                    throw(ErrorException("Error in qbb lq survival fraction calculation: $e"))
                 end
 
-                @debug("starting to calculate SF values for lq cut after aoe cut")
 
+                @debug("starting to calculate SF values for lq cut after aoe cut")
+                
                 result_peaks_aoe, report_peaks_aoe = nothing, nothing
                 try
-                    result_peaks_aoe, report_peaks_aoe = get_peaks_surrival_fractions(lq_class[.!aoe_cut], e_cal[.!aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
+                    result_peaks_aoe, report_peaks_aoe = get_peaks_survival_fractions(lq_class[aoe_cut], e_cal[aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
                 catch e
-                    @error "Error in peak surrival fraction calculation: $e"
-                    throw(ErrorException("Error in peak surrival fraction calculation: $e"))
+                    @error "Error in peak lq after aoe survival fraction calculation: $e"
+                    throw(ErrorException("Error in peak lq after aoe survival fraction calculation: $e"))
                 end
 
                 result_qbb_aoe, report_qbb_aoe = nothing, nothing
                 try
-                    result_qbb_aoe, report_qbb_aoe = get_continuum_surrival_fraction(lq_class[.!aoe_cut], e_cal[.!aoe_cut], qbb_pos, qbb_window, result.cut, inverted_mode=true)
+                    result_qbb_aoe, report_qbb_aoe = get_continuum_survival_fraction(lq_class[aoe_cut], e_cal[aoe_cut], qbb_pos, qbb_window, result.cut; inverted_mode=true)
                 catch e
-                    @error "Error in qbb surrival fraction calculation: $e"
-                    throw(ErrorException("Error in qbb surrival fraction calculation: $e"))
+                    @error "Error in qbb lq after aoe survival fraction calculation: $e"
+                    throw(ErrorException("Error in qbb lq after aoe survival fraction calculation: $e"))
                 end
 
+
+                @debug("starting to calculate Total SF after lq and low AoE cut")
+
+                result_peaks_total, report_peaks_total = nothing, nothing
+                try
+                    result_peaks_total, report_peaks_total = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut, aoe_cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
+                catch e
+                    @error "Error in peak total survival fraction calculation: $e"
+                    throw(ErrorException("Error in peak total survival fraction calculation: $e"))
+                end
+
+                result_qbb_total, report_qbb_total = nothing, nothing
+                try
+                    result_qbb_total, report_qbb_total = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window, result.cut, aoe_cut; inverted_mode=true)
+                catch e
+                    @error "Error in qbb total survival fraction calculation: $e"
+                    throw(ErrorException("Error in qbb total survival fraction calculation: $e"))
+                end
+
+
                 # save results
-                final_result = merge(result, (peaks = (lq = result_peaks, lq_aoe = result_peaks_aoe), qbb = (lq = result_qbb, lq_aoe = result_qbb_aoe)))
+                final_result = merge(result, (peaks = (lq = result_peaks, lq_aoe = result_peaks_aoe, lq_total = result_peaks_total), qbb = (lq = result_qbb, lq_aoe = result_qbb_aoe, lq_total = result_qbb_total)))
 
                 log_info = log_nt_cut((ch, det, part, ProcessStatus(1), classifier, final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "-"))
 
@@ -362,7 +390,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
     lreport!(report, create_logtbl(result_lq))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :lq), report)
+    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
     @info report
 
     # flush stdout
