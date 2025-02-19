@@ -9,12 +9,15 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
     chinfo      = channelinfo(l200, filekey; system=:geds, only_processable=true)
     chinfo_sipm = channelinfo(l200, filekey; system=:spms, only_processable=true)
+    chinfo_pmts = channelinfo(l200, filekey; system=:pmts, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
     dsp_meta_sipm = dataprod_config(l200).sipm(filekey)
     @debug "Loaded SiPM DSP config: $(dsp_meta_sipm)"
+    dsp_meta_pmt = dataprod_config(l200).pmt(filekey)
+    @debug "Loaded PMT DSP config: $(dsp_meta_pmt)"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
         get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -30,7 +33,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
 
-    mkpath(l200.par[pars_type, :sipmopt])
+    mkpath(data_path(l200.par[pars_type, :sipmopt]))
     pars_sipm = get_values(l200.par[pars_type, :sipmopt](filekey))
     @debug "Loaded sipm parameters"
     
@@ -115,19 +118,17 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         end
                     end
 
-                    @timeit dsp_timer "DSP" begin
-                        # loop over channels
-                        @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_ch in chinfo_sipm
+                    # loop over channels
+                    if all(.!haskey.(Ref(raw_data), string.(chinfo_pmts.channel)))
+                        @warn "No PMT data found in $(fk), skip PMT processing"
+                        n_detectors += length(chinfo_pmts)
+                    else
+                        @showprogress desc="Filekey PMTS: $fk" output=stdout for chinfo_ch in chinfo_pmts
 
                             ch = chinfo_ch.channel
                             det = chinfo_ch.detector
             
                             # check if channel can be processed
-                            if !haskey(pars_sipm, det)
-                                @warn "No thresholds for detector $det, skip channel $ch"
-                                push!(failed_detectors, det)
-                                continue
-                            end
                             if "$ch" in processed_channels && !reprocess
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
@@ -137,11 +138,11 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             @debug "Processing channel $ch ($det)"
                             @timeit dsp_timer "DSP $det" begin
                                 # get metadata
-                                dsp_meta_ch = merge(dsp_meta_sipm.default, get(dsp_meta_sipm, det, PropDict()))
+                                dsp_meta_ch = merge(dsp_meta_pmt.default, get(dsp_meta_pmt, det, PropDict()))
                                 # process channel
                                 outdata_ch = nothing
                                 try
-                                    outdata_ch = dsp_sipm_compressed(raw_data[ch].raw[:], dsp_meta_ch, pars_sipm[det])
+                                    outdata_ch = dsp_pmts(raw_data[ch].raw[:], dsp_meta_ch)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -160,6 +161,52 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 flush(stdout)
                                 flush(stderr)
                             end
+                        end
+                    end
+
+                    # loop over channels
+                    @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_ch in chinfo_sipm
+
+                        ch = chinfo_ch.channel
+                        det = chinfo_ch.detector
+        
+                        # check if channel can be processed
+                        if !haskey(pars_sipm, det)
+                            @warn "No thresholds for detector $det, skip channel $ch"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+                        if "$ch" in processed_channels && !reprocess
+                            @info "Detector $det ($ch) already processed, skip"
+                            n_detectors += 1
+                            continue
+                        end
+        
+                        @debug "Processing channel $ch ($det)"
+                        @timeit dsp_timer "DSP $det" begin
+                            # get metadata
+                            dsp_meta_ch = merge(dsp_meta_sipm.default, get(dsp_meta_sipm, det, PropDict()))
+                            # process channel
+                            outdata_ch = nothing
+                            try
+                                outdata_ch = dsp_sipm_compressed(raw_data[ch].raw[:], dsp_meta_ch, pars_sipm[det])
+                            catch e
+                                if e isa TaskFailedException
+                                    e = e.task.exception
+                                end
+                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_string(string(e)))"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+                            # save data to hdf5
+                            outdata[ch, :jldsp] = outdata_ch
+                            # free memory
+                            GC.gc()
+                            # count number of detectors processed and Successful
+                            n_detectors += 1
+                            # flush streams
+                            flush(stdout)
+                            flush(stderr)
                         end
                     end
 
@@ -282,7 +329,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_channel, []))+length(chinfo_sipm))", string.(failed_detectors), total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_channel, []))+length(chinfo_sipm)+length(chinfo_pmts))", string.(failed_detectors), total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
