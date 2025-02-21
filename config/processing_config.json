@@ -18,7 +18,7 @@
                 "julia_settings": []
             },
             "local": {
-                "n": 32,
+                "n": 64,
                 "julia_settings": []
             }
         },
@@ -29,7 +29,7 @@
         }
     },
     "processing": {
-        "periods": [6,7,8,9],
+        "periods": [3, 4, 6, 7, 8, 9],
         "runs" : "all",
         "analysis_runs_only": true,
         "only_partitions": false,
@@ -175,7 +175,7 @@
             "dependencies": ["p_process_sipm_optimization_phy"]
         },
         "process_sipm_calibration_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "category": "phy",
             "rank": 13,
@@ -186,7 +186,7 @@
             "dependencies": []
         },
         "process_evt_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "category": "phy",
             "rank": 14,
