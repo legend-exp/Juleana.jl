@@ -6,7 +6,6 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
-    chinfo = chinfo[1:10]
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     aoe_config = dataprod_config(l200).psd(filekey).aoe
