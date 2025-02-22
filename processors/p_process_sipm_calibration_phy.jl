@@ -52,6 +52,17 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         calibration_config_ch = merge(calibration_config.p_default, get(calibration_config.p, det, PropDict()))
         @debug "Loaded calibration config: $(calibration_config_ch)"
 
+        qc_config = dataprod_config(l200).qc(filekey_ch)
+        pulser_config_ch = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
+        @debug "Loaded pulser config: $(pulser_config_ch)"
+
+        #  write out pulser events
+        chinfo_puls = channelinfo(l200, filekey_ch, Symbol(qc_config.pulser.puls_channel))
+        @info "Loaded pulser channel info: $(chinfo_puls)"
+
+        ch_puls = chinfo_puls.channel
+        det_puls = chinfo_puls.detector
+
         energy_types = Symbol.(calibration_config_ch.energy_types)
 
         result_dict    = Dict{Symbol, NamedTuple}()
@@ -82,12 +93,33 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         end
 
         # get data
+        data_dsp = nothing
+        try
+            @debug "Load DSP data"
+            # load DSP data and apply QC cut
+            data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_ch, ch)
+        catch e
+            @error "Error in loading DSP data for channel $ch: $(truncate_string(string(e)))"
+            throw(ErrorException("Error data loader"))
+        end
+
+        is_pulser = nothing
+        try
+            @debug "Get Pulser tags"
+            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
+            is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+            @debug "Found $(count(is_pulser)) pulser events"
+        catch e
+            @error "Error in Pulser tag for channel $ch: $(truncate_string(string(e)))"
+            throw(ErrorException("Error in Pulser tag for channel: $(truncate_string(string(e)))"))
+        end
+
+        # get data
         data_ch_after_qc = nothing
         try
             @debug "Load hit data"
             # load DSP data and apply QC cut
-            data_dsp = read_ldata(l200, :jldsp, :phy, partinfo_ch, ch)
-            data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp))]
+            data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp) .&& .!is_pulser)]
         catch e
             @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
             throw(ErrorException("Error data loader"))
@@ -112,13 +144,15 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                     throw(ErrorException("Error in $e_type data extraction"))
                 end
 
+                p = stephist(e_uncal, bins=calibration_config_ch.simple.kwargs.initial_min_amp:0.1:calibration_config_ch.simple.kwargs.initial_max_amp, yscale=:log10, label="Uncalibrated PE", framestyle=:box)
+                title!(p, get_plottitle(filekey_ch, part, det, "PE Uncalibrated"; additiional_type=string(e_type)))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("pe_uncalibrated_$(e_type)"))
+
                 # get uncalibrated energy function
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = sipm_simple_calibration(e_uncal; 
-                            initial_min_amp=calibration_config_ch.simple.initial_min_amp, initial_max_quantile=calibration_config_ch.simple.initial_max_quantile,
-                            peakfinder_σ=calibration_config_ch.simple.peakfinder_σ, peakfinder_threshold=calibration_config_ch.simple.peakfinder_threshold)
+                    result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(calibration_config_ch.simple.kwargs)...)
                 catch e
                     @error "Error in $e_type simple calibration for channel $ch: $(truncate_string(string(e)))"
                     throw(ErrorException("Error in $e_type simple calibration"))
@@ -135,7 +169,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                 try
                     @debug "Fit all $e_type peaks"
                     result_fit, report_fit = fit_sipm_spectrum(result_simple.pe_simple_cal, calibration_config_ch.fit.min_pe, calibration_config_ch.fit.max_pe; 
-                            method=Symbol(calibration_config_ch.fit.init_method), nInit=calibration_config_ch.fit.nInit, nIter=calibration_config_ch.fit.nIter, 
+                            NamedTuple(calibration_config_ch.fit.kwargs)...,
                             f_uncal=result_simple.f_simple_uncal, uncertainty=true)
                 catch e
                     @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
@@ -168,6 +202,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
 
                 result_energy = (
                     m_cal_simple = result_simple.c,
+                    n_cal_simple = result_simple.offset,
                     cal = result_calib,
                     fit  = result_fit,
                 )
