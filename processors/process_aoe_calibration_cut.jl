@@ -198,7 +198,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
                     # This should become a plot recipe at some point
                     let aoe_final = ljl_propfunc(result_aoe_ctc.func).(hit_cal), _aoe = ljl_propfunc(result_correction.func).(hit_cal), _qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
-                        sel = abs.(aoe_final) .< 100 #.&& mask
+                        sel = abs.(aoe_final) .< 100 .&& mask
                         p = plot(fit(Histogram, _aoe[sel], -9:0.1:9), fill = true, xlims = (-9,5), color = :darkgrey, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "Before correction")
                         plot!(p, fit(Histogram, aoe_final[sel], -9:0.1:9), fill = true, xlims = (-9,5), alpha = 0.5, color = :purple, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "After correction", legend = :topleft, ylabel = "counts / 0.1")
                         plot!(p, kde((_aoe[sel], (_qdrift_e)[sel])), subplot = 2, c = :binary, colorbar = :none, st = :line, fill = true, label = "After correction", yformatter = :plain, link = :x)
