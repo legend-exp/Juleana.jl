@@ -184,10 +184,11 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                 yield()
 
                 @debug "Get $e_type calibration values"
+                peak_fit_cut = findall(isfinite.(result_fit.positions))
 
                 result_calib, report_calib = nothing, nothing
                 try
-                    result_calib, report_calib = fit_calibration(calibration_config_ch.pol_order, result_fit.positions, collect(result_fit.peaks).*u"e_au"; e_expression=e_type)
+                    result_calib, report_calib = fit_calibration(calibration_config_ch.pol_order, result_fit.positions[peak_fit_cut], collect(result_fit.peaks)[peak_fit_cut] .* u"e_au"; e_expression=e_type)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
                     @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_string(string(e)))"
