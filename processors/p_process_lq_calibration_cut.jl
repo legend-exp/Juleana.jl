@@ -8,7 +8,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $lq_status in [:valid, :present])
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $lq_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
