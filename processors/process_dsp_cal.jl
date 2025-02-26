@@ -27,6 +27,42 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
 
+    @debug "Check if all HPGe detectors have optimization parameters"
+    for chinfo_ch in chinfo
+        ch = chinfo_ch.channel
+        det = chinfo_ch.detector
+        # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
+        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_ch.processable != :on && isempty(partitioninfo(l200, ch, period, run))
+            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for channel"
+            parts = partitioninfo(l200, ch, period)
+            closest_runs_distance = Real[]
+            for p in parts
+                pinfo = filter(row -> row.period == period, partitioninfo(l200, ch, p))
+                closest_run = pinfo.run[argmin([abs(r.no - run.no) for r in pinfo.run])]
+                push!(closest_runs_distance, abs(closest_run.no - run.no))
+            end
+            part = parts[argmin(closest_runs_distance)]
+            try
+                merge!(pars_tau, get_values(l200.par.ppars.pz[det, part]))
+            catch e
+                @warn "No decay time for detector $det, skip channel $ch"
+                continue
+            end
+            try
+                merge!(pars_fltoptimization, get_values(l200.par.ppars.fltopt[det, part]))
+            catch e
+                @warn "No flt optimization parameters for detector $det, skip channel $ch"
+                continue
+            end
+            try
+                merge!(pars_fltoptimization, get_values(l200.par.ppars.aoeopt[det, part]))
+            catch e
+                @warn "No aoe flt optimization parameters for detector $det, skip channel $ch"
+                continue
+            end
+        end
+    end
+
     if reprocess @info "Reprocess all filekeys and channels"
     else @info "Only reprocess filekeys and channels that are not processed yet" end
 
@@ -83,40 +119,6 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
-                        end
-
-                        # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
-                        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_ch.processable != :on && isempty(partitioninfo(l200, ch, period, run))
-                            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for channel"
-                            parts = partitioninfo(l200, ch, period)
-                            closest_runs_distance = Real[]
-                            for p in parts
-                                pinfo = filter(row -> row.period == period, partitioninfo(l200, ch, p))
-                                closest_run = pinfo.run[argmin([abs(r.no - run.no) for r in pinfo.run])]
-                                push!(closest_runs_distance, abs(closest_run.no - run.no))
-                            end
-                            part = parts[argmin(closest_runs_distance)]
-                            try
-                                merge!(pars_tau, l200.par.ppars.pz[det, part])
-                            catch e
-                                @warn "No decay time for detector $det, skip channel $ch"
-                                push!(failed_detectors, det)
-                                continue
-                            end
-                            try
-                                merge!(pars_fltoptimization, l200.par.ppars.fltopt[det, part])
-                            catch e
-                                @warn "No flt optimization parameters for detector $det, skip channel $ch"
-                                push!(failed_detectors, det)
-                                continue
-                            end
-                            try
-                                merge!(pars_fltoptimization, l200.par.ppars.aoeopt[det, part])
-                            catch e
-                                @warn "No aoe flt optimization parameters for detector $det, skip channel $ch"
-                                push!(failed_detectors, det)
-                                continue
-                            end
                         end
                         
                         # check for decay time
