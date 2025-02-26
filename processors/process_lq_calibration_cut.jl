@@ -90,7 +90,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             end
             for lq_classifier in lq_classifiers
                 if haskey(pars_db[det], lq_classifier)
-                    log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].cut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].cut, pars_db[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false
@@ -100,14 +100,15 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
         hit_cal, e_cal, dep_σ = nothing, nothing, nothing
         try 
-            @debug("Load data")
-            hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
-                @debug "Reading from $(period)-$(run)"
-                # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
-                    Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
-                end
-            e_cal = getproperty(hit_cal, e_type)
-            dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+            if !all([haskey(processed_dict, lq_type) for lq_type in lq_types]) || !all([haskey(processed_dict, lq_classifier) for lq_classifier in lq_classifiers])
+                hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                    @debug "Reading from $(period)-$(run)"
+                    # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                    end
+                e_cal = getproperty(hit_cal, e_type)
+                dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+            end
         catch e
             @error "E data for $det cannot be loaded: $(truncate_string(string(e)))"
             throw(LoadError("E data", 154, "E data for $det from $period-$run cannot be loaded: $(truncate_string(string(e)))"))

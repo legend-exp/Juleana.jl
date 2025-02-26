@@ -111,18 +111,18 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
-                if !haskey(pars_db[det], lq_type)
-                    log_ch = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
+                if !haskey(pars_db_ch[det], lq_type)
+                    log_ch = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db_ch[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
                     processed_dict[lq_type] = false
                     log_info_dict[lq_type] = log_ch
                 end
             end
             for lq_classifier in lq_classifiers
-                if haskey(pars_db[det], lq_classifier)
-                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].cut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "Already processed --> skipped."))
+                if haskey(pars_db_ch[det], lq_classifier)
+                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, pars_db_ch[det][lq_classifier].cut, pars_db_ch[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db_ch[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false
@@ -133,16 +133,17 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         hit_cal, e_cal, dep_σ = nothing, nothing, nothing
         try 
             @debug("Load data")
-
-            hit_cal = fast_flatten([
-                let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
-                    @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                    # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
-                    Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
-                end
-                for pinfo in partinfo_ch])
-            e_cal = getproperty(hit_cal, e_type)
-            dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+            if !all([haskey(processed_dict, lq_type) for lq_type in lq_types]) || !all([haskey(processed_dict, lq_classifier) for lq_classifier in lq_classifiers])
+                hit_cal = fast_flatten([
+                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                        @debug "Reading from $(pinfo.period)-$(pinfo.run)"
+                        # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                    end
+                    for pinfo in partinfo_ch])
+                e_cal = getproperty(hit_cal, e_type)
+                dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+            end
         catch e
             @error "Hit_cal data for $det cannot be loaded"
             throw(LoadError("Hit_cal data", 154, "Hit_cal data for $det from partition $(part) cannot be loaded"))
