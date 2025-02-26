@@ -14,8 +14,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Drift Correction Type"), Symbol("LQ classifier function"), :CalError)}
-    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("LQ cut Value"), Symbol("Continuum SF"), Symbol("DEP SF"), :CutError)}
+    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
+    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("CC SF"), Symbol("DEP SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -57,10 +57,11 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         lq_config_ch = merge(lq_config.p_default, get(lq_config.p, det, PropDict()))
         @debug "Loaded aoe config: $(lq_config_ch)"
 
-        e_cal_type                  = Symbol(lq_config_ch.e_cal_type)
-        e_uncal_type                = Symbol(lq_config_ch.e_uncal_type)
-        lq_type                     = Symbol(lq_config_ch.lq_type)
+        e_type                      = Symbol(lq_config_ch.e_type)
+        lq_types                    = collect(keys(lq_config_ch.lq_funcs))
+        lq_funcs                    = lq_config_ch.lq_funcs
         lq_classifiers              = Symbol.(lq_config_ch.lq_classifiers)
+        qdrift_expression           = lq_config_ch.qdrift_expression
 
         #for lq_ctc_correction
         dep_µ                       = lq_config_ch.dep_mu
@@ -95,69 +96,60 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
         if (only_first_period && period != first(partinfo_ch.period))
             @info "Only first period in partition $part for $period in $ch ($det)"
-            for classifier in lq_classifiers
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(1), classifier, fill("-", 2)..., "Only first periods --> skipped."))
+            for lq_type in lq_types
+                log_info = log_nt_cal((ch, det, part, ProcessStatus(1), lq_type, fill("-", 2)..., "Only first periods --> skipped."))
                 # add results to dict
-                log_info_dict[classifier] = log_info
-                processed_dict[classifier] = false
+                log_info_dict[lq_type] = log_info
+                processed_dict[lq_type] = false
             end
-            for classifier in lq_classifiers
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), classifier, fill("-", 3)..., "Only first periods --> skipped."))
+            for lq_classifier in lq_classifiers
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
-                log_info_dict[classifier] = log_info
-                processed_dict[classifier] = false
+                log_info_dict[lq_classifier] = log_info
+                processed_dict[lq_classifier] = false
             end
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $(det) already processed, check missing lq_classifiers"
-            for classifier in lq_classifiers
-                if !haskey(pars_db[det], classifier)
-                    log_ch = log_nt_cal(ch, det, part, ProcessStatus(1), classifier, ctc_driftime_cutoff_method, pars_db[det][classifier].drift_result.func,"Already processed --> skipped.")
-                    processed_dict[classifier] = false
-                    log_info_dict[classifier] = log_ch
+            for lq_type in lq_types
+                if !haskey(pars_db[det], lq_type)
+                    log_ch = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
+                    processed_dict[lq_type] = false
+                    log_info_dict[lq_type] = log_ch
                 end
             end
-            for classifier in lq_classifiers
-                if haskey(pars_db[det], Symbol("lq_cut_of_$classifier"))
-                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), classifier, pars_db[det][classifier].final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "Already processed --> skipped."))
+            for lq_classifier in lq_classifiers
+                if haskey(pars_db[det], lq_classifier)
+                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].cut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "Already processed --> skipped."))
                     # add results to dict
-                    log_info_dict[classifier] = log_info
-                    processed_dict[classifier] = false
+                    log_info_dict[lq_classifier] = log_info
+                    processed_dict[lq_classifier] = false
                 end
             end
         end
 
-        hit_cal = nothing
-        e_cal, e_uncal, lq, qdrift = nothing, nothing, nothing, nothing
-        aoe_cut = nothing
-        dep_σ = nothing
-
+        hit_cal, e_cal, dep_σ = nothing, nothing, nothing
         try 
             @debug("Load data")
 
-            hit_cal = fast_flatten([begin
-                @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+            hit_cal = fast_flatten([
+                let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                    @debug "Reading from $(pinfo.period)-$(pinfo.run)"
+                    # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
+                    Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                end
                 for pinfo in partinfo_ch])
-
-            e_cal = getproperty(hit_cal, e_cal_type)
-            e_uncal = getproperty(hit_cal, e_uncal_type)
-            lq = getproperty(hit_cal, :lq)
-            qdrift = getproperty(hit_cal, :qdrift)
-
-            aoe_cut = getproperty(hit_cal, :aoe_sg_classifier_low_cut)
-
+            e_cal = getproperty(hit_cal, e_type)
             dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
-
         catch e
             @error "Hit_cal data for $det cannot be loaded"
             throw(LoadError("Hit_cal data", 154, "Hit_cal data for $det from partition $(part) cannot be loaded"))
         end
 
-        @showprogress desc="Detector: $det" for classifier in lq_classifiers
-            if haskey(processed_dict, classifier)
+        @showprogress desc="Detector: $det" for lq_type in lq_types
+            if haskey(processed_dict, lq_type)
                 continue
             end
             try
@@ -166,8 +158,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 lq_e_corr_expression, dt_eff_expression = nothing, nothing
                 mean_lq, std_lq, median_lq = nothing, nothing, nothing
                 try
-                    lq_e_corr = lq ./ e_uncal
-                    dt_eff = qdrift ./ e_uncal
+                    lq_e_corr = ljl_propfunc(lq_funcs[lq_type]).(hit_cal)
+                    dt_eff = ljl_propfunc(qdrift_expression).(hit_cal)
 
                     mean_lq = mean(filter(isfinite, lq_e_corr))
                     std_lq = std(filter(isfinite, lq_e_corr))
@@ -177,14 +169,14 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                     cuts_lq = cut_single_peak(lq_e_corr, 0.0, quantile(filter(isfinite, lq_e_corr), 0.99); n_bins=-1)
                     lq_e_corr ./= cuts_lq.max
 
-                    lq_e_corr_expression = "(($lq_type / $e_uncal_type) / $(cuts_lq.max))"
-                    dt_eff_expression = "(qdrift / $e_uncal_type)"
+                    lq_e_corr_expression = "$(lq_funcs[lq_type]) / $(cuts_lq.max)"
+                    dt_eff_expression = qdrift_expression
                 catch e
                     @error "Error in energy correction and normalization: $e"
                     throw(ErrorException("Error in energy correction and normalization: $e"))
                 end
 
-                @debug "Calibrate $classifier"
+                @debug "Calibrate $lq_type"
                 drift_result, drift_report = nothing, nothing
                 try 
                     drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
@@ -197,33 +189,33 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 #create and save plots
                 p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP)
                 plot!(title="Drift Time vs LQ in DEP for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_DEP_$classifier"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_DEP_$lq_type"))
 
                 p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :whole) 
                 plot!(title="Drift Time vs LQ for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_$classifier"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_$lq_type"))
 
                 #create log entry
-                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), classifier, ctc_driftime_cutoff_method, drift_result.func, "-")
+                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
 
                 # add results to dict
-                result_dict[classifier]   =  (drift_result = drift_result, mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq)
-                log_info_dict[classifier] = log_info
-                processed_dict[classifier] = true
+                result_dict[lq_type]   =  merge(drift_result, (mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq))
+                log_info_dict[lq_type] = log_info
+                processed_dict[lq_type] = true
 
                 # free memory
                 GC.gc()
             catch e
-                @error "Error in $classifier calibration: $(truncate_string(string(e)))"
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), classifier, "-", "-", truncate_string(string(e))))
+                @error "Error in $lq_type calibration: $(truncate_string(string(e)))"
+                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), lq_type, "-", "-", truncate_string(string(e))))
 
                 # add results to dict
-                log_info_dict[classifier] = log_info
-                processed_dict[classifier] = false
+                log_info_dict[lq_type] = log_info
+                processed_dict[lq_type] = false
             end
         end
 
-        @info "LQ constructor construction for channel $ch ($det) finished"
+        @debug "LQ calibration for channel $ch ($det) finished"
 
         # add lq constructor results to pars_db
         result_ch = (result = result_dict, processed = processed_dict, log = log_info_dict, validity = validity_ch)
@@ -231,8 +223,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         pars_db_ch = create_pars(pars_db_ch, result_lq_cons)
 
         # continue with lq cut
-        @showprogress desc="Detector: $det" for classifier in lq_classifiers
-            if haskey(processed_dict, Symbol("lq_cut_of_$classifier"))
+        @showprogress desc="Detector: $det" for lq_classifier in lq_classifiers
+            if haskey(processed_dict, lq_classifier)
                 continue
             end
             try
@@ -241,7 +233,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 #get lq classifier
                 lq_class = nothing
                 try
-                    lq_class = ljl_propfunc(pars_db_ch[det][classifier].drift_result.func).(hit_cal)
+                    lq_class = ljl_propfunc(pars_db_ch[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func).(hit_cal)
                 catch e
                     @error "lq classifier for $det from cannot be loaded"
                     throw(LoadError("lq", 154, "lq classifier data for $det from partition $(part) cannot be loaded"))
@@ -259,26 +251,25 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 #create and save plots
                 p=plot(report, lq_class, e_cal, :fit)
                 plot!(title="Fit of LQ Cut for Detector: $det", subplot = 1)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$classifier"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
 
                 p=plot(report, lq_class, e_cal, :sideband)
                 plot!(title="Sidebands for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("sideband_$classifier"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("sideband_$lq_classifier"))
 
-                p = plot(report, lq_class, e_cal, :lq_cut)
-                plot!(title="LQ Cut for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_$classifier"))
+                # p = plot(report, lq_class, e_cal, :lq_cut)
+                # plot!(title="LQ Cut for Detector: $det")
+                # savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_$lq_classifier"))
 
                 p = plot(report, lq_class, e_cal, :energy_hist)
                 plot!(title="Energy Spectrum of Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("energy_hist_$classifier"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("energy_hist_$lq_classifier"))
 
                 p = plot(report, lq_class, e_cal, :cut_fraction)
                 plot!(title="LQ cutted events in $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("cut_fraction_$classifier"))
-                
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("cut_fraction_$lq_classifier"))                
 
-                @debug("starting to calculate SF values for lq cut")
+                @debug("Generate Surrvival Fractions for LQ")
 
                 result_peaks, report_peaks = nothing, nothing
                 try
@@ -297,68 +288,30 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 end
 
 
-                @debug("starting to calculate SF values for lq cut after aoe cut")
-                
-                result_peaks_aoe, report_peaks_aoe = nothing, nothing
-                try
-                    result_peaks_aoe, report_peaks_aoe = get_peaks_survival_fractions(lq_class[aoe_cut], e_cal[aoe_cut], lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
-                catch e
-                    @error "Error in peak lq after aoe survival fraction calculation: $e"
-                    throw(ErrorException("Error in peak lq after aoe survival fraction calculation: $e"))
-                end
-
-                result_qbb_aoe, report_qbb_aoe = nothing, nothing
-                try
-                    result_qbb_aoe, report_qbb_aoe = get_continuum_survival_fraction(lq_class[aoe_cut], e_cal[aoe_cut], qbb_pos, qbb_window, result.cut; inverted_mode=true)
-                catch e
-                    @error "Error in qbb lq after aoe survival fraction calculation: $e"
-                    throw(ErrorException("Error in qbb lq after aoe survival fraction calculation: $e"))
-                end
-
-
-                @debug("starting to calculate Total SF after lq and low aoe cut")
-
-                result_peaks_total, report_peaks_total = nothing, nothing
-                try
-                    result_peaks_total, report_peaks_total = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut, aoe_cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
-                catch e
-                    @error "Error in peak total survival fraction calculation: $e"
-                    throw(ErrorException("Error in peak total survival fraction calculation: $e"))
-                end
-
-                result_qbb_total, report_qbb_total = nothing, nothing
-                try
-                    result_qbb_total, report_qbb_total = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window, result.cut, aoe_cut; inverted_mode=true)
-                catch e
-                    @error "Error in qbb total survival fraction calculation: $e"
-                    throw(ErrorException("Error in qbb total survival fraction calculation: $e"))
-                end
-
-
                 # save results
-                final_result = merge(result, (peaks = (lq = result_peaks, lq_aoe = result_peaks_aoe, lq_total = result_peaks_total), qbb = (lq = result_qbb, lq_aoe = result_qbb_aoe, lq_total = result_qbb_total)))
+                final_result = merge(result, (peaks = result_peaks, qbb = result_qbb))
 
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), classifier, final_result.cut, final_result.peaks.lq_aoe[:Tl208DEP].sf, final_result.qbb.lq_aoe.sf, "-"))
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, final_result.cut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
 
                 # add results to dict
-                result_dict[Symbol("lq_cut_of_$classifier")] = final_result
-                log_info_dict[Symbol("lq_cut_of_$classifier")] = log_info
-                processed_dict[Symbol("lq_cut_of_$classifier")] = true
+                result_dict[lq_classifier] = final_result
+                log_info_dict[lq_classifier] = log_info
+                processed_dict[lq_classifier] = true
 
                 GC.gc()
             catch e
                 @error "Error in lq cut generation: $(truncate_string(string(e)))"
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(0), classifier, "-", "-", "-", truncate_string(string(e))))
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_string(string(e))))
                 
                 # add results to dict
-                log_info_dict[Symbol("lq_cut_of_$classifier")] = log_info
-                processed_dict[Symbol("lq_cut_of_$classifier")] = false
+                log_info_dict[lq_classifier] = log_info
+                processed_dict[lq_classifier] = false
             end
         end
         # cleanup log and combine
         log_info_dict_cleaned = Dict{Symbol, NamedTuple}()
-        for classifier in lq_classifiers
-            log_info_dict_cleaned[classifier] = merge(log_info_dict[classifier], log_info_dict[Symbol("lq_cut_of_$(string(classifier))")])
+        for lq_type in lq_types
+            log_info_dict_cleaned[lq_type] = merge(log_info_dict[lq_type], log_info_dict[Symbol("$(string(lq_type))_classifier")])
         end
         result_ch = (result = result_dict, processed = processed_dict, log = log_info_dict_cleaned, validity = validity_ch)
         result_lq_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
