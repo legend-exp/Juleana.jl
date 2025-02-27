@@ -250,11 +250,15 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 end
 
                 #create and save plots
-                p=plot(report, lq_class, e_cal, :fit)
+                p = plot(report, lq_class, e_cal, :fit)
                 plot!(title="Fit of LQ Cut for Detector: $det", subplot = 1)
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
 
-                p=plot(report, lq_class, e_cal, :sideband)
+                p = plot(report, lq_class, e_cal, :energy_spectrum)
+                plot!(title="Energy Spectrum of Detector: $det")
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("energy_spectrum_$lq_classifier"))
+
+                p = plot(report, lq_class, e_cal, :sideband)
                 plot!(title="Sidebands for Detector: $det")
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("sideband_$lq_classifier"))
 
