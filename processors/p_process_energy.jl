@@ -48,7 +48,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
         validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
 
-        energy_config = dataprod_config(l200).energy(filekey_ch).full
+        energy_config = dataprod_config(l200).energy(filekey_ch)
         energy_config_ch = merge(energy_config.p_default, get(energy_config.p, det, PropDict()))
         @debug "Loaded energy config: $(energy_config_ch)"
 
@@ -170,7 +170,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3), plot_titlefontsize=12)
                 plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
                 plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
-                # savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
 
                 yield()
 
