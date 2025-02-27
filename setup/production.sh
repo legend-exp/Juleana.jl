@@ -1,4 +1,7 @@
 #!/bin/bash
+if [ -f /etc/bash_completion ]; then 
+    . /etc/bash_completion 
+fi
 
 # Juleana production environment creator
 
@@ -21,10 +24,12 @@ while true; do
     echo -e "\n\n\n"
 done
 
+default_production_path="${LEGEND_DATA_CONFIG:+$(dirname "$(dirname "$LEGEND_DATA_CONFIG")")}"
+
 # Ask for the production path and validate it
 while true; do
     echo "#############################################"
-    read -p "Please enter the production path: " production_path
+    read -e -p "Please enter the production path: " -i "$default_production_path" production_path
     if [[ "$production_path" =~ ^/ ]]; then
         break
     else
@@ -88,15 +93,34 @@ echo -e "\n\n\n"
 
 # Ask if the user wants to check out all main branches of all metadata submodules
 echo "#############################################"
-read -p "Do you want to check out all metadata main branches? [Y/n] Hit enter: " checkout_submodules
+read -p "Do you want to check out specific metadata branches? [Y/n] Hit enter: " checkout_submodules
 checkout_submodules=${checkout_submodules:-Y}
 
 if [[ "$checkout_submodules" =~ ^([Yy][Ee][Ss]|[Yy])$ ]]; then
-    echo "Checking out main branches for all metadata submodules..."
+    default_branch="main"
+    read -e -p "Please enter the 'jldataprod' branches to check out (default is 'main'): " -i "$default_branch" branch
+    branch=${branch:-main}
+    echo "Checking out $branch branches for all 'jldataprod' metadata submodules..."
     cd "$full_path/legend-metadata"
-    git submodule foreach 'git checkout main && git pull origin main'
+    
+    # Checkout branches for submodules under jldataprod/config and jldataprod/overrides
+    git submodule foreach --recursive '
+        if [[ "$name" == jldataprod/config* || "$name" == jldataprod/overrides* ]]; then
+            git checkout '"$branch"' && git pull origin '"$branch"'
+        fi
+    '
+    read -e -p "Please enter the 'dataprod' branches to check out (default is 'main'): " -i "$default_branch" branch
+    branch=${branch:-main}
+    echo "Checking out $branch branches for all 'dataprod' metadata submodules..."
+
+    # Checkout branches for all other submodules
+    git submodule foreach --recursive '
+        if [[ "$name" != jldataprod/config* && "$name" != jldataprod/overrides* && "$name" != simprod/config* ]]; then
+            git checkout '"$branch"' && git pull origin '"$branch"'
+        fi
+    '
 else
-    echo "Skipping checkout of main branches for metadata submodules."
+    echo "Skipping checkout of branches for metadata submodules."
 fi
 echo "#############################################"
 echo -e "\n\n\n"
@@ -145,19 +169,23 @@ echo -e "\n\n\n"
 add_path_to_config() {
     local path_label=$1
     local path_key=$2
+    local previous_path=$3
 
     while true; do
         echo "#############################################"
-        read -p "Please enter the alternative path for $path_label: " path
+        read -e -p "Please enter the alternative path for $path_label: " -i "$previous_path" path
+        previous_path="$path"
         if [ -d "$path" ]; then
             echo "Alternative path for $path_label exists: $path"
+            # Replace the dirname of the config.json path with $_/ if it is contained in the path
+            modified_path=$(echo "$path" | sed "s|$(dirname "$(dirname "$config_file")")|\$_/..|")
             # Insert the alternative path into the config.json file
-            sed -i "/\"$path_key\": \"\$_\/generated\/$path_key\/\",/a \ \ \ \ \ \ \ \ \"$path_label\": \"$path\"," "$config_file"
+            sed -i "/\"$path_key\": \"\$_\/generated\/$path_key\/\",/a \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \"$path_label\": \"$modified_path\"," "$config_file"
             echo "Alternative path for $path_label added to config.json"
             break
         else
             echo "The path '$path' does not exist. Please enter a valid path or type 'skip' to skip this step."
-            read -p "Enter a valid alternative path for $path_label or type 'skip': " path
+            read -e -p "Enter a valid alternative path for $path_label or type 'skip': " -i "$previous_path" path
             if [[ "$path" == "skip" ]]; then
                 echo "Skipping the addition of an alternative path for $path_label."
                 break
@@ -169,14 +197,16 @@ add_path_to_config() {
 }
 
 # Ask for alternative tier paths
+previous_alternative_path="$default_production_path"
 while true; do
     echo "#############################################"
-    read -p "Please enter the label for the alternative tier path (single string, no spaces) or type 'done' to finish: " label
+    read -e -p "Please enter the label for the alternative tier path (single string, no spaces) or type 'done' to finish: " label
     if [[ "$label" == "done" ]]; then
         echo "Finished adding alternative tier paths."
         break
     elif [[ "$label" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        add_path_to_config "tier/$label" "tier"
+        add_path_to_config "tier/$label" "tier" "$previous_alternative_path"
+        previous_alternative_path=$(echo "$(grep "\"tier/$label\"" "$config_file" | sed -n 's/.*: "\(.*\)".*/\1/p')" | sed "s|\$_/..|$(dirname "$(dirname "$config_file")")|")
     else
         echo "The label '$label' is not valid. Please enter a single string with no spaces."
     fi
@@ -185,10 +215,11 @@ while true; do
 done
 
 # Function to copy additional pars
+previous_additional_pars_path="$default_production_path"
 copy_additional_pars() {
     while true; do
         echo "#############################################"
-        read -p "Please enter the path to additional pars or type 'done' to finish: " pars_path
+        read -e -p "Please enter the path to additional pars or type 'done' to finish: " -i "$previous_additional_pars_path" pars_path
         if [[ "$pars_path" == "done" ]]; then
             echo "Finished adding additional pars."
             break
@@ -200,6 +231,7 @@ copy_additional_pars() {
                     mkdir -p "$destination"
                     cp -r "$pars_path"/* "$destination"
                     echo "Copied $pars_path to $destination"
+                    previous_additional_pars_path="$pars_path"
                 else
                     echo "Error extracting pars subpath. Please try again."
                 fi
