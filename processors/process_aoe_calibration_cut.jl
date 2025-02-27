@@ -196,17 +196,10 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                         throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
                     end
 
-                    # This should become a plot recipe at some point
-                    let aoe_final = ljl_propfunc(result_aoe_ctc.func).(hit_cal), _aoe = ljl_propfunc(result_correction.func).(hit_cal), _qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
-                        sel = abs.(aoe_final) .< 100 .&& mask
-                        p = plot(fit(Histogram, _aoe[sel], -9:0.1:9), fill = true, xlims = (-9,5), color = :darkgrey, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "Before correction")
-                        plot!(p, fit(Histogram, aoe_final[sel], -9:0.1:9), fill = true, xlims = (-9,5), alpha = 0.5, color = :purple, subplot = 1, link = :x, framestyle = :semi, size = (1000,1000), margins = (0,:mm), layout = (2,1), grid = false, st = :stepbins, left_margin = (5,:mm), right_margin = (5,:mm), bottom_margin = (-4,:mm), label = "After correction", legend = :topleft, ylabel = "counts / 0.1")
-                        plot!(p, kde((_aoe[sel], (_qdrift_e)[sel])), subplot = 2, c = :binary, colorbar = :none, st = :line, fill = true, label = "After correction", yformatter = :plain, link = :x)
-                        plot!(p, kde((aoe_final[sel], (_qdrift_e)[sel])), subplot = 2, c = :plasma, link = :x, framestyle = :semi, colorbar = :none, st = :line, fill = false, label = "After correction", yformatter = :plain, xlims = (-9,5), ylims = (0,11), ylabel = "Eff. Drift time / Energy (a.u.)")
-                        plot!(p, xlabel = "A/E classifier", xtickfontsize = 12, xlabelfontsize = 14, ylabelfontsize = 14, ytickfontsize = 12, legendfontsize = 12, foreground_color_legend = :silver, background_color_legend = :white, fmt = :png)
-                        title!(p, get_plottitle(filekey, det, "A/E CT Correction"; additiional_type=string(aoe_type)))
-                        savelfig(savefig, p, l200, filekey, det, Symbol("aoe_ctc_$aoe_type"))
-                    end
+                    # plot A/E ctc correlation plot
+                    p = plot(report_aoe_ctc)
+                    title!(p, get_plottitle(filekey, det, "A/E CT Correction"; additiional_type=string(aoe_type)), subplot = 1)
+                    savelfig(savefig, p, l200, filekey, det, Symbol("aoe_ctc_$aoe_type"))
                     
                     aoe_corr = ljl_propfunc(result_aoe_ctc.func).(hit_cal)
                 end
