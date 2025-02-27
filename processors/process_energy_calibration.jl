@@ -114,9 +114,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 # get simple calibration constant
                 m_cal_simple = result_simple.c
                 # save plots for simple calibration for control
-                p = plot(report_simple, margin=5mm, yformatter=:plain, thickness_scaling=1.5, cal=true)
-                title!(p, get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
-                savelfig(savefig, p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
+                p = LegendMakie.lplot(report_simple, title = get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)), cal = true)
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
                 yield()
 
                 result_fit, report_fit = nothing, nothing
@@ -130,9 +129,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 end
                 GC.gc()
 
-                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
-                plot!(p, plot_title=get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
-                savelfig(savefig, p, l200, filekey, det, Symbol("peak_fits_$(e_type)"))
+                p = LegendMakie.lplot(report_fit, figsize = (600, 400*length(report_fit)), title = get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("peak_fits_$(e_type)"))
 
                 yield()
 
@@ -164,9 +162,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 μ_notfit =  [result_fit[p].centroid for p in th228_names if !(p in th228_names_qc_cal_fit)]
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
 
-                p = plot(report_calib, xerrscaling=100, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3), plot_titlefontsize=12)
-                savelfig(savefig, p, l200, filekey, det, Symbol("calibration_curve_$(e_type)"))
+                p = LegendMakie.lplot(report_calib, xerrscaling=100, additional_pts=(μ = μ_notfit, peaks = pp_notfit), title = get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("calibration_curve_$(e_type)"))
 
                 yield()
 
@@ -187,9 +184,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 fwhm_notfit =  f_cal_widths.([result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)])
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
 
-                p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
-                plot!(plot_title=get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3))
-                savelfig(savefig, p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
+                p = LegendMakie.lplot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit), title = get_plottitle(filekey, det, "FWHM"; additiional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
                 
                 f_cal_pos(x) = report_calib.f_fit(x) .* report_calib.e_unit
 
