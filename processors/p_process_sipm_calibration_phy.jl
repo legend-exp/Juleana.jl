@@ -34,7 +34,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
 
         @info "Processing channel $ch ($det)"
 
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.json"))
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.sipmcal[det, part])
         else
             PropDict()
