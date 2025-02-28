@@ -108,7 +108,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
             end
         end
 
-        e_cal, hit_cal = nothing, nothing
+        e_cal, hit_cal, ts = nothing, nothing, nothing
         try
             if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([
@@ -119,6 +119,16 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                     end
                     for pinfo in partinfo_ch])
                 e_cal = getproperty(hit_cal, e_type)
+
+                # get timestamps for stability plots
+                ts = uconvert.(u"hr", hit_cal.timestamp)
+                # correct for gaps in timestamps which correspond to phy runs
+                run_idx = findall(diff(ts) .> 6u"hr") .+ 1
+                for idx in run_idx
+                    ts[idx:end] .-= (ts[idx] - ts[idx-1])
+                end
+                # normalize to first timestamp
+                ts .-= first(ts)
             end
         catch e
             @error "E data for $det from cannot be loaded"
@@ -150,6 +160,15 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 xticks!(p, 0:250:3000)
                 title!(p, get_plottitle(filekey_ch, part, det, "AoE uncalibrated"; additiional_type=string(aoe_type)))
                 savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_uncalibrated_$aoe_type"))
+
+                # cut around CC to get only compton band for stability plotting
+                cc_min, cc_max = 0.9, 1.1
+                aoe_cut = findall(cc_min .< aoe .< cc_max)
+                # plot CC A/E over time
+                p = histogram2d(ts[aoe_cut], aoe[aoe_cut], nbins=(0:0.01:ustrip(maximum(ts)), cc_min:5e-3:cc_max), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Time", ylabel="CC A/E (a.u.)", margin=5mm)
+                plot!(p, guidefontsize=18, xguidefontsize=18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
+                title!(p, get_plottitle(filekey_ch, part, det, "AoE stability"; additiional_type=string(aoe_type)))
+                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_stability_$aoe_type"))
 
                 result_fit, report_fit, compton_band_peakhists = nothing, nothing, nothing
                 try
