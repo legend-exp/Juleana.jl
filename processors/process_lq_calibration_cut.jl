@@ -222,6 +222,10 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 plot!(title="Sidebands for Detector: $det")
                 savelfig(savefig, p, l200, filekey, det, Symbol("sideband_$lq_classifier"))
 
+                p = plot(report, lq_class, e_cal, :energy_spectrum)
+                plot!(title="Energy Spectrum of Detector: $det")
+                savelfig(savefig, p, l200, filekey, det, Symbol("energy_spectrum_$lq_classifier"))
+
                 # p = plot(report, lq_class, e_cal, :lq_cut)
                 # plot!(title="LQ Cut for Detector: $det")
                 # savelfig(savefig, p, l200, filekey, det, Symbol("lq_cut_$lq_classifier"))
