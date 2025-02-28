@@ -15,7 +15,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
     # create log line Tuple
     log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
-    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("CC SF"), Symbol("DEP SF"), :CutError)}
+    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
