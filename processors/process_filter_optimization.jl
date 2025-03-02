@@ -169,9 +169,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 @debug format("Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
                 yield()
 
-                p = plot(report_rt)
-                title!(p, get_plottitle(filekey, det, "Noise Sweep"; additiional_type=string(filter_type)))
-                savelfig(savefig, p, l200, filekey, det, Symbol("noise_sweep_$(filter_type)"))
+                p = LegendMakie.lplot(report_rt, title = get_plottitle(filekey, det, "Noise Sweep"; additiional_type=string(filter_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("noise_sweep_$(filter_type)"))
 
                 # optimize FT
                 yield()
@@ -196,9 +195,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 end
                 @debug "Found optimal $filter_type FT at $(result_ft.ft) with FWHM $(round(u"keV", result_ft.min_fwhm, digits=2))"
                 yield()
-                p = plot(report_ft)
-                title!(get_plottitle(filekey, det, "FEP FT Scan"; additiional_type=string(filter_type)))
-                savelfig(savefig, p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
+                p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey, det, "FEP FT Scan"; additiional_type=string(filter_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 
                 log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
