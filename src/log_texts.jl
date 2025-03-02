@@ -8,10 +8,7 @@ function truncate_string(s::String, max_length::Int=200)
 end
 
 function truncate_error(e::Exception, max_length::Int=200)
-    if e isa TaskFailedException
-        e = e.task.exception
-    end
-    s = string(e)
+    s = string(@userfriendly_exceptions e)
     if length(s) > max_length
         return s[1:max_length] * "..."
     else
