@@ -78,8 +78,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             @timeit fk_timer "$fk" begin
                 try
                     LHDataStore(filename) 
-                catch err
-                    @error "Error while checking file \"$(filename)\": $(err)"
+                catch e
+                    @error "Error while checking file \"$(filename)\": $(e)"
                     is_ok = false
                 else
                     LHDataStore(filename) do ds
@@ -87,8 +87,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                             @timeit fk_timer "$ch" begin
                                 try
                                     haskey(ds, "$ch") || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
-                                catch err
-                                    @error "Error while checking channel $ch in \"$(filename)\": $(err)"
+                                catch e
+                                    @error "Error while checking channel $ch in \"$(filename)\": $(e)"
                                     push!(failed_channels, ch)
                                     is_ok = false
                                 end
