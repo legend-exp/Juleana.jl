@@ -7,6 +7,18 @@ function truncate_string(s::String, max_length::Int=200)
     end
 end
 
+function truncate_error(e::Exception, max_length::Int=200)
+    if e isa TaskFailedException
+        e = e.task.exception
+    end
+    s = string(e)
+    if length(s) > max_length
+        return s[1:max_length] * "..."
+    else
+        return s
+    end
+end
+
 # log texts that are static in each log report
 
 const peak_splitting_log_text = """## Peak Splitting
