@@ -109,8 +109,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                 data_ch = data_ch[sel]
             end
         catch e
-            @error "SiPM data from $(part) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string("$(part)"), 154,"SiPM data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "SiPM data from $(part) cannot be loaded: $(truncate_error(e))"
+            throw(LoadError(string("$(part)"), 154,"SiPM data from $(part) cannot be loaded: $(truncate_error(e))"))
         end
         
         wvfs_ch = nothing
@@ -121,8 +121,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
             @debug "Found $(count(is_pulser)) pulser events"
             wvfs_ch = data_ch[findall(.!is_pulser)].waveform_bit_drop[:]
         catch e
-            @error "Error in Pulser tag for channel $ch: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in Pulser tag for channel: $(truncate_string(string(e)))"))
+            @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
+            throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for filter_type in e_filter
@@ -144,8 +144,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                     trig_max_grid = dsp_grid.trig_max_grid
                     thresholds_grid = dsp_grid.thresholds_grid
                 catch e
-                    @error "Filter: $filter_type DSP: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in $filter_type SP: $(truncate_string(string(e)))"))
+                    @error "Filter: $filter_type DSP: $(truncate_error(e))"
+                    throw(ErrorException("Error in $filter_type SP: $(truncate_error(e))"))
                 end
 
                 result_wl, report_wl = nothing, nothing
@@ -154,8 +154,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                     @debug "Sweep through window lengths to get optimal gain, resolution and position of 1pe peak"
                     result_wl, report_wl = fit_sipm_wl(trig_max_grid, optimization_config_flt.e_grid_wl, thresholds_grid; NamedTuple(optimization_config_flt.kwargs)...)
                 catch e
-                    @error "Failed  $filter_type window length optimization: $(truncate_string(string(e)))"
-                    throw(ErrorException("$filter_type Window length optimization: $(truncate_string(string(e)))"))
+                    @error "Failed  $filter_type window length optimization: $(truncate_error(e))"
+                    throw(ErrorException("$filter_type Window length optimization: $(truncate_error(e))"))
                 end
 
                 @debug "Found optimal window length at $(result_wl.wl) for channel $ch ($det)"
@@ -174,8 +174,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                     @debug "DSP $filter_type thresholds"
                     dsp_thresholds = getfield(Main, Symbol("dsp_$(filter_type)_sipm_thresholds_compressed"))(decode_data(wvfs_ch[1:optimization_config_flt.threshold.n_wvfs]), mvalue(result_wl.wl), dsp_config_ch)
                 catch e
-                    @error "DSP $filter_type thresholds: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in DSP $filter_type thresholds: $(truncate_string(string(e)))"))
+                    @error "DSP $filter_type thresholds: $(truncate_error(e))"
+                    throw(ErrorException("Error in DSP $filter_type thresholds: $(truncate_error(e))"))
                 end
 
                 # get trigger threshold
@@ -187,8 +187,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                         result_thres, report_thres = fit_sipm_threshold(getproperty(dsp_thresholds, thres), optimization_config_flt.threshold.min_cut, optimization_config_flt.threshold.max_cut; 
                                                         n_bins=optimization_config_flt.threshold.nbins, relative_cut=optimization_config_flt.threshold.rel_cut, fit_thresholds=optimization_config_flt.threshold.fit_thresholds, uncertainty=true)
                     catch e
-                        @error "Failed trigger threshold extraction for $thres: $(truncate_string(string(e)))"
-                        throw(ErrorException("Error in trigger threshold extraction for $thres: $(truncate_string(string(e)))"))
+                        @error "Failed trigger threshold extraction for $thres: $(truncate_error(e))"
+                        throw(ErrorException("Error in trigger threshold extraction for $thres: $(truncate_error(e))"))
                     end
                     
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for channel $ch ($det)"
@@ -210,7 +210,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                 # call garbage collector
                 GC.gc()
             catch e
-                @error "Error in processing channel $ch: $(truncate_string(string(e)))"
+                @error "Error in processing channel $ch: $(truncate_error(e))"
                 log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[filter_type] = log_info

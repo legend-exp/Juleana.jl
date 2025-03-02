@@ -53,8 +53,8 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         try 
                             out_t = Table(calibrate_all(l200, fk, dsp_data))
                         catch e
-                            @error "Error processing $fk: $(truncate_string(string(e)))"
-                            throw(ErrorException("Error processing $fk: $(truncate_string(string(e)))"))
+                            @error "Error processing $fk: $(truncate_error(e))"
+                            throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
                         end
                         # get number of forced, physical and pulser triggers
                         n_forced = count(out_t.aux.forcedtrigger.aux_trig)

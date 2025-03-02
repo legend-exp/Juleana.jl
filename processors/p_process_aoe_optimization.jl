@@ -136,8 +136,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 wvfs_ch_sep_wdw = wvfs_ch_sep_wdw[sel]
             end
         catch e
-            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
+            throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
@@ -157,8 +157,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                     dsp_dep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
                     dsp_sep = getfield(Main, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
                 catch e
-                    @error "Failed DSP for DEP or SEP: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_string(string(e)))"))
+                    @error "Failed DSP for DEP or SEP: $(truncate_error(e))"
+                    throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_error(e))"))
                 end
 
                 dep_sep_after_qc = nothing
@@ -169,8 +169,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                                 sep = dsp_sep[ljl_propfunc(qc_string).(dsp_sep)]
                     )
                 catch e
-                    @error "Failed QC for DEP or SEP: $(truncate_string(string(e)))"
-                    throw(ErrorException("QC for DEP or SEP: $(truncate_string(string(e)))"))
+                    @error "Failed QC for DEP or SEP: $(truncate_error(e))"
+                    throw(ErrorException("QC for DEP or SEP: $(truncate_error(e))"))
                 end
 
                 # free memory
@@ -188,8 +188,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                                                 dep_cut_search_fit_func=Symbol(aoe_config_flt.dep_cut_search_fit_func), sep_cut_search_fit_func=Symbol(aoe_config_flt.sep_cut_search_fit_func)
                                                 )
                 catch e
-                    @error "Failed SG window length optimization: $(truncate_string(string(e)))"
-                    throw(ErrorException("SG window length optimization: $(truncate_string(string(e)))"))
+                    @error "Failed SG window length optimization: $(truncate_error(e))"
+                    throw(ErrorException("SG window length optimization: $(truncate_error(e))"))
                 end
                 
                 p = plot(report_wl)
@@ -209,8 +209,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 GC.gc()
                 yield()
             catch e
-                @error "Filter: $filter_type filter optimization: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), chinfo_ch.usability, filter_type, "-", "-", "-", "-", "$(truncate_string(string(e)))"))
+                @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                log_info = log_nt((ch, det, part, ProcessStatus(0), chinfo_ch.usability, filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false

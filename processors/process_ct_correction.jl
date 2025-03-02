@@ -70,7 +70,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
             end
         catch e
-            @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
+            @error "Error in loading data for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -92,7 +92,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                     @debug "Get $e_type simple calibration"
                     result_simple, report_simple = simple_calibration(getproperty(data_ch_after_qc, e_type), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, n_bins=energy_config_ch.n_bins, quantile_perc=quantile_perc)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
 
@@ -110,7 +110,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                     @debug "Get $e_type Charge Trapping Alpha"
                     result_ctc, report_ctc = ctc_energy(getproperty(data_ch_after_qc, e_type) .* m_cal_simple, data_ch_after_qc.qdrift, ctc_config_ch.peak, (ctc_config_ch.left_window_size, ctc_config_ch.right_window_size), m_cal_simple; e_expression="$e_type", pol_order=ctc_config_ch.ctc_order)
                 catch e
-                    @error "Error in $e_type alpha generation $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type alpha generation $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type alpha generation"))
                 end
                 
@@ -129,8 +129,8 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = true
             catch e
-                @error "Error in $e_type CT correction: $(truncate_string(string(e)))"
-                log_ch = log_nt((ch, det, ProcessStatus(0), "$e_type", "-", "-", "-", "$(truncate_string(string(e)))"))
+                @error "Error in $e_type CT correction: $(truncate_error(e))"
+                log_ch = log_nt((ch, det, ProcessStatus(0), "$e_type", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = false

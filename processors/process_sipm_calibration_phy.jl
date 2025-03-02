@@ -73,7 +73,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             # load DSP data and apply QC cut
             data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, period, run, ch)
         catch e
-            @error "Error in loading DSP data for channel $ch: $(truncate_string(string(e)))"
+            @error "Error in loading DSP data for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -84,8 +84,8 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
-            @error "Error in Pulser tag for channel $ch: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in Pulser tag for channel: $(truncate_string(string(e)))"))
+            @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
+            throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
         end
 
         # get data
@@ -95,7 +95,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             # load DSP data and apply QC cut
             data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp) .&& .!is_pulser)]
         catch e
-            @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
+            @error "Error in loading data for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -114,7 +114,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                     e_uncal = reduce(vcat, getproperty(data_ch_after_qc, e_type))
                     e_uncal_func = "$e_type"
                 catch e
-                    @error "Error in $e_type data extraction for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type data extraction for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type data extraction"))
                 end
 
@@ -128,7 +128,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                     @debug "Get $e_type simple calibration"
                     result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(calibration_config_ch.simple.kwargs)...)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
                 GC.gc()
@@ -146,7 +146,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                             NamedTuple(calibration_config_ch.fit.kwargs)...,
                             f_uncal=result_simple.f_simple_uncal, uncertainty=true)
                 catch e
-                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
                 GC.gc()
@@ -165,7 +165,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                     result_calib, report_calib = fit_calibration(calibration_config_ch.pol_order, result_fit.positions[peak_fit_cut], collect(result_fit.peaks)[peak_fit_cut] .* u"e_au"; e_expression=e_type)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
-                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
 
@@ -189,7 +189,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
 
                 GC.gc()
             catch e
-                @error "Error in processing channel $ch: $(truncate_string(string(e)))"
+                @error "Error in processing channel $ch: $(truncate_error(e))"
                 log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info

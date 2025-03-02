@@ -110,8 +110,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
             end
         catch e
-            @error "E data for $det cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError("E data", 154, "E data for $det from $period-$run cannot be loaded: $(truncate_string(string(e)))"))
+            @error "E data for $det cannot be loaded: $(truncate_error(e))"
+            throw(LoadError("E data", 154, "E data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for lq_type in lq_types
@@ -172,8 +172,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 # free memory
                 GC.gc()
             catch e
-                @error "Error in $lq_type calibration: $(truncate_string(string(e)))"
-                log_info = log_nt_cal((ch, det, ProcessStatus(0), lq_type, "-", "-", truncate_string(string(e))))
+                @error "Error in $lq_type calibration: $(truncate_error(e))"
+                log_info = log_nt_cal((ch, det, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
 
                 # add results to dict
                 log_info_dict[lq_type] = log_info
@@ -200,8 +200,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 try
                     lq_class = ljl_propfunc(pars_db_ch[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func).(hit_cal)
                 catch e
-                    @error "lq classifier for $det cannot be loaded: $(truncate_string(string(e)))"
-                    throw(LoadError("lq", 154, "lq classifier data for $det from $period-$run cannot be loaded: $(truncate_string(string(e)))"))
+                    @error "lq classifier for $det cannot be loaded: $(truncate_error(e))"
+                    throw(LoadError("lq", 154, "lq classifier data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
                 end
                 
                 #calculate LQ cut parameter value
@@ -268,8 +268,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
                 GC.gc()
             catch e
-                @error "Error in lq cut generation: $(truncate_string(string(e)))"
-                log_info = log_nt_cut((ch, det, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_string(string(e))))
+                @error "Error in lq cut generation: $(truncate_error(e))"
+                log_info = log_nt_cut((ch, det, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[lq_classifier] = log_info

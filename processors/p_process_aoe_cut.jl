@@ -204,8 +204,8 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
                 GC.gc()
             catch e
-                @error "Error in $aoe_classifier cut generation: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_string(string(e))))
+                @error "Error in $aoe_classifier cut generation: $(truncate_error(e))"
+                log_info = log_nt((ch, det, part, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info

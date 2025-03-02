@@ -94,8 +94,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
                 wvfs_ch = wvfs_ch[rand(1:max_wvfs, max_wvfs)]
             end
         catch e
-            @error "$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"
+            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))
         end
         yield()
 
@@ -107,8 +107,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
             wvfs_ch = wvfs_ch[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
-            @error "Failed QC cuts: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in QC cuts: $(truncate_string(string(e)))"))
+            @error "Failed QC cuts: $(truncate_error(e))"
+            throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
         end
 
         # DSP
@@ -117,8 +117,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
             @debug "Generating DSP for FEP decay times"
             decay_times = dsp_decay_times(wvfs_ch, dsp_config_ch)
         catch e
-            @error "Error in DSP for FEP: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in DSP for FEP: $(truncate_string(string(e)))"))
+            @error "Error in DSP for FEP: $(truncate_error(e))"
+            throw(ErrorException("Error in DSP for FEP: $(truncate_error(e))"))
         end
         yield()
 
@@ -128,8 +128,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty=true)
         catch e
-            @error "Failed decay time extraction: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in decay time extraction: $(truncate_string(string(e)))"))
+            @error "Failed decay time extraction: $(truncate_error(e))"
+            throw(ErrorException("Error in decay time extraction: $(truncate_error(e))"))
         end
         yield()
         

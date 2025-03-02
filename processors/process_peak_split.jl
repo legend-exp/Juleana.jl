@@ -148,7 +148,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 n_fep = length(output[ch].jlpeaks.Tl208FEP.daqenergy)
                 close(output)
             catch e
-                @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_string(string(e)))"
+                @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_error(e))"
                 @warn "Filename $(basename(output_filename)) seems broken, remove it."
                 rm(output_filename)
             end

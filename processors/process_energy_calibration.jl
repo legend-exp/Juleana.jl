@@ -67,7 +67,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
             end
         catch e
-            @error "Error in loading data for channel $ch: $(truncate_string(string(e)))"
+            @error "Error in loading data for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -96,7 +96,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                         e_uncal = ljl_propfunc(e_uncal_func).(data_ch_after_qc)
                     end
                 catch e
-                    @error "Error in $e_type data extraction for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type data extraction for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type data extraction"))
                 end
                 GC.gc()
@@ -106,7 +106,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     @debug "Get $e_type simple calibration"
                     result_simple, report_simple = simple_calibration(e_uncal, energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, n_bins=energy_config_ch.n_bins, quantile_perc=quantile_perc, binning_peak_window=energy_config_ch.binning_peak_window)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
                 GC.gc()
@@ -125,7 +125,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     result_fit, report_fit = fit_peaks(result_simple.peakhists, result_simple.peakstats, th228_names; 
                                                 e_unit=result_simple.unit, calib_type=:th228, fit_func=Symbol.(energy_config_ch.th228_fit_func), m_cal_simple=m_cal_simple)
                 catch e
-                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
                 GC.gc()
@@ -157,7 +157,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     result_calib, report_calib = fit_calibration(energy_config_ch.cal_pol_order, μ_fit, pp_fit; e_expression=e_uncal_func)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
-                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
                 # add not-fitted peaks to plot 
@@ -181,7 +181,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                     result_fwhm, report_fwhm = fit_fwhm(energy_config_ch.fwhm_pol_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), e_expression=e_uncal_func, uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
-                    @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $e_type FWHM fitting for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type FWHM fitting"))
                 end
                 fwhm_notfit =  f_cal_widths.([result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)])
@@ -220,8 +220,8 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 GC.gc()
             catch e
-                @error "Error in $e_type calibration: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", truncate_string(string(e))))
+                @error "Error in $e_type calibration: $(truncate_error(e))"
+                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", truncate_error(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false

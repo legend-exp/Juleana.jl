@@ -122,8 +122,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 presum_rate = presum_rate[sel]
             end
         catch e
-            @error "$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_string(string(e)))"))
+            @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"
+            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))
         end
         yield()
 
@@ -139,8 +139,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             blmean_wdw = blmean_wdw[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
-            @error "Failed QC cuts: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in QC cuts: $(truncate_string(string(e)))"))
+            @error "Failed QC cuts: $(truncate_error(e))"
+            throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
         end
 
         # get qdrift
@@ -149,8 +149,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             @debug "Get QDrift"
             qdrift = dsp_qdrift_flt_optimization(wvfs_ch_wdw, blmean_wdw, dsp_config_ch, pars_tau[det].τ)
         catch e
-            @error "Failed QDrift: $(truncate_string(string(e)))"
-            throw(ErrorException("Error in QDrift: $(truncate_string(string(e)))"))
+            @error "Failed QDrift: $(truncate_error(e))"
+            throw(ErrorException("Error in QDrift: $(truncate_error(e))"))
         end
         GC.gc()
 
@@ -173,8 +173,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                     @debug "Generate $filter_type ENC filter grid"
                     enc_grid = getfield(Main, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
                 catch e
-                    @error "Filter: $filter_type RT DSP for FEP: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in $filter_type RT DSP for FEP: $(truncate_string(string(e)))"))
+                    @error "Filter: $filter_type RT DSP for FEP: $(truncate_error(e))"
+                    throw(ErrorException("Error in $filter_type RT DSP for FEP: $(truncate_error(e))"))
                 end
                 yield()
                 GC.gc()
@@ -182,8 +182,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 try
                     result_rt, report_rt = fit_enc_sigmas(enc_grid, e_grid_rt, optimization_config_flt.min_enc, optimization_config_flt.max_enc, optimization_config_flt.nbins_enc_sigmas, optimization_config_flt.rel_cut_fit_enc_sigmas)
                 catch e
-                    @error "Failed $filter_type rise time extraction: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in $filter_type rise time extraction: $(truncate_string(string(e)))"))
+                    @error "Failed $filter_type rise time extraction: $(truncate_error(e))"
+                    throw(ErrorException("Error in $filter_type rise time extraction: $(truncate_error(e))"))
                 end
                 @debug format("Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
                 yield()
@@ -200,8 +200,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                     @debug "Generate $filter_type FT energy grid"
                     e_grid = getfield(Main, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, mvalue(result_rt.rt))
                 catch e
-                    @error "Filter: $filter_type FT DSP for FEP: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in $filter_type FT DSP for FEP: $(truncate_string(string(e)))"))
+                    @error "Filter: $filter_type FT DSP for FEP: $(truncate_error(e))"
+                    throw(ErrorException("Error in $filter_type FT DSP for FEP: $(truncate_error(e))"))
                 end
                 yield()
                 GC.gc()
@@ -210,8 +210,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                     result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; 
                                             n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size), ft_fwhm_tol=optimization_config_ch.ft_fwhm_tol)
                 catch e
-                    @error "Failed $filter_type flat-top time extraction: $(truncate_string(string(e)))"
-                    throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_string(string(e)))"))
+                    @error "Failed $filter_type flat-top time extraction: $(truncate_error(e))"
+                    throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_error(e))"))
                 end
                 @debug "Found optimal $filter_type FT at $(result_ft.ft) with FWHM $(round(u"keV", result_ft.min_fwhm, digits=2))"
                 yield()
@@ -231,8 +231,8 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 GC.gc()
                 yield()
             catch e
-                @error "Filter: $filter_type filter optimization: $(truncate_string(string(e)))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_string(string(e)))"))
+                @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false

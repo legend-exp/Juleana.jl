@@ -87,8 +87,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 e_cal = getproperty(hit_cal, e_type)
             end
         catch e
-            @error "Hit data for $det from cannot be loaded: $(truncate_string(string(e)))"
-            throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_string(string(e)))"))
+            @error "Hit data for $det from cannot be loaded: $(truncate_error(e))"
+            throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
@@ -106,7 +106,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     aoe ./= cuts_aoe.max
                     aoe_expression = "$(aoe_funcs[aoe_type]) / $(cuts_aoe.max)"
                 catch e
-                    @error "Error in $aoe_type simple normalization for channel $ch: $(truncate_string(string(e)))"
+                    @error "Error in $aoe_type simple normalization for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $aoe_type simple normalization"))
                 end
                 GC.gc()
@@ -124,7 +124,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
                     result_fit, report_fit = fit_aoe_compton(compton_band_peakhists.peakhists, compton_band_peakhists.peakstats, compton_bands,; uncertainty=true)
                 catch e
-                    @error "AoE compton bands cannot be fitted: $(truncate_string(string(e)))"
+                    @error "AoE compton bands cannot be fitted: $(truncate_error(e))"
                     throw(ErrorException("AoE compton bands cannot be fitted"))
                 end
                 GC.gc()
@@ -141,7 +141,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 try
                     result_fit_single, report_fit_single = fit_aoe_corrections(compton_bands, μ, σ,; aoe_expression = aoe_expression, e_expression = e_type)
                 catch e
-                    @error "AoE corrections cannot be fitted: $(truncate_string(string(e)))"
+                    @error "AoE corrections cannot be fitted: $(truncate_error(e))"
                     throw(ErrorException("AoE corrections cannot be fitted"))
                 end
 
@@ -192,7 +192,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                         result_aoe_ctc, report_aoe_ctc = LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands,
                             aoe_expression = result_correction.func, qdrift_expression = qdrift_expression)
                     catch e
-                        @error "AoE classifier cannot be charge-trapping corrected: $(truncate_string(string(e)))"
+                        @error "AoE classifier cannot be charge-trapping corrected: $(truncate_error(e))"
                         throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
                     end
 
@@ -230,8 +230,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 # free memory
                 GC.gc()
             catch e
-                @error "Error in $aoe_type calibration: $(truncate_string(string(e)))"
-                log_info = log_nt_cal((ch, det, ProcessStatus(0), aoe_type, fill("-", 4)..., truncate_string(string(e))))
+                @error "Error in $aoe_type calibration: $(truncate_error(e))"
+                log_info = log_nt_cal((ch, det, ProcessStatus(0), aoe_type, fill("-", 4)..., truncate_error(e)))
                 # add results to dict
                 log_info_dict[aoe_type] = log_info
                 processed_dict[aoe_type] = false
@@ -348,8 +348,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
                 GC.gc()
             catch e
-                @error "Error in $aoe_classifier cut generation: $(truncate_string(string(e)))"
-                log_info = log_nt_cut((ch, det, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_string(string(e))))
+                @error "Error in $aoe_classifier cut generation: $(truncate_error(e))"
+                log_info = log_nt_cut((ch, det, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info

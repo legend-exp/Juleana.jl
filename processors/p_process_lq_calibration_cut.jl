@@ -207,8 +207,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 # free memory
                 GC.gc()
             catch e
-                @error "Error in $lq_type calibration: $(truncate_string(string(e)))"
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), lq_type, "-", "-", truncate_string(string(e))))
+                @error "Error in $lq_type calibration: $(truncate_error(e))"
+                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
 
                 # add results to dict
                 log_info_dict[lq_type] = log_info
@@ -305,8 +305,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 GC.gc()
             catch e
-                @error "Error in lq cut generation: $(truncate_string(string(e)))"
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_string(string(e))))
+                @error "Error in lq cut generation: $(truncate_error(e))"
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[lq_classifier] = log_info

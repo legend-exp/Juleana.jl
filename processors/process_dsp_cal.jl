@@ -158,7 +158,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 if e isa TaskFailedException
                                     e = e.task.exception
                                 end
-                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_string(string(e)))"
+                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_error(e))"
                                 push!(failed_detectors, det)
                                 continue
                             end
