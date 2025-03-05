@@ -145,7 +145,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 try
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.e, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.e, dep_sep_after_qc.sep.aoe, dsp_config_ch.a_grid_wl_sg;
+                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, dsp_config_ch.a_grid_wl_sg;
                                                 dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
                                                 sep_rel_cut=aoe_config_flt.sep_rel_cut, 
                                                 min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
