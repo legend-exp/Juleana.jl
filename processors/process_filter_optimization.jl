@@ -152,7 +152,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 enc_grid = nothing
                 try
                     @debug "Generate $filter_type ENC filter grid"
-                    enc_grid = getfield(Main, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
+                    enc_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
                 catch e
                     @error "Filter: $filter_type RT DSP for FEP: $(truncate_error(e))"
                     throw(ErrorException("Error in $filter_type RT DSP for FEP: $(truncate_error(e))"))
@@ -179,7 +179,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 e_grid = nothing
                 try
                     @debug "Generate $filter_type FT energy grid"
-                    e_grid = getfield(Main, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, mvalue(result_rt.rt))
+                    e_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, mvalue(result_rt.rt))
                 catch e
                     @error "Filter: $filter_type FT DSP for FEP: $(truncate_error(e))"
                     throw(ErrorException("Error in $filter_type FT DSP for FEP: $(truncate_error(e))"))

@@ -135,7 +135,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 # process data
                                 outdata_ch = nothing
                                 try
-                                    outdata_ch = getfield(Main, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[ch].raw[:], dsp_config_ch)
+                                    outdata_ch = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[ch].raw[:], dsp_config_ch)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
