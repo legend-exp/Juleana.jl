@@ -111,7 +111,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 try
                     @debug "Get $e_type data"
                     # open hit data file
-                    e_uncal = reduce(vcat, getproperty(data_ch_after_qc, e_type))
+                    e_uncal = filter(isfinite, reduce(vcat, getproperty(data_ch_after_qc, e_type)))
                     e_uncal_func = "$e_type"
                 catch e
                     @error "Error in $e_type data extraction for channel $ch: $(truncate_error(e))"
