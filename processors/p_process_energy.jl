@@ -114,10 +114,11 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 end
                 GC.gc()
 
-                p = stephist(energy, bins=0:0.5:3000, xlabel="Energy", ylabel="Counts", yscale=:log10, label="$e_type")
-                plot!(xlims=(0, 3000), ylims=(1, ylims()[2]), framestyle=:box, xticks=0:200:3000, xformatter=:plain)
-                title!(get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additiional_type="$e_type"))
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("partition_spectrum_$e_type"))
+                p = LegendMakie.lplot(fit(Histogram, ustrip.(e_unit, energy), 0:0.5:3000), 
+                    xlabel = "Energy ($e_unit)", ylabel = "Counts", yscale = Makie.log10, label = string(e_type),
+                    title = get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additiional_type="$e_type"),
+                    legend_position = :lb, xticks = 0:500:3000)
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("partition_spectrum_$e_type"))
 
                 yield()
 
@@ -132,9 +133,8 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 end
                 GC.gc()
 
-                p = plot(broadcast(k -> plot(report_fit[k], left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, title=string(k), ms=2), keys(report_fit))..., layout=(length(report_fit), 1), size=(1000,710*length(report_fit)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
-                plot!(p, plot_title=get_plottitle(filekey_ch, part, det, "Peak Fits"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 12)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("peak_fits_$e_type"))
+                p = LegendMakie.lplot(report_fit, figsize = (600, 400 * length(report_fit)), title = get_plottitle(filekey_ch, part, det, "Peak Fits"; additiional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("peak_fits_$e_type"))
 
                 yield()
 
@@ -166,11 +166,11 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 μ_notfit =  [result_fit[p].centroid for p in th228_names if !(p in th228_names_qc_cal_fit)]
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
         
-                p = plot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit))
-                plot!(plot_title=get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3), plot_titlefontsize=12)
-                plot!(subplot=1, ylims=(0, 3000), xlims=(0, 3000), ylabel=L"\mathrm{Energy_{true} (keV)}")
-                plot!(subplot=2, xlims=(0, 3000), xticks=0:500:3000, xlabel=L"\mathrm{Energy_{fit} (keV)}", ylabel=L"\mathrm{Residuals (\sigma)}")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
+                p = LegendMakie.lplot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit), 
+                    title = get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)),
+                    xlims = (0,3000), ylims = (0,3000), figsize = (600,420), 
+                    xlabel=L"\fontfamily{Roboto}\mathrm{Energy_{fit} (keV)}", ylabel=L"\fontfamily{Roboto}\mathrm{Energy_{true} (keV)}")
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
 
                 yield()
 
@@ -189,9 +189,9 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 fwhm_notfit =  [result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]        
 
-                p = plot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit))
-                plot!(plot_title=get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)), plot_titlelocation=(0.5,0.3))
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("fwhm_$e_type"))
+                p = LegendMakie.lplot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit), figsize = (600,420),
+                    title = get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("fwhm_$e_type"))
 
                 yield()
 

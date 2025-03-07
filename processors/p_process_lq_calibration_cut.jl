@@ -188,13 +188,11 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 end
 
                 #create and save plots
-                p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP)
-                plot!(title="Drift Time vs LQ in DEP for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_DEP_$lq_type"))
+                p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP, title = "Drift Time vs LQ in DEP for Detector: $det", figsize = (620,400))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_DEP_$lq_type"))
 
-                p = plot(drift_report, e_cal, dt_eff, lq_e_corr, :whole) 
-                plot!(title="Drift Time vs LQ for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_$lq_type"))
+                p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :whole, title = "Drift Time vs LQ for Detector: $det", figsize = (620,400))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_$lq_type"))
 
                 #create log entry
                 log_info = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
@@ -250,29 +248,34 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 end
 
                 #create and save plots
-                p = plot(report, lq_class, e_cal, :fit)
-                plot!(title="Fit of LQ Cut for Detector: $det", subplot = 1)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
+                p = LegendMakie.lplot(report.fit_report, xlabel = "LQ (a.u.)", figsize = (600,450), legend_position = :none, 
+                    title = get_plottitle(filekey_ch, part, det, "LQ Cut", additiional_type=string(lq_classifier)))
+                Makie.vlines!(Measurements.value(report.cut), color = LegendMakie.CoaxGreen, label = "Cut Value", linewidth = 4)
+                Makie.axislegend(position = :lt)
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
 
-                p = plot(report, lq_class, e_cal, :energy_spectrum)
-                plot!(title="Energy Spectrum of Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("energy_spectrum_$lq_classifier"))
+                p = LegendMakie.lplot(report.temp_hists, 
+                    title = get_plottitle(filekey_ch, part, det, "LQ sidebands", additiional_type=string(lq_classifier)), 
+                    xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_class),), (0.05, 0.95)))
+                )
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("sideband_$lq_classifier"))
 
-                p = plot(report, lq_class, e_cal, :sideband)
-                plot!(title="Sidebands for Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("sideband_$lq_classifier"))
+                p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
+                    title = get_plottitle(filekey_ch, part, det, "LQ side bands", additiional_type=string(lq_classifier)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_$lq_classifier"))
 
-                # p = plot(report, lq_class, e_cal, :lq_cut)
-                # plot!(title="LQ Cut for Detector: $det")
-                # savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_$lq_classifier"))
+                sel = isfinite.(e_cal) #.&& drift_report.dep_left .< e_cal .< drift_report.dep_right
+                p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_class[sel]), (0:1:3000, range(-3.5, 5.5, length=200))),
+                    title = get_plottitle(filekey_ch, part, det, "LQ"), figsize = (620,400), watermark = false, xlabel = "Energy (keV)", ylabel = "LQ classifier", limits = (0,3000,-3.5,5.5))
+                Makie.hlines!([Measurements.value(report.cut)], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
+                Makie.axislegend(position = :rb)
+                LegendMakie.add_watermarks!(position = "outer top", final = true)
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("energy_hist_$lq_classifier"))
 
-                p = plot(report, lq_class, e_cal, :energy_hist)
-                plot!(title="Energy Spectrum of Detector: $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("energy_hist_$lq_classifier"))
-
-                p = plot(report, lq_class, e_cal, :cut_fraction)
-                plot!(title="LQ cutted events in $det")
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("cut_fraction_$lq_classifier"))                
+                p = LegendMakie.lplot((; e_cal, lq_class, cut_value = report.cut), figsize = (750,400),
+                    title = get_plottitle(filekey_ch, part, det, "LQ Performance", additiional_type=string(lq_classifier)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("cut_fraction_$lq_classifier"))
+                
 
                 @debug("Generate Surrvival Fractions for LQ")
 
