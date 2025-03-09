@@ -88,6 +88,9 @@ fi
 echo "#############################################"
 echo "Cloning legend-metadata into $full_path/legend-metadata..."
 git clone --recursive git@github.com:legend-exp/legend-metadata "$full_path/legend-metadata"
+cd "$full_path/legend-metadata"
+git submodule init
+git submodule update
 echo "#############################################"
 echo -e "\n\n\n"
 
@@ -102,6 +105,9 @@ if [[ "$checkout_submodules" =~ ^([Yy][Ee][Ss]|[Yy])$ ]]; then
     branch=${branch:-main}
     echo "Checking out $branch branches for all 'jldataprod' metadata submodules..."
     cd "$full_path/legend-metadata"
+
+    # suppress detached head warning
+    git config --local advide.detachedHead false
     
     # Checkout branches for submodules under jldataprod/config and jldataprod/overrides
     git submodule foreach --recursive '
@@ -113,12 +119,18 @@ if [[ "$checkout_submodules" =~ ^([Yy][Ee][Ss]|[Yy])$ ]]; then
     branch=${branch:-main}
     echo "Checking out $branch branches for all 'dataprod' metadata submodules..."
 
+    # Checkout the legend-metadata module to the specified branch
+    git checkout "$branch" && git pull origin "$branch"
+    
     # Checkout branches for all other submodules
     git submodule foreach --recursive '
         if [[ "$name" != jldataprod/config* && "$name" != jldataprod/overrides* && "$name" != simprod/config* ]]; then
             git checkout '"$branch"' && git pull origin '"$branch"'
         fi
     '
+
+    # suppress detached head warning
+    git config --local advide.detachedHead true
 else
     echo "Skipping checkout of branches for metadata submodules."
 fi
