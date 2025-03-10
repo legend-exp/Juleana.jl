@@ -1,5 +1,5 @@
 # helper functions for logging
-function truncate_string(s::String, max_length::Int=200)
+function truncate_string(s::String, max_length::Int=1000)
     if length(s) > max_length
         return s[1:max_length] * "..."
     else
@@ -7,7 +7,10 @@ function truncate_string(s::String, max_length::Int=200)
     end
 end
 
-function truncate_error(e::Exception, max_length::Int=200)
+function truncate_error(e::Exception, max_length::Int=1000)
+    if e isa CompositeException
+        e = e.exceptions[1]
+    end
     s = string(@userfriendly_exceptions e)
     if length(s) > max_length
         return s[1:max_length] * "..."
