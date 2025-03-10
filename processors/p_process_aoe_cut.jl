@@ -119,7 +119,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
                 h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
                 p = LegendMakie.lhist(h_aoe_ctc, figsize = (670,400), rasterize = true,
-                    title = get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_classifier)),
+                    title = get_plottitle(filekey_ch, part, det, ""; additiional_type=string(aoe_classifier)),
                     xlabel = "Energy ($e_unit)",
                     ylabel = "A/E",
                     xticks = 0:500:3000,

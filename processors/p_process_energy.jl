@@ -115,7 +115,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 GC.gc()
 
                 p = LegendMakie.lplot(fit(Histogram, ustrip.(e_unit, energy), 0:0.5:3000), 
-                    xlabel = "Energy ($e_unit)", ylabel = "Counts", yscale = Makie.log10, label = string(e_type),
+                    xlabel = "Energy ($e_unit)", ylabel = "Counts / 0.5 keV", yscale = Makie.log10, label = string(e_type),
                     title = get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additiional_type="$e_type"),
                     legend_position = :lb, xticks = 0:500:3000)
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("partition_spectrum_$e_type"))

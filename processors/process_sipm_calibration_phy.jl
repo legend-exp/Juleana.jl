@@ -119,7 +119,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 end
 
                 p = LegendMakie.lplot(fit(Histogram, e_uncal, calibration_config_ch.simple.kwargs.initial_min_amp:0.1:calibration_config_ch.simple.kwargs.initial_max_amp), 
-                    xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts", label="Uncalibrated PE", yscale = Makie.log10, 
+                    xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts / 0.1", label="Uncalibrated PE", yscale = Makie.log10, 
                     title = get_plottitle(filekey, det, "PE Uncalibrated"; additiional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("pe_uncalibrated_$(e_type)"))
 
@@ -151,7 +151,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 end
                 GC.gc()
 
-                p = LegendMakie.lplot(report_fit, figsize = (620,480), xerrscaling = 5, title = get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)))
+                p = LegendMakie.lplot(report_fit, figsize = (700,500), xerrscaling = 5, title = get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_peak_fits_$(e_type)"))
 
                 yield()

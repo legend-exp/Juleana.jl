@@ -139,14 +139,15 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         fig = Makie.Figure(size = (620, 400))
         binwidth = 8*15
-        hqc  = StatsBase.fit(StatsBase.Histogram, data_ch_after_qc.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
         hall = StatsBase.fit(StatsBase.Histogram, data_ch.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
+        hqc  = StatsBase.fit(StatsBase.Histogram, data_ch_after_qc.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
         hp   = StatsBase.fit(StatsBase.Histogram, data_pulser.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
         ax = Makie.Axis(fig[1,1], xlabel = "Energy (ADC)", ylabel = "Counts / $(binwidth) ADC", 
+            xtickformat = x -> string.(round.(Int,x)),
             yscale = Makie.log10, limits = (extrema(first(hall.edges)), (0.9,maximum(hall.weights)*1.2)),
             title = get_plottitle(filekey, det, "Trap Raw Energy Spectrum"))
-        Makie.stephist!(ax, StatsBase.midpoints(first(hqc.edges)), weights = replace(hqc.weights, 0 => 1e-10), bins = first(hqc.edges), label = "Trap - after QC", color = LegendMakie.AchatBlue)
         Makie.stephist!(ax, StatsBase.midpoints(first(hall.edges)), weights = replace(hall.weights, 0 => 1e-10), bins = first(hall.edges), color = LegendMakie.BEGeOrange, label = "Trap - before QC")
+        Makie.stephist!(ax, StatsBase.midpoints(first(hqc.edges)), weights = replace(hqc.weights, 0 => 1e-10), bins = first(hqc.edges), label = "Trap - after QC", color = LegendMakie.AchatBlue)
         Makie.stephist!(ax, StatsBase.midpoints(first(hp.edges)), weights = replace(hp.weights, 0 => 1e-10), bins = first(hp.edges), color = :red, label = "Pulser")
         Makie.axislegend(ax, position = :rt, framevisible = true, framecolor = :lightgray)
         LegendMakie.add_watermarks!(final = true)

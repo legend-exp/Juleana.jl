@@ -133,7 +133,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         end
         yield()
         
-        p = LegendMakie.lplot(report, title = get_plottitle(filekey_ch, part, det, "Decay Time Distribution"))
+        p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey_ch, part, det, "Decay Time Distribution"))
         savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, :decay_time)
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"

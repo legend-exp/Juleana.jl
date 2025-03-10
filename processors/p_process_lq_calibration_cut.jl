@@ -248,8 +248,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 end
 
                 #create and save plots
-                p = LegendMakie.lplot(report.fit_report, xlabel = "LQ (a.u.)", figsize = (600,450), legend_position = :none, 
-                    title = get_plottitle(filekey_ch, part, det, "LQ Cut", additiional_type=string(lq_classifier)))
+                p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3, figsize = (600,450), 
+                    legend_position = :none, title = get_plottitle(filekey_ch, part, det, "LQ Cut", additiional_type=string(lq_classifier)))
                 Makie.vlines!(Measurements.value(report.cut), color = LegendMakie.CoaxGreen, label = "Cut Value", linewidth = 4)
                 Makie.axislegend(position = :lt)
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
@@ -266,7 +266,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 sel = isfinite.(e_cal) #.&& drift_report.dep_left .< e_cal .< drift_report.dep_right
                 p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_class[sel]), (0:1:3000, range(-3.5, 5.5, length=200))),
-                    title = get_plottitle(filekey_ch, part, det, "LQ"), figsize = (620,400), watermark = false, xlabel = "Energy (keV)", ylabel = "LQ classifier", limits = (0,3000,-3.5,5.5))
+                    title = get_plottitle(filekey_ch, part, det, "LQ"), figsize = (620,400), watermark = false, xlabel = "Energy (keV)", ylabel = Makie.rich("LQ", Makie.subscript(" ctc")), limits = (0,3000,-3.5,5.5))
                 Makie.hlines!([Measurements.value(report.cut)], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
                 Makie.axislegend(position = :rb)
                 LegendMakie.add_watermarks!(position = "outer top", final = true)

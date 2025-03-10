@@ -159,8 +159,9 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
                 h_aoe_uncal = fit(Histogram, (ustrip.(e_unit, e_cal[isfinite.(aoe)]), aoe[isfinite.(aoe)]), (0:0.5:3000, 0.1:5e-3:1.8))
                 p = LegendMakie.lhist(h_aoe_uncal, figsize = (670,400), rasterize = true,
-                    title = get_plottitle(filekey_ch, part, det, "AoE uncalibrated"; additiional_type=string(aoe_type)),
+                    title = get_plottitle(filekey_ch, part, det, "uncalibrated A/E"; additiional_type=string(aoe_type)),
                     xlabel = "Energy ($e_unit)",
+                    titlesize = 14,
                     ylabel = Makie.rich("A/E", Makie.subscript(" norm")),
                     xticks = 0:500:3000,
                     yticks = 0.25:0.25:1.75
@@ -171,10 +172,10 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 cc_min, cc_max = 0.9, 1.1
                 aoe_cut = findall(cc_min .< aoe .< cc_max)
                 # plot CC A/E over time
-                p = histogram2d(ts[aoe_cut], aoe[aoe_cut], nbins=(0:0.01:ustrip(maximum(ts)), cc_min:5e-3:cc_max), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel="Time", ylabel="CC A/E (a.u.)", margin=5mm)
-                plot!(p, guidefontsize=18, xguidefontsize=18,yguidefontsize = 18,xtickfontsize = 12,ytickfontsize=12)
-                title!(p, get_plottitle(filekey_ch, part, det, "AoE stability"; additiional_type=string(aoe_type)))
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_stability_$aoe_type"))
+                h_aoe_stability = StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(u"hr", ts[aoe_cut]), aoe[aoe_cut]), (0:0.01:ustrip(maximum(ts)), cc_min:5e-3:cc_max))
+                p = LegendMakie.lhist(h_aoe_stability, xlabel = "Time (hr)", ylabel = "CC A/E (a.u.)", titlealign = :center, watermark = false,
+                    title = get_plottitle(filekey_ch, part, det, "A/E stability"; additiional_type=string(aoe_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_stability_$aoe_type"))
 
                 result_fit, report_fit, compton_band_peakhists = nothing, nothing, nothing
                 try
@@ -216,8 +217,8 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                     end
                     
                     # create plots
-                    p_μ = LegendMakie.lplot(report_fit_single.report_μ, report_fit_combined.report_µ, legend_position = :lb, watermark = true, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E μ"; additiional_type=string(aoe_type)))
-                    p_σ = LegendMakie.lplot(report_fit_single.report_σ, report_fit_combined.report_σ, legend_position = :lb, watermark = true, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)))
+                    p_μ = LegendMakie.lplot(report_fit_single.report_μ, report_fit_combined.report_µ, legend_position = :lb, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E μ"; additiional_type=string(aoe_type)))
+                    p_σ = LegendMakie.lplot(report_fit_single.report_σ, report_fit_combined.report_σ, legend_position = :rt, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)))
                     
                     # create corrected A/E values
                     aoe_corr = ljl_propfunc(result_fit_combined.func).(hit_cal)
@@ -226,8 +227,8 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                     result_correction = result_fit_combined
                 else
                     # create plots
-                    p_μ = LegendMakie.lplot(report_fit_single.report_μ, legend_position = :lb, watermark = true, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E µ"; additiional_type=string(aoe_type)))
-                    p_σ = LegendMakie.lplot(report_fit_single.report_σ, legend_position = :lb, watermark = true, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)))
+                    p_μ = LegendMakie.lplot(report_fit_single.report_μ, legend_position = :lb, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E µ"; additiional_type=string(aoe_type)))
+                    p_σ = LegendMakie.lplot(report_fit_single.report_σ, legend_position = :rt, figsize = (600,420), title = get_plottitle(filekey_ch, part, det, "A/E σ"; additiional_type=string(aoe_type)))
 
                     # create corrected A/E values
                     aoe_corr = ljl_propfunc(result_fit_single.func).(hit_cal)
@@ -263,6 +264,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 h_aoe_ec = fit(Histogram, (ustrip.(u"keV", e_cal), aoe_corr), (0:0.5:3000, -30:0.1:10))
                 p = LegendMakie.lhist(h_aoe_ec, figsize = (670,400), rasterize = true,
                     title = get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_type)),
+                    titlesize = 14,
                     xlabel = "Energy ($e_unit)",
                     ylabel = Makie.rich("A/E", Makie.subscript(" ec")),
                     xticks = 0:500:3000,
@@ -319,7 +321,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
                 h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
                 p = LegendMakie.lhist(h_aoe_ctc, figsize = (670,400), rasterize = true,
-                    title = get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_classifier)),
+                    title = get_plottitle(filekey_ch, part, det, ""; additiional_type=string(aoe_classifier)),
                     xlabel = "Energy ($e_unit)",
                     ylabel = Makie.rich("A/E", Makie.subscript(" ctc")),
                     xticks = 0:500:3000,
@@ -392,7 +394,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-                p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)))
+                p = LegendMakie.lplot(report_peaks_ds, titlesize = 17, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
 
                 # save results
