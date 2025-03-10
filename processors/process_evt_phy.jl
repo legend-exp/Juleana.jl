@@ -31,10 +31,11 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
             global n_forced, n_pulser, n_phy = 0, 0, 0
             write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
-                    @info "Reprocess $(basename(outfilename)), remove old DSP."
+                    @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
+                    rm(evtfilename, force=true)
                 elseif isfile(outfilename)
-                    @info "File $(basename(outfilename)) already exists, skip"
+                    @info "File $(basename(evtfilename)) already exists, skip"
                     n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
                         evt_data = ds[:jlevt][:]
                         n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
@@ -49,9 +50,9 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                 @timeit dsp_timer "Evt" begin
                     n_forced, n_pulser, n_phy = lh5open(filename, "r") do dsp_data
                         # generate evt level table
-                        out_t = nothing
+                        out_t, pmts_out_t = nothing, nothing
                         try 
-                            out_t = Table(calibrate_all(l200, fk, dsp_data))
+                            out_t, pmts_out_t = calibrate_all(l200, fk, dsp_data)
                         catch e
                             @error "Error processing $fk: $(truncate_error(e))"
                             throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
@@ -65,6 +66,9 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         @debug "Number of physical triggers: $n_phy"
                         lh5open(outfilename, "cw") do ds
                             ds[:jlevt] = out_t
+                            if !isempty(pmts_out_t)
+                                ds[:jlevt, :pmts] = pmts_out_t
+                            end
                         end
                         n_forced, n_pulser, n_phy
                     end
