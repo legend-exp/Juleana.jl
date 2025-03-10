@@ -149,11 +149,23 @@
             },
             "dependencies": []
         },
+        "process_psd_efficiencies": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 11,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "use_partition_pars": true
+            },
+            "dependencies": ["p_process_aoe_calibration_cut", "p_process_lq_calibration_cut"]
+        },
         "process_sipm_optimization_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 11,
+            "rank": 12,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
@@ -165,7 +177,7 @@
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 12,
+            "rank": 13,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0,
@@ -178,7 +190,7 @@
             "enabled": true,
             "n_workers": "all",
             "category": "phy",
-            "rank": 13,
+            "rank": 14,
             "kwargs": {
                 "reprocess": false,
                 "timeout": 0
@@ -189,12 +201,12 @@
             "enabled": true,
             "n_workers": "all",
             "category": "phy",
-            "rank": 14,
+            "rank": 15,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
             },
-            "dependencies": []
+            "dependencies": ["p_process_sipm_calibration_phy"]
         }
     },
     "p_processors":
