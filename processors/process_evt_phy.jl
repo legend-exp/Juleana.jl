@@ -74,7 +74,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                     end
                 end
                 
-                @info "Finished processing $(basename(outfilename))"
+                @info "Finished processing $(basename(evtfilename))"
             end
         end
 
