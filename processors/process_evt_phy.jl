@@ -92,7 +92,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_evt = parallel(filekeys, filekey_evt, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_evt = parallel(filekeys, filekey_evt, log_nt, wpool; timeout=timeout, retry=true, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished Evt for period $period and run $run"
 
