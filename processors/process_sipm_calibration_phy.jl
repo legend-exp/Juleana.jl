@@ -120,7 +120,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
 
                 p = LegendMakie.lplot(fit(Histogram, e_uncal, calibration_config_ch.simple.kwargs.initial_min_amp:0.1:calibration_config_ch.simple.kwargs.initial_max_amp), 
                     xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts / 0.1", label="Uncalibrated PE", yscale = Makie.log10, 
-                    title = get_plottitle(filekey, det, "PE Uncalibrated"; additiional_type=string(e_type)))
+                    title = get_plottitle(filekey, det, "PE Uncalibrated"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("pe_uncalibrated_$(e_type)"))
 
                 # get uncalibrated energy function
@@ -135,7 +135,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 GC.gc()
 
                 # save plots for simple calibration for control
-                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
+                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey, det, "Simple Calibration"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_simple_calibration_$(e_type)"))
                 yield()
 
@@ -151,7 +151,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 end
                 GC.gc()
 
-                p = LegendMakie.lplot(report_fit, figsize = (700,500), xerrscaling = 5, title = get_plottitle(filekey, det, "Peak Fits"; additiional_type=string(e_type)))
+                p = LegendMakie.lplot(report_fit, figsize = (700,500), xerrscaling = 5, title = get_plottitle(filekey, det, "Peak Fits"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_peak_fits_$(e_type)"))
 
                 yield()
@@ -168,7 +168,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
 
-                p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)))
+                p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey, det, "Calibration Curve"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_calibration_curve_$(e_type)"))
                 
                 log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))

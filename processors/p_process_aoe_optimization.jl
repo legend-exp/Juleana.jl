@@ -192,7 +192,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                     throw(ErrorException("SG window length optimization: $(truncate_error(e))"))
                 end
                 
-                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey_ch, part, det, "Filter Optimization"; additiional_type=string(filter_type)))
+                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey_ch, part, det, "Filter Optimization"; additional_type=string(filter_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_sweep_$(filter_type)"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf; digits=2)) for channel $ch ($det)"""

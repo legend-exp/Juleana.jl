@@ -212,7 +212,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
 
 
                 # p = plot(broadcast(k -> plot(report_peaks_ds[k].after, show_components=false, left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, peak_name=string(k), ms=2), keys(report_peaks_ds))..., layout=(length(report_peaks_ds), 1), size=(1000,710*length(report_peaks_ds)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
-                # plot!(plot_title=get_plottitle(filekey, det, "A/E DS Performance"; additiional_type=string(psd_classifier)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 9)
+                # plot!(plot_title=get_plottitle(filekey, det, "A/E DS Performance"; additional_type=string(psd_classifier)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 9)
                 # savelfig(savefig, p, l200, filekey, det, Symbol("aoe_peaks_ds_sf_$psd_classifier"))
 
                 # save results

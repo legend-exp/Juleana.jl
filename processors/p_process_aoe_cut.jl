@@ -119,7 +119,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
                 h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
                 p = LegendMakie.lhist(h_aoe_ctc, figsize = (670,400), rasterize = true,
-                    title = get_plottitle(filekey_ch, part, det, ""; additiional_type=string(aoe_classifier)),
+                    title = get_plottitle(filekey_ch, part, det, ""; additional_type=string(aoe_classifier)),
                     xlabel = "Energy ($e_unit)",
                     ylabel = "A/E",
                     xticks = 0:500:3000,
@@ -143,7 +143,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
                 # plot spectrum before and after cut
-                p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)))
+                p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
 
                 result_peaks_low, report_peaks_low = nothing, nothing
@@ -192,7 +192,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-                p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)))
+                p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
 
                 # save results

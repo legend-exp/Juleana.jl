@@ -116,7 +116,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 p = LegendMakie.lplot(fit(Histogram, ustrip.(e_unit, energy), 0:0.5:3000), 
                     xlabel = "Energy ($e_unit)", ylabel = "Counts / 0.5 keV", yscale = Makie.log10, label = string(e_type),
-                    title = get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additiional_type="$e_type"),
+                    title = get_plottitle(filekey_ch, part, det, "Energy Spectrum"; additional_type="$e_type"),
                     legend_position = :lb, xticks = 0:500:3000)
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("partition_spectrum_$e_type"))
 
@@ -133,7 +133,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 end
                 GC.gc()
 
-                p = LegendMakie.lplot(report_fit, figsize = (600, 400 * length(report_fit)), title = get_plottitle(filekey_ch, part, det, "Peak Fits"; additiional_type=string(e_type)))
+                p = LegendMakie.lplot(report_fit, figsize = (600, 400 * length(report_fit)), title = get_plottitle(filekey_ch, part, det, "Peak Fits"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("peak_fits_$e_type"))
 
                 yield()
@@ -167,7 +167,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
         
                 p = LegendMakie.lplot(report_calib, xerrscaling=1, additional_pts=(μ = μ_notfit, peaks = pp_notfit), 
-                    title = get_plottitle(filekey_ch, part, det, "Calibration Curve"; additiional_type=string(e_type)),
+                    title = get_plottitle(filekey_ch, part, det, "Calibration Curve"; additional_type=string(e_type)),
                     xlims = (0,3000), ylims = (0,3000), figsize = (600,420), 
                     xlabel=L"\fontfamily{Roboto}\mathrm{Energy_{fit} (keV)}", ylabel=L"\fontfamily{Roboto}\mathrm{Energy_{true} (keV)}")
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("calibration_curve_$e_type"))
@@ -190,7 +190,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]        
 
                 p = LegendMakie.lplot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit), figsize = (600,420),
-                    title = get_plottitle(filekey_ch, part, det, "FWHM"; additiional_type=string(e_type)))
+                    title = get_plottitle(filekey_ch, part, det, "FWHM"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("fwhm_$e_type"))
 
                 yield()

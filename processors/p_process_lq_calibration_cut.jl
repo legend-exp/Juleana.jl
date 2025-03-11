@@ -249,19 +249,19 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 #create and save plots
                 p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3, figsize = (600,450), 
-                    legend_position = :none, title = get_plottitle(filekey_ch, part, det, "LQ Cut", additiional_type=string(lq_classifier)))
+                    legend_position = :none, title = get_plottitle(filekey_ch, part, det, "LQ Cut", additional_type=string(lq_classifier)))
                 Makie.vlines!(Measurements.value(report.cut), color = LegendMakie.CoaxGreen, label = "Cut Value", linewidth = 4)
                 Makie.axislegend(position = :lt)
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
 
                 p = LegendMakie.lplot(report.temp_hists, 
-                    title = get_plottitle(filekey_ch, part, det, "LQ sidebands", additiional_type=string(lq_classifier)), 
+                    title = get_plottitle(filekey_ch, part, det, "LQ sidebands", additional_type=string(lq_classifier)), 
                     xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_class),), (0.05, 0.95)))
                 )
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("sideband_$lq_classifier"))
 
                 p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
-                    title = get_plottitle(filekey_ch, part, det, "LQ side bands", additiional_type=string(lq_classifier)))
+                    title = get_plottitle(filekey_ch, part, det, "LQ side bands", additional_type=string(lq_classifier)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_$lq_classifier"))
 
                 sel = isfinite.(e_cal) #.&& drift_report.dep_left .< e_cal .< drift_report.dep_right
@@ -273,7 +273,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("energy_hist_$lq_classifier"))
 
                 p = LegendMakie.lplot((; e_cal, lq_class, cut_value = report.cut), figsize = (750,400),
-                    title = get_plottitle(filekey_ch, part, det, "LQ Performance", additiional_type=string(lq_classifier)))
+                    title = get_plottitle(filekey_ch, part, det, "LQ Performance", additional_type=string(lq_classifier)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("cut_fraction_$lq_classifier"))
                 
 

@@ -99,7 +99,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 # get simple calibration constant
                 m_cal_simple = result_simple.c
                 # save plots for simple calibration for control
-                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey, det, "Simple Calibration"; additiional_type=string(e_type)))
+                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey, det, "Simple Calibration"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
 
                 yield()
@@ -116,7 +116,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"
                 @debug "Found $e_type FCTs: $(round.(result_ctc.fct .* 1e6, digits=2))E-6"
                 
-                p = LegendMakie.lplot(report_ctc, figsize = (600,600), title = get_plottitle(filekey, det, "CTC"; additiional_type="$e_type $ctc_cal_peak"))            
+                p = LegendMakie.lplot(report_ctc, figsize = (600,600), title = get_plottitle(filekey, det, "CTC"; additional_type="$e_type $ctc_cal_peak"))            
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("ctc_$(e_type)"))
 
                 yield()
