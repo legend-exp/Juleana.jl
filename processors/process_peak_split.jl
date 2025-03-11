@@ -168,11 +168,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 @info "Auto calibrating $ch ($det)"
                 result_autocal, report_autocal = autocal_energy(e_raw, raw_config_ch.th228_cal_lines; mode=:ratio, min_e=raw_config_ch.min_e, max_e=raw_config_ch.max_e, max_e_binning_quantile=raw_config_ch.max_e_binning_quantile, σ=raw_config_ch.σ, threshold=raw_config_ch.threshold, min_n_peaks=raw_config_ch.min_n_peaks, max_n_peaks=raw_config_ch.max_n_peaks, α=raw_config_ch.α, rtol=raw_config_ch.rtol)
                 f_calib = result_autocal.f_calib
-                p = plot(report_autocal.h_cal, xlabel="Energy", ylabel="Counts", label="e_fc", legend=:topright, yscale=:log10, st=:stepbins)
-                vline!(p, ustrip.(raw_config_ch.th228_cal_lines), label="Th228 Calibration Lines", color=:red)
-                title!(p, get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
-                plot!(p, xticks=0:250:3000, framestyle=:box)
-                savelfig(savefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
+                p = LegendMakie.lplot(report_autocal, raw_config_ch.th228_cal_lines, figsize = (650,400), title = get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+                savelfig(LegendMakie.lsavefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
             GC.gc()
             @info "Filtering channel $ch ($det)"

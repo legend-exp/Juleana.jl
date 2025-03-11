@@ -192,13 +192,11 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
 
                 @debug "Found optimal window length at $(result_wl.wl) for channel $ch ($det)"
 
-                p = plot(report_wl, framestyle=:box)
-                title!(p, get_plottitle(filekey, det, "Filter Optimization"; additiional_type=string(filter_type)))
-                savelfig(savefig, p, l200, filekey, det, Symbol("wl_sweep_$(filter_type)"))
+                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "Filter Optimization"; additiional_type=string(filter_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("wl_sweep_$(filter_type)"))
 
-                p = plot(report_wl.report_simple, yscale=:log10; cal=true)
-                title!(p, get_plottitle(filekey, det, "Opt. Calibration"; additiional_type=string(filter_type)))
-                savelfig(savefig, p, l200, filekey, det, Symbol("wl_sweep_calibration_$(filter_type)"))
+                p = LegendMakie.lplot(report_wl.report_simple, cal = true, title = get_plottitle(filekey, det, "Opt. Calibration"; additiional_type=string(filter_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("wl_sweep_calibration_$(filter_type)"))
 
                 # thresholds for optimized window lengths
                 dsp_thresholds = nothing
@@ -225,9 +223,8 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
                     
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for channel $ch ($det)"
                     
-                    p = plot(report_thres, legend=:topright)
-                    title!(p, get_plottitle(filekey, det, "Baseline distribution"; additiional_type=string(thres)), subplot=1)
-                    savelfig(savefig, p, l200, filekey, det, Symbol("trigger_threshold_$(thres)"))
+                    p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey, det, "Baseline distribution"; additiional_type=string(thres)))
+                    savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("trigger_threshold_$(thres)"))
 
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end

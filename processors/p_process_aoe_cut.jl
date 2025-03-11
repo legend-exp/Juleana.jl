@@ -100,6 +100,8 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
         end
 
+        e_unit = unit(first(e_cal))
+
         @showprogress desc="Detector: $det" for aoe_classifier in aoe_classifiers
             if haskey(processed_dict, aoe_classifier)
                 continue
@@ -115,11 +117,15 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                     throw(LoadError("AoE", 154, "AoE and E data for $det from partition $(part) cannot be loaded"))
                 end
 
-                p = histogram2d(e_cal, aoe, nbins=(0:0.5:3000, -20:0.1:10), xlims=(0, 3000), ylims=(-20, 10), size=(1300, 700), clims=(0.9, Inf), color=cgrad(:magma), colorbar_scale=:log10, legend=:topleft, xlabel=L"Energy\ (keV)", ylabel=L"A/E\ (\sigma_{A/E})")
-                plot!(margin=1mm, thickness_scaling=1.6, dpi=600)
-                title!(p, get_plottitle(filekey_ch, part, det, "normalized A/E"; additiional_type=string(aoe_classifier)))
-                xticks!(0:250:3000)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
+                h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
+                p = LegendMakie.lhist(h_aoe_ctc, figsize = (670,400), rasterize = true,
+                    title = get_plottitle(filekey_ch, part, det, ""; additiional_type=string(aoe_classifier)),
+                    xlabel = "Energy ($e_unit)",
+                    ylabel = "A/E",
+                    xticks = 0:500:3000,
+                    yticks = -20:10:10
+                )
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
 
                 result_cut, report_cut = nothing, nothing
                 try
@@ -137,9 +143,8 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
                 # plot spectrum before and after cut
-                p = plot(report_cut)
-                title!(get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)), subplot=1)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
+                p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
 
                 result_peaks_low, report_peaks_low = nothing, nothing
                 try
@@ -187,10 +192,8 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-
-                p = plot(broadcast(k -> plot(report_peaks_ds[k].after, show_components=false, left_margin=20mm, top_margin=-5mm, bottom_margin=-2mm, peak_name=string(k), ms=2), keys(report_peaks_ds))..., layout=(length(report_peaks_ds), 1), size=(1000,710*length(report_peaks_ds)) , thickness_scaling=1.8, titlefontsize = 10, legendfontsize = 8, yguidefontsize = 9, xguidefontsize=11)
-                plot!(plot_title=get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)), plot_titlelocation=(0.5,0.2), plot_titlefontsize = 9)
-                savelfig(savefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
+                p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additiional_type=string(aoe_classifier)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
 
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))

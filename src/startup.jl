@@ -13,6 +13,7 @@ using ParallelProcessingTools: getlabel
     using Plots, StatsPlots, KernelDensity
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
+    import LegendMakie, Makie, CairoMakie
 
     # package settings
     LegendSpecFits.set_timelimit(180.0)
