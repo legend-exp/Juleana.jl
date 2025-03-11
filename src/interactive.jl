@@ -1,6 +1,6 @@
 function menu()        
     # main menu options
-    options = ["Execute processors", "Reload processors", "Select periods", "Reload processing config", "Reset dependency graph", "Submit workers", "Exit"]
+    options = ["Execute processors", "Reload processors", "Select periods", "Select runs", "Reload processing config", "Reset dependency graph", "Submit workers", "Exit"]
     # main menu
     choice = try
         println()
@@ -10,11 +10,11 @@ function menu()
         choice
     catch e
         println()
-        @error "Abort"
+        @error "Abort: $e"
         return
     end
     # reload all processors from files
-    if choice == 4
+    if choice == 5
         global l200, processing_config, runs, periods
         l200, processing_config, runs, periods = get_processingconfig()
         @info "Reloaded processing config"
@@ -51,7 +51,55 @@ function menu()
             periods = possible_periods[selected_periods]
         catch e
             println()
-            @error "Abort"
+            @error "Abort: $e"
+            return
+        end
+        @info "Selected periods: $periods"
+        global process_status, p_process_status
+        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        @info "Reloaded dependency graph"
+    elseif choice == 4
+        global runs
+        try
+            tiers = [:raw, :jldsp, :jlevt]
+            categories = [:cal, :phy]
+            tier, cat = nothing, nothing
+            for t in tiers
+                for c in categories
+                    if ispath(l200.tier[t, c])
+                        tier = t
+                        cat = c
+                        break
+                    end
+                end
+                if !isnothing(tier)
+                    break
+                end
+            end
+            possible_runs = if isnothing(tier) || isnothing(cat)
+                @warn "No `DataRun` found for in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
+                []
+            else
+                if length(periods) == 0
+                    @warn "No periods selected"
+                    []
+                else
+                    if length(periods) > 1
+                        @warn "More than one period selected, choosing first to get runs"
+                    end
+                    search_disk(DataRun, l200.tier[tier, cat, first(periods)])
+                end
+            end
+            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> x in runs, possible_runs)], ctrl_c_interrupt = true)
+            selected_runs = collect(request("Select runs to be executed:", runs_menu))
+            runs = possible_runs[selected_runs]
+            if length(runs) == length(possible_runs)
+                runs = "all"
+                @info "All runs selected."
+            end
+        catch e
+            println()
+            @error "Abort: $e"
             return
         end
         @info "Selected periods: $periods"
@@ -63,12 +111,12 @@ function menu()
         r = include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
         @info "Reloaded processors: $r"
     # reload dependency graph
-    elseif choice == 5
+    elseif choice == 6
         global process_status, p_process_status
         process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
         @info "Reloaded dependency graph"
     # add workers according to slurm settings
-    elseif choice == 6
+    elseif choice == 7
         @async runworkers(runmode)
         @info "Submitted workers"
     # execute processing steps
@@ -110,7 +158,7 @@ function execute_processors()
         process_steps, p_process_steps, additional_args
     catch e
         println()
-        @error "Abort"
+        @error "Abort: $e"
         return
     end
     
@@ -119,6 +167,28 @@ function execute_processors()
         @warn "No processing steps selected"
         return
     else
+        if "check_dependencies" in additional_args
+            # set all process steps to true in case selection, false otherwise
+            for p in processing_config.possible_process_steps
+                if p in process_steps
+                    processing_config.processors[p].enabled = true
+                else
+                    processing_config.processors[p].enabled = false
+                end
+            end
+            # set all p process steps to true in case selection, false otherwise
+            for p in processing_config.p_possible_process_steps
+                if p in p_process_steps
+                    processing_config.p_processors[p].enabled = true
+                else
+                    processing_config.p_processors[p].enabled = false
+                end
+            end
+            # setup dependency graph
+            global process_status, p_process_status
+            process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        end
+
         @sync begin
 
             if !isempty(process_steps)
