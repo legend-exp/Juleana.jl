@@ -301,7 +301,7 @@
                 "reprocess": true,
                 "timeout": 0
             },
-            "dependencies": ["process_dsp_phy"]
+            "dependencies": ["process_dsp_phy", "process_sipm_calibration_phy"]
         }
     }
 }
