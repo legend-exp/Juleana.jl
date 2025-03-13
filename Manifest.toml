@@ -1497,7 +1497,7 @@ weakdeps = ["Measurements"]
 
 [[deps.LegendMakie]]
 deps = ["MakieCore"]
-git-tree-sha1 = "ce08430947f0fa859a00e90eebf5ec064f1656f6"
+git-tree-sha1 = "39f439d168031a7073720c36ca217f96b2f30441"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendMakie.jl"
 uuid = "ce9a434a-d062-4f11-9371-3059ddb1c48a"
