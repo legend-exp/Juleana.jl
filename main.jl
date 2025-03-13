@@ -29,7 +29,7 @@ using REPL.TerminalMenus
 # check if LEGEND packages should be updated
 if isinteractive()
     try
-        legend_packages = ["LegendHDF5IO", "LegendDataTypes", "LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"]
+        legend_packages = ["LegendHDF5IO", "LegendDataTypes", "LegendMakie", "LegendDataManagement", "LegendSpecFits", "LegendDSP", "LegendEventAnalysis"]
         if request("Update LEGEND packages? $legend_packages", RadioMenu(["Yes", "No"], ctrl_c_interrupt = true)) == 1
             Pkg.instantiate()
             Pkg.resolve()
