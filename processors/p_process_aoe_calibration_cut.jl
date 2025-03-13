@@ -346,7 +346,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
                 # plot spectrum before and after cut
                 p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_energy_afterAoE_zoom_$aoe_classifier"))
 
                 result_peaks_low, report_peaks_low = nothing, nothing
                 try
@@ -395,7 +395,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
                 p = LegendMakie.lplot(report_peaks_ds, titlesize = 17, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_$aoe_classifier"))
 
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
