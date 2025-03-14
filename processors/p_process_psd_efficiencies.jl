@@ -241,7 +241,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 # savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_$psd_classifier"))
 
                 # save results
-                result = merge((cuts = (lowcut = NaN, highcut = aoe_high_cut, lq = lq_cut), ), (peaks = (low = result_peaks_low, ds = result_peaks_ds, low_lq = result_peaks_low_lq, lq_ds = result_peaks_lq_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds, low_lq = qbb_result_low_lq, lq_ds = qbb_result_lq_ds)))
+                result = merge((cuts = (lowcut = NaN, highcut = aoe_high_cut, lq = NaN), ), (peaks = (low = result_peaks_low, ds = result_peaks_ds, low_lq = result_peaks_low_lq, lq_ds = result_peaks_lq_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds, low_lq = qbb_result_low_lq, lq_ds = qbb_result_lq_ds)))
 
                 log_info = log_nt_cut((ch, det, part, ProcessStatus(1), psd_classifier, NaN, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
