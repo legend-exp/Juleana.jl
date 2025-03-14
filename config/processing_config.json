@@ -282,11 +282,21 @@
             },
             "dependencies": []
         },
+        "p_process_psd_efficiencies": {
+            "enabled": true,
+            "n_workers": "all",
+            "rank": 8,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": []
+        },
         "p_process_sipm_optimization_phy": {
             "enabled": false,
             "n_workers": "all",
             "category": "phy",
-            "rank": 8,
+            "rank": 9,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
@@ -296,7 +306,7 @@
         "p_process_sipm_calibration_phy": {
             "enabled": true,
             "n_workers": "all",
-            "rank": 9,
+            "rank": 10,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
