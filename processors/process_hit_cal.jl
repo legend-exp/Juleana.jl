@@ -48,7 +48,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
-        data_puls = load_run_ch(lh5open, fast_flatten, l200, filekey, :raw, ch_puls; check_filekeys=true, keys=(:daqenergy, :timestamp))
+        data_puls = load_run_ch((:daqenergy, :timestamp), l200, DataTier(:raw), filekey, ch_puls)
         
         @info "Write Pulser events to disk"
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
@@ -98,7 +98,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         @debug "Processing channel $ch ($det)"
         
-        data_ch = load_run_ch(lh5open, fast_flatten, l200, filekeys, :jldsp, ch; check_filekeys=true)
+        data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, ch)
         
         if length(data_ch) < 5000
             @error "Not enough data points for channel $ch ($det), skip"
