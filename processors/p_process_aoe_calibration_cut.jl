@@ -257,6 +257,12 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
                     p = LegendMakie.lplot(report_aoe_ctc, figsize = (600,600), title = get_plottitle(filekey_ch, part, det, "A/E CT Correction"; additional_type=string(aoe_type)))
                     savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_ctc_$aoe_type"))
 
+                    # plot A/E normalization after CTC
+                    p = LegendMakie.lplot(report_aoe_ctc.report_after, xlims=(-20, 12), 
+                        title = get_plottitle(filekey_ch, part, det, "$(first(compton_bands)) - $(last(compton_bands)) CTC"; additional_type=string(aoe_type)), 
+                        xlabel = LaTeXStrings.latexstring("\\fontfamily{Roboto}" * "A/E_{CTC}"), ylabel = "Counts / $(round(step(report_aoe_ctc.report_after.h.edges[1]), digits=2))")
+                    savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_compton_after_ctc_$aoe_type"))
+
                     aoe_corr = ljl_propfunc(result_aoe_ctc.func).(hit_cal)
                 end
 
