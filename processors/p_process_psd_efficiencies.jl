@@ -76,7 +76,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
             @debug "Channel $(det) already processed, check missing filters"
             for psd_classifier in psd_classifiers
                 if haskey(pars_db_ch[det], psd_classifier)
-                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), psd_classifier, pars_db_ch[det][psd_classifier].lowcut, pars_db_ch[det][psd_classifier].peaks.ds[:Tl208SEP].sf, pars_db_ch[det][psd_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), psd_classifier, pars_db_ch[det][psd_classifier].cuts.lowcut, pars_db_ch[det][psd_classifier].peaks.ds[:Tl208SEP].sf, pars_db_ch[det][psd_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[psd_classifier] = log_info
                     processed_dict[psd_classifier] = false
