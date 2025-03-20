@@ -24,16 +24,18 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         dspfilename = l200.tier[:jldsp, fk]
         @info "Processing file: $(basename(dspfilename))"
         evtfilename = l200.tier[:jlevt, fk]
+        pmtevtfilename = l200.tier[:jlpmt, fk]
         @info "Using output file: $(basename(evtfilename))"
         
         # start processing
         read_files(dspfilename, use_cache = false) do filename
             global n_forced, n_pulser, n_phy = 0, 0, 0
-            write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+            write_files(evtfilename, pmtevtfilename, use_cache = true, mode = CreateOrModify()) do outfilename, pmtoutfilename
                 if reprocess && isfile(outfilename)
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
                     rm(evtfilename, force=true)
+                    rm(pmtoutfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
                     n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
@@ -66,8 +68,11 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         @debug "Number of physical triggers: $n_phy"
                         lh5open(outfilename, "cw") do ds
                             ds[:jlevt] = out_t
-                            if !isempty(pmts_out_t)
-                                ds[:jlevt, :pmts] = pmts_out_t
+                        end
+                        # write pmt evt file
+                        if !isempty(pmts_out_t)
+                            lh5open(pmtoutfilename, "cw") do ds
+                                ds[:jlpmt] = pmts_out_t
                             end
                         end
                         n_forced, n_pulser, n_phy
