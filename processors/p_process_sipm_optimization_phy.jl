@@ -37,6 +37,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmopt), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.sipmopt[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.sipmopt), "$det"))
             PropDict()
         end
 

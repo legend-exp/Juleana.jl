@@ -37,6 +37,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.sipmcal[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.sipmcal), "$det"))
             PropDict()
         end
 
@@ -97,7 +98,10 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         try
             @debug "Load DSP data"
             # load DSP data and apply QC cut
-            data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_ch, ch)
+            if !all([haskey(processed_dict, e_type) for e_type in energy_types])
+                @debug "Load DSP data for channel $ch"
+                data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_ch, ch)
+            end
         catch e
             @error "Error in loading DSP data for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
@@ -106,9 +110,11 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         is_pulser = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
-            is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
-            @debug "Found $(count(is_pulser)) pulser events"
+            if !all([haskey(processed_dict, e_type) for e_type in energy_types])
+                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
+                is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+                @debug "Found $(count(is_pulser)) pulser events"
+            end
         catch e
             @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
@@ -118,8 +124,10 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         data_ch_after_qc = nothing
         try
             @debug "Load hit data"
-            # load DSP data and apply QC cut
-            data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp) .&& .!is_pulser)]
+            if !all([haskey(processed_dict, e_type) for e_type in energy_types])
+                # load DSP data and apply QC cut
+                data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp) .&& .!is_pulser)]
+            end
         catch e
             @error "Error in loading data for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))

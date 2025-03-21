@@ -37,6 +37,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.ecal), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.ecal[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.ecal), "$det"))
             PropDict()
         end
 

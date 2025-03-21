@@ -42,6 +42,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.json"))
             PropDict(l200.par.ppars.fltopt[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.fltopt), "$det"))
             PropDict()
         end
 

@@ -38,6 +38,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.lq), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.lq[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.lq), "$det"))
             PropDict()
         end
 

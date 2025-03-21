@@ -42,6 +42,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoeopt), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.aoeopt[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.aoeopt), "$det"))
             PropDict()
         end
 

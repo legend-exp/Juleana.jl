@@ -37,6 +37,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.psd), "$det", "$part.json")) && !reprocess
             PropDict(l200.par.ppars.psd[det, part])
         else
+            mkpath(joinpath(data_path(l200.par.ppars.psd), "$det"))
             PropDict()
         end
 
