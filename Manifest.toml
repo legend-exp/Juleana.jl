@@ -1362,16 +1362,16 @@ uuid = "1d6d02ad-be62-4b6b-8a6d-2f90e265016e"
 version = "0.2.0"
 
 [[deps.LegendDSP]]
-deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "FunctionChains", "IntervalSets", "LIBSVM", "LegendDataTypes", "LinearAlgebra", "PropDicts", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Tables", "TypedTables", "Unitful"]
-git-tree-sha1 = "216f59fe41cb64029d2f3d654c6489e9a054c1c8"
+deps = ["Adapt", "ArgCheck", "ArraysOfArrays", "DocStringExtensions", "FillArrays", "IntervalSets", "LIBSVM", "LegendDataTypes", "LinearAlgebra", "PropDicts", "RadiationDetectorDSP", "RadiationDetectorSignals", "Random", "Tables", "TypedTables", "Unitful"]
+git-tree-sha1 = "f1a90e7a1d27568afb663217068d32ee8e11d70c"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendDSP.jl.git"
 uuid = "e6d7a502-be5c-5049-a927-8d60e566555d"
-version = "0.2.3"
+version = "0.2.5"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "88137dc55d7aec1066fa6dcb74e7e2f6f7ccc61b"
+git-tree-sha1 = "1207731911a04a6e542c725b4fd34e2e42d6ed9e"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendDataManagement.jl.git"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
@@ -1397,7 +1397,7 @@ version = "0.1.14"
 
 [[deps.LegendEventAnalysis]]
 deps = ["ArraysOfArrays", "IntervalSets", "LegendDataManagement", "LegendDataTypes", "ProgressMeter", "PropertyFunctions", "StructArrays", "Tables", "TypedTables", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "fdcae91667ab326a2f7ec56dd53c36f3f551f5b9"
+git-tree-sha1 = "3372ec94ca6d3fa589cc6f01643c37e9aee1ecea"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendEventAnalysis.jl.git"
 uuid = "ca666546-4c2a-41e4-9648-72713d810efe"
@@ -1430,7 +1430,7 @@ weakdeps = ["Dates", "FileIO", "Format", "KernelDensity", "LaTeXStrings", "Legen
 
 [[deps.LegendSpecFits]]
 deps = ["ArgCheck", "ArraysOfArrays", "BAT", "ChangesOfVariables", "DensityInterface", "Distributions", "FillArrays", "Format", "ForwardDiff", "GaussianMixtures", "IntervalSets", "InverseFunctions", "IrrationalConstants", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "LinearRegression", "LogExpFunctions", "LsqFit", "Measurements", "Measures", "Optim", "Optimization", "OptimizationBBO", "OptimizationNLopt", "OptimizationOptimJL", "OrderedCollections", "PropDicts", "RadiationSpectra", "Random", "Roots", "SavitzkyGolay", "SnoopPrecompile", "SpecialFunctions", "Statistics", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful", "ValueShapes"]
-git-tree-sha1 = "e8439feab1ef3625340ff7900211856691acb78f"
+git-tree-sha1 = "27f1268a2e472389b9fc50affdb1c3de3affc698"
 repo-rev = "main"
 repo-url = "https://github.com/legend-exp/LegendSpecFits.jl.git"
 uuid = "18221496-77af-46cf-bab8-820da09f7f97"
