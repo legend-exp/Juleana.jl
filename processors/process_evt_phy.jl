@@ -30,7 +30,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         # start processing
         read_files(dspfilename, use_cache = false) do filename
             global n_forced, n_pulser, n_phy = 0, 0, 0
-            write_files(evtfilename, pmtevtfilename, use_cache = true, mode = CreateOrModify()) do outfilename, pmtoutfilename
+            write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
@@ -70,8 +70,10 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         end
                         # write pmt evt file
                         if !isempty(pmts_out_t)
-                            lh5open(pmtoutfilename, "cw") do ds
-                                ds[:jlpmt] = pmts_out_t
+                            write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
+                                lh5open(pmtoutfilename, "cw") do ds
+                                    ds[:jlpmt] = pmts_out_t
+                                end
                             end
                         end
                         n_forced, n_pulser, n_phy
