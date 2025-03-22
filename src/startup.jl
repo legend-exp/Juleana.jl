@@ -10,9 +10,9 @@ using ParallelProcessingTools: getlabel
     using Unitful, UnitfulAtomic, Format, LaTeXStrings, Printf, Measures, Dates, Measurements
     using Measurements: value as mvalue
     using Measurements: uncertainty as muncert
-    using Plots, StatsPlots, KernelDensity
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
+    using KernelDensity
     import LegendMakie, Makie, CairoMakie
 
     # package settings
