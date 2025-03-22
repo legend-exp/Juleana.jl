@@ -24,9 +24,6 @@ using ParallelProcessingTools: getlabel
     using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
     using Base.Iterators, StructArrays
 
-    # select plot backend to GR
-    gr(margin=10mm, thickness_scaling=1.5, size=(1300, 900), dpi=600)
-
     # set logging to Terminallogger for Markdown output
     using Logging: global_logger
     using TerminalLoggers: TerminalLogger
