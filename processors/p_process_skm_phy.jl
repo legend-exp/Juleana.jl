@@ -1,4 +1,4 @@
-function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0)
+function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     
     @info "Event skimmed tier for runs containing period $period"
 
@@ -11,8 +11,8 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
     chinfo = channelinfo(l200, filekey; system=:geds)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    exposure = get_exposure(l200, chinfo_geds.detector, period; is_analysis_run=true, check_pf=@pf $processable && $usability == :on && $psd_usability == :on && $det_type != :coax)
-    @info "Total exposure: $(exposure)"
+    exposure = get_exposure(l200, chinfo.detector, period; is_analysis_run=true, check_pf=@pf $processable && $usability == :on && $psd_usability == :on && $det_type != :coax)
+    @info "Total exposure: $(round(unit(exposure), exposure, digits=2))"
 
     if reprocess @info "Reprocess all runs" else @info "Only process runs not found" end
 
@@ -48,9 +48,9 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
                 @info "File $(basename(skmfilename)) already exists, skip"
                 n_psd, n_lar, n_larpsd = lh5open(outfilename, "r") do ds
                     skm_data = ds[:skm][:]
-                    n_psd = mean(skm_data.geds.is_valid_psd)
-                    n_lar = mean(skm_data.ged_spm.is_valid_lar)
-                    n_larpsd = mean(skm_data.geds.is_valid_psd .&& skm_data.ged_spm.is_valid_lar)
+                    n_psd = mean(skm_data.geds.is_valid_psd) * 100u"percent"
+                    n_lar = mean(skm_data.ged_spm.is_valid_lar) * 100u"percent"
+                    n_larpsd = mean(skm_data.geds.is_valid_psd .&& skm_data.ged_spm.is_valid_lar) * 100u"percent"
                     n_psd, n_lar, n_larpsd
                 end
                 return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_larpsd, n_lar, n_psd, "", "", "")), processed = false)
@@ -62,21 +62,21 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
                 out_t = nothing
                 try
                     evt = read_ldata(l200, DataTier(:jlevt), filekeys)
-                    skm_sel_str = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1
-                    out_t = evt[findall(skm_sel_str.(evt))]
+                    skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1
+                    out_t = evt[findall(skm_sel_pf.(evt))][:]
                 catch e
                     @error "Error processing $fk: $(truncate_error(e))"
                     throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
                 end
                 # get number of forced, physical and pulser triggers
-                n_psd = mean(out_t.geds.is_valid_psd)
-                @debug "SF after PSD: $n_psd"
-                n_lar = mean(out_t.ged_spm.is_valid_lar)
-                @debug "SF after LAr: $n_lar"
-                n_larpsd = mean(out_t.geds.is_valid_psd .&& out_t.ged_spm.is_valid_lar)
-                @debug "SF after LAr & PSD: $n_larpsd"
+                n_psd = mean(out_t.geds.is_valid_psd) * 100u"percent"
+                @debug "SF after PSD: $(round(u"percent", n_psd, digits=2))"
+                n_lar = mean(out_t.ged_spm.is_valid_lar) * 100u"percent"
+                @debug "SF after LAr: $(round(u"percent", n_lar, digits=2))"
+                n_larpsd = mean(out_t.geds.is_valid_psd .&& out_t.ged_spm.is_valid_lar) * 100u"percent"
+                @debug "SF after LAr & PSD: $(round(u"percent", n_larpsd, digits=2))"
                 lh5open(outfilename, "cw") do ds
-                    ds[:jlskm] = out_t
+                    ds[:jlskm] = LegendEventAnalysis._fix_vov(out_t)
                 end
             end
             
