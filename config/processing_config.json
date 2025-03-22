@@ -306,12 +306,24 @@
         "p_process_sipm_calibration_phy": {
             "enabled": true,
             "n_workers": "all",
+            "category": "phy",
             "rank": 10,
             "kwargs": {
                 "reprocess": true,
                 "timeout": 0
             },
             "dependencies": ["process_dsp_phy", "process_sipm_optimization_phy"]
+        },
+        "p_process_skm_phy": {
+            "enabled": true,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 11,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0
+            },
+            "dependencies": ["process_evt_phy"]
         }
     }
 }

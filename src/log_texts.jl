@@ -94,3 +94,7 @@ The calibration constant and offset are extracted from the fit.
 
 const evt_log_text = """## Evt
 This is the log for the event level. The algorithm iterates through each file each file and generates the event level table for each subsystem including correct calibrations and cut generation."""
+
+const skm_log_text = """## SKM
+This is the log for the SKM. The algorithm iterates through each file and generates the SKM level table for each subsystem including correct calibrations and cut generation.
+"""
