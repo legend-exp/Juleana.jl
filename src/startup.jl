@@ -12,7 +12,6 @@ using ParallelProcessingTools: getlabel
     using Measurements: uncertainty as muncert
     using Distributed, ProgressMeter, TimerOutputs
     using ParallelProcessingTools
-    using KernelDensity
     import LegendMakie, Makie, CairoMakie
 
     # package settings
