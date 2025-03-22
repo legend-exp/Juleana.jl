@@ -35,7 +35,12 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
                     rm(evtfilename, force=true)
-                    rm(pmtoutfilename, force=true)
+                    if isfile(pmtoutfilename)
+                        rm(pmtoutfilename, force=true)
+                    end
+                    if isfile(pmtevtfilename)
+                        rm(pmtevtfilename, force=true)
+                    end
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
                     n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
