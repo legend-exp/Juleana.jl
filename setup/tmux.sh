@@ -45,9 +45,13 @@ PARENT_DIR=$(dirname "$(readlink -f "$0")")/..
 send_cd_command_to_all_panes() {
     local window_index=$1
     local pane_count=$(tmux list-panes -t $SESSION_NAME:$window_index -F "#{pane_index}" | wc -l)
-    for ((pane_index=0; pane_index<pane_count; pane_index++)); do
-        tmux send-keys -t $SESSION_NAME:$window_index.$pane_index "cd $PARENT_DIR" C-m
-    done
+    if [[ $pane_count -eq 1 ]]; then
+        tmux send-keys -t $SESSION_NAME:$window_index "cd $PARENT_DIR" C-m
+    else
+        for ((pane_index=0; pane_index<pane_count; pane_index++)); do
+            tmux send-keys -t $SESSION_NAME:$window_index.$pane_index "cd $PARENT_DIR" C-m
+        done
+    fi
 }
 
 # Send the cd command to the first window
@@ -59,26 +63,44 @@ tmux set-option -t $SESSION_NAME mouse on
 # Since the first window is already created and named "Processing" upon session creation,
 # we proceed to create the additional windows.
 
-# Create a new window named "Slurm" and split it into 4 panes
-tmux new-window -t $SESSION_NAME -n 'Slurm'
-tmux split-window -h -t $SESSION_NAME:1
-tmux split-window -v -t $SESSION_NAME:1.1
-tmux select-pane -t $SESSION_NAME:1.0
-tmux split-window -v -t $SESSION_NAME:1.0
+# Check if the machine is a Slurm machine
+if command -v sinfo &> /dev/null; then
+    # Create a new window named "Slurm" and split it into 4 panes
+    tmux new-window -t $SESSION_NAME -n 'Slurm'
+    tmux split-window -h -t $SESSION_NAME:1
+    tmux split-window -v -t $SESSION_NAME:1.1
+    tmux select-pane -t $SESSION_NAME:1.0
+    tmux split-window -v -t $SESSION_NAME:1.0
 
-# Send the cd command to the second window
-send_cd_command_to_all_panes 1
+    # Send the cd command to the second window
+    send_cd_command_to_all_panes 1
 
-# Create a new window named "Monitoring" and split it into 2 panes horizontally
-tmux new-window -t $SESSION_NAME -n 'Monitoring'
-tmux split-window -v -t $SESSION_NAME:2
+    # Create a new window named "Monitoring" and split it into 2 panes horizontally
+    tmux new-window -t $SESSION_NAME -n 'Monitoring'
+    tmux split-window -v -t $SESSION_NAME:2
 
-# Send the cd command to the third window
-send_cd_command_to_all_panes 2
+    # Send the cd command to the third window
+    send_cd_command_to_all_panes 2
 
-# Run monitoring commands in the "Monitoring" window panes
-tmux send-keys -t $SESSION_NAME:2.0 'watch -n 60 "sinfo | grep idle"' C-m
-tmux send-keys -t $SESSION_NAME:2.1 'watch -n 60 squeue -u $USER' C-m
+    # Run monitoring commands in the "Monitoring" window panes
+    tmux send-keys -t $SESSION_NAME:2.0 'watch -n 60 "sinfo | grep idle"' C-m
+    tmux send-keys -t $SESSION_NAME:2.1 'watch -n 60 squeue -u $USER' C-m
+else
+    echo "Slurm commands not found. Skipping 'Slurm' window creation."
+
+    # Create a new window named "Monitoring" without splitting
+    tmux new-window -t $SESSION_NAME -n 'Monitoring'
+
+    # Send the cd command to the "Monitoring" window
+    send_cd_command_to_all_panes 1
+
+    # Check if btop exists, otherwise fallback to htop
+    if command -v btop &> /dev/null; then
+        tmux send-keys -t $SESSION_NAME:1 'btop' C-m
+    else
+        tmux send-keys -t $SESSION_NAME:1 'htop -u $USER' C-m
+    fi
+fi
 
 # Attach to the first window in the session
 tmux select-window -t $SESSION_NAME:0
