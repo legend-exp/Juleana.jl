@@ -116,9 +116,10 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 aoe_high_cut = psd_classifiers_dict[psd_classifier][2]
                 lq_classifier = Symbol(psd_classifiers_dict[psd_classifier][3])
 
-                aoe_low_cut_vec, aoe_ds_cut_vec = nothing, nothing
+                aoe_low_cut_vec, aoe_high_cut_vec, aoe_ds_cut_vec = nothing, nothing, nothing
                 try
                     aoe_low_cut_vec = .!getproperty(hit_cal, Symbol("$(aoe_classifier)_low_cut"))
+                    aoe_high_cut_vec = .!(getproperty(hit_cal, Symbol("$(aoe_classifier)")) .> aoe_high_cut)
                     aoe_ds_cut_vec = .!(getproperty(hit_cal, Symbol("$(aoe_classifier)_low_cut")) .|| getproperty(hit_cal, Symbol("$(aoe_classifier)")) .> aoe_high_cut)
                 catch e
                     @error "AoE for $det from cannot be loaded"
@@ -156,6 +157,32 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 end
 
                 @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
+
+
+
+                ## high A/E cut
+                result_peaks_high, report_peaks_high = nothing, nothing
+                try
+                    @debug "Generate A/E high Survival Fractions"
+                    result_peaks_high, report_peaks_high = get_peaks_survival_fractions(ones_vec, e_cal, psd_config_ch.psd_peaks, Symbol.(psd_config_ch.psd_peaks_names), psd_config_ch.psd_peaks_windows_left, psd_config_ch.psd_peaks_windows_right, -Inf, aoe_high_cut_vec;
+                                                    bin_width_window=psd_config_ch.psd_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(psd_config_ch.psd_peaks_fit_funcs), uncertainty=true)
+                catch e
+                    @error "AoE peaks high SF for $det cannot be generated"
+                    throw(ErrorException("AoE peaks high SF for $det from $period-$run cannot be generated"))
+                end
+
+                @debug "Found high SEP Survival Fraction at $(round(u"percent", result_peaks_high[:Tl208SEP].sf, digits=2))"
+                @debug "Found high FEP Survival Fraction at $(round(u"percent", result_peaks_high[:Tl208FEP].sf, digits=2))"
+
+                qbb_result_high = nothing
+                try
+                    qbb_result_high, _ = get_continuum_survival_fraction(ones_vec, e_cal, psd_config_ch.qbb, psd_config_ch.qbb_window, -Inf, aoe_high_cut_vec,; sigma_high_sided=Inf)
+                catch e
+                    @error "Qbb high SF for $det cannot be generated"
+                    throw(ErrorException("Qbb high SF for $det from $period-$run cannot be generated"))
+                end
+
+                @debug "Found high Qbb Survival Fraction at $(round(u"percent", qbb_result_high.sf, digits=2))"
 
 
 
@@ -242,7 +269,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 # savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_$psd_classifier"))
 
                 # save results
-                result = merge((cuts = (lowcut = NaN, highcut = aoe_high_cut, lq = NaN), ), (peaks = (low = result_peaks_low, ds = result_peaks_ds, low_lq = result_peaks_low_lq, lq_ds = result_peaks_lq_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds, low_lq = qbb_result_low_lq, lq_ds = qbb_result_lq_ds)))
+                result = merge((cuts = (lowcut = NaN, highcut = aoe_high_cut, lq = NaN), ), (peaks = (low = result_peaks_low, high = result_peaks_high, ds = result_peaks_ds, low_lq = result_peaks_low_lq, lq_ds = result_peaks_lq_ds) , qbb = (low = qbb_result_low, high = qbb_result_high, ds = qbb_result_ds, low_lq = qbb_result_low_lq, lq_ds = qbb_result_lq_ds)))
 
                 log_info = log_nt_cut((ch, det, part, ProcessStatus(1), psd_classifier, NaN, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
