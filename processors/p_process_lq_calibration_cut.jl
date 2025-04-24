@@ -171,7 +171,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                     cuts_lq = cut_single_peak(lq_e_corr, 0.0, quantile(filter(isfinite, lq_e_corr), 0.99); n_bins=-1)
                     lq_e_corr ./= cuts_lq.max
 
-                    lq_e_corr_expression = "( ( $(lq_funcs[lq_type]) ) / $(cuts_lq.max) )"
+                    lq_e_corr_expression = "( $(lq_funcs[lq_type]) ) / $(cuts_lq.max)"
                     dt_eff_expression = qdrift_expression
                 catch e
                     @error "Error in energy correction and normalization: $e"
@@ -190,10 +190,10 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 #create and save plots
                 p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP, title = "Drift Time vs LQ in DEP for Detector: $det", figsize = (620,400))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_drift_time_vs_lq_plot_DEP_$lq_type"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_ctc_DEP_$lq_type"))
 
                 p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :whole, title = "Drift Time vs LQ for Detector: $det", figsize = (620,400))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_drift_time_vs_lq_plot_$lq_type"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_ctc_$lq_type"))
 
                 #create log entry
                 log_info = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
@@ -273,8 +273,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 sel = isfinite.(e_cal) #.&& drift_report.dep_left .< e_cal .< drift_report.dep_right
                 p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_norm[sel]), (0:1:3000, range(-5.5, 9.5, length=200))),
                     title = get_plottitle(filekey_ch, part, det, "LQ"), figsize = (620,400), watermark = false, xlabel = "Energy (keV)", ylabel = Makie.rich("LQ", Makie.subscript(" norm")), limits = (0,3000,-5.5,9.5))
-                #Makie.hlines!([3], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
-                #Makie.axislegend(position = :rb)
+                Makie.hlines!([3], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
+                Makie.axislegend(position = :rb)
                 LegendMakie.add_watermarks!(position = "outer top", final = true)
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_energy_vs_lq_norm_$lq_classifier"))
 
