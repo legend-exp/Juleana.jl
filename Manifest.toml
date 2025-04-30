@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.9"
+julia_version = "1.10.8"
 manifest_format = "2.0"
 project_hash = "ade2d6983d0d8ae1137d925b2f0d7192fb73d463"
 
@@ -1382,9 +1382,9 @@ version = "0.2.5"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "11666752f0b2ffa0e320618fb55857231c164a6b"
+git-tree-sha1 = "8f434be955490e4ce11d9be01789fa3b0e525470"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
-version = "0.5.0"
+version = "0.5.1"
 
     [deps.LegendDataManagement.extensions]
     LegendDataManagementLegendHDF5IOExt = ["LegendHDF5IO", "LegendDataTypes"]
@@ -1406,9 +1406,9 @@ version = "0.1.14"
 
 [[deps.LegendEventAnalysis]]
 deps = ["ArraysOfArrays", "IntervalSets", "LegendDataManagement", "LegendDataTypes", "ProgressMeter", "PropertyFunctions", "StructArrays", "Tables", "TypedTables", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "8bf66e6e5e08235f82ca1d1bed5b2a26b2408b8f"
+git-tree-sha1 = "5034fa44afa59e0a9695f5c071472ddc8068c574"
 uuid = "ca666546-4c2a-41e4-9648-72713d810efe"
-version = "0.2.2"
+version = "0.2.3"
 
 [[deps.LegendHDF5IO]]
 deps = ["ArraysOfArrays", "ElasticArrays", "EncodedArrays", "HDF5", "LegendDataTypes", "RadiationDetectorSignals", "StaticArrays", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful"]
@@ -1811,7 +1811,7 @@ version = "3.2.4+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+4"
+version = "0.8.1+2"
 
 [[deps.OpenMPI_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Hwloc_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "TOML", "Zlib_jll"]
