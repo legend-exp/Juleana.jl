@@ -15,7 +15,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
     # create log line Tuple
     log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
-    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
+    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -76,13 +76,13 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         pol_fit_order               = lq_config_ch.pol_fit_order
         ctc_uncertainty             = lq_config_ch.ctc_uncertainty
 
-        #for lq_cut
-        cut_sigma                   = lq_config_ch.cut_sigma
+        #for lq_norm
         dep_sideband_sigma          = lq_config_ch.dep_sideband_sigma
         cut_truncation_sigma        = lq_config_ch.cut_truncation_sigma
         cut_uncertainty             = lq_config_ch.cut_uncertainty
 
         #for get_peaks_survival_fractions
+        high_cut_sigma              = lq_config_ch.high_cut_sigma
         lq_peaks_names              = Symbol.(lq_config_ch.lq_peaks_names)
         lq_peaks                    = lq_config_ch.lq_peaks
         lq_peaks_windows_left       = lq_config_ch.lq_peaks_windows_left
@@ -167,39 +167,72 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                     std_lq = std(filter(isfinite, lq_e_corr))
                     median_lq = median(filter(isfinite, lq_e_corr))
 
-                    #normalization
+                    # pre normalization
                     cuts_lq = cut_single_peak(lq_e_corr, 0.0, quantile(filter(isfinite, lq_e_corr), 0.99); n_bins=-1)
                     lq_e_corr ./= cuts_lq.max
 
-                    lq_e_corr_expression = "$(lq_funcs[lq_type]) / $(cuts_lq.max)"
+                    lq_e_corr_expression = "( $(lq_funcs[lq_type]) ) / $(cuts_lq.max)"
                     dt_eff_expression = qdrift_expression
                 catch e
                     @error "Error in energy correction and normalization: $e"
                     throw(ErrorException("Error in energy correction and normalization: $e"))
                 end
 
-                @debug "Calibrate $lq_type"
+                @debug "Drift time correction of $lq_type"
                 drift_result, drift_report = nothing, nothing
                 try 
                     drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
                     ctc_dep_edgesigma, ctc_lq_precut_relative_cut, lq_outlier_sigma, ctc_driftime_cutoff_method, dt_eff_outlier_sigma, lq_e_corr_expression, dt_eff_expression, ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile, pol_fit_order, uncertainty=ctc_uncertainty)
                 catch e
-                    @error "Error in drift time correction: $e"
-                    throw(ErrorException("Error in drift time correction: $e"))
+                    @error "Error in drift time correction: $(truncate_error(e))"
+                    throw(ErrorException("Error in drift time correction: $(truncate_error(e))"))
                 end
 
-                #create and save plots
+                # create and save plots
                 p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP, title = "Drift Time vs LQ in DEP for Detector: $det", figsize = (620,400))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_DEP_$lq_type"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_ctc_DEP_$lq_type"))
 
                 p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :whole, title = "Drift Time vs LQ for Detector: $det", figsize = (620,400))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("drift_time_vs_lq_plot_$lq_type"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_ctc_$lq_type"))
 
-                #create log entry
+
+                # create lq normalization
+                lq_class_expression = drift_result.func                
+                lq_ctc = nothing
+                result, report = nothing, nothing
+                try
+                    lq_class_expression = drift_result.func
+                    lq_ctc = ljl_propfunc(lq_class_expression).(hit_cal)
+
+                    result, report = lq_norm(dep_µ, dep_σ, e_cal, lq_ctc; 
+                    dep_sideband_sigma, cut_truncation_sigma, uncertainty=cut_uncertainty, lq_class_expression)
+                catch e
+                    @error "Error in LQ normalization calculation: $(truncate_error(e))"
+                    throw(ErrorException("Error in LQ normalization calculation: $(truncate_error(e))"))
+                end
+
+                # create and save plots
+                p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3, figsize = (600,450), 
+                    legend_position = :none, title = get_plottitle(filekey_ch, part, det, "LQ DEP fit", additional_type=string(lq_type)))
+                Makie.axislegend(position = :lt)
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_dep_normalization_$lq_type"))
+
+                p = LegendMakie.lplot(report.temp_hists, 
+                    title = get_plottitle(filekey_ch, part, det, "LQ sidebands", additional_type=string(lq_type)), 
+                    xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_ctc),), (0.05, 0.95)))
+                )
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_sidebands_$lq_type"))
+
+                p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
+                    title = get_plottitle(filekey_ch, part, det, "LQ side bands", additional_type=string(lq_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_sideband_position_$lq_type"))
+
+
+                # create log entry
                 log_info = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
 
                 # add results to dict
-                result_dict[lq_type]   =  merge(drift_result, (mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq))
+                result_dict[lq_type]   =  merge(result, (drift_result = drift_result, mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq))
                 log_info_dict[lq_type] = log_info
                 processed_dict[lq_type] = true
 
@@ -230,59 +263,35 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
             try
                 @debug "Generate lq cut"
 
-                #get lq classifier
+                # get lq classifier and lq classifier expression
                 lq_class = nothing
                 try
-                    lq_class = ljl_propfunc(pars_db_ch[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func).(hit_cal)
+                    norm_func = pars_db_ch[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func
+                    lq_class = ljl_propfunc(norm_func).(hit_cal)
                 catch e
-                    @error "lq classifier for $det from cannot be loaded"
-                    throw(LoadError("lq", 154, "lq classifier data for $det from partition $(part) cannot be loaded"))
-                end
-                
-                #calculate LQ cut parameter value
-                result, report = nothing, nothing
-                try
-                    result, report = lq_cut(dep_µ, dep_σ, e_cal, lq_class; cut_sigma, dep_sideband_sigma, cut_truncation_sigma, uncertainty=cut_uncertainty)
-                catch e
-                    @error "Error in LQ cut calculation: $e"
-                    throw(ErrorException("Error in LQ cut calculation: $e"))
+                    @error "lq classifier for $det from cannot be loaded: $(truncate_error(e))"
+                    throw(LoadError("lq", 154, "lq classifier data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
                 end
 
-                #create and save plots
-                p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3, figsize = (600,450), 
-                    legend_position = :none, title = get_plottitle(filekey_ch, part, det, "LQ Cut", additional_type=string(lq_classifier)))
-                Makie.vlines!(Measurements.value(report.cut), color = LegendMakie.CoaxGreen, label = "Cut Value", linewidth = 4)
-                Makie.axislegend(position = :lt)
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_fit_$lq_classifier"))
-
-                p = LegendMakie.lplot(report.temp_hists, 
-                    title = get_plottitle(filekey_ch, part, det, "LQ sidebands", additional_type=string(lq_classifier)), 
-                    xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_class),), (0.05, 0.95)))
-                )
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("sideband_$lq_classifier"))
-
-                p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
-                    title = get_plottitle(filekey_ch, part, det, "LQ side bands", additional_type=string(lq_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_cut_$lq_classifier"))
-
-                sel = isfinite.(e_cal) #.&& drift_report.dep_left .< e_cal .< drift_report.dep_right
-                p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_class[sel]), (0:1:3000, range(-3.5, 5.5, length=200))),
-                    title = get_plottitle(filekey_ch, part, det, "LQ"), figsize = (620,400), watermark = false, xlabel = "Energy (keV)", ylabel = Makie.rich("LQ", Makie.subscript(" ctc")), limits = (0,3000,-3.5,5.5))
-                Makie.hlines!([Measurements.value(report.cut)], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
+                # create and save plots
+                sel = isfinite.(e_cal)
+                p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_class[sel]), (0:1:3000, range(-5.5, 9.5, length=200))),
+                    title = get_plottitle(filekey_ch, part, det, "LQ"), figsize = (620,400), watermark = false, xlabel = "Energy (keV)", ylabel = Makie.rich("LQ", Makie.subscript(" norm")), limits = (0,3000,-5.5,9.5))
+                Makie.hlines!([high_cut_sigma], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
                 Makie.axislegend(position = :rb)
                 LegendMakie.add_watermarks!(position = "outer top", final = true)
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("energy_hist_$lq_classifier"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_classalized_$lq_classifier"))
 
-                p = LegendMakie.lplot((; e_cal, lq_class, cut_value = report.cut), figsize = (750,400),
+                p = LegendMakie.lplot((; e_cal, lq_class, cut_value = high_cut_sigma), figsize = (750,400),
                     title = get_plottitle(filekey_ch, part, det, "LQ Performance", additional_type=string(lq_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("cut_fraction_$lq_classifier"))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("lq_energy_after_$lq_classifier"))
                 
 
-                @debug("Generate Surrvival Fractions for LQ")
+                @debug("Generate Survival Fractions for LQ")
 
                 result_peaks, report_peaks = nothing, nothing
                 try
-                    result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, result.cut; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
+                    result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, high_cut_sigma; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
                 catch e
                     @error "Error in peak lq survival fraction calculation: $e"
                     throw(ErrorException("Error in peak lq survival fraction calculation: $e"))
@@ -290,7 +299,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 result_qbb, report_qbb = nothing, nothing
                 try
-                    result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window, result.cut, inverted_mode=true)
+                    result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window, high_cut_sigma, inverted_mode=true)
                 catch e
                     @error "Error in qbb lq survival fraction calculation: $e"
                     throw(ErrorException("Error in qbb lq survival fraction calculation: $e"))
@@ -298,9 +307,9 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
 
                 # save results
-                final_result = merge(result, (peaks = result_peaks, qbb = result_qbb))
+                final_result = (highcut = high_cut_sigma, peaks = result_peaks, qbb = result_qbb)
 
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, final_result.cut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, final_result.highcut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
 
                 # add results to dict
                 result_dict[lq_classifier] = final_result
