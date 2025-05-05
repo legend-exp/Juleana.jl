@@ -160,19 +160,15 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("lq_ctc_$lq_type"))
 
 
-                # create lq normalization                
+                # create lq normalization
+                lq_class_expression = drift_result.func                
                 lq_ctc = nothing
-                lq_class_expression = nothing
                 result, report = nothing, nothing
-                lq_class = nothing
                 try
-                    lq_class_expression = drift_result.func
                     lq_ctc = ljl_propfunc(lq_class_expression).(hit_cal)
 
                     result, report = lq_norm(dep_µ, dep_σ, e_cal, lq_ctc; 
                     dep_sideband_sigma, cut_truncation_sigma, uncertainty=cut_uncertainty, lq_class_expression)
-                    
-                    lq_class = ljl_propfunc(result.func).(hit_cal)
                 catch e
                     @error "Error in LQ normalization calculation: $(truncate_error(e))"
                     throw(ErrorException("Error in LQ normalization calculation: $(truncate_error(e))"))
