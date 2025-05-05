@@ -307,9 +307,9 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
 
                 # save results
-                final_result = (cut = high_cut_sigma, peaks = result_peaks, qbb = result_qbb)
+                final_result = (highcut = high_cut_sigma, peaks = result_peaks, qbb = result_qbb)
 
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, final_result.cut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
+                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, final_result.highcut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
 
                 # add results to dict
                 result_dict[lq_classifier] = final_result
