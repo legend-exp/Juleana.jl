@@ -1432,9 +1432,9 @@ weakdeps = ["Measurements"]
 
 [[deps.LegendMakie]]
 deps = ["MakieCore"]
-git-tree-sha1 = "0b50e46c1842d113f95e5184c4ff7bc1ccb590d7"
+git-tree-sha1 = "cc9e835e8013003ea54f1bac65129cf5c765c5c4"
 uuid = "ce9a434a-d062-4f11-9371-3059ddb1c48a"
-version = "0.1.2"
+version = "0.1.3"
 weakdeps = ["Dates", "FileIO", "Format", "KernelDensity", "LaTeXStrings", "LegendDataManagement", "Makie", "MathTeXEngine", "Measurements", "PropDicts", "RadiationDetectorSignals", "StatsBase", "TypedTables", "Unitful"]
 
     [deps.LegendMakie.extensions]
