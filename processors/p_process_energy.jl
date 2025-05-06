@@ -104,11 +104,11 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 end
                 GC.gc()
 
-                e_unit = u"keV"
+                const e_unit = u"keV"
                 peakhists, peakstats = nothing, nothing
                 try
                     @debug "Get $e_type peakhists and peakstats"
-                    peakhists, peakstats, _, _ = get_peakhists_th228(collect(energy), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes; e_unit=e_unit)
+                    peakhists, peakstats, _, _ = peakhists_gamma(collect(energy), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes)
                 catch e
                     @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))

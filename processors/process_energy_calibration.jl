@@ -104,7 +104,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = simple_calibration(e_uncal, energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, n_bins=energy_config_ch.n_bins, quantile_perc=quantile_perc, binning_peak_window=energy_config_ch.binning_peak_window)
+                    result_simple, report_simple = simple_calibration(e_uncal, energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, quantile_perc=quantile_perc, binning_peak_window=energy_config_ch.binning_peak_window)
                 catch e
                     @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
