@@ -104,7 +104,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 end
                 GC.gc()
 
-                const e_unit = u"keV"
+                e_unit = u"keV"
                 peakhists, peakstats = nothing, nothing
                 try
                     @debug "Get $e_type peakhists and peakstats"
