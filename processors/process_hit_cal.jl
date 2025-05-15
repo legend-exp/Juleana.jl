@@ -48,7 +48,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
-        data_puls = load_run_ch((:daqenergy, :timestamp), l200, DataTier(:raw), filekey, ch_puls)
+        data_puls = read_ldata((:daqenergy, :timestamp), l200, DataTier(:raw), DataCategory(:cal), period, run, ch_puls)
         
         @info "Write Pulser events to disk"
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
