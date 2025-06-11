@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 counter=0
 max_retries=100

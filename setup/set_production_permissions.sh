@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Check if a command-line argument for BASE_PATH is provided
 if [ -z "$1" ]; then
