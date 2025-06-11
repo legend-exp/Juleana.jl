@@ -19,33 +19,13 @@ function menu()
         l200, processing_config, runs, periods = get_processingconfig()
         @info "Reloaded processing config"
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
         @info "Necessary reload of dependency graph"
     # redefine periods per user choice
     elseif choice == 3
         global periods
         try
-            tiers = [:raw, :jldsp, :jlevt]
-            categories = [:cal, :phy]
-            tier, cat = nothing, nothing
-            for t in tiers
-                for c in categories
-                    if ispath(l200.tier[t, c])
-                        tier = t
-                        cat = c
-                        break
-                    end
-                end
-                if !isnothing(tier)
-                    break
-                end
-            end
-            possible_periods = if isnothing(tier) || isnothing(cat)
-                @warn "No `DataPeriod` found for in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
-                []
-            else
-                search_disk(DataPeriod, l200.tier[tier, cat])
-            end
+            possible_periods = get_available_periods(l200)
             periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in periods, possible_periods)], ctrl_c_interrupt = true)
             selected_periods = collect(request("Select periods to be executed:", periods_menu))
             periods = possible_periods[selected_periods]
@@ -56,7 +36,7 @@ function menu()
         end
         @info "Selected periods: $periods"
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
         @info "Reloaded dependency graph"
     elseif choice == 4
         global runs
@@ -104,7 +84,7 @@ function menu()
         end
         @info "Selected periods: $periods"
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
         @info "Reloaded dependency graph"
     # reload processors from all processor files
     elseif choice == 2
@@ -113,7 +93,7 @@ function menu()
     # reload dependency graph
     elseif choice == 6
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
         @info "Reloaded dependency graph"
     # add workers according to slurm settings
     elseif choice == 7
@@ -186,7 +166,7 @@ function execute_processors()
             end
             # setup dependency graph
             global process_status, p_process_status
-            process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+            process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
         end
 
         @sync begin

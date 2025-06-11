@@ -79,7 +79,7 @@ ppt_worker_pool!(wpool)
     
 
 # set up dependency graph
-process_status, p_process_status = setup_dependency_graph(processing_config, periods, runs)
+process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
 
 flush(stdout)
 

@@ -158,38 +158,71 @@ end
 
 function get_runsandperiods(parsed_args::Dict, processing_config::PropDict, l200::LegendData)
     # parse periods and runs from arguments, if not supported use config
-    runs, periods = nothing, nothing
+    runs, periods = missing, DataPeriod[]
     if !isempty(parsed_args["runs"]) && isempty(parsed_args["periods"])
         @error "ArgumentError: Runs without periods are not supported"
         throw(ArgParseError("Runs without periods are not supported"))
     elseif !isempty(parsed_args["periods"]) && isempty(parsed_args["runs"])
-        periods = [DataPeriod(p) for p in parsed_args["periods"][1]]
+        periods = DataPeriod.(parsed_args["periods"][1])
         @info "Process all runs in periods $(parsed_args["periods"][1])"
         runs = "all"
     elseif !isempty(parsed_args["periods"])
-        periods = [DataPeriod(p) for p in parsed_args["periods"][1]]
-        runs = [DataRun(r) for r in parsed_args["runs"][1]]
+        periods = DataPeriod.(parsed_args["periods"][1])
+        runs = DataRun.(parsed_args["runs"][1])
         @info "Process runs: $(parsed_args["runs"][1]) in periods: $(parsed_args["periods"][1])"
     end
-    if processing_config.processing.periods == "all" && isnothing(periods)
+
+
+    if processing_config.processing.periods == "all" && isempty(periods)
         periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
         @info "Process all periods on disk: $(string.(periods))"
-    elseif isnothing(periods)
-        periods = [DataPeriod(p) for p in processing_config.processing.periods]
+    elseif isempty(periods)
+        periods = DataPeriod.(processing_config.processing.periods)
         @info "Process periods: $(string.(periods))"
     end
-    if processing_config.processing.runs == "all" && isnothing(runs)
+    if processing_config.processing.runs == "all" && ismissing(runs)
         runs = "all"
         @info "Process all runs on disk for each period"
-    elseif isnothing(runs)
-        runs = [DataRun(r) for r in processing_config.processing.runs]
+    elseif ismissing(runs)
+        runs = DataRun.(processing_config.processing.runs)
         @info "Process runs: $(string.(runs))"
     end
 
+    # filter out periods that are not available on disk
+    filter!(in(get_available_periods(l200)), periods)
+    
     return runs, periods
 end
 
-function get_proccessable_runs(runs, period)
+function get_available_periods(l200::LegendData)
+    tiers = [:raw, :jldsp, :jlevt]
+    categories = [:cal, :phy]
+    tier, cat = nothing, nothing
+    for t in tiers
+        for c in categories
+            if ispath(l200.tier[t, c])
+                tier = t
+                cat = c
+                break
+            end
+        end
+        if !isnothing(tier)
+            break
+        end
+    end
+    possible_periods = if isnothing(tier) || isnothing(cat)
+        @warn "No `DataPeriod` found for in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
+        DataPeriod[]
+    else
+        search_disk(DataPeriod, l200.tier[tier, cat])
+    end
+    # filter out periods that are not available on disk
+    available_runs_dict = Dict{DataPeriod, Vector{DataRun}}(possible_periods .=> get_available_runs.(Ref(l200), possible_periods))
+    filter!(p -> !isempty(available_runs_dict[p]), possible_periods)
+    possible_periods
+end
+
+function get_available_runs(l200::LegendData, period::DataPeriod)
     # select runs to process
     tiers = [:raw, :jldsp, :jlevt]
     categories = [:cal, :phy]
@@ -208,10 +241,15 @@ function get_proccessable_runs(runs, period)
     end
     available_runs = if isnothing(tier) || isnothing(cat)
         @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
-        []
+        DataRun[]
     else
         search_disk(DataRun, l200.tier[tier, cat, period])
     end
+    available_runs
+end
+
+function get_proccessable_runs(l200::LegendData, period::DataPeriod, runs::Union{Vector{DataRun}, String})
+    available_runs = get_available_runs(l200, period)
     processable_runs = runs
     if runs == "all"
         processable_runs = available_runs
@@ -225,21 +263,24 @@ function get_proccessable_runs(runs, period)
         end
     end
 
-    return [r for r in processable_runs if r in available_runs ]
-
+    return DataRun.([r for r in processable_runs if r in available_runs])
 end
 
 
-function setup_dependency_graph(processing_config, periods, runs)
+function setup_dependency_graph(l200::LegendData, processing_config::PropDict, periods::Vector{DataPeriod}, runs::Union{Vector{DataRun}, String})
     # get all possible steps
     possible_steps = filter!(x -> x != :default, Symbol.(keys(processing_config.processors)))
     # generate process status with all possible steps for all possible runs in all periods
     process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}}()
+
+    # check if each period contains any runs at all
+    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> get_proccessable_runs.(Ref(l200), periods, Ref(runs)))
+    filter!(p -> !isempty(processable_runs_dict[p]), periods)
+    
     # fill
     for period in periods
         # get all processable runs
-        processable_runs = get_proccessable_runs(runs, period)
-        # set up process status for each period
+        processable_runs = processable_runs_dict[period]
         process_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}(possible_steps .=> [ConcurrentDict{DataRun, Bool}(processable_runs .=> Ref(p)) for p in .!getproperty.(getproperty.(Ref(processing_config.processors), possible_steps), Ref(:enabled))])
     end
 
