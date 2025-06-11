@@ -26,10 +26,10 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         evtfilename = l200.tier[:jlevt, fk]
         pmtevtfilename = l200.tier[:jlpmt, fk]
         @info "Using output file: $(basename(evtfilename))"
-        
+        # number of forced, pulser and physical triggers
+        n_forced, n_pulser, n_phy = 0, 0, 0
         # start processing
         read_files(dspfilename, use_cache = false) do filename
-            global n_forced, n_pulser, n_phy = 0, 0, 0
             write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
