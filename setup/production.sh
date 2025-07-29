@@ -111,11 +111,19 @@ if [[ "$checkout_submodules" =~ ^([Yy][Ee][Ss]|[Yy])$ ]]; then
     git config --local advide.detachedHead false
     
     # Checkout branches for submodules under jldataprod/config and jldataprod/overrides
+    # git submodule foreach --recursive '
+    #     if [[ "$name" == jldataprod/config* || "$name" == jldataprod/overrides* ]]; then
+    #         git checkout '"$branch"' && git pull origin '"$branch"'
+    #     fi
+    # '
     git submodule foreach --recursive '
-        if [[ "$name" == jldataprod/config* || "$name" == jldataprod/overrides* ]]; then
-            git checkout '"$branch"' && git pull origin '"$branch"'
-        fi
+        case "$name" in
+            jldataprod/config*|jldataprod/overrides*)
+                git checkout '"$branch"' && git pull origin '"$branch"'
+                ;;
+        esac
     '
+
     read -e -p "Please enter the 'dataprod' branches to check out (default is 'main'): " -i "$default_branch" branch
     branch=${branch:-main}
     echo "Checking out $branch branches for all 'dataprod' metadata submodules..."
@@ -124,10 +132,21 @@ if [[ "$checkout_submodules" =~ ^([Yy][Ee][Ss]|[Yy])$ ]]; then
     git checkout "$branch" && git pull origin "$branch"
     
     # Checkout branches for all other submodules
+    # git submodule foreach --recursive '
+    #     if [[ "$name" != jldataprod/config* && "$name" != jldataprod/overrides* && "$name" != simprod/config* ]]; then
+    #         git checkout '"$branch"' && git pull origin '"$branch"'
+    #     fi
+    # '
     git submodule foreach --recursive '
-        if [[ "$name" != jldataprod/config* && "$name" != jldataprod/overrides* && "$name" != simprod/config* ]]; then
-            git checkout '"$branch"' && git pull origin '"$branch"'
-        fi
+        case "$name" in
+            jldataprod/config*|jldataprod/overrides*|simprod/config*)
+                # Do nothing for these specific submodules
+                ;;
+            *)
+                # For all other submodules, run the checkout and pull
+                git checkout '"$branch"' && git pull origin '"$branch"'
+                ;;
+        esac
     '
 
     # suppress detached head warning
