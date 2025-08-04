@@ -21,7 +21,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period; unfold_partitions=true)
+    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
 
     # flush stdout
     flush(stdout)
@@ -35,7 +35,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         @info "Processing channel $ch ($det)"
 
         mkpath(joinpath(data_path(l200.par.ppars.lq), string(det)))
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.lq), "$det", "$part.json")) && !reprocess
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.lq), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.lq[det, part])
         else
             mkpath(joinpath(data_path(l200.par.ppars.lq), "$det"))
@@ -45,13 +45,13 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         pars_energy = get_values(l200.par.ppars.ecal[det, part])
         @debug "Loaded energy calibration parameters"
 
-        partinfo_ch = partitioninfo(l200, ch, part)
+        partinfo_ch = partitioninfo(l200, det, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
     
         filekey_ch = start_filekey(l200, (first(partinfo_ch.period), first(partinfo_ch.run), :cal))
         @debug "Found filekey $filekey_ch"
 
-        validity_ch = get_partitionvalidity(l200, ch, det, part, :cal)
+        validity_ch = get_partitionvalidity(l200, det, part)
 
         # load lq config
         lq_config = dataprod_config(l200).psd(filekey_ch).lq

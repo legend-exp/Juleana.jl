@@ -20,7 +20,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period; unfold_partitions=true)
+    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :phy; unfold_partitions=true)
 
     # flush stdout
     flush(stdout)
@@ -34,20 +34,20 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
 
         @info "Processing channel $ch ($det)"
 
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.json")) && !reprocess
+        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.sipmcal[det, part])
         else
             mkpath(joinpath(data_path(l200.par.ppars.sipmcal), "$det"))
             PropDict()
         end
 
-        partinfo_ch = partitioninfo(l200, ch, part; category=:phy)
+        partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
     
         filekey_ch = first(getproperty(partinfo_ch, :phy)).startkey
         @debug "Found filekey $filekey_ch"
 
-        validity_ch = get_partitionvalidity(l200, ch, det, part, :phy)
+        validity_ch = get_partitionvalidity(l200, det, part)
 
         calibration_config = dataprod_config(l200).sipm(filekey_ch).calibration
         calibration_config_ch = merge(calibration_config.p_default, get(calibration_config.p, det, PropDict()))
