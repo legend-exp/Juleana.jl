@@ -331,4 +331,3 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
     return any(x -> get(last(x), :skipped, false), values(result_psd))
 end
-

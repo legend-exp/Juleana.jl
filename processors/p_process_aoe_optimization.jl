@@ -11,10 +11,20 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Try to load ML model, fallback if not available (mirror run/other p-processors)
+    ml_available = false
+    f_evaluate_qc = nothing
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+        ml_available = true
+    catch e
+        @warn "ML model not available for period $period - proceeding without QC classifier. Error: $(e)"
+        f_evaluate_qc = nothing
+        ml_available = false
     end
-    @info "Loaded trained SVM model"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
@@ -155,8 +165,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 try
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
-                    dsp_dep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                    dsp_sep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_dep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; presum_rate=presum_rate, f_evaluate_qc=(ml_available ? f_evaluate_qc : missing))
+                    dsp_sep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; presum_rate=presum_rate, f_evaluate_qc=(ml_available ? f_evaluate_qc : missing))
                 catch e
                     @error "Failed DSP for DEP or SEP: $(truncate_error(e))"
                     throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_error(e))"))
@@ -261,4 +271,3 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     # return if any channel was skipped so that the partition is not valid until the lower period is finished
     return any(x -> get(last(x), :skipped, false), values(result_sg))
 end
-

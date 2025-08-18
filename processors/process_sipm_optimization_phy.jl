@@ -131,11 +131,16 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         # load data
         data_ch = nothing
         try
-            data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, period, run, chinfo_ch.channel)
+            # Try bit-dropped waveform, fall back to raw waveform if not present
+            try
+                data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, period, run, chinfo_ch.channel)
+            catch
+                data_ch = read_ldata((:waveform, :timestamp), l200, DataTier(:raw), :phy, period, run, chinfo_ch.channel)
+            end
             @debug "Loading SiPM data from $(period)-$(run)"
             if length(data_ch) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(data_ch), max_wvfs)
                 data_ch = data_ch[sel]
             end
         catch e
@@ -149,7 +154,10 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
             is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
-            wvfs_ch = data_ch[findall(.!is_pulser)].waveform_bit_drop[:]
+            # waveform column may be waveform_bit_drop or waveform
+            non_pulser_idx = findall(.!is_pulser)
+            wvfs_col = hasproperty(data_ch, :waveform_bit_drop) ? :waveform_bit_drop : :waveform
+            wvfs_ch = getproperty(data_ch[non_pulser_idx], wvfs_col)[:]
         catch e
             @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
@@ -250,6 +258,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
 
         return (result = result_wl_dict, log = log_info_dict, processed = processed_dict)
     end
+
 
     # get start time
     start_time = now()

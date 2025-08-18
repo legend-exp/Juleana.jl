@@ -371,4 +371,3 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
     return any(x -> get(last(x), :skipped, false), values(result_lq))
 end
-

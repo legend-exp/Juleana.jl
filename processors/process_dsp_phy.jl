@@ -19,10 +19,21 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     dsp_meta_pmt = dataprod_config(l200).pmt(filekey)
     @debug "Loaded PMT DSP config: $(dsp_meta_pmt)"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Try to load ML model, fallback if not available
+    ml_available = false
+    f_evaluate_qc = nothing
+    
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+        ml_available = true
+    catch e
+        @warn "ML model not available for period $period - skipping QC cuts, using all waveforms. Error: $(e)"
+        f_evaluate_qc = nothing
+        ml_available = false
     end
-    @info "Loaded trained SVM model"
 
     pars_type = ifelse(use_partition_filter, :ppars, :rpars)
     @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
@@ -75,6 +86,19 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     
     if reprocess @info "Reprocess all filekeys and channels"
     else @info "Only reprocess filekeys and channels that are not processed yet" end
+
+    # Helper function to determine which key to use for a channel in a file
+    function get_data_key_for_channel(ds, ch::ChannelIdLike, det::DetectorIdLike)
+        # First try channel ID
+        if haskey(ds, string(ch))
+            return string(ch)
+        # Then try detector name  
+        elseif haskey(ds, string(det))
+            return string(det)
+        else
+            return nothing
+        end
+    end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
@@ -132,10 +156,19 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                             @debug "Processing channel $ch ($det)"
                             @timeit dsp_timer "DSP $det" begin
+                                # get data key for this channel/detector
+                                data_key = get_data_key_for_channel(raw_data, ch, det)
+                                if data_key === nothing
+                                    @warn "Channel $ch (detector: $det) not found in \"$(basename(rawfilename))\", skipping"
+                                    push!(failed_detectors, det)
+                                    continue
+                                end
+                                @debug "Reading raw data for channel $ch (detector: $det) using key $data_key from \"$(basename(rawfilename))\""
+                                
                                 # process data
                                 outdata_ch = nothing
                                 try
-                                    outdata_ch = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[ch].raw[:], dsp_config_ch)
+                                    outdata_ch = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[data_key].raw[:], dsp_config_ch)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -173,12 +206,21 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
             
                             @debug "Processing channel $ch ($det)"
                             @timeit dsp_timer "DSP $det" begin
+                                # get data key for this channel/detector
+                                data_key = get_data_key_for_channel(raw_data, ch, det)
+                                if data_key === nothing
+                                    @warn "Channel $ch (detector: $det) not found in \"$(basename(rawfilename))\", skipping"
+                                    push!(failed_detectors, det)
+                                    continue
+                                end
+                                @debug "Reading raw data for channel $ch (detector: $det) using key $data_key from \"$(basename(rawfilename))\""
+                                
                                 # get metadata
                                 dsp_meta_ch = merge(dsp_meta_pmt.default, get(dsp_meta_pmt, det, PropDict()))
                                 # process channel
                                 outdata_ch = nothing
                                 try
-                                    outdata_ch = dsp_pmts(raw_data[ch].raw[:], dsp_meta_ch)
+                                    outdata_ch = dsp_pmts(raw_data[data_key].raw[:], dsp_meta_ch)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -220,12 +262,21 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         
                         @debug "Processing channel $ch ($det)"
                         @timeit dsp_timer "DSP $det" begin
+                            # get data key for this channel/detector
+                            data_key = get_data_key_for_channel(raw_data, ch, det)
+                            if data_key === nothing
+                                @warn "Channel $ch (detector: $det) not found in \"$(basename(rawfilename))\", skipping"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+                            @debug "Reading raw data for channel $ch (detector: $det) using key $data_key from \"$(basename(rawfilename))\""
+                            
                             # get metadata
                             dsp_meta_ch = merge(dsp_meta_sipm.default, get(dsp_meta_sipm, det, PropDict()))
                             # process channel
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_sipm_compressed(raw_data[ch].raw[:], dsp_meta_ch, pars_sipm[det])
+                                outdata_ch = dsp_sipm_compressed(raw_data[data_key].raw[:], dsp_meta_ch, pars_sipm[det])
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -292,10 +343,24 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         @debug "Processing channel $ch ($det)"
                         @timeit dsp_timer "DSP $det" begin
+                            # get data key for this channel/detector
+                            data_key = get_data_key_for_channel(raw_data, ch, det)
+                            if data_key === nothing
+                                @warn "Channel $ch (detector: $det) not found in \"$(basename(rawfilename))\", skipping"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+                            @debug "Reading raw data for channel $ch (detector: $det) using key $data_key from \"$(basename(rawfilename))\""
+                            
                             # process data
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                if ml_available
+                                    outdata_ch = dsp_icpc_compressed(raw_data[data_key].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                else
+                                    @debug "Processing without ML QC for detector $det"
+                                    outdata_ch = dsp_icpc_compressed(raw_data[data_key].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det])
+                                end
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception

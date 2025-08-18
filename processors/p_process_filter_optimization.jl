@@ -11,10 +11,20 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Try to load ML model, fallback if not available (mirror run processor behavior)
+    ml_available = false
+    f_evaluate_qc = nothing
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+        ml_available = true
+    catch e
+        @warn "ML model not available for period $period - skipping QC cuts, using all waveforms. Error: $(e)"
+        f_evaluate_qc = nothing
+        ml_available = false
     end
-    @info "Loaded trained SVM model"
 
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
@@ -128,20 +138,27 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         end
         yield()
 
-        # get QC cuts
+        # get QC cuts (only if ML is available; otherwise skip like decay-time processors)
         blmean_wdw = nothing
-        try
-            @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
-            qc = ljl_propfunc(qc_string).(dsp_qc)
-            blmean_wdw = dsp_qc.blmean ./ presum_rate
-            wvfs_ch_pre = wvfs_ch_pre[findall(qc)]
-            wvfs_ch_wdw = wvfs_ch_wdw[findall(qc)]
-            blmean_wdw = blmean_wdw[findall(qc)]
-            @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
-        catch e
-            @error "Failed QC cuts: $(truncate_error(e))"
-            throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
+        if ml_available && f_evaluate_qc !== nothing
+            try
+                @debug "Get QC cuts"
+                dsp_qc = dsp_qc_flt_optimization_compressed(decode_data(wvfs_ch_pre), dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
+                qc = ljl_propfunc(qc_string).(dsp_qc)
+                blmean_wdw = dsp_qc.blmean ./ presum_rate
+                wvfs_ch_pre = wvfs_ch_pre[findall(qc)]
+                wvfs_ch_wdw = wvfs_ch_wdw[findall(qc)]
+                blmean_wdw = blmean_wdw[findall(qc)]
+                @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
+            catch e
+                @error "Failed QC cuts: $(truncate_error(e))"
+                throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
+            end
+        else
+            @debug "Skip QC cuts (no ML model available)"
+            # still need baseline mean for windowed waveforms
+            bl_stats = LegendDSP.signalstats.(decode_data(wvfs_ch_pre), leftendpoint(dsp_config_ch.bl_window), rightendpoint(dsp_config_ch.bl_window))
+            blmean_wdw = bl_stats.mean ./ presum_rate
         end
 
         # get qdrift
@@ -280,4 +297,3 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
     return any(x -> get(last(x), :skipped, false), values(result_flt))
 end
-

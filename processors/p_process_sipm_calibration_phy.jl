@@ -44,7 +44,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
     
-        filekey_ch = first(getproperty(partinfo_ch, :phy)).startkey
+        filekey_ch = first(partinfo_ch).phy.startkey
         @debug "Found filekey $filekey_ch"
 
         validity_ch = get_partitionvalidity(l200, det, part)
@@ -70,13 +70,13 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if (only_first_period && period != first(partinfo_ch.period))
+        if (only_first_period && period != first(partinfo_ch).period)
             @info "Only first period in partition $part for $period in $ch ($det)"
             for e_type in energy_types
                 log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
-                log_info_dict[energy_types] = log_info
-                processed_dict[energy_types] = false
+                log_info_dict[e_type] = log_info
+                processed_dict[e_type] = false
             end
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
@@ -97,10 +97,11 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         data_dsp = nothing
         try
             @debug "Load DSP data"
-            # load DSP data and apply QC cut
+            # load DSP data per run and flatten to avoid getproperty on a vector of run infos
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                @debug "Load DSP data for channel $ch"
-                data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_ch, ch)
+                @debug "Load DSP data for channel $ch (per-run)"
+                data_dsp_runs = [read_ldata(l200, DataTier(:jldsp), :phy, pinfo.period, pinfo.run, ch) for pinfo in partinfo_ch]
+                data_dsp = fast_flatten(data_dsp_runs)
             end
         catch e
             @error "Error in loading DSP data for channel $ch: $(truncate_error(e))"
@@ -111,8 +112,10 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         try
             @debug "Get Pulser tags"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
-                is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+                data_pulser_runs = [read_ldata(:tags, l200, DataTier(:jlpls), :phy, pinfo.period, pinfo.run, ch_puls) for pinfo in partinfo_ch]
+                pulser_ts  = reduce(vcat, getproperty.(data_pulser_runs, :timestamp))
+                pulser_aux = reduce(vcat, getproperty.(data_pulser_runs, :aux_trig))
+                is_pulser = flag_coincidences(data_dsp.timestamp, pulser_ts[pulser_aux], ts_window = pulser_config_ch.puls_ts_window)
                 @debug "Found $(count(is_pulser)) pulser events"
             end
         catch e

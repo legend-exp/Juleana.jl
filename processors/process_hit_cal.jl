@@ -20,6 +20,114 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all channels" end
 
+    # Helper function to determine which key to use for a channel in a file
+    function get_data_key_for_channel(ds, ch::ChannelIdLike, det::DetectorIdLike)
+        # First try channel ID
+        if haskey(ds, string(ch))
+            return string(ch)
+        # Then try detector name  
+        elseif haskey(ds, string(det))
+            return string(det)
+        else
+            return nothing
+        end
+    end
+
+    # Helper function to read raw data with both key formats
+    function read_raw_data_with_fallback(columns::NTuple{<:Any, Symbol}, l200::LegendData, period::DataPeriod, run::DataRun, ch::ChannelIdLike, det::DetectorIdLike)
+        # First try the standard LEGEND.jl way
+        try
+            @debug "Attempting standard read_ldata for channel $ch (detector: $det)"
+            return read_ldata(columns, l200, DataTier(:raw), DataCategory(:cal), period, run, ch)
+        catch e
+            @warn "Standard read_ldata failed for channel $ch: $(truncate_error(e)), trying fallback approach"
+        end
+        
+        # Fallback: manual file reading with different key formats
+        raw_filekeys = search_disk(FileKey, l200.tier[:raw, :cal, period, run])
+        
+        result_data = []
+        for fk in raw_filekeys
+            filename = l200.tier[:raw, fk]
+            try
+                lh5open(filename, "r") do ds
+                    data_key = get_data_key_for_channel(ds, ch, det)
+                    if data_key !== nothing
+                        @debug "Reading raw data for channel $ch (detector: $det) using key $data_key from \"$(basename(filename))\""
+                        
+                        # Try different data access patterns
+                        ch_data = nothing
+                        if haskey(ds, data_key, "raw")
+                            ch_data = ds[data_key, "raw"]
+                        elseif haskey(ds, data_key)
+                            ch_data = ds[data_key]
+                            if haskey(ch_data, "raw")
+                                ch_data = ch_data["raw"]
+                            end
+                        end
+                        
+                        if ch_data !== nothing
+                            if length(columns) == 1
+                                col_key = first(columns)
+                                col_data = nothing
+                                if haskey(ch_data, string(col_key))
+                                    col_data = ch_data[string(col_key)][:]
+                                elseif haskey(ch_data, col_key)
+                                    col_data = ch_data[col_key][:]
+                                end
+                                if col_data !== nothing
+                                    push!(result_data, col_data)
+                                end
+                            else
+                                ch_result_data = []
+                                for col in columns
+                                    col_data = nothing
+                                    if haskey(ch_data, string(col))
+                                        col_data = ch_data[string(col)][:]
+                                    elseif haskey(ch_data, col)
+                                        col_data = ch_data[col][:]
+                                    end
+                                    if col_data !== nothing
+                                        push!(ch_result_data, col_data)
+                                    else
+                                        @warn "Column $col not found for channel $ch in $filename"
+                                        ch_result_data = nothing
+                                        break
+                                    end
+                                end
+                                if ch_result_data !== nothing && length(ch_result_data) == length(columns)
+                                    ch_result = NamedTuple{columns}(ch_result_data)
+                                    push!(result_data, ch_result)
+                                end
+                            end
+                        end
+                    else
+                        @debug "Channel $ch (detector: $det) not found in \"$(basename(filename))\", skipping"
+                    end
+                end
+            catch e
+                @warn "Error reading from $filename: $(truncate_error(e))"
+            end
+        end
+        
+        if isempty(result_data)
+            throw(ErrorException("No data found for channel $ch (detector: $det)"))
+        end
+        
+        # Concatenate all data
+        if length(columns) == 1
+            return reduce(vcat, result_data)
+        else
+            # Merge NamedTuples
+            merged_data = NamedTuple{columns}([reduce(vcat, [getproperty(d, col) for d in result_data]) for col in columns])
+            return Table(merged_data)
+        end
+    end
+
+    # create log line Tuple
+    log_fkcheck = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+    log_peaksplit = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number of FEP Events"), Symbol("Number of SEP Events"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
     log_nt_puls = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number Pulser Events"), :Error)}
@@ -46,7 +154,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         if !reprocess && isfile(pulserfilename)
             return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpls, :tags]), "Already processed --> skipped.")))
         end
-        # extract pulser events by loading data from raw files
+        # extract pulser events by loading data from raw files - use original method for pulser
         @info "Get pulser events from raw data"
         data_puls = read_ldata((:daqenergy, :timestamp), l200, DataTier(:raw), DataCategory(:cal), period, run, ch_puls)
         
@@ -98,7 +206,19 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         @debug "Processing channel $ch ($det)"
         
-        data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, ch)
+        # Try standard approach first, then fallback for detector/channel key flexibility
+        data_ch = nothing
+        try
+            data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, ch)
+        catch e
+            @warn "Standard read_ldata failed for channel $ch ($det): $(truncate_error(e)), trying detector key"
+            try
+                data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, det)
+            catch e2
+                @error "Both channel and detector key failed for $ch ($det)"
+                throw(ErrorException("Neither channel $ch nor detector $det found in jldsp files: $(truncate_error(e2))"))
+            end
+        end
         
         if length(data_ch) < 5000
             @error "Not enough data points for channel $ch ($det), skip"

@@ -471,4 +471,3 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
     return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
-

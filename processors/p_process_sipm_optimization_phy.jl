@@ -43,8 +43,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
 
         partinfo_ch = partitioninfo(l200, ch, part)
         @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
-    
-        filekey_ch = first(getproperty(partinfo_ch, :phy)).startkey
+
+        filekey_ch = first(partinfo_ch).phy.startkey
         @debug "Found filekey $filekey_ch"
 
         validity_ch = get_partitionvalidity(l200, det, part)
@@ -76,13 +76,13 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if (only_first_period && period != first(partinfo_ch.period))
+        if (only_first_period && period != first(partinfo_ch).period)
             @info "Only first period in partition $part for $period in $ch ($det)"
             for filter_type in e_filter
                 log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
-                log_info_dict[energy_types] = log_info
-                processed_dict[energy_types] = false
+                log_info_dict[filter_type] = log_info
+                processed_dict[filter_type] = false
             end
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
         end
@@ -102,11 +102,18 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         # load data
         data_ch = nothing
         try
-            data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, partinfo_ch, ch; n_evts=optimization_config_ch.n_evts)
+            # Read per run and concatenate to reach approximately n_evts total.
+            n_evts_per_run = max(1, ceil(Int, optimization_config_ch.n_evts / max(1, length(partinfo_ch))))
+            raw_chunks = [read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, pinfo.period, pinfo.run, ch; n_evts=n_evts_per_run, ignore_missing=true) for pinfo in partinfo_ch]
+            raw_chunks = filter(!isnothing, raw_chunks)
+            if isempty(raw_chunks)
+                throw(ErrorException("No raw data found for $(part) over listed runs"))
+            end
+            data_ch = fast_flatten(raw_chunks)
             @debug "Loading SiPM data from $(part)"
             if length(data_ch) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(data_ch), max_wvfs)
                 data_ch = data_ch[sel]
             end
         catch e
@@ -117,9 +124,17 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         wvfs_ch = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
-            is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
-            @debug "Found $(count(is_pulser)) pulser events"
+            data_pulser_runs = [read_ldata(:tags, l200, DataTier(:jlpls), :phy, pinfo.period, pinfo.run, ch_puls; ignore_missing=true) for pinfo in partinfo_ch]
+            data_pulser_runs = filter(!isnothing, data_pulser_runs)
+            if isempty(data_pulser_runs)
+                @warn "No pulser tag data found for $(part); proceeding without pulser veto"
+                is_pulser = falses(length(data_ch))
+            else
+                pulser_ts = reduce(vcat, getproperty.(data_pulser_runs, :timestamp))
+                pulser_aux = reduce(vcat, getproperty.(data_pulser_runs, :aux_trig))
+                is_pulser = flag_coincidences(data_ch.timestamp, pulser_ts[pulser_aux], ts_window = pulser_config_ch.puls_ts_window)
+                @debug "Found $(count(is_pulser)) pulser events"
+            end
             wvfs_ch = data_ch[findall(.!is_pulser)].waveform_bit_drop[:]
         catch e
             @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
@@ -192,8 +207,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                     
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for channel $ch ($det)"
                     
-                    p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey, det, "Baseline distribution"; additional_type=string(thres)))
-                    savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("trigger_threshold_$(thres)"))
+                    p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey_ch, part, det, "Baseline distribution"; additional_type=string(thres)))
+                    savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("trigger_threshold_$(thres)"))
 
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end
@@ -208,8 +223,10 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                 # call garbage collector
                 GC.gc()
             catch e
+                bt = catch_backtrace()
+                err_str = sprint(showerror, e, bt)
                 @error "Error in processing channel $ch: $(truncate_error(e))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "-", string(e)))
+                log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "-", err_str))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false

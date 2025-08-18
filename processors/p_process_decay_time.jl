@@ -10,10 +10,20 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Try to load ML model, fallback if not available (mirror run processor behavior)
+    ml_available = false
+    f_evaluate_qc = nothing
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+        ml_available = true
+    catch e
+        @warn "ML model not available for period $period - skipping QC cuts, using all waveforms. Error: $(e)"
+        f_evaluate_qc = nothing
+        ml_available = false
     end
-    @info "Loaded trained SVM model"
 
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
@@ -100,16 +110,20 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         end
         yield()
 
-        # get QC cuts
-        try
-            @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
-            qc = ljl_propfunc(qc_string).(dsp_qc)
-            wvfs_ch = wvfs_ch[findall(qc)]
-            @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
-        catch e
-            @error "Failed QC cuts: $(truncate_error(e))"
-            throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
+        # get QC cuts (only if ML is available; otherwise skip like run processor)
+        if ml_available && f_evaluate_qc !== nothing
+            try
+                @debug "Get QC cuts"
+                dsp_qc = dsp_qc_flt_optimization_compressed(decode_data(wvfs_ch), dsp_config_ch, 400.0u"µs", f_evaluate_qc)
+                qc = ljl_propfunc(qc_string).(dsp_qc)
+                wvfs_ch = wvfs_ch[findall(qc)]
+                @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
+            catch e
+                @error "Failed QC cuts: $(truncate_error(e))"
+                throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
+            end
+        else
+            @debug "Skip QC cuts (no ML model available)"
         end
 
         # DSP

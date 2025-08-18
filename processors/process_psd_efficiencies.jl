@@ -69,11 +69,15 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
 
         e_cal, hit_cal = nothing, nothing
         try
-            hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+            # Define energy symbols outside the let to keep them in scope
+            e_type_cal = e_type
+            e_type_base = Symbol(first(split(string(e_type), "_cal")))
+            hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type_cal, e_type=e_type_base
                 @debug "Reading from $(period)-$(run)"
                     Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
                 end
-            e_cal = getproperty(hit_cal, e_type)
+            # Use the calibrated energy column (e.g., e_cusp_ctc_cal), not the uncalibrated base (e.g., e_cusp_ctc)
+            e_cal = getproperty(hit_cal, e_type_cal)
         catch e
             @error "Hit data for $det from cannot be loaded: $(truncate_error(e))"
             throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
@@ -102,13 +106,21 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
                 lq, lq_cut = nothing, nothing
                 try
                     lq = ljl_propfunc(pars_lq[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func).(hit_cal)
-                    lq_cut = pars_lq[det][lq_classifier].cut
+                    # compatibility: some runs store lq_classifier.highcut instead of .cut
+                    lq_cut = get(pars_lq[det][lq_classifier], :cut, nothing)
+                    lq_cut = lq_cut === nothing ? get(pars_lq[det][lq_classifier], :highcut, nothing) : lq_cut
+                    if lq_cut === nothing
+                        throw(KeyError("LQ classifier cut not found"))
+                    end
                 catch e
                     @error "LQ for $det from cannot be loaded"
                     throw(LoadError("LQ", 154, "LQ data for $det cannot be loaded"))
                 end
 
-                @debug "Use low A/E cut at $(round(aoe_low_cut, digits=2)) and high A/E cut at $(round(aoe_high_cut, digits=2))"
+                @info "Use low A/E cut at $(round(aoe_low_cut, digits=2)) and high A/E cut at $(round(aoe_high_cut, digits=2))"
+                @info "AoE range: $(extrema(filter(isfinite, aoe)))"
+                @info "Events after low cut: $(count(aoe .>= aoe_low_cut))"
+                @info "Events after low+high cut: $(count(aoe .>= aoe_low_cut .&& aoe .<= aoe_high_cut))"
 
 
                 ### low A/E cut
@@ -139,11 +151,19 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
                 result_peaks_ds, report_peaks_ds = nothing, nothing
                 try
                     @debug "Generate A/E DS Survival Fractions"
+                    # Check if we have enough events after both cuts
+                    events_after_cuts = count(aoe .>= aoe_low_cut .&& aoe .<= aoe_high_cut)
+                    if events_after_cuts < 100
+                        @warn "Only $events_after_cuts events after low+high cut for detector $det, may cause fitting problems"
+                    end
+                    
                     result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(aoe, e_cal, psd_config_ch.psd_peaks, Symbol.(psd_config_ch.psd_peaks_names), psd_config_ch.psd_peaks_windows_left, psd_config_ch.psd_peaks_windows_right, aoe_low_cut,; 
                                                     bin_width_window=psd_config_ch.psd_peaks_bin_width_window, sigma_high_sided=aoe_high_cut, fit_funcs=Symbol.(psd_config_ch.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
+                    @error "AoE peaks DS SF for $det cannot be generated: $(truncate_error(e))"
+                    @error "Cut values: low=$aoe_low_cut, high=$aoe_high_cut"
+                    @error "Events in range: $(count(aoe .>= aoe_low_cut .&& aoe .<= aoe_high_cut))"
+                    throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"

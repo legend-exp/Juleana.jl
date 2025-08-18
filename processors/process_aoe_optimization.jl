@@ -11,10 +11,21 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Try to load ML model, fallback if not available
+    ml_available = false
+    f_evaluate_qc = nothing
+    
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+        ml_available = true
+    catch e
+        @warn "ML model not available for period $period - skipping QC cuts, using all waveforms. Error: $(e)"
+        f_evaluate_qc = nothing
+        ml_available = false
     end
-    @info "Loaded trained SVM model"
 
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
@@ -119,8 +130,14 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 try
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
-                    dsp_dep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                    dsp_sep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    if ml_available
+                        dsp_dep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                        dsp_sep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    else
+                        @debug "Processing without ML QC for detector $det"
+                        dsp_dep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_dep_wdw, wvfs_ch_dep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; presum_rate=presum_rate)
+                        dsp_sep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_ch_sep_wdw, wvfs_ch_sep_pre, dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; presum_rate=presum_rate)
+                    end
                 catch e
                     @error "Failed DSP for DEP or SEP: $(truncate_error(e))"
                     throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_error(e))"))

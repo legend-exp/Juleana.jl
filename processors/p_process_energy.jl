@@ -261,4 +261,3 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
     return any(x -> get(last(x), :skipped, false), values(result_energy))
 end
-

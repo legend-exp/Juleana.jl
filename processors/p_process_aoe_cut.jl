@@ -92,13 +92,21 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             if !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([begin
                     @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                    calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); psd_cal_pars_type=:rpars, psd_cal_pars_cat=:aoe) end
-                    for pinfo in partinfo_ch])
+                    calibrate_ged_channel_data(
+                        l200, pinfo.cal.startkey, det,
+                        read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch);
+                        e_cal_pars_type=:rpars,   e_cal_pars_cat=:ecal,
+                        aoe_cal_pars_type=:rpars, aoe_cal_pars_cat=:aoe,
+                        aoe_cut_pars_type=:ppars, aoe_cut_pars_cat=:aoe,
+                        lq_cal_pars_type=:rpars,  lq_cal_pars_cat=:lq,
+                        lq_cut_pars_type=:ppars,  lq_cut_pars_cat=:lq,
+                    )
+                end for pinfo in partinfo_ch])
                 e_cal = getproperty(hit_cal, e_type)
             end
         catch e
-            @error "E data for $det from cannot be loaded"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
+            @error "E data load/calibration failed for $det in $(part): $(e)"
+            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(e)"))
         end
 
         e_unit = unit(first(e_cal))
@@ -256,4 +264,3 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
     return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
-
