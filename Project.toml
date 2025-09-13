@@ -41,4 +41,5 @@ UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 [extensions]
 
 [compat]
+LaTeXStrings = "1"
 julia = "1.10"
