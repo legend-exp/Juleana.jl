@@ -11,10 +11,23 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Load QC classifier; fall back to dummy labels when the ML file is missing
+    f_evaluate_qc = nothing
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+    catch e
+        @warn "ML model not available for period $period – using dummy QC classifier (all events → qc_label = 0). Error: $(truncate_error(e))"
+        f_evaluate_qc = function(processed_signals)
+            n_wvfs = size(processed_signals, 2)
+            predictions = Vector{Int}(undef, n_wvfs)
+            fill!(predictions, 0)
+            scores = zeros(Float64, n_wvfs)
+            return (predictions, scores)
+        end
     end
-    @info "Loaded trained SVM model"
 
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"

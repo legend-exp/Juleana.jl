@@ -10,10 +10,23 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+    # Load QC classifier; fall back to dummy labels when the ML file is missing
+    f_evaluate_qc = nothing
+    try
+        f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
+        @info "Loaded trained SVM model"
+    catch e
+        @warn "ML model not available for period $period – using dummy QC classifier (all events → qc_label = 0). Error: $(truncate_error(e))"
+        f_evaluate_qc = function(processed_signals)
+            n_wvfs = size(processed_signals, 2)
+            predictions = Vector{Int}(undef, n_wvfs)
+            fill!(predictions, 0)
+            scores = zeros(Float64, n_wvfs)
+            return (predictions, scores)
+        end
     end
-    @info "Loaded trained SVM model"
 
     # create log line Tuple
     log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
