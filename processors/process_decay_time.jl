@@ -40,13 +40,38 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
+
+    # Resolve jlpeaks file paths / dataset keys for both detector and channel based layouts
+    function resolve_jlpeaks_path(l200::LegendData, filekey, ch, det)
+        for key in (det, ch)
+            try
+                filename = l200.tier[:jlpeaks, filekey, key]
+                return (filename, key)
+            catch err
+                @debug "jlpeaks path lookup failed for $(key): $(truncate_error(err))"
+            end
+        end
+        return nothing
+    end
+
+    function resolve_jlpeaks_group(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
 
     # function to process decay time
     function ch_decay_time(chinfo_ch::NamedTuple)
@@ -56,11 +81,11 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         if !reprocess && haskey(pars_db, det)
             @debug "Channel $det already processed, skip"
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
+            log_ch = log_nt((det, ch, ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
             return (processed = false, log = log_ch)
         end
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing channel $(det) ($ch)"
 
         dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
         @debug "Loaded DSP config: $(dsp_config_ch)"
@@ -75,19 +100,28 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         qc_string    = pz_config_ch.qc
         max_wvfs     = pz_config_ch.max_wvfs
 
-        filename = l200.tier[:jlpeaks, filekey, ch]
+        path_info = resolve_jlpeaks_path(l200, filekey, ch, det)
+        if path_info === nothing
+            msg = "No jlpeaks path found for channel $ch ($det) in filekey $filekey"
+            @warn msg
+            throw(LoadError(string(filekey), 154, msg))
+        end
+
+        filename, jlpeaks_key = path_info
         if !isfile(filename)
-            @warn "File $filename does not exist, Skip channel $ch"
+            @warn "File $filename does not exist, skip channel $ch ($det)"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
         end
 
         # load data
         wvfs_ch = nothing
         try
-            data = lh5open(filename, "r")
-            @debug "Loading $peakname data from $(filename)"
-            wvfs_ch = data[ch, :jlpeaks, peakname].waveform_presummed[:]
-            close(data)
+            @debug "Loading $peakname data from $(filename) using key $(string(jlpeaks_key))"
+            wvfs_ch = lh5open(filename, "r") do data
+                data_key = resolve_jlpeaks_group(data, ch, det)
+                data_key === nothing && throw(ErrorException("Channel $(string(det)) ($ch) not found in $(basename(filename))"))
+                data[data_key, :jlpeaks, peakname].waveform_presummed[:]
+            end
             if length(wvfs_ch) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
@@ -139,7 +173,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
 
-        log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.σ, "-"))
+        log_ch = log_nt((det, ch, ProcessStatus(1), result.μ, result.σ, "-"))
         return (result = (τ = result.μ, fit = result), processed = true, log = log_ch)
     end
 

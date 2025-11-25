@@ -43,7 +43,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -51,12 +51,37 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     # flush stdout
     flush(stdout)
 
+    # Resolve jlpeaks files/datasets regardless of detector vs. channel naming
+    function resolve_jlpeaks_path(l200::LegendData, filekey, ch, det)
+        for key in (det, ch)
+            try
+                filename = l200.tier[:jlpeaks, filekey, key]
+                return (filename, key)
+            catch err
+                @debug "jlpeaks path lookup failed for $(key): $(truncate_error(err))"
+            end
+        end
+        return nothing
+    end
+
+    function resolve_jlpeaks_group(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
     function ch_filter_optimization(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing channel $(det) ($ch)"
 
         dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
         @debug "Loaded DSP config: $(dsp_config_ch)"
@@ -75,7 +100,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), filter_type, pars_db[det][filter_type].rt, pars_db[det][filter_type].ft, pars_db[det][filter_type].min_fwhm, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), filter_type, pars_db[det][filter_type].rt, pars_db[det][filter_type].ft, pars_db[det][filter_type].min_fwhm, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -89,7 +114,14 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             return (processed = processed_dict, log = log_info_dict)
         end
 
-        filename = l200.tier[:jlpeaks, filekey, ch]
+        path_info = resolve_jlpeaks_path(l200, filekey, ch, det)
+        if path_info === nothing
+            msg = "No jlpeaks path found for channel $ch ($det) in filekey $filekey"
+            @warn msg
+            throw(LoadError(string(filekey), 154, msg))
+        end
+
+        filename, _ = path_info
         if !isfile(filename)
             @warn "File $filename does not exist, Skip channel $ch"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
@@ -101,12 +133,13 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         # load data
         wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
-            @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_ch_pre = data[ch, :jlpeaks, peakname].waveform_presummed[:]
-            wvfs_ch_wdw = data[ch, :jlpeaks, peakname].waveform_windowed[:]
-            presum_rate = data[ch, :jlpeaks, peakname].presum_rate[:]
-            close(data)
+            @debug "Loading $peakname data from $(filename)"
+            wvfs_ch_pre, wvfs_ch_wdw, presum_rate = lh5open(filename, "r") do data
+                data_key = resolve_jlpeaks_group(data, ch, det)
+                data_key === nothing && throw(ErrorException("Channel $(string(det)) ($ch) not found in $(basename(filename))"))
+                group = data[data_key, :jlpeaks, peakname]
+                (group.waveform_presummed[:], group.waveform_windowed[:], group.presum_rate[:])
+            end
             if length(wvfs_ch_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
@@ -211,7 +244,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey, det, "FEP FT Scan"; additional_type=string(filter_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 
-                log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
+                log_info = log_nt((det, ch, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
                 # add results to dict
                 result_rt_ft_dict[filter_type] = merge(result_rt, result_ft)
@@ -223,7 +256,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((ch, det, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, ch, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false

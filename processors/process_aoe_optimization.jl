@@ -46,7 +46,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -54,12 +54,37 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     # flush stdout
     flush(stdout)
 
+    # Detect jlpeaks paths regardless of detector/channel naming
+    function resolve_jlpeaks_path(l200::LegendData, filekey, ch, det)
+        for key in (det, ch)
+            try
+                filename = l200.tier[:jlpeaks, filekey, key]
+                return (filename, key)
+            catch err
+                @debug "jlpeaks path lookup failed for $(key): $(truncate_error(err))"
+            end
+        end
+        return nothing
+    end
+
+    function resolve_jlpeaks_group(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
     function ch_sg_optimization(chinfo_ch::NamedTuple)
         
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
-        @info "Processing channel $ch ($det)"
+        @info "Processing channel $(det) ($ch)"
 
         dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
         @debug "Loaded DSP config: $(dsp_config_ch)"
@@ -76,7 +101,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in aoe_filter
                 if haskey(pars_db[det], filter_type)
-                    log_info = log_nt((ch, det, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep, pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep, pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -90,7 +115,14 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             return (processed = processed_dict, log = log_info_dict)
         end
         
-        filename = l200.tier[:jlpeaks, filekey, ch]
+        path_info = resolve_jlpeaks_path(l200, filekey, ch, det)
+        if path_info === nothing
+            msg = "No jlpeaks path found for channel $ch ($det) in filekey $filekey"
+            @warn msg
+            throw(LoadError(string(filekey), 154, msg))
+        end
+
+        filename, _ = path_info
         if !isfile(filename)
             @warn "File $filename does not exist, Skip channel $ch"
             throw(LoadError(string(filename), 154,"File $(filename) does not exist"))
@@ -98,24 +130,23 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
-
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_ch_dep_bi121fep_wdw = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_ch_dep_bi121fep_pre = data[ch].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate              = data[ch].jlpeaks.Tl208SEP.presum_rate[1]
-            e_ch_dep_bi121fep        = data[ch].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
-            # wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw
-            # wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre
-            wvfs_ch_sep_wdw          = data[ch].jlpeaks.Tl208SEP.waveform_windowed[:]
-            wvfs_ch_sep_pre          = data[ch].jlpeaks.Tl208SEP.waveform_presummed[:]
-
-            close(data)
+            wvfs_ch_dep_wdw, wvfs_ch_dep_pre, wvfs_ch_sep_wdw, wvfs_ch_sep_pre, presum_rate = lh5open(filename, "r") do data
+                data_key = resolve_jlpeaks_group(data, ch, det)
+                data_key === nothing && throw(ErrorException("Channel $(string(det)) ($ch) not found in $(basename(filename))"))
+                dep_grp = data[data_key].jlpeaks.Tl208DEP_Bi212FEP
+                sep_grp = data[data_key].jlpeaks.Tl208SEP
+                (
+                    dep_grp.waveform_windowed[:],
+                    dep_grp.waveform_presummed[:],
+                    sep_grp.waveform_windowed[:],
+                    sep_grp.waveform_presummed[:],
+                    sep_grp.presum_rate[1]
+                )
+            end
         catch e
-            @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
+            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
+            throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
@@ -176,7 +207,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for channel $ch ($det)"""
 
                 # write log
-                log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
+                log_info = log_nt((det, ch, ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
                 
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = true
@@ -187,7 +218,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((ch, det, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, ch, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
