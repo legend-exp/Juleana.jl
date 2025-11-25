@@ -33,12 +33,30 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     @info "Expecting $(length(channels)) channels each file in \"$input_datadir\"."
 
-    function get_daqenergy_for_ch(filelist::AbstractVector{<:AbstractString}, ch::ChannelIdLike)
+    function resolve_data_key(ds, ch::ChannelIdLike, det::DetectorIdLike)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
+    function get_daqenergy_for_ch(filelist::AbstractVector{<:AbstractString}, ch::ChannelIdLike, det::DetectorIdLike)
         fast_flatten([
             LHDataStore(
                 ds -> begin
-                    @debug "Reading DAQ energy for channel $ch from \"$(ds.data_store.filename)\""
-                    ds[ch].raw.daqenergy[:]
+                    det_label = string(det)
+                    data_key = resolve_data_key(ds, ch, det)
+                    if data_key === nothing
+                        @debug "Channel $(det_label) ($ch) not found in \"$(ds.data_store.filename)\""
+                        return eltype(ds[first(keys(ds))].raw.daqenergy)[]
+                    end
+                    @debug "Reading DAQ energy for $(det_label) ($ch) using key $data_key from \"$(ds.data_store.filename)\""
+                    ds[data_key].raw.daqenergy[:]
                 end,
                 filename
             ) for filename in filelist
@@ -83,12 +101,17 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                     is_ok = false
                 else
                     LHDataStore(filename) do ds
-                        for ch in channels
+                        for (i, ch) in enumerate(channels)
+                            det = chinfo.detector[i]
+                            det_label = string(det)
                             @timeit fk_timer "$ch" begin
                                 try
-                                    haskey(ds, "$ch") || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
+                                    data_key = resolve_data_key(ds, ch, det)
+                                    if data_key === nothing
+                                        throw(ErrorException("Channel $(det_label) ($ch) not found in \"$(filename)\""))
+                                    end
                                 catch e
-                                    @error "Error while checking channel $ch in \"$(filename)\": $(e)"
+                                    @error "Error while checking channel $(det_label) ($ch) in \"$(filename)\": $(e)"
                                     push!(failed_channels, ch)
                                     is_ok = false
                                 end
@@ -129,23 +152,26 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
+        det_label = string(det)
 
-        @info "Processing channel $ch"
+        @info "Processing $(det_label) ($ch)"
 
         raw_config_ch = merge(raw_config.default, get(raw_config, det, PropDict()))
 
         energy_windows = IdDict(keys(raw_config_ch.peaks) .=> [first(v)..last(v) for v in values(raw_config_ch.peaks)])
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
-        output_filename = l200.tier[:jlpeaks, first(filekeys), ch]
+        output_filename = l200.tier[:jlpeaks, first(filekeys), det]
 
         if isfile(output_filename) && !reprocess
             @info "Output file \"$output_filename\" already exists, skipping"
             n_sep, n_fep = nothing, nothing
             try
                 output = lh5open(output_filename, "r")
-                n_sep = length(output[ch].jlpeaks.Tl208SEP.daqenergy)
-                n_fep = length(output[ch].jlpeaks.Tl208FEP.daqenergy)
+                key = resolve_data_key(output, ch, det)
+                key === nothing && throw(ErrorException("Channel $(det_label) ($ch) not found in $(basename(output_filename))"))
+                n_sep = length(output[key].jlpeaks.Tl208SEP.daqenergy)
+                n_fep = length(output[key].jlpeaks.Tl208FEP.daqenergy)
                 close(output)
             catch e
                 @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_error(e))"
@@ -164,20 +190,24 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         @timeit split_timer "$ch" begin
             # get raw daqenergy
             @timeit split_timer "Get DAQ Energy" begin
-                e_raw = get_daqenergy_for_ch(filelist, ch)
-                @info "Auto calibrating $ch ($det)"
+                e_raw = get_daqenergy_for_ch(filelist, ch, det)
+                @info "Auto calibrating $(det_label) ($ch)"
                 result_autocal, report_autocal = autocal_energy(e_raw, raw_config_ch.th228_cal_lines; mode=:ratio, min_e=raw_config_ch.min_e, max_e=raw_config_ch.max_e, max_e_binning_quantile=raw_config_ch.max_e_binning_quantile, σ=raw_config_ch.σ, threshold=raw_config_ch.threshold, min_n_peaks=raw_config_ch.min_n_peaks, max_n_peaks=raw_config_ch.max_n_peaks, α=raw_config_ch.α, rtol=raw_config_ch.rtol)
                 f_calib = result_autocal.f_calib
                 p = LegendMakie.lplot(report_autocal, raw_config_ch.th228_cal_lines, figsize = (650,400), title = get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
                 savelfig(LegendMakie.lsavefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
             GC.gc()
-            @info "Filtering channel $ch ($det)"
+            @info "Filtering $(det_label) ($ch)"
             @timeit split_timer "Filter Raw" begin
                 slim_data = flatten_by_key([lh5open(filename) do ds
-                    @debug "Filtering $(filename) for channel $ch ($det)"
-                    filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows; chunk_size=100)
-                    # filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
+                    @debug "Filtering $(filename) for $(det_label) ($ch)"
+                    data_key = resolve_data_key(ds, ch, det)
+                    if data_key === nothing
+                        @debug "Channel $(det_label) ($ch) not found in \"$(filename)\""
+                        return Dict()
+                    end
+                    filter_raw_data_by_energy(ds[data_key].raw[:], f_calib, energy_windows; chunk_size=100)
                 end for filename in filelist])
             end
             n_fep = length(slim_data[:Tl208FEP].daqenergy)
@@ -206,7 +236,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         log_ch = log_peaksplit((ch, det, ProcessStatus(1), n_fep, n_sep, "$total_time", total_allocated, ""))
 
-        @info "Finished processing channel $ch ($det) in $total_time"
+        @info "Finished processing $(det_label) ($ch) in $total_time"
 
         return (result = (n_fep = n_fep, n_sep = n_sep), processed = true, log = log_ch)
     end
