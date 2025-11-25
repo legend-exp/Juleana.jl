@@ -148,6 +148,26 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
 
     # split peaks from raw waveforms
+    function to_rdwaveform_vec(data)
+        data isa AbstractVector{<:LegendDataTypes.RDWaveform} && return data
+        tbl = Tables.istable(data) ? data : data[:]
+        decoded = LegendHDF5IO.from_table(tbl, AbstractVector{<:LegendDataTypes.RDWaveform})
+        return decode_data(decoded)
+    end
+
+    function normalize_waveform_columns(tbl)
+        cols = Tables.columns(tbl)
+        replacements = NamedTuple()
+        if hasproperty(cols, :waveform_presummed)
+            replacements = merge(replacements, (waveform_presummed = to_rdwaveform_vec(cols.waveform_presummed),))
+        end
+        if hasproperty(cols, :waveform_windowed)
+            replacements = merge(replacements, (waveform_windowed = to_rdwaveform_vec(cols.waveform_windowed),))
+        end
+        isempty(keys(replacements)) && return tbl
+        return Tables.materializer(tbl)((; cols..., replacements...))
+    end
+
     function split_peak_ch(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
@@ -222,8 +242,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            output[ch, :jlpeaks, label] = slim_data[label]
-                            # output[ch, :jlpeaks, label] = decode_data(slim_data[label])
+                            output[ch, :jlpeaks, label] = normalize_waveform_columns(slim_data[label])
                         end
                     end
                 end

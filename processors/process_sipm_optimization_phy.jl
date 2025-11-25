@@ -149,7 +149,13 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
             is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
-            wvfs_ch = data_ch[findall(.!is_pulser)].waveform_bit_drop[:]
+            non_pulser_idx = findall(.!is_pulser)
+            wvfs_col = hasproperty(data_ch, :waveform_bit_drop) ? :waveform_bit_drop : :waveform
+            waveform_data = getproperty(data_ch[non_pulser_idx], wvfs_col)[:]
+
+            # Convert stored tables into RDWaveform vectors understood by DSP code
+            wvfs_ch = LegendHDF5IO.from_table(waveform_data, AbstractVector{<:LegendDataTypes.RDWaveform})
+            wvfs_ch = decode_data(wvfs_ch)
         catch e
             @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
             throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
