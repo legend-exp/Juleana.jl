@@ -5,7 +5,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = Table(channelinfo(l200, filekey; system=:geds, only_processable=true))
+    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
     energy_config = dataprod_config(l200).energy(filekey)
@@ -27,19 +27,36 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     # flush stdout
     flush(stdout)
 
-    function ch_ct_correction(chinfo_ch::NamedTuple)
+    if !@isdefined(read_hit_data)
+        function read_hit_data(selector, l200::LegendData, category::DataCategoryLike, period::DataPeriodLike, run::DataRunLike, det::DetectorIdLike, ch::ChannelIdLike; kwargs...)
+            try
+                return read_ldata(selector, l200, :jlhit, category, period, run, det; kwargs...)
+            catch err
+                @warn "Detector-keyed hit data missing for $det ($ch), falling back to channel" exception=(err, catch_backtrace())
+                return read_ldata(selector, l200, :jlhit, category, period, run, ch; kwargs...)
+            end
+        end
+    end
 
+    function select_hit_path(l200, filekey, det::DetectorIdLike, ch::ChannelIdLike)
+        det_path = l200.tier[:jlhit, filekey, det]
+        ch_path = l200.tier[:jlhit, filekey, ch]
+        return isfile(det_path) ? (det_path, det_path, ch_path) : (isfile(ch_path) ? (ch_path, det_path, ch_path) : (det_path, det_path, ch_path))
+    end
+
+    function ch_ct_correction(chinfo_ch::NamedTuple)
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
 
         @debug "Processing channel $ch ($det)"
 
-        hitchfilename = l200.tier[:jlhit, filekey, ch]
+        hitchfilename, det_hit_path, ch_hit_path = select_hit_path(l200, filekey, det, ch)
         # load data file
         if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
+            @error "Hit file $(basename(det_hit_path)) or fallback $(basename(ch_hit_path)) not found"
             throw(ErrorException("Hit file not found"))
         end
+        hitchfilename == ch_hit_path && @warn "Using legacy channel-keyed hit file $(basename(ch_hit_path)) for detector $det"
 
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
@@ -67,7 +84,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         try
             @debug "Load hit file"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_ch_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch)
+                data_ch_after_qc = read_hit_data(:dataQC, l200, :cal, period, run, det, ch).dataQC
             end
         catch e
             @error "Error in loading data for channel $ch: $(truncate_error(e))"
@@ -92,7 +109,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                     @debug "Get $e_type simple calibration"
                     result_simple, report_simple = simple_calibration(getproperty(data_ch_after_qc, e_type), energy_config_ch.th228_lines, energy_config_ch.left_window_sizes, energy_config_ch.right_window_sizes,; calib_type=:th228, quantile_perc=quantile_perc, binning_peak_window=energy_config_ch.binning_peak_window)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
+                    @error "Error in $e_type simple calibration for channel $ch" exception=(e, catch_backtrace())
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
 

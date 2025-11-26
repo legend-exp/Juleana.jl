@@ -36,6 +36,17 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
     # flush stdout
     flush(stdout)
 
+    if !@isdefined(read_hit_data)
+        function read_hit_data(selector, l200::LegendData, category::DataCategoryLike, period::DataPeriodLike, run::DataRunLike, det::DetectorIdLike, ch::ChannelIdLike; kwargs...)
+            try
+                return read_ldata(selector, l200, :jlhit, category, period, run, det; kwargs...)
+            catch err
+                @warn "Detector-keyed hit data missing for $det ($ch), falling back to channel" exception=(err, catch_backtrace())
+                return read_ldata(selector, l200, :jlhit, category, period, run, ch; kwargs...)
+            end
+        end
+    end
+
     function ch_psd_sf(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
@@ -69,7 +80,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
 
         e_cal, hit_cal = nothing, nothing
         try
-            hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+            hit_cal = let dsp=read_hit_data(:dataQC, l200, :cal, period, run, det, ch).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                 @debug "Reading from $(period)-$(run)"
                     Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
                 end

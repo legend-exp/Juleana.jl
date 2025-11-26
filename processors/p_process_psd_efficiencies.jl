@@ -24,6 +24,17 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
     # flush stdout
     flush(stdout)
+
+    if !@isdefined(read_hit_data)
+        function read_hit_data(selector, l200::LegendData, category::DataCategoryLike, period::DataPeriodLike, run::DataRunLike, det::DetectorIdLike, ch::ChannelIdLike; kwargs...)
+            try
+                return read_ldata(selector, l200, :jlhit, category, period, run, det; kwargs...)
+            catch err
+                @warn "Detector-keyed hit data missing for $det ($ch), falling back to channel" exception=(err, catch_backtrace())
+                return read_ldata(selector, l200, :jlhit, category, period, run, ch; kwargs...)
+            end
+        end
+    end
     
     function ch_psd_sf(chinfo_ch::NamedTuple)
         
@@ -90,7 +101,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
             hpge_kwargs = get_ged_evt_kwargs(l200, filekey_ch)
             if !all([haskey(processed_dict, psd_classifier) for psd_classifier in psd_classifiers])
                 hit_cal = fast_flatten([
-                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch)
+                    let dsp=read_hit_data(:dataQC, l200, :cal, pinfo.period, pinfo.run, det, ch).dataQC
                         @debug "Calibrating $(pinfo.period)-$(pinfo.run)"
                         calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, dsp; keep_chdata=true, hpge_kwargs...)
                     end

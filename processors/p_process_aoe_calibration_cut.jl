@@ -25,6 +25,17 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
 
     # flush stdout
     flush(stdout)
+
+    if !@isdefined(read_hit_data)
+        function read_hit_data(selector, l200::LegendData, category::DataCategoryLike, period::DataPeriodLike, run::DataRunLike, det::DetectorIdLike, ch::ChannelIdLike; kwargs...)
+            try
+                return read_ldata(selector, l200, :jlhit, category, period, run, det; kwargs...)
+            catch err
+                @warn "Detector-keyed hit data missing for $det ($ch), falling back to channel" exception=(err, catch_backtrace())
+                return read_ldata(selector, l200, :jlhit, category, period, run, ch; kwargs...)
+            end
+        end
+    end
     
     function ch_aoe_cut(chinfo_ch::NamedTuple)
         
@@ -113,7 +124,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         try
             if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([
-                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                    let dsp=read_hit_data(:dataQC, l200, :cal, pinfo.period, pinfo.run, det, ch).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                         @debug "Reading from $(pinfo.period)-$(pinfo.run)"
                         # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
                             Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))

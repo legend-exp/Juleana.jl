@@ -24,6 +24,17 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
     # flush stdout
     flush(stdout)    
+
+    if !@isdefined(read_hit_data)
+        function read_hit_data(selector, l200::LegendData, category::DataCategoryLike, period::DataPeriodLike, run::DataRunLike, det::DetectorIdLike, ch::ChannelIdLike; kwargs...)
+            try
+                return read_ldata(selector, l200, :jlhit, category, period, run, det; kwargs...)
+            catch err
+                @warn "Detector-keyed hit data missing for $det ($ch), falling back to channel" exception=(err, catch_backtrace())
+                return read_ldata(selector, l200, :jlhit, category, period, run, ch; kwargs...)
+            end
+        end
+    end
     
     function ch_energy_calibration(chinfo_ch::NamedTuple)
         
@@ -94,9 +105,9 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 energy = nothing
                 try
-                    energy = fast_flatten([begin 
+                        energy = fast_flatten([begin 
                             @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                            ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch)) end
+                            ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(read_hit_data(:dataQC, l200, :cal, pinfo.period, pinfo.run, det, ch).dataQC) end
                     for pinfo in partinfo_ch])
                 catch e
                     @error "E data for $det from cannot be loaded"
