@@ -101,7 +101,10 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             end
             for lq_classifier in lq_classifiers
                 if haskey(pars_db[det], lq_classifier)
-                    log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].cut, pars_db[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
+                    # Compatibility: use highcut (current) or fallback to cut (legacy)
+                    lq_pars = pars_db[det][lq_classifier]
+                    lq_cut_val = haskey(lq_pars, :highcut) ? lq_pars.highcut : lq_pars.cut
+                    log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_classifier, lq_cut_val, lq_pars.peaks[:Tl208DEP].sf, lq_pars.qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false
