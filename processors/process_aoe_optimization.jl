@@ -79,6 +79,13 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         end
     end
 
+    function to_rdwaveform_vec(data)
+        data isa AbstractVector{<:LegendDataTypes.RDWaveform} && return data
+        tbl = Tables.istable(data) ? data : data[:]
+        converted = LegendHDF5IO.from_table(tbl, AbstractVector{<:LegendDataTypes.RDWaveform})
+        return decode_data(converted)
+    end
+
     function ch_sg_optimization(chinfo_ch::NamedTuple)
         
         ch  = chinfo_ch.channel
@@ -137,11 +144,14 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 dep_grp = data[data_key].jlpeaks.Tl208DEP_Bi212FEP
                 sep_grp = data[data_key].jlpeaks.Tl208SEP
                 (
-                    dep_grp.waveform_windowed[:],
-                    dep_grp.waveform_presummed[:],
-                    sep_grp.waveform_windowed[:],
-                    sep_grp.waveform_presummed[:],
-                    sep_grp.presum_rate[1]
+                    to_rdwaveform_vec(dep_grp.waveform_windowed[:]),
+                    to_rdwaveform_vec(dep_grp.waveform_presummed[:]),
+                    to_rdwaveform_vec(sep_grp.waveform_windowed[:]),
+                    to_rdwaveform_vec(sep_grp.waveform_presummed[:]),
+                    begin
+                        rate = sep_grp.presum_rate[1]
+                        rate isa AbstractFloat ? rate : float(rate)
+                    end
                 )
             end
         catch e

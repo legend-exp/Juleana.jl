@@ -43,6 +43,13 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     # flush stdout
     flush(stdout)
 
+    function to_rdwaveform_vec(data)
+        data isa AbstractVector{<:LegendDataTypes.RDWaveform} && return data
+        tbl = Tables.istable(data) ? data : data[:]
+        converted = LegendHDF5IO.from_table(tbl, AbstractVector{<:LegendDataTypes.RDWaveform})
+        return decode_data(converted)
+    end
+
     function ch_sg_optimization(chinfo_ch::NamedTuple)
         
         ch  = chinfo_ch.channel
@@ -125,9 +132,10 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
             data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
-            wvfs_ch_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_ch_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate              = data.Tl208SEP.presum_rate[1]
+            wvfs_ch_dep_bi121fep_wdw = to_rdwaveform_vec(data.Tl208DEP_Bi212FEP.waveform_windowed[:])
+            wvfs_ch_dep_bi121fep_pre = to_rdwaveform_vec(data.Tl208DEP_Bi212FEP.waveform_presummed[:])
+            rate_raw                 = data.Tl208SEP.presum_rate[1]
+            presum_rate              = rate_raw isa AbstractFloat ? rate_raw : float(rate_raw)
             e_ch_dep_bi121fep        = data.Tl208DEP_Bi212FEP.daqenergy[:]
             # DEP
             # wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
@@ -141,8 +149,8 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 wvfs_ch_dep_wdw = wvfs_ch_dep_wdw[sel]
             end
             # SEP
-            wvfs_ch_sep_wdw          = data.Tl208SEP.waveform_windowed[:]
-            wvfs_ch_sep_pre          = data.Tl208SEP.waveform_presummed[:]
+            wvfs_ch_sep_wdw          = to_rdwaveform_vec(data.Tl208SEP.waveform_windowed[:])
+            wvfs_ch_sep_pre          = to_rdwaveform_vec(data.Tl208SEP.waveform_presummed[:])
             if length(wvfs_ch_sep_pre) > max_wvfs
                 @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
