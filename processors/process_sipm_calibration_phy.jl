@@ -28,7 +28,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -59,7 +59,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fit.positions[1], pars_db[det][e_type].fit.resolutions_cal[1], pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), e_type, pars_db[det][e_type].fit.positions[1], pars_db[det][e_type].fit.resolutions_cal[1], pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -70,10 +70,14 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         data_dsp = nothing
         try
             @debug "Load DSP data"
-            # load DSP data and apply QC cut
-            data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, period, run, ch)
+            # load DSP data - try detector key first, then fallback to channel key
+            data_dsp = try
+                read_ldata(l200, DataTier(:jldsp), :phy, period, run, det)
+            catch
+                read_ldata(l200, DataTier(:jldsp), :phy, period, run, ch)
+            end
         catch e
-            @error "Error in loading DSP data for channel $ch: $(truncate_error(e))"
+            @error "Error in loading DSP data for channel $ch ($det): $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -81,10 +85,12 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         try
             @debug "Get Pulser tags"
             data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
-            is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+            # Handle both old format (data_pulser.timestamp) and new format (data_pulser.tags.timestamp)
+            pulser_tags = hasproperty(data_pulser, :tags) ? data_pulser.tags : data_pulser
+            is_pulser = flag_coincidences(data_dsp.timestamp, pulser_tags.timestamp[pulser_tags.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
-            @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
+            @error "Error in Pulser tag for channel $ch ($det): $(truncate_error(e))"
             throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
         end
 
@@ -171,7 +177,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey, det, "Calibration Curve"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_calibration_curve_$(e_type)"))
                 
-                log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
+                log_info = log_nt((det, ch, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
 
                 result_energy = (
                     m_cal_simple = result_simple.c,
@@ -187,8 +193,8 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
 
                 GC.gc()
             catch e
-                @error "Error in processing channel $ch: $(truncate_error(e))"
-                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
+                @error "Error in processing channel $ch ($det): $(truncate_error(e))"
+                log_info = log_nt((det, ch, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false
