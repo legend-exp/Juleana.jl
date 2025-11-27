@@ -25,8 +25,8 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
-    log_nt_puls = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number Pulser Events"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
+    log_nt_puls = NamedTuple{(:Detector, :Channel, :Status, Symbol("Number Pulser Events"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -43,16 +43,44 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
+        det_label_puls = string(det_puls)
         
-        # get pulser filename
-        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
+        # get pulser filename - use detector key for consistency
+        pulserfilename = l200.tier[:jlpls, filekey, det_puls]
+
+        # Helper to resolve data key (detector preferred, fallback to channel)
+        function resolve_data_key(ds, ch, det)
+            det_key = string(det)
+            ch_key = string(ch)
+            if haskey(ds, det_key)
+                return det_key
+            elseif haskey(ds, ch_key)
+                return ch_key
+            else
+                return nothing
+            end
+        end
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpls, :tags]), "Already processed --> skipped.")))
+            n_tags = try
+                lh5open(pulserfilename, "r") do ds
+                    key = resolve_data_key(ds, ch_puls, det_puls)
+                    if key === nothing
+                        @warn "Pulser data key not found in file"
+                        0
+                    else
+                        length(ds[key, :jlpls, :tags])
+                    end
+                end
+            catch e
+                @warn "Error reading pulser file: $(truncate_error(e))"
+                0
+            end
+            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), n_tags, "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
-        raw_pls = read_ldata(l200, DataTier(:raw), :phy, period, run, ch_puls)
+        raw_pls = read_ldata(l200, DataTier(:raw), :phy, period, run, det_puls)
         
         dsp_config_pd = dataprod_config(l200).dsp(filekey)
         dsp_config_pd_ch = merge(dsp_config_pd.default, get(dsp_config_pd, det_puls, PropDict()))
@@ -71,10 +99,10 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
-                outdata[ch_puls, :jlpls, :tags] = data_puls;
+                outdata[det_label_puls, :jlpls, :tags] = data_puls;
             end
         end
-        return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
+        return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(data_puls), "-")))
     end
 
     # get start time
@@ -114,7 +142,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].gain, pars_db[det][filter_type].res_1pe, pars_db[det][filter_type].trig_threshold.bsl_deriv.σ, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].gain, pars_db[det][filter_type].res_1pe, pars_db[det][filter_type].trig_threshold.bsl_deriv.σ, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -131,11 +159,16 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         # load data
         data_ch = nothing
         try
-            data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, period, run, chinfo_ch.channel)
+            # Try bit-dropped waveform, fall back to raw waveform if not present
+            try
+                data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, period, run, det)
+            catch
+                data_ch = read_ldata((:waveform, :timestamp), l200, DataTier(:raw), :phy, period, run, det)
+            end
             @debug "Loading SiPM data from $(period)-$(run)"
             if length(data_ch) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(data_ch), max_wvfs)
                 data_ch = data_ch[sel]
             end
         catch e
@@ -146,8 +179,10 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         wvfs_ch = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
-            is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls)
+            # Access nested tags structure: data_pulser.tags contains timestamp and aux_trig
+            pulser_tags = data_pulser.tags
+            is_pulser = flag_coincidences(data_ch.timestamp, pulser_tags.timestamp[pulser_tags.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             non_pulser_idx = findall(.!is_pulser)
             wvfs_col = hasproperty(data_ch, :waveform_bit_drop) ? :waveform_bit_drop : :waveform
@@ -157,8 +192,8 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             wvfs_ch = LegendHDF5IO.from_table(waveform_data, AbstractVector{<:LegendDataTypes.RDWaveform})
             wvfs_ch = decode_data(wvfs_ch)
         catch e
-            @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
-            throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
+            @error "Error in Pulser tag for channel $ch ($det): $(truncate_error(e))"
+            throw(ErrorException("Error in Pulser tag for channel $det: $(truncate_error(e))"))
         end
 
         @showprogress desc="Computing $det ..." for filter_type in e_filter
@@ -235,7 +270,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end
                 
-                log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_wl.wl, result_wl.gain, result_wl.res_1pe, result_trig.bsl_deriv.σ, "-"))
+                log_info = log_nt((det, ch, ProcessStatus(1), filter_type, result_wl.wl, result_wl.gain, result_wl.res_1pe, result_trig.bsl_deriv.σ, "-"))
 
                 # add results to dict
                 result_wl_dict[filter_type] = merge(result_wl, (trig_threshold = result_trig, ))
@@ -247,7 +282,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((ch, det, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, ch, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
