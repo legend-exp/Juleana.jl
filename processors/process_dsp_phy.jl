@@ -1,4 +1,4 @@
-function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=0, max_wvfs::Int=10000, use_partition_filter::Bool=false)
+function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=0, max_wvfs::Int=10000, use_partition_filter::Bool=false, use_dsp_config_defaults::Bool=false)
     
     @info "Process DSP for period $period and run $run"
 
@@ -18,6 +18,105 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded SiPM DSP config: $(dsp_meta_sipm)"
     dsp_meta_pmt = dataprod_config(l200).pmt(filekey)
     @debug "Loaded PMT DSP config: $(dsp_meta_pmt)"
+
+    # ========== Load default parameters from DSP config if requested ==========
+    dsp_default_tau = nothing
+    dsp_default_fltopt = nothing
+    dsp_default_aoeopt = nothing
+    dsp_default_sipm_wl = nothing
+    
+    if use_dsp_config_defaults
+        @info "Using DSP config defaults for missing parameters"
+
+        # Helper to parse quantity values from config
+        unit_map = Dict(
+            "µs" => u"µs", "us" => u"µs", "μs" => u"µs", "ns" => u"ns",
+        )
+
+        parse_quantity(entry, default_unit=nothing) = begin
+            if entry isa Unitful.Quantity
+                return entry
+            elseif entry isa PropDict
+                val = get(entry, :val, nothing)
+                unit_str = get(entry, :unit, nothing)
+                unit = unit_str === nothing ? default_unit : get(unit_map, String(unit_str), default_unit)
+                return val === nothing ? nothing : (unit === nothing ? val : val * unit)
+            elseif entry === nothing
+                return nothing
+            else
+                return default_unit === nothing ? entry : entry * default_unit
+            end
+        end
+
+        # Load default tau from DSP config (fallback to 460 µs)
+        # Note: tau is under dsp_config.pz.default.tau, not dsp_config.default.pz.tau
+        tau_entry = nothing
+        if haskey(dsp_config_pd, :pz) && haskey(dsp_config_pd.pz, :default)
+            tau_entry = get(dsp_config_pd.pz.default, :tau, nothing)
+        end
+        tau_quantity = parse_quantity(tau_entry, u"µs")
+        if tau_quantity === nothing
+            @warn "No tau default found in DSP config, falling back to 460.0 µs"
+            tau_quantity = 460.0 * u"µs"
+        end
+        dsp_default_tau = PropDict(:τ => tau_quantity)
+
+        # Load filter defaults from DSP config
+        dsp_default_fltopt = PropDict()
+        dsp_default_aoeopt = PropDict()
+        
+        if haskey(dsp_config_pd.default, :flt_defaults)
+            flt_defaults = dsp_config_pd.default.flt_defaults
+            
+            # Get required energy filter types from config, fallback to standard filters
+            required_energy_filters = haskey(dsp_config_pd.default, :required_fltopt) ? 
+                Symbol.(dsp_config_pd.default.required_fltopt) : [:trap, :zac, :cusp]
+
+            for filter_type in required_energy_filters
+                if haskey(flt_defaults, filter_type)
+                    filter_pars = flt_defaults[filter_type]
+                    rt_quantity = parse_quantity(get(filter_pars, :rt, nothing), u"µs")
+                    ft_quantity = parse_quantity(get(filter_pars, :ft, nothing), u"µs")
+                    if rt_quantity !== nothing && ft_quantity !== nothing
+                        dsp_default_fltopt[filter_type] = PropDict(:rt => rt_quantity, :ft => ft_quantity)
+                    end
+                end
+            end
+
+            if haskey(flt_defaults, :sg)
+                wl_quantity = parse_quantity(flt_defaults.sg, u"ns")
+                if wl_quantity !== nothing
+                    dsp_default_aoeopt[:sg] = PropDict(:wl => wl_quantity)
+                end
+            end
+        else
+            @warn "No flt_defaults found in DSP config"
+        end
+
+        # Load SiPM defaults
+        dsp_default_sipm_wl = nothing
+        if haskey(dsp_config_pd.default, :sipm_defaults) && haskey(dsp_config_pd.default.sipm_defaults, :sg)
+            wl_quantity = parse_quantity(get(get(dsp_config_pd.default.sipm_defaults, :sg, PropDict()), :wl, nothing), u"ns")
+            if wl_quantity !== nothing
+                dsp_default_sipm_wl = wl_quantity
+            end
+        end
+        if dsp_default_sipm_wl === nothing
+            @warn "No SiPM sg wl default found in DSP config, falling back to 148.0 ns"
+            dsp_default_sipm_wl = 148.0 * u"ns"
+        end
+
+        # Log all default values
+        @info "=== DSP Config Default Values ==="
+        @info "  Tau (decay time): $(dsp_default_tau.τ)"
+        for (flt, pars) in dsp_default_fltopt
+            @info "  Energy filter $flt: rt=$(pars.rt), ft=$(pars.ft)"
+        end
+        if haskey(dsp_default_aoeopt, :sg)
+            @info "  A/E filter sg: wl=$(dsp_default_aoeopt.sg.wl)"
+        end
+        @info "  SiPM sg: wl=$(dsp_default_sipm_wl)"
+    end
 
     # Load QC classifier; fall back to dummy labels when the ML file is missing
     f_evaluate_qc = nothing
@@ -89,8 +188,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all filekeys and channels"
     else @info "Only reprocess filekeys and channels that are not processed yet" end
 
-    # create log line Tuple
-    log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+    # create log line Tuple - extended to track default parameter usage
+    log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Default Tau"), Symbol("Default FltOpt"), Symbol("Default AoeOpt"), Symbol("Default SiPM"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -121,6 +220,11 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         n_detectors = 0
         # channel ids of failed detectors
         failed_detectors = DetectorId[]
+        # detectors using default parameters
+        default_tau_detectors = DetectorId[]
+        default_fltopt_detectors = DetectorId[]
+        default_aoeopt_detectors = DetectorId[]
+        default_sipm_detectors = DetectorId[]
         # start processing
         read_files(rawfilename, use_cache = false) do filename
             write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
@@ -250,12 +354,30 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         det = chinfo_ch.detector
                         det_label = string(det)
         
-                        # check if channel can be processed
-                        if !haskey(pars_sipm, det)
-                            @warn "No thresholds for detector $det, skip channel $ch"
-                            push!(failed_detectors, det)
-                            continue
+                        # check for existing optimization parameters
+                        detector_sipmopt_exists = haskey(pars_sipm, det)
+                        detector_sipmopt = detector_sipmopt_exists ? deepcopy(pars_sipm[det]) : PropDict()
+                        using_default_sipm = false
+
+                        # ensure Savitzky-Golay window length is available
+                        has_sg_wl = detector_sipmopt_exists && haskey(detector_sipmopt, :sg) && haskey(detector_sipmopt.sg, :wl) && detector_sipmopt.sg[:wl] !== nothing
+
+                        if !has_sg_wl
+                            if use_dsp_config_defaults && dsp_default_sipm_wl !== nothing
+                                sg_dict = haskey(detector_sipmopt, :sg) ? PropDict(detector_sipmopt[:sg]) : PropDict()
+                                default_wl_val = dsp_default_sipm_wl isa Unitful.Quantity ? ustrip(u"ns", dsp_default_sipm_wl) : dsp_default_sipm_wl
+                                sg_dict[:wl] = PropDict(:val => default_wl_val, :unit => "ns")
+                                detector_sipmopt[:sg] = sg_dict
+                                using_default_sipm = true
+                                push!(default_sipm_detectors, det)
+                                @info "Using default SiPM sg wl for detector $det"
+                            else
+                                @warn "No SiPM optimization parameters for detector $det, skip channel $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
                         end
+
                         raw_key = resolve_raw_key(raw_data, ch, det)
                         if raw_key === nothing
                             @warn "Channel $det ($ch) not found in raw file, skip"
@@ -275,7 +397,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process channel
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_sipm_compressed(raw_data[raw_key].raw[:], dsp_meta_ch, pars_sipm[det])
+                                outdata_ch = dsp_sipm_compressed(raw_data[raw_key].raw[:], dsp_meta_ch, detector_sipmopt)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -322,31 +444,83 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             continue
                         end
 
-                        # check for decay time
-                        if !haskey(pars_tau, det)
+                        # ========== Check/Build decay time ==========
+                        detector_tau = nothing
+                        using_default_tau = false
+                        if haskey(pars_tau, det)
+                            detector_tau = pars_tau[det]
+                        elseif use_dsp_config_defaults && dsp_default_tau !== nothing
+                            detector_tau = dsp_default_tau
+                            using_default_tau = true
+                            push!(default_tau_detectors, det)
+                            @info "Using default tau for detector $det"
+                        else
                             @warn "No decay time for detector $det, skip channel $ch"
                             push!(failed_detectors, det)
                             continue
                         end
-                        # check if channel has values for RT and FT for different filters
-                        if !haskey(pars_fltoptimization, det)
-                            @warn "No optimization parameters for detector $det, skip channel $ch"
-                            push!(failed_detectors, det)
-                            continue
+
+                        # ========== Check/Build filter optimization parameters ==========
+                        detector_fltopt = PropDict()
+                        using_default_fltopt = false
+                        using_default_aoeopt = false
+                        
+                        # Get required energy filter types from config
+                        required_energy_filters = haskey(dsp_config_pd_ch, :required_fltopt) ? 
+                            Symbol.(dsp_config_pd_ch.required_fltopt) : [:trap, :zac, :cusp]
+
+                        # Copy existing energy filter parameters
+                        if haskey(pars_fltoptimization, det)
+                            for key in keys(pars_fltoptimization[det])
+                                if any(startswith(string(key), string(filter)) for filter in required_energy_filters)
+                                    detector_fltopt[key] = pars_fltoptimization[det][key]
+                                end
+                            end
                         end
 
-                        # check if channel has all required flt opt pars
-                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_fltopt)))
+                        # Fill missing energy filter parameters with defaults
+                        if use_dsp_config_defaults && dsp_default_fltopt !== nothing
+                            for filter_type in Symbol.(dsp_config_pd_ch.required_fltopt)
+                                if !haskey(detector_fltopt, filter_type) && haskey(dsp_default_fltopt, filter_type)
+                                    detector_fltopt[filter_type] = dsp_default_fltopt[filter_type]
+                                    using_default_fltopt = true
+                                end
+                            end
+                            if using_default_fltopt
+                                push!(default_fltopt_detectors, det)
+                                @info "Using default energy filter parameters for detector $det"
+                            end
+                        end
+
+                        # Check if all required energy filter parameters are present
+                        if !all(haskey.(Ref(detector_fltopt), Symbol.(dsp_config_pd_ch.required_fltopt)))
                             @warn "Not all required energy filter optimization parameters for detector $det, skip channel $ch"
                             push!(failed_detectors, det)
                             continue
                         end
 
-                        # check if channel has all required aoe opt pars
-                        if chinfo_ch.usability == :on && chinfo_ch.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
-                            @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
-                            push!(failed_detectors, det)
-                            continue
+                        # Copy existing A/E filter parameters (sg)
+                        if haskey(pars_fltoptimization, det)
+                            for key in keys(pars_fltoptimization[det])
+                                if startswith(string(key), "sg")
+                                    detector_fltopt[key] = pars_fltoptimization[det][key]
+                                end
+                            end
+                        end
+
+                        # Fill missing A/E filter parameters with defaults (only for usable channels)
+                        if chinfo_ch.usability == :on && chinfo_ch.low_aoe_status in [:valid, :present]
+                            aoe_keys_missing = !any(startswith(string(key), "sg") for key in keys(detector_fltopt))
+                            if aoe_keys_missing && use_dsp_config_defaults && dsp_default_aoeopt !== nothing
+                                merge!(detector_fltopt, dsp_default_aoeopt)
+                                using_default_aoeopt = true
+                                push!(default_aoeopt_detectors, det)
+                                @info "Using default A/E filter parameters for detector $det"
+                            elseif aoe_keys_missing && !use_dsp_config_defaults
+                                @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
                         end
 
                         @debug "Processing channel $ch ($det)"
@@ -354,7 +528,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process data
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[raw_key].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_ch = dsp_icpc_compressed(raw_data[raw_key].raw[:], dsp_config_ch, detector_tau.τ, detector_fltopt; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -379,6 +553,24 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     close(outdata)
                 end
                 @info "Finished processing file: $(basename(filename))"
+                
+                # Log summary of default parameter usage
+                if use_dsp_config_defaults && (!isempty(default_tau_detectors) || !isempty(default_fltopt_detectors) || !isempty(default_aoeopt_detectors) || !isempty(default_sipm_detectors))
+                    @info "=== Default Parameter Usage Summary ==="
+                    if !isempty(default_tau_detectors)
+                        @info "  Tau (decay time): $(unique(default_tau_detectors))"
+                    end
+                    if !isempty(default_fltopt_detectors)
+                        @info "  Energy Filters (trap/zac/cusp): $(unique(default_fltopt_detectors))"
+                    end
+                    if !isempty(default_aoeopt_detectors)
+                        @info "  A/E Filter (sg): $(unique(default_aoeopt_detectors))"
+                    end
+                    if !isempty(default_sipm_detectors)
+                        @info "  SiPM (sg wl): $(unique(default_sipm_detectors))"
+                    end
+                end
+                
                 close(raw_data)
             end
         end
@@ -390,8 +582,20 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(dsp_timer)))
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
-        # create log
-        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_channel, []))+length(chinfo_sipm)+length(chinfo_pmts))", string.(failed_detectors), total_time, total_allocated, ""))
+        # create log with default parameter tracking
+        log_fk = log_nt((
+            fk, 
+            ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), 
+            "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_channel, []))+length(chinfo_sipm)+length(chinfo_pmts))", 
+            string.(failed_detectors),
+            isempty(default_tau_detectors) ? "-" : join(string.(unique(default_tau_detectors)), ", "),
+            isempty(default_fltopt_detectors) ? "-" : join(string.(unique(default_fltopt_detectors)), ", "),
+            isempty(default_aoeopt_detectors) ? "-" : join(string.(unique(default_aoeopt_detectors)), ", "),
+            isempty(default_sipm_detectors) ? "-" : join(string.(unique(default_sipm_detectors)), ", "),
+            total_time, 
+            total_allocated, 
+            ""
+        ))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
