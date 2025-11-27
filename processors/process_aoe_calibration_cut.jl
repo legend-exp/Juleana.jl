@@ -19,8 +19,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("Median norm. Resid."), Symbol("StD norm. Resid."), Symbol("FCT"), :CalError)}
-    log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
+    log_nt_cal = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("N Compt. Bands"), Symbol("Median norm. Resid."), Symbol("StD norm. Resid."), Symbol("FCT"), :CalError)}
+    log_nt_cut = NamedTuple{(:Detector, :Channel, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -72,14 +72,14 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
             for aoe_type in aoe_types
                 if haskey(pars_db[det], aoe_type)
                     pars_db_det_aoe_type = pars_db[det][aoe_type]
-                    log_ch = log_nt_cal(ch, det, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), get(pars_db_det_aoe_type.gof, :median_residuals, NaN), get(pars_db_det_aoe_type.gof, :std_residuals, NaN), get(pars_db_det_aoe_type.ctc, :fct, NaN), "Already processed --> skipped.")
+                    log_ch = log_nt_cal(det, ch, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), get(pars_db_det_aoe_type.gof, :median_residuals, NaN), get(pars_db_det_aoe_type.gof, :std_residuals, NaN), get(pars_db_det_aoe_type.ctc, :fct, NaN), "Already processed --> skipped.")
                     processed_dict[aoe_type] = false
                     log_info_dict[aoe_type] = log_ch
                 end
             end
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db[det], aoe_classifier)
-                    log_info = log_nt_cut((ch, det, ProcessStatus(1), aoe_classifier, pars_db[det][aoe_classifier].lowcut, pars_db[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((det, ch, ProcessStatus(1), aoe_classifier, pars_db[det][aoe_classifier].lowcut, pars_db[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -250,7 +250,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 )
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_normalized_$aoe_type"))
 
-                log_info = log_nt_cal(ch, det, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), get(result_aoe_ctc, :fct, NaN), "-")
+                log_info = log_nt_cal(det, ch, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), get(result_aoe_ctc, :fct, NaN), "-")
 
                 # create result
                 result = (
@@ -269,7 +269,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 GC.gc()
             catch e
                 @error "Error in $aoe_type calibration: $(truncate_error(e))"
-                log_info = log_nt_cal((ch, det, ProcessStatus(0), aoe_type, fill("-", 4)..., truncate_error(e)))
+                log_info = log_nt_cal((det, ch, ProcessStatus(0), aoe_type, fill("-", 4)..., truncate_error(e)))
                 # add results to dict
                 log_info_dict[aoe_type] = log_info
                 processed_dict[aoe_type] = false
@@ -379,7 +379,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
 
-                log_info = log_nt_cut((ch, det, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
+                log_info = log_nt_cut((det, ch, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[aoe_classifier]   = result
@@ -389,7 +389,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 GC.gc()
             catch e
                 @error "Error in $aoe_classifier cut generation: $(truncate_error(e))"
-                log_info = log_nt_cut((ch, det, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt_cut((det, ch, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info

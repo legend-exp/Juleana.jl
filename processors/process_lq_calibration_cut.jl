@@ -22,8 +22,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
-    log_nt_cut = NamedTuple{(:Channel, :Detector, :Status, Symbol("Classifier Type"), Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
+    log_nt_cal = NamedTuple{(:Detector, :Channel, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
+    log_nt_cut = NamedTuple{(:Detector, :Channel, :Status, Symbol("Classifier Type"), Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -94,7 +94,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             @debug "Channel $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
                 if !haskey(pars_db[det], lq_type)
-                    log_ch = log_nt_cal(ch, det, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
+                    log_ch = log_nt_cal(det, ch, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
                     processed_dict[lq_type] = false
                     log_info_dict[lq_type] = log_ch
                 end
@@ -104,7 +104,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                     # Compatibility: use highcut (current) or fallback to cut (legacy)
                     lq_pars = pars_db[det][lq_classifier]
                     lq_cut_val = haskey(lq_pars, :highcut) ? lq_pars.highcut : lq_pars.cut
-                    log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_classifier, lq_cut_val, lq_pars.peaks[:Tl208DEP].sf, lq_pars.qbb.sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((det, ch, ProcessStatus(1), lq_classifier, lq_cut_val, lq_pars.peaks[:Tl208DEP].sf, lq_pars.qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false
@@ -206,7 +206,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
 
 
                 # create log entry
-                log_info = log_nt_cal(ch, det, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
+                log_info = log_nt_cal(det, ch, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
 
                 # add results to dict
                 result_dict[lq_type]   =  merge(result, (drift_result = drift_result, mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq))
@@ -217,7 +217,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 GC.gc()
             catch e
                 @error "Error in $lq_type calibration: $(truncate_error(e))"
-                log_info = log_nt_cal((ch, det, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
+                log_info = log_nt_cal((det, ch, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
 
                 # add results to dict
                 log_info_dict[lq_type] = log_info
@@ -296,7 +296,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 # save results
                 final_result = (highcut = high_cut_sigma, peaks = result_peaks, qbb = result_qbb)
 
-                log_info = log_nt_cut((ch, det, ProcessStatus(1), lq_classifier, final_result.highcut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
+                log_info = log_nt_cut((det, ch, ProcessStatus(1), lq_classifier, final_result.highcut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
 
                 # add results to dict
                 result_dict[lq_classifier] = final_result
@@ -306,7 +306,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                 GC.gc()
             catch e
                 @error "Error in lq cut generation: $(truncate_error(e))"
-                log_info = log_nt_cut((ch, det, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt_cut((det, ch, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[lq_classifier] = log_info

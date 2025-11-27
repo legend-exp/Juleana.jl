@@ -22,7 +22,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -62,7 +62,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fwhm.qbb, pars_db[det][e_type].fit.Tl208FEP.fwhm, pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), e_type, pars_db[det][e_type].fwhm.qbb, pars_db[det][e_type].fit.Tl208FEP.fwhm, pars_db[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -211,7 +211,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
 
                 yield()
 
-                log_info = log_nt((ch, det, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
+                log_info = log_nt((det, ch, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
 
                 result_energy = (
                     m_cal_simple = m_cal_simple,
@@ -228,7 +228,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
                 GC.gc()
             catch e
                 @error "Error in $e_type calibration: $(truncate_error(e))"
-                log_info = log_nt((ch, det, ProcessStatus(0), e_type, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt((det, ch, ProcessStatus(0), e_type, "-", "-", "-", truncate_error(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false

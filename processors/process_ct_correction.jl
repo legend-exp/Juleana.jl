@@ -19,7 +19,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -72,7 +72,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), e_type, pars_db[det][e_type].fct*1e6, pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), e_type, pars_db[det][e_type].fct*1e6, pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after, "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -137,7 +137,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("ctc_$(e_type)"))
 
                 yield()
-                log_ch = log_nt((ch, det, ProcessStatus(1), "$e_type", result_ctc.fct*1e6, result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))
+                log_ch = log_nt((det, ch, ProcessStatus(1), "$e_type", result_ctc.fct*1e6, result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))
 
                 # add results to dict
                 result_dict[e_type]   = result_ctc
@@ -145,7 +145,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
                 processed_dict[e_type] = true
             catch e
                 @error "Error in $e_type CT correction: $(truncate_error(e))"
-                log_ch = log_nt((ch, det, ProcessStatus(0), "$e_type", "-", "-", "-", "$(truncate_error(e))"))
+                log_ch = log_nt((det, ch, ProcessStatus(0), "$e_type", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = false
