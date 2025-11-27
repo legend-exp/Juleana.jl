@@ -98,6 +98,18 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     # flush stdout
     flush(stdout)
 
+    function resolve_raw_key(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
     function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
         # raw and dsp filename
@@ -122,8 +134,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                 # open output file
                 outdata = lh5open(outfilename, "cw")
-                # get processed channels
-                processed_channels = keys(outdata)
+                # keep track of already processed detectors
+                processed_channels = Set(string.(keys(outdata)))
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
@@ -131,13 +143,21 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         # process additional channels
                         for det in DetectorId.(keys(dsp_config_pd.additional_channel))
                             ch = channelinfo(l200, filekey, det).channel
+                            det_label = string(det)
 
                             dsp_config_pd_ch = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
                             dsp_config_ch = DSPConfig(dsp_config_pd_ch)
                             @debug "Loaded DSP config: $(dsp_config_ch)"
 
                             # check if channel can be processed
-                            if "$ch" in processed_channels && !reprocess
+                            raw_key = resolve_raw_key(raw_data, ch, det)
+                            if raw_key === nothing
+                                @warn "Channel $det ($ch) not found in raw file, skip"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+
+                            if det_label in processed_channels && !reprocess
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
                                 continue
@@ -148,7 +168,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 # process data
                                 outdata_ch = nothing
                                 try
-                                    outdata_ch = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[ch].raw[:], dsp_config_ch)
+                                    outdata_ch = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[raw_key].raw[:], dsp_config_ch)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -158,7 +178,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     continue
                                 end
                                 # save data to hdf5
-                                outdata[ch, :jldsp] = outdata_ch
+                                outdata[det_label, :jldsp] = outdata_ch
+                                push!(processed_channels, det_label)
                                 # free memory
                                 GC.gc()
                                 # count number of detectors processed and Successful
@@ -168,7 +189,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     end
 
                     # loop over channels
-                    if all(.!haskey.(Ref(raw_data), string.(chinfo_pmts.channel)))
+                    if all(chinfo_ch -> resolve_raw_key(raw_data, chinfo_ch.channel, chinfo_ch.detector) === nothing, chinfo_pmts)
                         @warn "No PMT data found in $(fk), skip PMT processing"
                         n_detectors += length(chinfo_pmts)
                     else
@@ -176,9 +197,17 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                             ch = chinfo_ch.channel
                             det = chinfo_ch.detector
+                            det_label = string(det)
             
                             # check if channel can be processed
-                            if "$ch" in processed_channels && !reprocess
+                            raw_key = resolve_raw_key(raw_data, ch, det)
+                            if raw_key === nothing
+                                @warn "Channel $det ($ch) not found in raw file, skip"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+
+                            if det_label in processed_channels && !reprocess
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
                                 continue
@@ -191,7 +220,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 # process channel
                                 outdata_ch = nothing
                                 try
-                                    outdata_ch = dsp_pmts(raw_data[ch].raw[:], dsp_meta_ch)
+                                    outdata_ch = dsp_pmts(raw_data[raw_key].raw[:], dsp_meta_ch)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -201,7 +230,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     continue
                                 end
                                 # save data to hdf5
-                                outdata[ch, :jldsp] = outdata_ch
+                                outdata[det_label, :jldsp] = outdata_ch
+                                push!(processed_channels, det_label)
                                 # free memory
                                 GC.gc()
                                 # count number of detectors processed and Successful
@@ -218,6 +248,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         ch = chinfo_ch.channel
                         det = chinfo_ch.detector
+                        det_label = string(det)
         
                         # check if channel can be processed
                         if !haskey(pars_sipm, det)
@@ -225,7 +256,13 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             push!(failed_detectors, det)
                             continue
                         end
-                        if "$ch" in processed_channels && !reprocess
+                        raw_key = resolve_raw_key(raw_data, ch, det)
+                        if raw_key === nothing
+                            @warn "Channel $det ($ch) not found in raw file, skip"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+                        if det_label in processed_channels && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -238,7 +275,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process channel
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_sipm_compressed(raw_data[ch].raw[:], dsp_meta_ch, pars_sipm[det])
+                                outdata_ch = dsp_sipm_compressed(raw_data[raw_key].raw[:], dsp_meta_ch, pars_sipm[det])
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -248,7 +285,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            outdata[ch, :jldsp] = outdata_ch
+                            outdata[det_label, :jldsp] = outdata_ch
+                            push!(processed_channels, det_label)
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful
@@ -264,13 +302,21 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         ch = chinfo_ch.channel
                         det = chinfo_ch.detector
+                        det_label = string(det)
 
                         dsp_config_pd_ch = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
                         dsp_config_ch = DSPConfig(dsp_config_pd_ch)
                         @debug "Loaded DSP config: $(dsp_config_ch)"
 
                         # check if channel can be processed
-                        if "$ch" in processed_channels && !reprocess
+                        raw_key = resolve_raw_key(raw_data, ch, det)
+                        if raw_key === nothing
+                            @warn "Channel $det ($ch) not found in raw file, skip"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+
+                        if det_label in processed_channels && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -308,7 +354,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process data
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_ch = dsp_icpc_compressed(raw_data[raw_key].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -318,7 +364,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            outdata[ch, :jldsp] = outdata_ch
+                            outdata[det_label, :jldsp] = outdata_ch
+                            push!(processed_channels, det_label)
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful

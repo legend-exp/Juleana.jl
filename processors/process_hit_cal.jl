@@ -30,9 +30,44 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     # flush stdout
     flush(stdout)
 
+    function resolve_data_key(ds, ch::ChannelIdLike, det::DetectorIdLike)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
+    function ensure_data_key(ds, ch::ChannelIdLike, det::DetectorIdLike)
+        data_key = resolve_data_key(ds, ch, det)
+        if data_key === nothing
+            det_label = string(det)
+            ch_label = string(ch)
+            throw(ErrorException("Channel $(det_label) ($(ch_label)) not found in \"$(basename(ds.data_store.filename))\""))
+        end
+        return data_key
+    end
+
     # write out pulser events
     chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_channel))
     @info "Loaded pulser channel info: $(chinfo_puls)"
+
+    function pulser_filenames(l200::LegendData, filekey, ch::ChannelIdLike, det::DetectorIdLike)
+        channel_path = l200.tier[:jlpls, filekey, ch]
+        det_label = string(det)
+        if occursin(det_label, channel_path)
+            return channel_path, channel_path
+        end
+        ch_label = string(ch)
+        base = basename(channel_path)
+        new_base = occursin(ch_label, base) ? replace(base, ch_label => det_label) : replace(base, "-tier_jlpls" => "-$(det_label)-tier_jlpls")
+        new_path = joinpath(dirname(channel_path), new_base)
+        return new_path, channel_path
+    end
 
     # get information about pulser events from raw trigger
     function ch_puls_cal(chinfo_puls::NamedTuple)
@@ -40,11 +75,26 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
         
-        # get pulser filename
-        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
+        det_label_puls = string(det_puls)
+        pulserfilename, legacyfilename = pulser_filenames(l200, filekey, ch_puls, det_puls)
+
+        if pulserfilename != legacyfilename && !isfile(pulserfilename) && isfile(legacyfilename)
+            mkpath(dirname(pulserfilename))
+            mv(legacyfilename, pulserfilename; force=true)
+            @info "Moved legacy pulser file $(basename(legacyfilename)) to detector path $(basename(pulserfilename))"
+        end
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpls, :tags]), "Already processed --> skipped.")))
+            n_tags = try
+                lh5open(pulserfilename, "r") do ds
+                    key = ensure_data_key(ds, ch_puls, det_puls)
+                    length(ds[key, :jlpls, :tags])
+                end
+            catch e
+                @warn "Error reading pulser file for $det_puls ($ch_puls): $(truncate_error(e))"
+                nothing
+            end
+            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), something(n_tags, 0), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
@@ -54,7 +104,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
-                outdata[ch_puls, :jlpls, :tags] = data_puls;
+                outdata[det_label_puls, :jlpls, :tags] = data_puls;
             end
         end
         return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
@@ -78,8 +128,17 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
 
-        hitchfilename = l200.tier[:jlhit, filekey, ch]
-        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
+        det_label = string(det)
+        det_label_puls = string(det_puls)
+
+        hitchfilename = l200.tier[:jlhit, filekey, det]
+        pulserfilename, legacyfilename = pulser_filenames(l200, filekey, ch_puls, det_puls)
+
+        if pulserfilename != legacyfilename && !isfile(pulserfilename) && isfile(legacyfilename)
+            mkpath(dirname(pulserfilename))
+            mv(legacyfilename, pulserfilename; force=true)
+            @info "Moved legacy pulser file $(basename(legacyfilename)) to detector path $(basename(pulserfilename))"
+        end
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
             log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
@@ -126,7 +185,10 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         try
             @debug "Get Pulser tags"
             # pulser_tag = pulser_cal_qc(data_ch, pulser_config_ch; n_pulser_identified=100)
-            data_pulser = lh5open(pulserfilename)[ch_puls, :jlpls, :tags][:]
+            data_pulser = lh5open(pulserfilename) do ds
+                key = ensure_data_key(ds, ch_puls, det_puls)
+                ds[key, :jlpls, :tags][:]
+            end
             is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp, ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
@@ -158,13 +220,13 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         write_files(hitchfilename, use_cache = true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save QC"
-                outdata[ch, :jlhit, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
+                outdata[det_label, :jlhit, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
                 @info "Save Pulser Tags"
-                outdata[ch, :jlhit, :pulserTag] = is_pulser;
+                outdata[det_label, :jlhit, :pulserTag] = is_pulser;
                 @info "Save data after QC"
-                outdata[ch, :jlhit, :dataQC] = data_ch_after_qc;
+                outdata[det_label, :jlhit, :dataQC] = data_ch_after_qc;
                 @info "Save data pulser"
-                outdata[ch, :jlhit, :dataPulser] = data_pulser;
+                outdata[det_label, :jlhit, :dataPulser] = data_pulser;
             end
         end
 

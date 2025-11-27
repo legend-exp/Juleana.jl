@@ -88,6 +88,18 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     # flush stdout
     flush(stdout)
 
+    function resolve_raw_key(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
     function filekey_dsp(fk::FileKey)
         dsp_timer = TimerOutput()
         # raw and dsp filename
@@ -113,7 +125,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                 # open output file
                 outdata = lh5open(outfilename, "cw")
                 # get processed channels
-                processed_channels = keys(outdata)
+                processed_channels = Set(keys(outdata))
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
@@ -128,7 +140,15 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                         @debug "Loaded DSP config: $(dsp_config_ch)"
 
                         # check if channel can be processed
-                        if "$ch" in processed_channels && !reprocess
+                        det_label = string(det)
+                        raw_key = resolve_raw_key(raw_data, ch, det)
+                        if raw_key === nothing
+                            @warn "Channel $det ($ch) not found in raw file, skip"
+                            push!(failed_detectors, det)
+                            continue
+                        end
+
+                        if det_label in processed_channels && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -166,7 +186,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                             # process data
                             outdata_ch = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_ch = dsp_icpc_compressed(raw_data[raw_key].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -175,8 +195,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 push!(failed_detectors, det)
                                 continue
                             end
-                            # save data to hdf5
-                            outdata[ch, :jldsp] = outdata_ch
+                            # save data to hdf5 under detector key
+                            outdata[det_label, :jldsp] = outdata_ch
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful
