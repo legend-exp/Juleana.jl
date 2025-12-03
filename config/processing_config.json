@@ -29,8 +29,8 @@
         }
     },
     "processing": {
-        "periods": [16],
-        "runs" : [1],
+        "periods": [],
+        "runs" : [],
         "analysis_runs_only": false,
         "only_partitions": false,
         "only_runs": false
@@ -82,7 +82,7 @@
             "dependencies": []
         },
         "process_dsp_cal": {
-            "enabled": true,
+            "enabled": false,
             "n_workers": "all",
             "category": "cal",
             "rank": 5,
@@ -175,7 +175,7 @@
             "dependencies": []
         },
         "process_dsp_phy": {
-            "enabled": false,
+            "enabled": true,
             "n_workers": "all",
             "category": "phy",
             "rank": 13,
@@ -194,7 +194,7 @@
             "category": "phy",
             "rank": 14,
             "kwargs": {
-                "reprocess": false,
+                "reprocess": true,
                 "timeout": 0
             },
             "dependencies": []
@@ -205,10 +205,22 @@
             "category": "phy",
             "rank": 15,
             "kwargs": {
-                "reprocess": true,
+                "reprocess": false,
                 "timeout": 0
             },
             "dependencies": ["p_process_sipm_calibration_phy"]
+        },
+        "process_skm_phy": {
+            "enabled": false,
+            "n_workers": "all",
+            "category": "phy",
+            "rank": 16,
+            "kwargs": {
+                "reprocess": true,
+                "timeout": 0,
+                "store_filtered": true
+            },
+            "dependencies": []
         }
     },
     "p_processors":
