@@ -163,19 +163,19 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
             try
                 merge!(pars_tau, get_values(l200.par.ppars.pz[det, part]))
             catch e
-                @warn "No decay time for detector $det, skip channel $ch"
+                @warn "No decay time for detector $det ($ch), skip"
                 continue
             end
             try
                 merge!(pars_fltoptimization, get_values(l200.par.ppars.fltopt[det, part]))
             catch e
-                @warn "No flt optimization parameters for detector $det, skip channel $ch"
+                @warn "No flt optimization parameters for detector $det ($ch), skip"
                 continue
             end
             try
                 merge!(pars_fltoptimization, get_values(l200.par.ppars.aoeopt[det, part]))
             catch e
-                @warn "No aoe flt optimization parameters for detector $det, skip channel $ch"
+                @warn "No aoe flt optimization parameters for detector $det ($ch), skip"
                 continue
             end
         end
@@ -256,7 +256,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # check if channel can be processed
                             raw_key = resolve_raw_key(raw_data, ch, det)
                             if raw_key === nothing
-                                @warn "Channel $det ($ch) not found in raw file, skip"
+                                @warn "Detector $det ($ch) not found in raw file, skip"
                                 push!(failed_detectors, det)
                                 continue
                             end
@@ -267,7 +267,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
 
-                            @debug "Processing channel $ch ($det)"
+                            @debug "Processing detector $det ($ch)"
                             @timeit dsp_timer "DSP $det" begin
                                 # process data
                                 outdata_ch = nothing
@@ -277,7 +277,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     if e isa TaskFailedException
                                         e = e.task.exception
                                     end
-                                    @error "Error processing channel $ch ($det) in $(fk): $(truncate_error(e))"
+                                    @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
                                     push!(failed_detectors, det)
                                     continue
                                 end
@@ -306,7 +306,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # check if channel can be processed
                             raw_key = resolve_raw_key(raw_data, ch, det)
                             if raw_key === nothing
-                                @warn "Channel $det ($ch) not found in raw file, skip"
+                                @warn "Detector $det ($ch) not found in raw file, skip"
                                 push!(failed_detectors, det)
                                 continue
                             end
@@ -317,7 +317,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
             
-                            @debug "Processing channel $ch ($det)"
+                            @debug "Processing detector $det ($ch)"
                             @timeit dsp_timer "DSP $det" begin
                                 # get metadata
                                 dsp_meta_ch = merge(dsp_meta_pmt.default, get(dsp_meta_pmt, det, PropDict()))
@@ -329,7 +329,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     if e isa TaskFailedException
                                         e = e.task.exception
                                     end
-                                    @error "Error processing channel $ch ($det) in $(fk): $(truncate_error(e))"
+                                    @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
                                     push!(failed_detectors, det)
                                     continue
                                 end
@@ -372,7 +372,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 push!(default_sipm_detectors, det)
                                 @info "Using default SiPM sg wl for detector $det"
                             else
-                                @warn "No SiPM optimization parameters for detector $det, skip channel $ch"
+                                @warn "No SiPM optimization parameters for detector $det ($ch), skip"
                                 push!(failed_detectors, det)
                                 continue
                             end
@@ -380,7 +380,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         raw_key = resolve_raw_key(raw_data, ch, det)
                         if raw_key === nothing
-                            @warn "Channel $det ($ch) not found in raw file, skip"
+                            @warn "Detector $det ($ch) not found in raw file, skip"
                             push!(failed_detectors, det)
                             continue
                         end
@@ -390,7 +390,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             continue
                         end
         
-                        @debug "Processing channel $ch ($det)"
+                        @debug "Processing detector $det ($ch)"
                         @timeit dsp_timer "DSP $det" begin
                             # get metadata
                             dsp_meta_ch = merge(dsp_meta_sipm.default, get(dsp_meta_sipm, det, PropDict()))
@@ -402,7 +402,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 if e isa TaskFailedException
                                     e = e.task.exception
                                 end
-                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_error(e))"
+                                @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
                                 push!(failed_detectors, det)
                                 continue
                             end
@@ -433,7 +433,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         # check if channel can be processed
                         raw_key = resolve_raw_key(raw_data, ch, det)
                         if raw_key === nothing
-                            @warn "Channel $det ($ch) not found in raw file, skip"
+                            @warn "Detector $det ($ch) not found in raw file, skip"
                             push!(failed_detectors, det)
                             continue
                         end
@@ -455,7 +455,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             push!(default_tau_detectors, det)
                             @info "Using default tau for detector $det"
                         else
-                            @warn "No decay time for detector $det, skip channel $ch"
+                            @warn "No decay time for detector $det ($ch), skip"
                             push!(failed_detectors, det)
                             continue
                         end
@@ -494,7 +494,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         # Check if all required energy filter parameters are present
                         if !all(haskey.(Ref(detector_fltopt), Symbol.(dsp_config_pd_ch.required_fltopt)))
-                            @warn "Not all required energy filter optimization parameters for detector $det, skip channel $ch"
+                            @warn "Missing energy filter optimization parameters for detector $det ($ch), skip"
                             push!(failed_detectors, det)
                             continue
                         end
@@ -517,13 +517,13 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 push!(default_aoeopt_detectors, det)
                                 @info "Using default A/E filter parameters for detector $det"
                             elseif aoe_keys_missing && !use_dsp_config_defaults
-                                @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
+                                @warn "Missing A/E optimization parameters for detector $det ($ch), skip"
                                 push!(failed_detectors, det)
                                 continue
                             end
                         end
 
-                        @debug "Processing channel $ch ($det)"
+                        @debug "Processing detector $det ($ch)"
                         @timeit dsp_timer "DSP $det" begin
                             # process data
                             outdata_ch = nothing
@@ -533,7 +533,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 if e isa TaskFailedException
                                     e = e.task.exception
                                 end
-                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_error(e))"
+                                @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
                                 push!(failed_detectors, det)
                                 continue
                             end
