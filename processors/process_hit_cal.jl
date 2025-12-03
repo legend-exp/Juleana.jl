@@ -21,8 +21,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
-    log_nt_puls = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number Pulser Events"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
+    log_nt_puls = NamedTuple{(:Detector, :Channel, :Status, Symbol("Number Pulser Events"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -94,7 +94,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
                 @warn "Error reading pulser file for $det_puls ($ch_puls): $(truncate_error(e))"
                 nothing
             end
-            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), something(n_tags, 0), "Already processed --> skipped.")))
+            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), something(n_tags, 0), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
@@ -107,7 +107,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
                 outdata[det_label_puls, :jlpls, :tags] = data_puls;
             end
         end
-        return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
+        return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
     end
 
     # get start time
@@ -141,7 +141,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         end
 
         if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
+            log_ch = log_nt((det, ch, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
             try
                 close(lh5open(hitchfilename, "r"))
                 @debug "Channel $(det) already processed"
@@ -157,7 +157,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         @debug "Processing channel $ch ($det)"
         
-        data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, ch)
+        # Load DSP data: try det name first, fallback to channel id
+        data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, det)
         
         if length(data_ch) < 5000
             @error "Not enough data points for channel $ch ($det), skip"
@@ -231,7 +232,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         end
 
         sf, n_pulser = count(is_physical) / length(is_physical) * 100u"percent", ifelse(!isempty(data_pulser), length(data_pulser), 0)
-        log_ch = log_nt((ch, det, ProcessStatus(1), sf, n_pulser, "-"))
+        log_ch = log_nt((det, ch, ProcessStatus(1), sf, n_pulser, "-"))
 
 
         for cut in columnnames(qc)
