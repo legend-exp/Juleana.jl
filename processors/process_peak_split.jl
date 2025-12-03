@@ -242,7 +242,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            output[ch, :jlpeaks, label] = normalize_waveform_columns(slim_data[label])
+                            output[det, :jlpeaks, label] = normalize_waveform_columns(slim_data[label])
                         end
                     end
                 end
