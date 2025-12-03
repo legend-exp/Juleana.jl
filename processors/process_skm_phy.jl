@@ -178,15 +178,28 @@ function process_skm_phy(processing_config::PropDict, l200::LegendData, period::
     # flush stdout
     flush(stdout)
 
-    # Build selection function from config (using module-level function)
-    skm_selection = _skm_build_selection(evt_sel, energy_type, min_energy)
-
     # Get all jlevt filekeys for this run
     tier_path = l200.tier[:jlevt, :phy, period, run]
     all_filekeys = search_disk(FileKey, tier_path)
     filekeys = filter(!in(bad_filekeys(l200)), all_filekeys)
     n_filtered = length(all_filekeys) - length(filekeys)
     @info "Found $(length(all_filekeys)) jlevt filekeys" * (n_filtered > 0 ? ", filtered out $n_filtered bad filekeys" : "")
+
+    # Pre-compute file paths for all filekeys (avoids serializing l200 to workers)
+    filekey_paths = Dict{FileKey, String}(fk => l200.tier[:jlevt, fk] for fk in filekeys)
+
+    # Extract simple, serialization-safe values from evt_sel config
+    # These will be captured by the worker function without serialization issues
+    sel_exclude_pulser = Bool(evt_sel.exclude_pulser)
+    sel_exclude_forcedtrigger = Bool(evt_sel.exclude_forcedtrigger)
+    sel_exclude_muon01 = Bool(evt_sel.exclude_muon01)
+    sel_require_valid_muon = Bool(evt_sel.require_valid_muon)
+    sel_require_valid_qc = Bool(evt_sel.require_valid_qc)
+    sel_require_valid_trig = Bool(evt_sel.require_valid_trig)
+    sel_require_valid_hit = Bool(evt_sel.require_valid_hit)
+    sel_multiplicity = Int(evt_sel.multiplicity)
+    sel_min_energy_val = Float64(ustrip(u"keV", min_energy))  # Convert to raw Float64 in keV
+    sel_energy_type = energy_type  # Symbol is serialization-safe
 
     # Check if already processed
     if !reprocess && isfile(skmfilename)
@@ -224,11 +237,11 @@ function process_skm_phy(processing_config::PropDict, l200::LegendData, period::
     # get start time
     start_time = now()
 
-    # Worker function - must be self-contained for serialization to workers
-    # Cannot call external functions defined at file scope
+    # Worker function - captures only simple, serialization-safe types
+    # Uses pre-computed paths and extracted config values to avoid serializing l200/PropDict
     function load_and_filter_fk(fk::FileKey)
         fk_timer = TimerOutput()
-        evtfilename = l200.tier[:jlevt, fk]
+        evtfilename = filekey_paths[fk]  # Use pre-computed path instead of l200.tier
         
         n_before, n_after = 0, 0
         filtered_data = nothing
@@ -250,35 +263,51 @@ function process_skm_phy(processing_config::PropDict, l200::LegendData, period::
                 n_before = length(evt_data)
                 
                 # Compute individual filter statistics on unfiltered data
+                # Uses captured simple Bool/Int values instead of PropDict
                 # Auxiliary trigger cuts
-                if evt_sel.exclude_pulser
+                if sel_exclude_pulser
                     filter_counts["exclude\\_pulser"] = count(row -> !row.aux.pulser.aux_trig, evt_data)
                 end
-                if evt_sel.exclude_forcedtrigger
+                if sel_exclude_forcedtrigger
                     filter_counts["exclude\\_forcedtrigger"] = count(row -> !row.aux.forcedtrigger.aux_trig, evt_data)
                 end
-                if evt_sel.exclude_muon01
+                if sel_exclude_muon01
                     filter_counts["exclude\\_muon01"] = count(row -> !row.aux.muonveto.aux_trig, evt_data)
                 end
                 # Veto and QC cuts
-                if evt_sel.require_valid_muon
+                if sel_require_valid_muon
                     filter_counts["require\\_valid\\_muon"] = count(row -> row.ged_pmt.is_valid_muon, evt_data)
                 end
-                if evt_sel.require_valid_qc
+                if sel_require_valid_qc
                     filter_counts["require\\_valid\\_qc"] = count(row -> row.geds.is_valid_qc, evt_data)
                 end
-                if evt_sel.require_valid_trig
+                if sel_require_valid_trig
                     filter_counts["require\\_valid\\_trig"] = count(row -> row.geds.is_valid_trig, evt_data)
                 end
-                if evt_sel.require_valid_hit
+                if sel_require_valid_hit
                     filter_counts["require\\_valid\\_hit"] = count(row -> row.geds.is_valid_hit, evt_data)
                 end
-                # Multiplicity and energy cuts
-                filter_counts["multiplicity=$(evt_sel.multiplicity)"] = count(row -> row.geds.multiplicity == evt_sel.multiplicity, evt_data)
-                filter_counts["$(energy_type)>$(min_energy)"] = count(row -> getproperty(row.geds, energy_type) > min_energy, evt_data)
+                # Multiplicity and energy cuts (using raw Float64 value in keV)
+                filter_counts["multiplicity=$(sel_multiplicity)"] = count(row -> row.geds.multiplicity == sel_multiplicity, evt_data)
+                filter_counts["$(sel_energy_type)>$(sel_min_energy_val)keV"] = count(row -> ustrip(u"keV", getproperty(row.geds, sel_energy_type)) > sel_min_energy_val, evt_data)
                 
-                # Filter events using captured skm_selection closure
-                filtered_data = filter(skm_selection, evt_data)
+                # Filter events using inline selection (avoids capturing complex closure)
+                filtered_data = filter(evt_data) do row
+                    # Auxiliary trigger cuts
+                    pulser_cut = sel_exclude_pulser ? !row.aux.pulser.aux_trig : true
+                    ft_cut = sel_exclude_forcedtrigger ? !row.aux.forcedtrigger.aux_trig : true
+                    muon01_cut = sel_exclude_muon01 ? !row.aux.muonveto.aux_trig : true
+                    # Veto and QC cuts  
+                    muon_cut = sel_require_valid_muon ? row.ged_pmt.is_valid_muon : true
+                    qc_cut = sel_require_valid_qc ? row.geds.is_valid_qc : true
+                    trig_cut = sel_require_valid_trig ? row.geds.is_valid_trig : true
+                    hit_cut = sel_require_valid_hit ? row.geds.is_valid_hit : true
+                    # Multiplicity and energy cuts (compare raw keV values)
+                    mult_cut = row.geds.multiplicity == sel_multiplicity
+                    energy_cut = ustrip(u"keV", getproperty(row.geds, sel_energy_type)) > sel_min_energy_val
+                    
+                    return pulser_cut && ft_cut && muon01_cut && muon_cut && qc_cut && trig_cut && hit_cut && mult_cut && energy_cut
+                end
                 n_after = length(filtered_data)
                 
                 @debug "FileKey $fk: $n_before -> $n_after events"
@@ -324,8 +353,9 @@ function process_skm_phy(processing_config::PropDict, l200::LegendData, period::
     @info "Combined $(length(combined_data)) filtered events from $(length(filtered_tables)) files"
 
     # Compute totals from parallel results (no need to reload data)
-    n_total_before = sum(res.log[Symbol("Events Before")] for (_, res) in results_parallel)
-    n_total_after = sum(res.log[Symbol("Events After")] for (_, res) in results_parallel)
+    # Note: Failed/timeout tasks may have "-" strings instead of integers, so we filter for numeric values
+    n_total_before = sum(res.log[Symbol("Events Before")] for (_, res) in results_parallel if res.log[Symbol("Events Before")] isa Number)
+    n_total_after = sum(res.log[Symbol("Events After")] for (_, res) in results_parallel if res.log[Symbol("Events After")] isa Number)
     
     # Aggregate filter statistics from all workers (exact counts, not scaled)
     @info "Aggregating filter statistics from all workers..."
