@@ -124,23 +124,37 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         try
             @debug "Get Pulser tags"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                # Try to load pulser data with detector key first, fallback to channel key
-                data_pulser = nothing
-                for pkey in (det_puls, ch_puls)
-                    try
-                        data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, pkey)
-                        @debug "Loaded pulser data with key: $pkey"
-                        break
-                    catch e
-                        @debug "Failed to load pulser data with key $pkey: $(truncate_error(e))"
+                # Load pulser data run-by-run and combine timestamps
+                pulser_timestamps = nothing
+                for pinfo in partinfo_ch
+                    @debug "Loading pulser data from $(pinfo.period)-$(pinfo.run)"
+                    pls_data = nothing
+                    # Try detector key first, fallback to channel key
+                    for pkey in (det_puls, ch_puls)
+                        try
+                            pls_data = read_ldata(:tags, l200, DataTier(:jlpls), :phy, pinfo.period, pinfo.run, pkey)
+                            @debug "Loaded pulser data with key: $pkey for $(pinfo.period)-$(pinfo.run)"
+                            break
+                        catch e
+                            @debug "Failed to load pulser data with key $pkey for $(pinfo.period)-$(pinfo.run): $(truncate_error(e))"
+                        end
+                    end
+                    if pls_data === nothing
+                        @warn "Could not load pulser data for $(pinfo.period)-$(pinfo.run), skipping run"
+                        continue
+                    end
+                    # Access nested tags structure
+                    pls_tags = hasproperty(pls_data, :tags) ? pls_data.tags : pls_data
+                    if pulser_timestamps === nothing
+                        pulser_timestamps = pls_tags.timestamp[pls_tags.aux_trig]
+                    else
+                        pulser_timestamps = vcat(pulser_timestamps, pls_tags.timestamp[pls_tags.aux_trig])
                     end
                 end
-                if data_pulser === nothing
-                    throw(ErrorException("Could not load pulser data with detector or channel key"))
+                if pulser_timestamps === nothing || isempty(pulser_timestamps)
+                    throw(ErrorException("Could not load pulser data for any run in partition"))
                 end
-                # Handle both old format (data_pulser.timestamp) and new format (data_pulser.tags.timestamp)
-                pulser_tags = hasproperty(data_pulser, :tags) ? data_pulser.tags : data_pulser
-                is_pulser = flag_coincidences(data_dsp.timestamp, pulser_tags.timestamp[pulser_tags.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+                is_pulser = flag_coincidences(data_dsp.timestamp, pulser_timestamps, ts_window = pulser_config_ch.puls_ts_window)
                 @debug "Found $(count(is_pulser)) pulser events"
             end
         catch e
