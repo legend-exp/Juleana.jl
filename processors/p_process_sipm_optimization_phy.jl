@@ -25,6 +25,32 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
     # flush stdout
     flush(stdout)
 
+    # Helper function to resolve data key (detector preferred, fallback to channel)
+    function resolve_data_key(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
+    # Helper function to resolve jlpls file path (detector preferred, fallback to channel)
+    function resolve_jlpls_path(l200::LegendData, fk, ch_resolve, det_resolve)
+        for key in (det_resolve, ch_resolve)
+            try
+                filename = l200.tier[:jlpls, fk, key]
+                return (filename, key)
+            catch err
+                @debug "jlpls path lookup failed for $(key): $(truncate_error(err))"
+            end
+        end
+        return nothing
+    end
+
     # function to process decay time
     function ch_sipm_optimization(chinfo_ch::NamedTuple)
 
@@ -63,10 +89,11 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
 
         #  write out pulser events
         chinfo_puls = channelinfo(l200, filekey_ch, Symbol(qc_config.pulser.puls_channel))
-        @info "Loaded pulser channel info: $(chinfo_puls)"
+        @debug "Loaded pulser channel info: $(chinfo_puls)"
 
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
+        det_puls_label = string(det_puls)
 
         max_wvfs = optimization_config_ch.max_wvfs
 
@@ -99,14 +126,29 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
             end
         end
 
-        # load data
+        # load data - try detector key first, fallback to channel key
         data_ch = nothing
         try
-            data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, partinfo_ch, ch; n_evts=optimization_config_ch.n_evts)
-            @debug "Loading SiPM data from $(part)"
+            for dkey in (det, ch)
+                try
+                    # Try bit-dropped waveform, fall back to raw waveform if not present
+                    try
+                        data_ch = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, partinfo_ch, dkey; n_evts=optimization_config_ch.n_evts)
+                    catch
+                        data_ch = read_ldata((:waveform, :timestamp), l200, DataTier(:raw), :phy, partinfo_ch, dkey; n_evts=optimization_config_ch.n_evts)
+                    end
+                    @debug "Loading SiPM data from $(part) with key: $dkey"
+                    break
+                catch e
+                    @debug "Failed to load SiPM data with key $dkey: $(truncate_error(e))"
+                end
+            end
+            if data_ch === nothing
+                throw(ErrorException("Could not load SiPM data with detector or channel key"))
+            end
             if length(data_ch) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(data_ch), max_wvfs)
                 data_ch = data_ch[sel]
             end
         catch e
@@ -117,8 +159,38 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         wvfs_ch = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
-            is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+            # Load pulser data run-by-run and combine timestamps
+            pulser_timestamps = nothing
+            pulser_aux_trig = nothing
+            for pinfo in partinfo_ch
+                @debug "Loading pulser data from $(pinfo.period)-$(pinfo.run)"
+                pls_data = nothing
+                # Try detector key first, fallback to channel key
+                for pkey in (det_puls, ch_puls)
+                    try
+                        pls_data = read_ldata(:tags, l200, DataTier(:jlpls), :phy, pinfo.period, pinfo.run, pkey)
+                        @debug "Loaded pulser data with key: $pkey for $(pinfo.period)-$(pinfo.run)"
+                        break
+                    catch e
+                        @debug "Failed to load pulser data with key $pkey for $(pinfo.period)-$(pinfo.run): $(truncate_error(e))"
+                    end
+                end
+                if pls_data === nothing
+                    @warn "Could not load pulser data for $(pinfo.period)-$(pinfo.run), skipping run"
+                    continue
+                end
+                # Access nested tags structure
+                pls_tags = hasproperty(pls_data, :tags) ? pls_data.tags : pls_data
+                if pulser_timestamps === nothing
+                    pulser_timestamps = pls_tags.timestamp[pls_tags.aux_trig]
+                else
+                    pulser_timestamps = vcat(pulser_timestamps, pls_tags.timestamp[pls_tags.aux_trig])
+                end
+            end
+            if pulser_timestamps === nothing || isempty(pulser_timestamps)
+                throw(ErrorException("Could not load pulser data for any run in partition"))
+            end
+            is_pulser = flag_coincidences(data_ch.timestamp, pulser_timestamps, ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             non_pulser_idx = findall(.!is_pulser)
             wvfs_col = hasproperty(data_ch, :waveform_bit_drop) ? :waveform_bit_drop : :waveform
