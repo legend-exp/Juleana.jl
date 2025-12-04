@@ -32,7 +32,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -43,13 +43,38 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     # flush stdout
     flush(stdout)
 
+    # Resolve jlpeaks files/datasets regardless of detector vs. channel naming
+    function resolve_jlpeaks_path(l200::LegendData, filekey, ch, det)
+        for key in (det, ch)
+            try
+                filename = l200.tier[:jlpeaks, filekey, key]
+                return (filename, key)
+            catch err
+                @debug "jlpeaks path lookup failed for $(key): $(truncate_error(err))"
+            end
+        end
+        return nothing
+    end
+
+    function resolve_jlpeaks_group(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
+
     function ch_filter_optimization(chinfo_ch::NamedTuple)
 
         ch  = chinfo_ch.channel
         det = chinfo_ch.detector
         part = chinfo_ch.partition
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing channel $det ($ch)"
         
         mkpath(joinpath(data_path(l200.par.ppars.fltopt), string(det)))
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.yaml"))
@@ -91,9 +116,9 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         processed_dict = Dict{Symbol, Bool}()
 
         if (only_first_period && period != first(partinfo_ch.period))
-            @info "Only first period in partition $part for $period in $ch ($det)"
+            @info "Only first period in partition $part for $period in $det ($ch)"
             for filter_type in e_filter
-                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -106,7 +131,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             for filter_type in e_filter
                 if haskey(pars_db_ch[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, pars_db_ch[det][filter_type].rt, pars_db_ch[det][filter_type].ft, pars_db_ch[det][filter_type].min_fwhm, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, pars_db_ch[det][filter_type].rt, pars_db_ch[det][filter_type].ft, pars_db_ch[det][filter_type].min_fwhm, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -120,17 +145,76 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch)
         end
 
-        # load data
+        # load data from all runs in partition
         wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata(peakname, l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
-            wvfs_ch_pre = data.waveform_presummed[:]
-            wvfs_ch_wdw = data.waveform_windowed[:]
-            presum_rate = data.presum_rate[:]
+            all_wvfs_pre = []
+            all_wvfs_wdw = []
+            all_presum_rate = []
+            
+            for (p_idx, p_period) in enumerate(partinfo_ch.period)
+                p_run = partinfo_ch.run[p_idx]
+                fk = start_filekey(l200, (p_period, p_run, :cal))
+                
+                path_info = resolve_jlpeaks_path(l200, fk, ch, det)
+                if path_info === nothing
+                    @warn "No jlpeaks path found for channel $det ($ch) in filekey $fk, skipping run"
+                    continue
+                end
+
+                filename, jlpeaks_key = path_info
+                if !isfile(filename)
+                    @warn "File $filename does not exist, skip run $p_run"
+                    continue
+                end
+
+                run_data = lh5open(filename, "r") do data
+                    data_key = resolve_jlpeaks_group(data, ch, det)
+                    if data_key === nothing
+                        @warn "Channel $det ($ch) not found in $(basename(filename))"
+                        return nothing
+                    end
+                    group = data[data_key, :jlpeaks, peakname]
+                    (wvfs_pre = group.waveform_presummed[:], 
+                     wvfs_wdw = group.waveform_windowed[:], 
+                     presum = group.presum_rate[:])
+                end
+
+                if run_data !== nothing
+                    run_wvfs_pre = run_data.wvfs_pre
+                    run_wvfs_wdw = run_data.wvfs_wdw
+                    run_presum = run_data.presum
+                    
+                    # select n_evts per run if configured
+                    if select_random && length(run_wvfs_pre) > n_evts
+                        sel = rand(1:length(run_wvfs_pre), n_evts)
+                        run_wvfs_pre = run_wvfs_pre[sel]
+                        run_wvfs_wdw = run_wvfs_wdw[sel]
+                        run_presum = run_presum[sel]
+                    elseif length(run_wvfs_pre) > n_evts
+                        run_wvfs_pre = run_wvfs_pre[1:n_evts]
+                        run_wvfs_wdw = run_wvfs_wdw[1:n_evts]
+                        run_presum = run_presum[1:n_evts]
+                    end
+                    push!(all_wvfs_pre, run_wvfs_pre)
+                    push!(all_wvfs_wdw, run_wvfs_wdw)
+                    push!(all_presum_rate, run_presum)
+                end
+            end
+
+            if isempty(all_wvfs_pre)
+                throw(ErrorException("No waveforms loaded from any run in partition $part"))
+            end
+
+            # Concatenate StructVectors to preserve ArrayOfRDWaveforms type
+            wvfs_ch_pre = reduce(vcat, all_wvfs_pre)
+            wvfs_ch_wdw = reduce(vcat, all_wvfs_wdw)
+            presum_rate = reduce(vcat, all_presum_rate)
+            
             if length(wvfs_ch_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(wvfs_ch_pre), max_wvfs)
                 wvfs_ch_pre = wvfs_ch_pre[sel]
                 wvfs_ch_wdw = wvfs_ch_wdw[sel]
                 presum_rate = presum_rate[sel]
@@ -232,7 +316,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey_ch, part, det, "FEP FT Scan"; additional_type=string(filter_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 
-                log_info = log_nt((ch, det, part, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
                 # add results to dict
                 result_rt_ft_dict[filter_type] = merge(result_rt, result_ft)
@@ -244,7 +328,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, ch, part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
