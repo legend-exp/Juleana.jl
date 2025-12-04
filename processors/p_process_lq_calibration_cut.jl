@@ -14,8 +14,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt_cal = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
-    log_nt_cut = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
+    log_nt_cal = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}
+    log_nt_cut = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Classifier Type"), Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -25,6 +25,17 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
     # flush stdout
     flush(stdout)
+
+    if !@isdefined(read_hit_data)
+        function read_hit_data(selector, l200::LegendData, category::DataCategoryLike, period::DataPeriodLike, run::DataRunLike, det::DetectorIdLike, ch::ChannelIdLike; kwargs...)
+            try
+                return read_ldata(selector, l200, :jlhit, category, period, run, det; kwargs...)
+            catch err
+                @warn "Detector-keyed hit data missing for $det ($ch), falling back to channel" exception=(err, catch_backtrace())
+                return read_ldata(selector, l200, :jlhit, category, period, run, ch; kwargs...)
+            end
+        end
+    end
     
     function ch_lq_cut(chinfo_ch::NamedTuple)
         
@@ -98,13 +109,13 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         if (only_first_period && period != first(partinfo_ch.period))
             @info "Only first period in partition $part for $period in $ch ($det)"
             for lq_type in lq_types
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(1), lq_type, fill("-", 2)..., "Only first periods --> skipped."))
+                log_info = log_nt_cal((det, ch, part, ProcessStatus(1), lq_type, fill("-", 2)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[lq_type] = log_info
                 processed_dict[lq_type] = false
             end
             for lq_classifier in lq_classifiers
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt_cut((det, ch, part, ProcessStatus(1), lq_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[lq_classifier] = log_info
                 processed_dict[lq_classifier] = false
@@ -116,14 +127,14 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
             @debug "Channel $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
                 if !haskey(pars_db_ch[det], lq_type)
-                    log_ch = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db_ch[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
+                    log_ch = log_nt_cal(det, ch, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db_ch[det][lq_type].fit_result.par[1], "Already processed --> skipped.")
                     processed_dict[lq_type] = false
                     log_info_dict[lq_type] = log_ch
                 end
             end
             for lq_classifier in lq_classifiers
                 if haskey(pars_db_ch[det], lq_classifier)
-                    log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, pars_db_ch[det][lq_classifier].cut, pars_db_ch[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db_ch[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((det, ch, part, ProcessStatus(1), lq_classifier, pars_db_ch[det][lq_classifier].cut, pars_db_ch[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db_ch[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false
@@ -136,9 +147,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
             @debug("Load data")
             if !all([haskey(processed_dict, lq_type) for lq_type in lq_types]) || !all([haskey(processed_dict, lq_classifier) for lq_classifier in lq_classifiers])
                 hit_cal = fast_flatten([
-                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                    let dsp=read_hit_data(:dataQC, l200, :cal, pinfo.period, pinfo.run, det, ch).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                         @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                        # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch); keep_chdata=true) end
                         Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
                     end
                     for pinfo in partinfo_ch])
@@ -229,7 +239,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
 
                 # create log entry
-                log_info = log_nt_cal(ch, det, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
+                log_info = log_nt_cal(det, ch, part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, drift_result.fit_result.par[1], "-")
 
                 # add results to dict
                 result_dict[lq_type]   =  merge(result, (drift_result = drift_result, mean_lq = mean_lq, std_lq = std_lq, median_lq = median_lq))
@@ -240,7 +250,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 GC.gc()
             catch e
                 @error "Error in $lq_type calibration: $(truncate_error(e))"
-                log_info = log_nt_cal((ch, det, part, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
+                log_info = log_nt_cal((det, ch, part, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
 
                 # add results to dict
                 log_info_dict[lq_type] = log_info
@@ -309,7 +319,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 # save results
                 final_result = (highcut = high_cut_sigma, peaks = result_peaks, qbb = result_qbb)
 
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(1), lq_classifier, final_result.highcut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
+                log_info = log_nt_cut((det, ch, part, ProcessStatus(1), lq_classifier, final_result.highcut, final_result.peaks[:Tl208DEP].sf, final_result.qbb.sf, "-"))
 
                 # add results to dict
                 result_dict[lq_classifier] = final_result
@@ -319,7 +329,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                 GC.gc()
             catch e
                 @error "Error in lq cut generation: $(truncate_error(e))"
-                log_info = log_nt_cut((ch, det, part, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt_cut((det, ch, part, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[lq_classifier] = log_info
