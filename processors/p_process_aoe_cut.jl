@@ -14,7 +14,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -42,7 +42,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
         det = chinfo_ch.detector
         part = chinfo_ch.partition
 
-        @info "Processing channel $ch ($det)"
+        @info "Processing channel $det ($ch)"
 
         mkpath(joinpath(data_path(l200.par.ppars.aoecut), string(det)))
         pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.aoecut), "$det", "$part.yaml")) && !reprocess
@@ -67,6 +67,8 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
         aoe_classifiers = Symbol.(aoe_config_ch.aoe_classifiers)
         e_type         = Symbol(aoe_config_ch.e_type)
+        aoe_cal_pars_type = Symbol(get(aoe_config_ch, :aoe_cal_pars_type, "ppars"))
+        aoe_cal_pars_cat  = Symbol(get(aoe_config_ch, :aoe_cal_pars_cat, "aoe"))
 
         # sigma_high_sided = ifelse(chinfo_ch.high_aoe_status == :valid, aoe_config_ch.sigma_high_sided, Inf)
         sigma_high_sided = aoe_config_ch.sigma_high_sided
@@ -76,9 +78,9 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
         processed_dict = Dict{Symbol, Bool}()
 
         if (only_first_period && period != first(partinfo_ch.period))
-            @info "Only first period in partition $part for $period in $ch ($det)"
+            @info "Only first period in partition $part for $period in $det ($ch)"
             for aoe_classifier in aoe_classifiers
-                log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), aoe_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info
                 processed_dict[aoe_classifier] = false
@@ -90,7 +92,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             @debug "Channel $(det) already processed, check missing filters"
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db_ch[det], aoe_classifier)
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, part, ProcessStatus(1), aoe_classifier, pars_db_ch[det][aoe_classifier].lowcut, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db_ch[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -103,13 +105,14 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             if !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([begin
                     @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                    calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_hit_data(:dataQC, l200, :cal, pinfo.period, pinfo.run, det, ch).dataQC; psd_cal_pars_type=:rpars, psd_cal_pars_cat=:aoe) end
+                    pinfo_filekey = start_filekey(l200, (pinfo.period, pinfo.run, :cal))
+                    calibrate_ged_channel_data(l200, pinfo_filekey, det, read_hit_data(:dataQC, l200, :cal, pinfo.period, pinfo.run, det, ch).dataQC; aoe_cal_pars_type=aoe_cal_pars_type, aoe_cal_pars_cat=aoe_cal_pars_cat) end
                     for pinfo in partinfo_ch])
                 e_cal = getproperty(hit_cal, e_type)
             end
         catch e
-            @error "E data for $det from cannot be loaded"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded"))
+            @error "E data for $det from partition $(part) cannot be loaded: $(e)"
+            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
 
         e_unit = unit(first(e_cal))
@@ -210,7 +213,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
 
-                log_info = log_nt((ch, det, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[aoe_classifier]   = result
@@ -220,7 +223,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 GC.gc()
             catch e
                 @error "Error in $aoe_classifier cut generation: $(truncate_error(e))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt((det, ch, part, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info
