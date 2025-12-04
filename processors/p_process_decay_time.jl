@@ -29,7 +29,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
@@ -66,18 +66,18 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         validity_ch = get_partitionvalidity(l200, det, part)
 
         if only_first_period && period != first(partinfo_ch.period)
-            @info "Only first period in partition $part for $period in $ch ($det)"
-            log_ch = log_nt((ch, det, part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
+            @info "Only first period in partition $part for $period in $det ($ch)"
+            log_ch = log_nt((det, ch, part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
             return (processed = false, log = log_ch, validity = validity_ch, skipped = true)
         end 
 
         if !reprocess && haskey(pars_db_ch, det)
             @debug "Channel $det already processed, skip"
-            log_ch = log_nt((ch, det, part, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].fit.σ, "Already processed --> skipped."))
+            log_ch = log_nt((det, ch, part, ProcessStatus(1), pars_db_ch[det].τ, pars_db_ch[det].fit.σ, "Already processed --> skipped."))
             return (processed = false, log = log_ch, validity = validity_ch)
         end
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing channel $det ($ch)"
 
         dsp_config_pd = dataprod_config(l200).dsp(filekey_ch)
         dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
@@ -97,15 +97,83 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         peakname      = Symbol(pz_config_ch.peakname)
         qc_string     = pz_config_ch.qc
 
-        # load data
+        # Helper functions to resolve jlpeaks file paths / dataset keys
+        function resolve_jlpeaks_path(l200::LegendData, fk, ch_resolve, det_resolve)
+            for key in (det_resolve, ch_resolve)
+                try
+                    filename = l200.tier[:jlpeaks, fk, key]
+                    return (filename, key)
+                catch err
+                    @debug "jlpeaks path lookup failed for $(key): $(truncate_error(err))"
+                end
+            end
+            return nothing
+        end
+
+        function resolve_jlpeaks_group(ds, ch_resolve, det_resolve)
+            det_key = string(det_resolve)
+            ch_key = string(ch_resolve)
+            if haskey(ds, det_key)
+                return det_key
+            elseif haskey(ds, ch_key)
+                return ch_key
+            else
+                return nothing
+            end
+        end
+
+        # load data from all runs in partition
         wvfs_ch = nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata(peakname, l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
-            wvfs_ch = data.waveform_presummed[:]
+            all_wvfs_vectors = []
+            
+            for (p_idx, p_period) in enumerate(partinfo_ch.period)
+                p_run = partinfo_ch.run[p_idx]
+                fk = start_filekey(l200, (p_period, p_run, :cal))
+                
+                path_info = resolve_jlpeaks_path(l200, fk, ch, det)
+                if path_info === nothing
+                    @warn "No jlpeaks path found for channel $det ($ch) in filekey $fk, skipping run"
+                    continue
+                end
+
+                filename, jlpeaks_key = path_info
+                if !isfile(filename)
+                    @warn "File $filename does not exist, skip run $p_run"
+                    continue
+                end
+
+                run_wvfs = lh5open(filename, "r") do data
+                    data_key = resolve_jlpeaks_group(data, ch, det)
+                    if data_key === nothing
+                        @warn "Channel $det ($ch) not found in $(basename(filename))"
+                        return nothing
+                    end
+                    data[data_key, :jlpeaks, peakname].waveform_presummed[:]
+                end
+
+                if run_wvfs !== nothing
+                    # select n_evts per run if configured
+                    if select_random && length(run_wvfs) > n_evts
+                        sel = rand(1:length(run_wvfs), n_evts)
+                        run_wvfs = run_wvfs[sel]
+                    elseif length(run_wvfs) > n_evts
+                        run_wvfs = run_wvfs[1:n_evts]
+                    end
+                    push!(all_wvfs_vectors, run_wvfs)
+                end
+            end
+
+            if isempty(all_wvfs_vectors)
+                throw(ErrorException("No waveforms loaded from any run in partition $part"))
+            end
+
+            # Concatenate StructVectors to preserve ArrayOfRDWaveforms type
+            wvfs_ch = reduce(vcat, all_wvfs_vectors)
             if length(wvfs_ch) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                wvfs_ch = wvfs_ch[rand(1:max_wvfs, max_wvfs)]
+                wvfs_ch = wvfs_ch[rand(1:length(wvfs_ch), max_wvfs)]
             end
         catch e
             @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"
@@ -150,9 +218,9 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey_ch, part, det, "Decay Time Distribution"))
         savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, :decay_time)
 
-        @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
+        @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $det ($ch)"
 
-        log_ch = log_nt((ch, det, part, ProcessStatus(1), result.μ, result.σ, "-"))
+        log_ch = log_nt((det, ch, part, ProcessStatus(1), result.μ, result.σ, "-"))
 
         # generate channel result
         result_ch = (result = (τ = result.μ, fit = result), processed = true, log = log_ch, validity = validity_ch)
@@ -161,7 +229,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         pars_db_ch = create_pars(pars_db_ch, result_pz_ch)
         writelprops(l200.par.ppars.pz[det], part, pars_db_ch)
         writevalidity(l200.par.ppars.pz[det], filekey_ch, part)
-        @info "Saved pars to disk for channel $ch ($det)"
+        @info "Saved pars to disk for channel $det ($ch)"
 
         return result_ch
     end
