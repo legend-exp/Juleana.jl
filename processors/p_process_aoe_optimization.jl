@@ -32,7 +32,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, :Usability, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, :Usability, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -42,6 +42,31 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
 
     # flush stdout
     flush(stdout)
+
+    # Helper functions for jlpeaks file access (detector/channel naming)
+    function resolve_jlpeaks_path(l200::LegendData, filekey, ch, det)
+        for key in (det, ch)
+            try
+                filename = l200.tier[:jlpeaks, filekey, key]
+                return (filename, key)
+            catch err
+                @debug "jlpeaks path lookup failed for $(key): $(truncate_error(err))"
+            end
+        end
+        return nothing
+    end
+
+    function resolve_jlpeaks_group(ds, ch, det)
+        det_key = string(det)
+        ch_key = string(ch)
+        if haskey(ds, det_key)
+            return det_key
+        elseif haskey(ds, ch_key)
+            return ch_key
+        else
+            return nothing
+        end
+    end
 
     function to_rdwaveform_vec(data)
         data isa AbstractVector{<:LegendDataTypes.RDWaveform} && return data
@@ -101,7 +126,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
         if (only_first_period && period != first(partinfo_ch.period))
             @info "Only first period in partition $part for $period in $ch ($det)"
             for filter_type in aoe_filter
-                log_info = log_nt((ch, det, part, ProcessStatus(1), chinfo_ch.usability, filter_type, fill("-", 4)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), chinfo_ch.usability, filter_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -113,7 +138,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
             @debug "Channel $(det) already processed, check missing filters"
             for filter_type in aoe_filter
                 if haskey(pars_db_ch[det], filter_type)
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), chinfo_ch.usability, filter_type, pars_db_ch[det][filter_type].wl, pars_db_ch[det][filter_type].sf, pars_db_ch[det][filter_type].n_dep, pars_db_ch[det][filter_type].n_sep, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, part, ProcessStatus(1), chinfo_ch.usability, filter_type, pars_db_ch[det][filter_type].wl, pars_db_ch[det][filter_type].sf, pars_db_ch[det][filter_type].n_dep, pars_db_ch[det][filter_type].n_sep, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -127,39 +152,100 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
             return (processed = processed_dict, log = log_info_dict, validity = validity_ch)
         end
         
-        # load data
+        # load data from all runs in partition using direct lh5open access
         wvfs_ch_sep_wdw, wvfs_ch_sep_pre, wvfs_ch_dep_wdw, wvfs_ch_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpeaks), :cal, partinfo_ch, ch; n_evts=n_evts)
-            wvfs_ch_dep_bi121fep_wdw = to_rdwaveform_vec(data.Tl208DEP_Bi212FEP.waveform_windowed[:])
-            wvfs_ch_dep_bi121fep_pre = to_rdwaveform_vec(data.Tl208DEP_Bi212FEP.waveform_presummed[:])
-            rate_raw                 = data.Tl208SEP.presum_rate[1]
-            presum_rate              = rate_raw isa AbstractFloat ? rate_raw : float(rate_raw)
-            e_ch_dep_bi121fep        = data.Tl208DEP_Bi212FEP.daqenergy[:]
-            # DEP
-            # wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_dep_wdw          = wvfs_ch_dep_bi121fep_wdw
-            # wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre[e_ch_dep_bi121fep .< quantile(e_ch_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
-            wvfs_ch_dep_pre          = wvfs_ch_dep_bi121fep_pre
+            
+            # Collect waveforms from all runs in partition
+            all_dep_wdw = []
+            all_dep_pre = []
+            all_sep_wdw = []
+            all_sep_pre = []
+            presum_rate = nothing
+            
+            for (p, r) in zip(partinfo_ch.period, partinfo_ch.run)
+                fk = start_filekey(l200, (p, r, :cal))
+                path_info = resolve_jlpeaks_path(l200, fk, ch, det)
+                if path_info === nothing
+                    @warn "No jlpeaks path found for $det ($ch) in $fk, skip run"
+                    continue
+                end
+                filename, _ = path_info
+                if !isfile(filename)
+                    @warn "File $filename does not exist, skip run"
+                    continue
+                end
+                
+                lh5open(filename, "r") do ds
+                    data_key = resolve_jlpeaks_group(ds, ch, det)
+                    if data_key === nothing
+                        @warn "Channel $det ($ch) not found in $(basename(filename)), skip run"
+                        return
+                    end
+                    
+                    # Load DEP data
+                    dep_grp = ds[data_key, :jlpeaks, :Tl208DEP_Bi212FEP]
+                    wdw_dep = to_rdwaveform_vec(dep_grp.waveform_windowed[:])
+                    pre_dep = to_rdwaveform_vec(dep_grp.waveform_presummed[:])
+                    
+                    # Select n_evts if specified
+                    if n_evts > 0 && length(pre_dep) > n_evts
+                        sel = select_random ? rand(1:length(pre_dep), n_evts) : 1:n_evts
+                        wdw_dep = wdw_dep[sel]
+                        pre_dep = pre_dep[sel]
+                    end
+                    push!(all_dep_wdw, wdw_dep)
+                    push!(all_dep_pre, pre_dep)
+                    
+                    # Load SEP data
+                    sep_grp = ds[data_key, :jlpeaks, :Tl208SEP]
+                    wdw_sep = to_rdwaveform_vec(sep_grp.waveform_windowed[:])
+                    pre_sep = to_rdwaveform_vec(sep_grp.waveform_presummed[:])
+                    
+                    # Select n_evts if specified
+                    if n_evts > 0 && length(pre_sep) > n_evts
+                        sel = select_random ? rand(1:length(pre_sep), n_evts) : 1:n_evts
+                        wdw_sep = wdw_sep[sel]
+                        pre_sep = pre_sep[sel]
+                    end
+                    push!(all_sep_wdw, wdw_sep)
+                    push!(all_sep_pre, pre_sep)
+                    
+                    # Get presum_rate from first available file
+                    if presum_rate === nothing
+                        rate_raw = sep_grp.presum_rate[1]
+                        presum_rate = rate_raw isa AbstractFloat ? rate_raw : float(rate_raw)
+                    end
+                end
+            end
+            
+            if isempty(all_dep_pre) || isempty(all_sep_pre)
+                throw(ErrorException("No DEP or SEP data found for $det ($ch) in partition $part"))
+            end
+            
+            # Combine waveforms from all runs using reduce(vcat, ...) to preserve StructVector type
+            wvfs_ch_dep_wdw = reduce(vcat, all_dep_wdw)
+            wvfs_ch_dep_pre = reduce(vcat, all_dep_pre)
+            wvfs_ch_sep_wdw = reduce(vcat, all_sep_wdw)
+            wvfs_ch_sep_pre = reduce(vcat, all_sep_pre)
+            
+            # Limit to max_wvfs
             if length(wvfs_ch_dep_pre) > max_wvfs
                 @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(wvfs_ch_dep_pre), max_wvfs)
                 wvfs_ch_dep_pre = wvfs_ch_dep_pre[sel]
                 wvfs_ch_dep_wdw = wvfs_ch_dep_wdw[sel]
             end
-            # SEP
-            wvfs_ch_sep_wdw          = to_rdwaveform_vec(data.Tl208SEP.waveform_windowed[:])
-            wvfs_ch_sep_pre          = to_rdwaveform_vec(data.Tl208SEP.waveform_presummed[:])
             if length(wvfs_ch_sep_pre) > max_wvfs
                 @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = rand(1:length(wvfs_ch_sep_pre), max_wvfs)
                 wvfs_ch_sep_pre = wvfs_ch_sep_pre[sel]
                 wvfs_ch_sep_wdw = wvfs_ch_sep_wdw[sel]
             end
         catch e
-            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(basename(filename)), 154,"DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
+            @error "DEP and SEP data for $det ($ch) in partition $part cannot be loaded: $(truncate_error(e))"
+            throw(LoadError(string(part), 154, "DEP and SEP data for $det ($ch) in partition $part cannot be loaded: $(truncate_error(e))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
@@ -220,7 +306,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf; digits=2)) for channel $ch ($det)"""
 
                 # write log
-                log_info = log_nt((ch, det, part, ProcessStatus(1), chinfo_ch.usability, filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), chinfo_ch.usability, filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
                 
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = true
@@ -231,7 +317,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), chinfo_ch.usability, filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, ch, part, ProcessStatus(0), chinfo_ch.usability, filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
