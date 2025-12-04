@@ -169,3 +169,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+Manifest.toml
+Manifest-v1.11.toml
