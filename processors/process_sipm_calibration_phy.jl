@@ -84,7 +84,12 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         is_pulser = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
+            # Try detector key first, then fallback to channel key
+            data_pulser = try
+                read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls)
+            catch
+                read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
+            end
             # Handle both old format (data_pulser.timestamp) and new format (data_pulser.tags.timestamp)
             pulser_tags = hasproperty(data_pulser, :tags) ? data_pulser.tags : data_pulser
             is_pulser = flag_coincidences(data_dsp.timestamp, pulser_tags.timestamp[pulser_tags.aux_trig], ts_window = pulser_config_ch.puls_ts_window)

@@ -179,9 +179,14 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         wvfs_ch = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls)
-            # Access nested tags structure: data_pulser.tags contains timestamp and aux_trig
-            pulser_tags = data_pulser.tags
+            # Try detector key first, then fallback to channel key
+            data_pulser = try
+                read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls)
+            catch
+                read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, ch_puls)
+            end
+            # Handle both old format (data_pulser.timestamp) and new format (data_pulser.tags.timestamp)
+            pulser_tags = hasproperty(data_pulser, :tags) ? data_pulser.tags : data_pulser
             is_pulser = flag_coincidences(data_ch.timestamp, pulser_tags.timestamp[pulser_tags.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             non_pulser_idx = findall(.!is_pulser)
