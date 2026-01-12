@@ -14,79 +14,79 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Partition, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period; unfold_partitions=true)
+    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :phy; unfold_partitions=true)
 
     # flush stdout
     flush(stdout)
 
     # function to process decay time
-    function ch_sipm_calibration(chinfo_ch::NamedTuple)
+    function det_sipm_calibration(chinfo_det::NamedTuple)
 
-        ch  = chinfo_ch.channel
-        det = chinfo_ch.detector
-        part = chinfo_ch.partition
+        ch  = chinfo_det.channel
+        det = chinfo_det.detector
+        part = chinfo_det.partition
 
-        @info "Processing channel $ch ($det)"
+        @info "Processing detector $det ($ch)"
 
-        pars_db_ch = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.json")) && !reprocess
+        pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.sipmcal[det, part])
         else
             mkpath(joinpath(data_path(l200.par.ppars.sipmcal), "$det"))
             PropDict()
         end
 
-        partinfo_ch = partitioninfo(l200, ch, part; category=:phy)
-        @debug "Loaded channel partition info with $(length(partinfo_ch)) runs"
+        partinfo_det = partitioninfo(l200, det, part)
+        @debug "Loaded channel partition info with $(length(partinfo_det)) runs"
     
-        filekey_ch = first(getproperty(partinfo_ch, :phy)).startkey
-        @debug "Found filekey $filekey_ch"
+        filekey_det = first(getproperty(partinfo_det, :phy)).startkey
+        @debug "Found filekey $filekey_det"
 
-        validity_ch = get_partitionvalidity(l200, ch, det, part, :phy)
+        validity_det = get_partitionvalidity(l200, det, part)
 
-        calibration_config = dataprod_config(l200).sipm(filekey_ch).calibration
-        calibration_config_ch = merge(calibration_config.p_default, get(calibration_config.p, det, PropDict()))
-        @debug "Loaded calibration config: $(calibration_config_ch)"
+        calibration_config = dataprod_config(l200).sipm(filekey_det).calibration
+        calibration_config_det = merge(calibration_config.p_default, get(calibration_config.p, det, PropDict()))
+        @debug "Loaded calibration config: $(calibration_config_det)"
 
-        qc_config = dataprod_config(l200).qc(filekey_ch)
-        pulser_config_ch = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
-        @debug "Loaded pulser config: $(pulser_config_ch)"
+        qc_config = dataprod_config(l200).qc(filekey_det)
+        pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
+        @debug "Loaded pulser config: $(pulser_config_det)"
 
         #  write out pulser events
-        chinfo_puls = channelinfo(l200, filekey_ch, Symbol(qc_config.pulser.puls_channel))
+        chinfo_puls = channelinfo(l200, filekey_det, Symbol(qc_config.pulser.puls_channel))
         @info "Loaded pulser channel info: $(chinfo_puls)"
 
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
 
-        energy_types = Symbol.(calibration_config_ch.energy_types)
+        energy_types = Symbol.(calibration_config_det.energy_types)
 
         result_dict    = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if (only_first_period && period != first(partinfo_ch.period))
-            @info "Only first period in partition $part for $period in $ch ($det)"
+        if (only_first_period && period != first(partinfo_det.period))
+            @info "Only first period in partition $part for $period in $det ($ch)"
             for e_type in energy_types
-                log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
-                log_info_dict[energy_types] = log_info
-                processed_dict[energy_types] = false
+                log_info_dict[e_type] = log_info
+                processed_dict[e_type] = false
             end
-            return (processed = processed_dict, log = log_info_dict, validity = validity_ch, skipped = true)
+            return (processed = processed_dict, log = log_info_dict, validity = validity_det, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db_ch, det)
-            @debug "Channel $(det) already processed, check missing energy types"
+        if !reprocess && haskey(pars_db_det, det)
+            @debug "Detector $(det) already processed, check missing energy types"
             for e_type in energy_types
-                if haskey(pars_db_ch[det], e_type)
+                if haskey(pars_db_det[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, pars_db_ch[det][e_type].fit.positions[1], pars_db_ch[det][e_type].fit.resolutions_cal[1], pars_db_ch[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, pars_db_det[det][e_type].fit.positions[1], pars_db_det[det][e_type].fit.resolutions_cal[1], pars_db_det[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -99,11 +99,11 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
             @debug "Load DSP data"
             # load DSP data and apply QC cut
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                @debug "Load DSP data for channel $ch"
-                data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_ch, ch)
+                @debug "Load DSP data for detector $det"
+                data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_det, det)
             end
         catch e
-            @error "Error in loading DSP data for channel $ch: $(truncate_error(e))"
+            @error "Error in loading DSP data for detector $det: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -111,25 +111,25 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         try
             @debug "Get Pulser tags"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_ch, ch_puls)
-                is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_ch.puls_ts_window)
+                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls).tags
+                is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
                 @debug "Found $(count(is_pulser)) pulser events"
             end
         catch e
-            @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
-            throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
+            @error "Error in Pulser tag for detector $det: $(truncate_error(e))"
+            throw(ErrorException("Error in Pulser tag for detector: $(truncate_error(e))"))
         end
 
         # get data
-        data_ch_after_qc = nothing
+        data_det_after_qc = nothing
         try
             @debug "Load hit data"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
                 # load DSP data and apply QC cut
-                data_ch_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_ch.qc).(data_dsp) .&& .!is_pulser)]
+                data_det_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_det.qc).(data_dsp) .&& .!is_pulser)]
             end
         catch e
-            @error "Error in loading data for channel $ch: $(truncate_error(e))"
+            @error "Error in loading data for detector $det: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
@@ -145,48 +145,48 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                 try
                     @debug "Get $e_type data"
                     # open hit data file
-                    e_uncal = filter(isfinite, reduce(vcat, getproperty(data_ch_after_qc, e_type)))
+                    e_uncal = filter(isfinite, reduce(vcat, getproperty(data_det_after_qc, e_type)))
                     e_uncal_func = "$e_type"
                 catch e
-                    @error "Error in $e_type data extraction for channel $ch: $(truncate_error(e))"
+                    @error "Error in $e_type data extraction for detector $det: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type data extraction"))
                 end
 
-                p = LegendMakie.lplot(fit(Histogram, e_uncal, calibration_config_ch.simple.kwargs.initial_min_amp:0.1:calibration_config_ch.simple.kwargs.initial_max_amp), 
+                p = LegendMakie.lplot(fit(Histogram, e_uncal, calibration_config_det.simple.kwargs.initial_min_amp:0.1:calibration_config_det.simple.kwargs.initial_max_amp), 
                     xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts / 0.1", label="Uncalibrated PE", yscale = Makie.log10, 
-                    title = get_plottitle(filekey_ch, part, det, "PE Uncalibrated"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("pe_uncalibrated_$(e_type)"))
+                    title = get_plottitle(filekey_det, part, det, "PE Uncalibrated"; additional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("pe_uncalibrated_$(e_type)"))
 
                 # get uncalibrated energy function
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(calibration_config_ch.simple.kwargs)...)
+                    result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(calibration_config_det.simple.kwargs)...)
                 catch e
-                    @error "Error in $e_type simple calibration for channel $ch: $(truncate_error(e))"
+                    @error "Error in $e_type simple calibration for detector $det: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
                 end
                 GC.gc()
 
                 # save plots for simple calibration for control
-                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey_ch, part, det, "Simple Calibration"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("sipm_simple_calibration_$(e_type)"))
+                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey_det, part, det, "Simple Calibration"; additional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("sipm_simple_calibration_$(e_type)"))
                 yield()
 
                 result_fit, report_fit = nothing, nothing
                 try
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_sipm_spectrum(result_simple.pe_simple_cal, calibration_config_ch.fit.min_pe, calibration_config_ch.fit.max_pe; 
-                            NamedTuple(calibration_config_ch.fit.kwargs)...,
+                    result_fit, report_fit = fit_sipm_spectrum(result_simple.pe_simple_cal, calibration_config_det.fit.min_pe, calibration_config_det.fit.max_pe; 
+                            NamedTuple(calibration_config_det.fit.kwargs)...,
                             f_uncal=result_simple.f_simple_uncal, uncertainty=true)
                 catch e
-                    @error "Error in $e_type peak fitting for channel $ch: $(truncate_error(e))"
+                    @error "Error in $e_type peak fitting for detector $det: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type peak fitting"))
                 end
                 GC.gc()
 
-                p = LegendMakie.lplot(report_fit, figsize = (700,500), xerrscaling = 5, title = get_plottitle(filekey_ch, part, det, "Peak Fits"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("sipm_peak_fits_$(e_type)"))
+                p = LegendMakie.lplot(report_fit, figsize = (700,500), xerrscaling = 5, title = get_plottitle(filekey_det, part, det, "Peak Fits"; additional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("sipm_peak_fits_$(e_type)"))
 
                 yield()
 
@@ -195,17 +195,17 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
 
                 result_calib, report_calib = nothing, nothing
                 try
-                    result_calib, report_calib = fit_calibration(calibration_config_ch.pol_order, result_fit.positions[peak_fit_cut], collect(result_fit.peaks)[peak_fit_cut] .* u"e_au"; e_expression=e_type)
+                    result_calib, report_calib = fit_calibration(calibration_config_det.pol_order, result_fit.positions[peak_fit_cut], collect(result_fit.peaks)[peak_fit_cut] .* u"e_au"; e_expression=e_type)
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
-                    @error "Error in $e_type calibration curve fitting for channel $ch: $(truncate_error(e))"
+                    @error "Error in $e_type calibration curve fitting for detector $det: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type calibration curve fitting"))
                 end
 
-                p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey_ch, part, det, "Calibration Curve"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("sipm_calibration_curve_$(e_type)"))
+                p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey_det, part, det, "Calibration Curve"; additional_type=string(e_type)))
+                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("sipm_calibration_curve_$(e_type)"))
                 
-                log_info = log_nt((ch, det, part, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
+                log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
 
                 result_energy = (
                     m_cal_simple = result_simple.c,
@@ -221,30 +221,30 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
 
                 GC.gc()
             catch e
-                @error "Error in processing channel $ch: $(truncate_error(e))"
-                log_info = log_nt((ch, det, part, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
+                @error "Error in processing detector $det: $(truncate_error(e))"
+                log_info = log_nt((det, ch, part, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false
             end
         end
 
-        result_ch = (result = result_dict, processed = processed_dict, log = log_info_dict, validity = validity_ch)
-        result_sipm_ch = Dict{NamedTuple, NamedTuple}(chinfo_ch => result_ch)
+        result_det = (result = result_dict, processed = processed_dict, log = log_info_dict, validity = validity_det)
+        result_sipm_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
 
-        pars_db_ch = create_pars(pars_db_ch, result_sipm_ch)
-        writelprops(l200.par.ppars.sipmcal[det], part, pars_db_ch)
-        writevalidity(l200.par.ppars.sipmcal[det], filekey_ch, part)
+        pars_db_det = create_pars(pars_db_det, result_sipm_det)
+        writelprops(l200.par.ppars.sipmcal[det], part, pars_db_det)
+        writevalidity(l200.par.ppars.sipmcal[det], filekey_det, part)
 
         # return results
-        return result_ch
+        return result_det
     end
 
     # get start time
     start_time = now()
 
     # execute in parallel
-    result_sipm_calibration = parallel(chinfo_unfolded, ch_sipm_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_calibration = parallel(chinfo_unfolded, det_sipm_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished SiPM partition calibration"
 
