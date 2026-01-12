@@ -15,7 +15,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     # create log line Tuple
     log_fkcheck = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
-    log_peaksplit = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number of FEP Events"), Symbol("Number of SEP Events"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+    log_peaksplit = NamedTuple{(:Detector, :Channel, :Status, Symbol("Number of FEP Events"), Symbol("Number of SEP Events"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -28,17 +28,17 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     output_datadir = mkpath(l200.tier[:jlpeaks, :cal, period, run])
     @assert isdir(input_datadir) && isdir(output_datadir)
 
-    # get channels
-    channels = chinfo.channel
+    # get detectors
+    detectors = chinfo.detector
 
-    @info "Expecting $(length(channels)) channels each file in \"$input_datadir\"."
+    @info "Expecting $(length(detectors)) detectors each file in \"$input_datadir\"."
 
-    function get_daqenergy_for_ch(filelist::AbstractVector{<:AbstractString}, ch::ChannelIdLike)
+    function get_daqenergy_for_det(filelist::AbstractVector{<:AbstractString}, det::DetectorId)
         fast_flatten([
             LHDataStore(
                 ds -> begin
-                    @debug "Reading DAQ energy for channel $ch from \"$(ds.data_store.filename)\""
-                    ds[ch].raw.daqenergy[:]
+                    @debug "Reading DAQ energy for detector $det from \"$(ds.data_store.filename)\""
+                    ds[det].raw.daqenergy[:]
                 end,
                 filename
             ) for filename in filelist
@@ -74,7 +74,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             filename = l200.tier[:raw, fk]
             @info "Checking file \"$filename\""
             is_ok::Bool = true
-            failed_channels = ChannelId[]
+            failed_detectors = DetectorId[]
             @timeit fk_timer "$fk" begin
                 try
                     LHDataStore(filename) 
@@ -83,13 +83,13 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                     is_ok = false
                 else
                     LHDataStore(filename) do ds
-                        for ch in channels
-                            @timeit fk_timer "$ch" begin
+                        for det in detectors
+                            @timeit fk_timer "$det" begin
                                 try
-                                    haskey(ds, "$ch") || throw(ErrorException("Channel $ch not found in \"$(filename)\""))
+                                    haskey(ds, "$det") || throw(ErrorException("Detector $det not found in \"$(filename)\""))
                                 catch e
-                                    @error "Error while checking channel $ch in \"$(filename)\": $(e)"
-                                    push!(failed_channels, ch)
+                                    @error "Error while checking detector $det in \"$(filename)\": $(e)"
+                                    push!(failed_detectors, det)
                                     is_ok = false
                                 end
                             end
@@ -103,7 +103,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             total_allocated = Base.format_bytes(TimerOutputs.totallocated(fk_timer))
 
             # create log
-            log_fk = log_fkcheck((fk, ProcessStatus(1), "$(length(channels))", string.(failed_channels), total_time, total_allocated, ""))
+            log_fk = log_fkcheck((fk, ProcessStatus(1), "$(length(detectors))", string.(failed_detectors), total_time, total_allocated, ""))
             return (result = is_ok, timer = fk_timer, log = log_fk, processed = true)
         end
 
@@ -125,27 +125,27 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
 
     # split peaks from raw waveforms
-    function split_peak_ch(chinfo_ch::NamedTuple)
+    function split_peak_det(chinfo_det::NamedTuple)
 
-        ch  = chinfo_ch.channel
-        det = chinfo_ch.detector
+        ch  = chinfo_det.channel
+        det = chinfo_det.detector
 
-        @info "Processing channel $ch"
+        @info "Processing detector $det ($ch)"
 
-        raw_config_ch = merge(raw_config.default, get(raw_config, det, PropDict()))
+        raw_config_det = merge(raw_config.default, get(raw_config, det, PropDict()))
 
-        energy_windows = IdDict(keys(raw_config_ch.peaks) .=> [first(v)..last(v) for v in values(raw_config_ch.peaks)])
+        energy_windows = IdDict(keys(raw_config_det.peaks) .=> [first(v)..last(v) for v in values(raw_config_det.peaks)])
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
-        output_filename = l200.tier[:jlpeaks, first(filekeys), ch]
+        output_filename = l200.tier[:jlpeaks, first(filekeys), det]
 
         if isfile(output_filename) && !reprocess
             @info "Output file \"$output_filename\" already exists, skipping"
             n_sep, n_fep = nothing, nothing
             try
                 output = lh5open(output_filename, "r")
-                n_sep = length(output[ch].jlpeaks.Tl208SEP.daqenergy)
-                n_fep = length(output[ch].jlpeaks.Tl208FEP.daqenergy)
+                n_sep = length(output[det].jlpeaks.Tl208SEP.daqenergy)
+                n_fep = length(output[det].jlpeaks.Tl208FEP.daqenergy)
                 close(output)
             catch e
                 @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_error(e))"
@@ -153,31 +153,31 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 rm(output_filename)
             end
             if isfile(output_filename) && !isnothing(n_sep) && !isnothing(n_fep)
-                log_ch = log_peaksplit((ch, det, ProcessStatus(1), n_fep, n_sep, "0", "0", ""))
-                return (processed = false, log = log_ch)
+                log_det = log_peaksplit((det, ch, ProcessStatus(1), n_fep, n_sep, "0", "0", ""))
+                return (processed = false, log = log_det)
             end
         end
 
         split_timer = TimerOutput()
 
         @info "Generating output file \"$output_filename\""
-        @timeit split_timer "$ch" begin
+        @timeit split_timer "$det" begin
             # get raw daqenergy
             @timeit split_timer "Get DAQ Energy" begin
-                e_raw = get_daqenergy_for_ch(filelist, ch)
-                @info "Auto calibrating $ch ($det)"
-                result_autocal, report_autocal = autocal_energy(e_raw, raw_config_ch.th228_cal_lines; mode=:ratio, min_e=raw_config_ch.min_e, max_e=raw_config_ch.max_e, max_e_binning_quantile=raw_config_ch.max_e_binning_quantile, σ=raw_config_ch.σ, threshold=raw_config_ch.threshold, min_n_peaks=raw_config_ch.min_n_peaks, max_n_peaks=raw_config_ch.max_n_peaks, α=raw_config_ch.α, rtol=raw_config_ch.rtol)
+                e_raw = get_daqenergy_for_det(filelist, det)
+                @info "Auto calibrating $det ($ch)"
+                result_autocal, report_autocal = autocal_energy(e_raw, raw_config_det.th228_cal_lines; mode=:ratio, min_e=raw_config_det.min_e, max_e=raw_config_det.max_e, max_e_binning_quantile=raw_config_det.max_e_binning_quantile, σ=raw_config_det.σ, threshold=raw_config_det.threshold, min_n_peaks=raw_config_det.min_n_peaks, max_n_peaks=raw_config_det.max_n_peaks, α=raw_config_det.α, rtol=raw_config_det.rtol)
                 f_calib = result_autocal.f_calib
-                p = LegendMakie.lplot(report_autocal, raw_config_ch.th228_cal_lines, figsize = (650,400), title = get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
+                p = LegendMakie.lplot(report_autocal, raw_config_det.th228_cal_lines, figsize = (650,400), title = get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
                 savelfig(LegendMakie.lsavefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
             GC.gc()
-            @info "Filtering channel $ch ($det)"
+            @info "Filtering detector $det ($ch)"
             @timeit split_timer "Filter Raw" begin
                 slim_data = flatten_by_key([lh5open(filename) do ds
-                    @debug "Filtering $(filename) for channel $ch ($det)"
-                    filter_raw_data_by_energy(ds[ch].raw[:], f_calib, energy_windows; chunk_size=100)
-                    # filter_raw_data_by_energy(Table(decode_data(ds[ch].raw[:])), f_calib, energy_windows)
+                    @debug "Filtering $(filename) for detector $det ($ch)"
+                    filter_raw_data_by_energy(ds[det].raw[:], f_calib, energy_windows; chunk_size=100)
+                    # filter_raw_data_by_energy(Table(decode_data(ds[det].raw[:])), f_calib, energy_windows)
                 end for filename in filelist])
             end
             n_fep = length(slim_data[:Tl208FEP].daqenergy)
@@ -192,8 +192,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            output[ch, :jlpeaks, label] = slim_data[label]
-                            # output[ch, :jlpeaks, label] = decode_data(slim_data[label])
+                            output[det, :jlpeaks, label] = slim_data[label]
+                            # output[det, :jlpeaks, label] = decode_data(slim_data[label])
                         end
                     end
                 end
@@ -204,15 +204,15 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(split_timer)))
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(split_timer))
 
-        log_ch = log_peaksplit((ch, det, ProcessStatus(1), n_fep, n_sep, "$total_time", total_allocated, ""))
+        log_det = log_peaksplit((det, ch, ProcessStatus(1), n_fep, n_sep, "$total_time", total_allocated, ""))
 
-        @info "Finished processing channel $ch ($det) in $total_time"
+        @info "Finished processing detector $det ($ch) in $total_time"
 
-        return (result = (n_fep = n_fep, n_sep = n_sep), processed = true, log = log_ch)
+        return (result = (n_fep = n_fep, n_sep = n_sep), processed = true, log = log_det)
     end
 
     # execute in parallel
-    result_peaksplit = parallel(chinfo, split_peak_ch, log_peaksplit, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_peaksplit = parallel(chinfo, split_peak_det, log_peaksplit, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished peak splitting"
 

@@ -14,8 +14,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded DSP config: $(dsp_config_pd)"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-    end
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
     @info "Loaded trained SVM model"
 
     pars_type = ifelse(use_partition_filter, :ppars, :rpars)
@@ -28,16 +28,16 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     @debug "Loaded optimization parameters"
 
     @debug "Check if all HPGe detectors have optimization parameters"
-    for chinfo_ch in chinfo
-        ch = chinfo_ch.channel
-        det = chinfo_ch.detector
+    for chinfo_det in chinfo
+        ch = chinfo_det.channel
+        det = chinfo_det.detector
         # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
-        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_ch.processable != :on && isempty(partitioninfo(l200, ch, period, run))
+        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, ch, period, run))
             @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for channel"
-            parts = partitioninfo(l200, ch, period)
+            parts = partitioninfo(l200, det, period)
             closest_runs_distance = Real[]
             for p in parts
-                pinfo = filter(row -> row.period == period, partitioninfo(l200, ch, p))
+                pinfo = filter(row -> row.period == period, partitioninfo(l200, det, p))
                 closest_run = pinfo.run[argmin([abs(r.no - run.no) for r in pinfo.run])]
                 push!(closest_runs_distance, abs(closest_run.no - run.no))
             end
@@ -105,17 +105,17 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
                     # loop over channels
-                    @showprogress desc="Filekey: $fk" output=stdout for chinfo_ch in chinfo
+                    @showprogress desc="Filekey: $fk" output=stdout for chinfo_det in chinfo
                         
-                        ch = chinfo_ch.channel
-                        det = chinfo_ch.detector
+                        ch = chinfo_det.channel
+                        det = chinfo_det.detector
 
-                        dsp_config_pd_ch = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
-                        dsp_config_ch = DSPConfig(dsp_config_pd_ch)
-                        @debug "Loaded DSP config: $(dsp_config_ch)"
+                        dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
+                        dsp_config_det = DSPConfig(dsp_config_pd_det)
+                        @debug "Loaded DSP config: $(dsp_config_det)"
 
                         # check if channel can be processed
-                        if "$ch" in processed_channels && !reprocess
+                        if "$det" in processed_channels && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -135,35 +135,35 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                         end
 
                         # check if channel has all required flt opt pars
-                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_fltopt)))
-                            @warn "Not all required energy filter optimization parameters available for detector $det, skip channel $ch"
+                        if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det.required_fltopt)))
+                            @warn "Not all required energy filter optimization parameters available for detector $det, skip"
                             push!(failed_detectors, det)
                             continue
                         end
 
                         # check if channel has all required aoe opt pars
-                        if chinfo_ch.usability == :on && chinfo_ch.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_ch.required_aoeopt)))
-                            @warn "Not all required A/E optimization parameters available for detector $det, skip channel $ch"
+                        if chinfo_det.usability == :on && chinfo_det.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det.required_aoeopt)))
+                            @warn "Not all required A/E optimization parameters available for detector $det, skip"
                             push!(failed_detectors, det)
                             continue
                         end
 
-                        @debug "Processing channel $ch ($det)"
+                        @debug "Processing detector $det ($ch)"
                         @timeit dsp_timer "DSP $det" begin
                             # process data
-                            outdata_ch = nothing
+                            outdata_det = nothing
                             try
-                                outdata_ch = dsp_icpc_compressed(raw_data[ch].raw[:], dsp_config_ch, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                outdata_det = dsp_icpc_compressed(raw_data[det].raw[:], dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
                                 end
-                                @error "Error processing channel $ch ($det) in $(fk): $(truncate_error(e))"
+                                @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
                                 push!(failed_detectors, det)
                                 continue
                             end
                             # save data to hdf5
-                            outdata[ch, :jldsp] = outdata_ch
+                            outdata[det, :jldsp] = outdata_det
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful

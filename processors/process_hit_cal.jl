@@ -3,7 +3,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Generate cal hit for period $period and run $run"
 
     filekeys = search_disk(FileKey, l200.tier[:jldsp, :cal, period, run])
-
+    
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
@@ -21,8 +21,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all channels" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
-    log_nt_puls = NamedTuple{(:Channel, :Detector, :Status, Symbol("Number Pulser Events"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
+    log_nt_puls = NamedTuple{(:Detector, :Channel, :Status, Symbol("Number Pulser Events"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -35,89 +35,89 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Loaded pulser channel info: $(chinfo_puls)"
 
     # get information about pulser events from raw trigger
-    function ch_puls_cal(chinfo_puls::NamedTuple)
+    function det_puls_cal(chinfo_puls::NamedTuple)
         
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
         
         # get pulser filename
-        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
+        pulserfilename = l200.tier[:jlpls, filekey, det_puls]
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(lh5open(pulserfilename)[ch_puls, :jlpls, :tags]), "Already processed --> skipped.")))
+            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(lh5open(pulserfilename)[det_puls, :jlpls, :tags]), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
-        data_puls = read_ldata((:daqenergy, :timestamp), l200, DataTier(:raw), DataCategory(:cal), period, run, ch_puls)
+        data_puls = read_ldata((:daqenergy, :timestamp), l200, DataTier(:raw), DataCategory(:cal), period, run, det_puls)
         
         @info "Write Pulser events to disk"
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
-                outdata[ch_puls, :jlpls, :tags] = data_puls;
+                outdata[det_puls, :jlpls, :tags] = data_puls;
             end
         end
-        return (processed = false, log = log_nt_puls((ch_puls, det_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
+        return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(data_puls), "-")))
     end
 
     # get start time
     start_time = now()
 
     # execute in parallel
-    result_puls = parallel([chinfo_puls], ch_puls_cal, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_puls = parallel([chinfo_puls], det_puls_cal, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished Pulser channel processing"
     pulser_processing_time = now() - start_time
 
     # generate hit cal files
-    function ch_hit_cal(chinfo_ch::NamedTuple)
+    function det_hit_cal(chinfo_det::NamedTuple)
 
-        ch = chinfo_ch.channel
-        det = chinfo_ch.detector
+        ch = chinfo_det.channel
+        det = chinfo_det.detector
 
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
 
-        hitchfilename = l200.tier[:jlhit, filekey, ch]
-        pulserfilename = l200.tier[:jlpls, filekey, ch_puls]
+        hitdetfilename = l200.tier[:jlhit, filekey, det]
+        pulserfilename = l200.tier[:jlpls, filekey, det_puls]
 
-        if !reprocess && haskey(pars_db, det) && isfile(hitchfilename)
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
+        if !reprocess && haskey(pars_db, det) && isfile(hitdetfilename)
+            log_det = log_nt((det, ch, ProcessStatus(1), pars_db[det].sf, pars_db[det].n_pulser, "Already processed --> skipped."))
             try
-                close(lh5open(hitchfilename, "r"))
-                @debug "Channel $(det) already processed"
-                return (processed = true, log = log_ch)
+                close(lh5open(hitdetfilename, "r"))
+                @debug "Detector $(det) already processed"
+                return (processed = true, log = log_det)
             catch e
-                @warn "Error reading hit file for channel $ch ($det): $(truncate_error(e))"
-                @info "Reprocess channel $ch ($det)"
-                rm(hitchfilename)
+                @warn "Error reading hit file for detector $det ($ch): $(truncate_error(e))"
+                @info "Reprocess detector $det ($ch)"
+                rm(hitdetfilename)
             end
         end
 
         if reprocess @info "Overwrite old hit file" end
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing detector $det ($ch)"
         
-        data_ch = read_ldata(l200, DataTier(:jldsp), filekeys, ch)
+        data_det = read_ldata(l200, DataTier(:jldsp), filekeys, det)
         
-        if length(data_ch) < 5000
-            @error "Not enough data points for channel $ch ($det), skip"
-            throw(ErrorException("Not enough data points for channel $ch ($det)"))
+        if length(data_det) < 5000
+            @error "Not enough data points for detector $det ($ch), skip"
+            throw(ErrorException("Not enough data points for detector $det ($ch)"))
         end
 
-        qc_config_ch = merge(qc_config.default, get(qc_config, det, PropDict()))
-        pulser_config_ch = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
+        qc_config_det = merge(qc_config.default, get(qc_config, det, PropDict()))
+        pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
 
         # generate qc cuts
         qc, is_physical = nothing, nothing
         try
             @debug "Get QC cuts"
-            # result_qc, report_qc  = baseline_qc(data_ch, qc_config_ch)
-            qc = Table(ljl_propfunc(qc_config_ch.labels).(data_ch))
-            is_physical = ljl_propfunc(qc_config_ch.is_physical).(qc)
+            # result_qc, report_qc  = baseline_qc(data_det, qc_config_det)
+            qc = Table(ljl_propfunc(qc_config_det.labels).(data_det))
+            is_physical = ljl_propfunc(qc_config_det.is_physical).(qc)
             @debug "Total survival fraction: $(round(count(is_physical) / length(is_physical) * 100, digits=2))%"
         catch e
-            @error "Error in QC for channel $ch: $(truncate_error(e))"
+            @error "Error in QC for detector $det: $(truncate_error(e))"
             throw(ErrorException("Error in QC cut generation: $(truncate_error(e))"))
         end
         yield()
@@ -125,23 +125,23 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         is_pulser = nothing
         try
             @debug "Get Pulser tags"
-            # pulser_tag = pulser_cal_qc(data_ch, pulser_config_ch; n_pulser_identified=100)
-            data_pulser = lh5open(pulserfilename)[ch_puls, :jlpls, :tags][:]
-            is_pulser = flag_coincidences(data_ch.timestamp, data_pulser.timestamp, ts_window = pulser_config_ch.puls_ts_window)
+            # pulser_tag = pulser_cal_qc(data_det, pulser_config_det; n_pulser_identified=100)
+            data_pulser = lh5open(pulserfilename)[det_puls, :jlpls, :tags][:]
+            is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp, ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
-            @error "Error in Pulser tag for channel $ch: $(truncate_error(e))"
-            throw(ErrorException("Error in Pulser tag for channel: $(truncate_error(e))"))
+            @error "Error in Pulser tag for detector $det: $(truncate_error(e))"
+            throw(ErrorException("Error in Pulser tag for detector: $(truncate_error(e))"))
         end
 
-        data_ch_after_qc = data_ch[is_physical .&& .!is_pulser]
-        data_pulser = data_ch[is_physical .&& is_pulser]
+        data_det_after_qc = data_det[is_physical .&& .!is_pulser]
+        data_pulser = data_det[is_physical .&& is_pulser]
 
         fig = Makie.Figure(size = (620, 400))
         binwidth = 8*15
-        hall = StatsBase.fit(StatsBase.Histogram, data_ch.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
-        hqc  = StatsBase.fit(StatsBase.Histogram, data_ch_after_qc.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
-        hp   = StatsBase.fit(StatsBase.Histogram, data_pulser.e_trap, range(0, maximum(data_ch_after_qc.e_trap), step = binwidth))
+        hall = StatsBase.fit(StatsBase.Histogram, data_det.e_trap, range(0, maximum(data_det_after_qc.e_trap), step = binwidth))
+        hqc  = StatsBase.fit(StatsBase.Histogram, data_det_after_qc.e_trap, range(0, maximum(data_det_after_qc.e_trap), step = binwidth))
+        hp   = StatsBase.fit(StatsBase.Histogram, data_pulser.e_trap, range(0, maximum(data_det_after_qc.e_trap), step = binwidth))
         ax = Makie.Axis(fig[1,1], xlabel = "Energy (ADC)", ylabel = "Counts / $(binwidth) ADC", 
             xtickformat = x -> string.(round.(Int,x)),
             yscale = Makie.log10, limits = (extrema(first(hall.edges)), (0.9,maximum(hall.weights)*1.2)),
@@ -155,35 +155,35 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
         # save hit file
         @debug "Save hit file"
-        write_files(hitchfilename, use_cache = true, mode = CreateOrReplace()) do outfilename
+        write_files(hitdetfilename, use_cache = true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save QC"
-                outdata[ch, :jlhit, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
+                outdata[det, :jlhit, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
                 @info "Save Pulser Tags"
-                outdata[ch, :jlhit, :pulserTag] = is_pulser;
+                outdata[det, :jlhit, :pulserTag] = is_pulser;
                 @info "Save data after QC"
-                outdata[ch, :jlhit, :dataQC] = data_ch_after_qc;
+                outdata[det, :jlhit, :dataQC] = data_det_after_qc;
                 @info "Save data pulser"
-                outdata[ch, :jlhit, :dataPulser] = data_pulser;
+                outdata[det, :jlhit, :dataPulser] = data_pulser;
             end
         end
 
         sf, n_pulser = count(is_physical) / length(is_physical) * 100u"percent", ifelse(!isempty(data_pulser), length(data_pulser), 0)
-        log_ch = log_nt((ch, det, ProcessStatus(1), sf, n_pulser, "-"))
+        log_det = log_nt((det, ch, ProcessStatus(1), sf, n_pulser, "-"))
 
 
         for cut in columnnames(qc)
             @info "SF: $(cut) cut: $(count(getproperty(qc, cut)) / length(qc) * 100u"percent")"
         end
 
-        return (result = (sf = sf, n_pulser = n_pulser), log = log_ch, processed=true)
+        return (result = (sf = sf, n_pulser = n_pulser), log = log_det, processed=true)
     end
 
     # get start time
     start_time = now()
 
     # execute in parallel
-    result_qc = parallel(chinfo, ch_hit_cal, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_qc = parallel(chinfo, det_hit_cal, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished Hit channel processing"
 

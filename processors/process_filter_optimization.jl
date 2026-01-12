@@ -25,12 +25,12 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-    end
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
     @info "Loaded trained SVM model"
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -38,31 +38,31 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     # flush stdout
     flush(stdout)
 
-    function ch_filter_optimization(chinfo_ch::NamedTuple)
+    function det_filter_optimization(chinfo_det::NamedTuple)
 
-        ch  = chinfo_ch.channel
-        det = chinfo_ch.detector
+        ch  = chinfo_det.channel
+        det = chinfo_det.detector
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing detector $det ($ch)"
 
-        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_ch)"
+        dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_det)"
 
-        optimization_config_ch = merge(optimization_config.default, get(optimization_config, det, PropDict()))
-        qc_string     = optimization_config_ch.qc
-        peakname      = Symbol(optimization_config_ch.peakname)
-        e_filter      = collect(keys(optimization_config_ch.e_filter))
+        optimization_config_det = merge(optimization_config.default, get(optimization_config, det, PropDict()))
+        qc_string     = optimization_config_det.qc
+        peakname      = Symbol(optimization_config_det.peakname)
+        e_filter      = collect(keys(optimization_config_det.e_filter))
 
         result_rt_ft_dict = Dict{Symbol, NamedTuple}()
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
         if !reprocess && haskey(pars_db, det)
-            @debug "Channel $(det) already processed, check missing filters"
+            @debug "Detector $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((ch, det, ProcessStatus(1), filter_type, pars_db[det][filter_type].rt, pars_db[det][filter_type].ft, pars_db[det][filter_type].min_fwhm, "Already processed --> skipped."))
+                    log_info = log_nt((det, ch, ProcessStatus(1), filter_type, pars_db[det][filter_type].rt, pars_db[det][filter_type].ft, pars_db[det][filter_type].min_fwhm, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -76,29 +76,29 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             return (processed = processed_dict, log = log_info_dict)
         end
 
-        filename = l200.tier[:jlpeaks, filekey, ch]
+        filename = l200.tier[:jlpeaks, filekey, det]
         if !isfile(filename)
-            @warn "File $filename does not exist, Skip channel $ch"
+            @warn "File $filename does not exist, Skip detector $det"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
         end
         yield()
 
-        max_wvfs = optimization_config_ch.max_wvfs
+        max_wvfs = optimization_config_det.max_wvfs
 
         # load data
-        wvfs_ch_pre, wvfs_ch_wdw, presum_rate = nothing, nothing, nothing
+        wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
         try
             data = lh5open(filename, "r")
             @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_ch_pre = data[ch, :jlpeaks, peakname].waveform_presummed[:]
-            wvfs_ch_wdw = data[ch, :jlpeaks, peakname].waveform_windowed[:]
-            presum_rate = data[ch, :jlpeaks, peakname].presum_rate[:]
+            wvfs_det_pre = data[det, :jlpeaks, peakname].waveform_presummed[:]
+            wvfs_det_wdw = data[det, :jlpeaks, peakname].waveform_windowed[:]
+            presum_rate = data[det, :jlpeaks, peakname].presum_rate[:]
             close(data)
-            if length(wvfs_ch_pre) > max_wvfs
+            if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_ch_pre = wvfs_ch_pre[sel]
-                wvfs_ch_wdw = wvfs_ch_wdw[sel]
+                wvfs_det_pre = wvfs_det_pre[sel]
+                wvfs_det_wdw = wvfs_det_wdw[sel]
                 presum_rate = presum_rate[sel]
             end
         catch e
@@ -111,11 +111,11 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         blmean_wdw = nothing
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
-            wvfs_ch_pre = wvfs_ch_pre[findall(qc)]
-            wvfs_ch_wdw = wvfs_ch_wdw[findall(qc)]
+            wvfs_det_pre = wvfs_det_pre[findall(qc)]
+            wvfs_det_wdw = wvfs_det_wdw[findall(qc)]
             blmean_wdw = blmean_wdw[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
@@ -127,7 +127,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         qdrift = nothing
         try
             @debug "Get QDrift"
-            qdrift = dsp_qdrift_flt_optimization(wvfs_ch_wdw, blmean_wdw, dsp_config_ch, pars_tau[det].τ)
+            qdrift = dsp_qdrift_flt_optimization(wvfs_det_wdw, blmean_wdw, dsp_config_det, pars_tau[det].τ)
         catch e
             @error "Failed QDrift: $(truncate_error(e))"
             throw(ErrorException("Error in QDrift: $(truncate_error(e))"))
@@ -143,16 +143,16 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             try
                 @debug "Optimize $filter_type filter"
 
-                optimization_config_flt = optimization_config_ch.e_filter[filter_type]
+                optimization_config_flt = optimization_config_det.e_filter[filter_type]
                 # unpack config
-                e_grid_rt            = getproperty(dsp_config_ch, Symbol("e_grid_rt_$(filter_type)"))
-                e_grid_ft            = getproperty(dsp_config_ch, Symbol("e_grid_ft_$(filter_type)"))
+                e_grid_rt            = getproperty(dsp_config_det, Symbol("e_grid_rt_$(filter_type)"))
+                e_grid_ft            = getproperty(dsp_config_det, Symbol("e_grid_ft_$(filter_type)"))
 
                 # optimize RT
                 enc_grid = nothing
                 try
                     @debug "Generate $filter_type ENC filter grid"
-                    enc_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
+                    enc_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_rt_optimization"))(wvfs_det_pre, dsp_config_det, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
                 catch e
                     @error "Filter: $filter_type RT DSP for FEP: $(truncate_error(e))"
                     throw(ErrorException("Error in $filter_type RT DSP for FEP: $(truncate_error(e))"))
@@ -178,7 +178,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 e_grid = nothing
                 try
                     @debug "Generate $filter_type FT energy grid"
-                    e_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_ch_pre, dsp_config_ch, pars_tau[det].τ, mvalue(result_rt.rt))
+                    e_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_ft_optimization"))(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, mvalue(result_rt.rt))
                 catch e
                     @error "Filter: $filter_type FT DSP for FEP: $(truncate_error(e))"
                     throw(ErrorException("Error in $filter_type FT DSP for FEP: $(truncate_error(e))"))
@@ -187,8 +187,8 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 GC.gc()
                 result_ft, report_ft = nothing, nothing
                 try
-                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_ch.apply_ctc; 
-                                            n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_ch.peak, window=(optimization_config_ch.left_window_size, optimization_config_ch.right_window_size), ft_fwhm_tol=optimization_config_ch.ft_fwhm_tol)
+                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_det.apply_ctc; 
+                                            n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_det.peak, window=(optimization_config_det.left_window_size, optimization_config_det.right_window_size), ft_fwhm_tol=optimization_config_det.ft_fwhm_tol)
                 catch e
                     @error "Failed $filter_type flat-top time extraction: $(truncate_error(e))"
                     throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_error(e))"))
@@ -198,7 +198,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey, det, "FEP FT Scan"; additional_type=string(filter_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 
-                log_info = log_nt((ch, det, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
+                log_info = log_nt((det, ch, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
                 # add results to dict
                 result_rt_ft_dict[filter_type] = merge(result_rt, result_ft)
@@ -210,7 +210,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((ch, det, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, ch, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -224,7 +224,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo, ch_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_flt = parallel(chinfo, det_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished filter optimization"
 
