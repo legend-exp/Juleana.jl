@@ -181,9 +181,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                     # create corrected A/E values
                     aoe_corr = ljl_propfunc(result_fit_single.func).(hit_cal)
 
-                    # add GoF to result
-                    single_fit_residuals = vcat([result_fit[band].gof.residuals_norm for band in compton_bands]...)
-                    result_correction = merge(result_fit_single, (gof = (mean_residuals = mean(single_fit_residuals), median_residuals = median(single_fit_residuals), std_residuals = std(single_fit_residuals)), ))
+                    # add GoF to result - use pre-computed values from fit results
+                    result_correction = merge(result_fit_single, (gof = (mean_residuals = mean([result_fit[band].gof.mean_residuals for band in compton_bands]), median_residuals = mean([result_fit[band].gof.median_residuals for band in compton_bands]), std_residuals = mean([result_fit[band].gof.std_residuals for band in compton_bands])), ))
                 end
                     
                 savelfig(LegendMakie.lsavefig, p_μ, l200, filekey, det, Symbol("compton_bands_mu_$aoe_type"))
