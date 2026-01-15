@@ -109,6 +109,10 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         result_fkcheck = Dict(parallel(filekeys, check_filekey, log_fkcheck, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))"))
 
+        if !all(v -> hasproperty(v, :result), values(result_fkcheck))
+            error("Some filekeys failed during checking due to unknown reason.")
+        end
+
         good_filekeys = [fk for fk in keys(result_fkcheck) if result_fkcheck[fk].result]
         write_filekeys(keylist_filename, good_filekeys)
 
