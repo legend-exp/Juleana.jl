@@ -231,8 +231,8 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
                     norm_func = pars_db_ch[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func
                     lq_class = ljl_propfunc(norm_func).(hit_cal)
                 catch e
-                    @error "lq classifier for $det from cannot be loaded: $(truncate_error(e))"
-                    throw(LoadError("lq", 154, "lq classifier data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
+                    @error "LQ classifier for $det cannot be loaded: $(truncate_error(e))"
+                    throw(LoadError("LQ classifier", 154, "LQ classifier for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
                 end
 
                 # create and save plots
