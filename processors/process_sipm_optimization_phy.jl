@@ -151,7 +151,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             @debug "Found $(count(is_pulser)) pulser events"
             wvfs_det = data_det[findall(.!is_pulser)].waveform_bit_drop[:]
         catch e
-            @error "Error in Pulser tag for detector $det ($ch): $(truncate_error(e))"
+            @error "Error in Pulser tag for detector $det: $(truncate_error(e))"
             throw(ErrorException("Error in Pulser tag for detector: $(truncate_error(e))"))
         end
 
