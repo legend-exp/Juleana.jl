@@ -6,7 +6,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
@@ -19,7 +19,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     pars_db = PropDict(l200.par.rpars.pz[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
             get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))

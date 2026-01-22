@@ -6,7 +6,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     energy_config = dataprod_config(l200).energy(filekey)
     @debug "Loaded energy config: $(energy_config)"
@@ -19,7 +19,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     pars_db = PropDict(l200.par.rpars.ecal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}

@@ -6,7 +6,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $lq_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     pars_energy = get_values(l200.par.rpars.ecal[period, run])
     @debug "Loaded energy calibration pars"
@@ -19,7 +19,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     pars_db = PropDict(l200.par.rpars.lq[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt_cal = NamedTuple{(:Detector, :Channel, :Status, Symbol("Classifier Type"), Symbol("DT Corr. Type"), Symbol("Correction Slope"), :CalError)}

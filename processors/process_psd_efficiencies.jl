@@ -6,7 +6,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     psd_config = dataprod_config(l200).psd(filekey).psd
     @debug "Loaded psd config: $(psd_config)"
@@ -25,7 +25,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
     @debug "Loaded lq pars"
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt_cut = NamedTuple{(:Detector, :Channel, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}

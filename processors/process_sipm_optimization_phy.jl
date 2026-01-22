@@ -6,7 +6,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:spms, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config = dataprod_config(l200).sipm(filekey)
     @debug "Loaded DSP config: $(dsp_config)"
@@ -22,7 +22,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     pars_db = PropDict(l200.par.rpars.sipmopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
@@ -83,7 +83,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     # execute in parallel
     result_puls = parallel([chinfo_puls], det_puls_phy, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
-    @info "Finished Pulser channel processing"
+    @info "Finished Pulser detector processing"
     pulser_processing_time = now() - start_time
 
     # function to process filter optimization
@@ -110,7 +110,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         processed_dict = Dict{Symbol, Bool}()
 
         if !reprocess && haskey(pars_db, det)
-            @debug "Channel $(det) already processed, check missing filters"
+            @debug "Detector $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
@@ -124,7 +124,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
 
         # check if all filters are already processed
         if length(keys(processed_dict)) == length(e_filter)
-            @debug "All filters already processed, skip channel"
+            @debug "All filters already processed, skip detector"
             return (processed = processed_dict, log = log_info_dict)
         end
 

@@ -9,9 +9,9 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
-    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
+    if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
@@ -42,7 +42,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
         end
 
         partinfo_det = partitioninfo(l200, det, part)
-        @debug "Loaded channel partition info with $(length(partinfo_det)) runs"
+        @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
     
         filekey_det = start_filekey(l200, (first(partinfo_det.period), first(partinfo_det.run), :cal))
         @debug "Found filekey $filekey_det"

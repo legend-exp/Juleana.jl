@@ -6,7 +6,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
@@ -22,7 +22,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     pars_db = PropDict(l200.par.rpars.fltopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
+    if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
             get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -72,7 +72,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
 
         # check if all filters are already processed
         if length(keys(processed_dict)) == length(e_filter)
-            @debug "All filters already processed, skip channel"
+            @debug "All filters already processed, skip detector"
             return (processed = processed_dict, log = log_info_dict)
         end
 

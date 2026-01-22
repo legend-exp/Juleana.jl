@@ -6,7 +6,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
@@ -30,7 +30,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     pars_db = PropDict(l200.par.rpars.aoeopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
@@ -73,7 +73,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
         # check if all filters are already processed
         if length(keys(processed_dict)) == length(aoe_filter)
-            @debug "All filters already processed, skip channel"
+            @debug "All filters already processed, skip detector"
             return (processed = processed_dict, log = log_info_dict)
         end
         

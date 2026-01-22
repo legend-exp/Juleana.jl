@@ -10,7 +10,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     chinfo      = channelinfo(l200, filekey; system=:geds, only_processable=true)
     chinfo_sipm = channelinfo(l200, filekey; system=:spms, only_processable=true)
     chinfo_pmts = channelinfo(l200, filekey; system=:pmts, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
@@ -39,7 +39,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         det = chinfo_det.detector
         # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
         if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, ch, period, run))
-            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for channel"
+            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for detector"
             parts = partitioninfo(l200, ch, period)
             closest_runs_distance = Real[]
             for p in parts
@@ -51,19 +51,19 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
             try
                 merge!(pars_tau, get_values(l200.par.ppars.pz[det, part]))
             catch e
-                @warn "No decay time for detector $det, skip channel $ch"
+                @warn "No decay time for detector $det, skip detector $ch"
                 continue
             end
             try
                 merge!(pars_fltoptimization, get_values(l200.par.ppars.fltopt[det, part]))
             catch e
-                @warn "No flt optimization parameters for detector $det, skip channel $ch"
+                @warn "No flt optimization parameters for detector $det, skip detector $ch"
                 continue
             end
             try
                 merge!(pars_fltoptimization, get_values(l200.par.ppars.aoeopt[det, part]))
             catch e
-                @warn "No aoe flt optimization parameters for detector $det, skip channel $ch"
+                @warn "No aoe flt optimization parameters for detector $det, skip detector $ch"
                 continue
             end
         end
@@ -73,8 +73,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     pars_sipm = get_values(l200.par[pars_type, :sipmopt](filekey))
     @debug "Loaded sipm parameters"
     
-    if reprocess @info "Reprocess all filekeys and channels"
-    else @info "Only reprocess filekeys and channels that are not processed yet" end
+    if reprocess @info "Reprocess all filekeys and detectors"
+    else @info "Only reprocess filekeys and detectors that are not processed yet" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
@@ -94,7 +94,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         @info "Using output file: $(basename(dspfilename))"
         # number of processed detectors
         n_detectors = 0
-        # channel ids of failed detectors
+        # detector ids of failed detectors
         failed_detectors = DetectorId[]
         # start processing
         read_files(rawfilename, use_cache = false) do filename
@@ -109,13 +109,13 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                 # open output file
                 outdata = lh5open(outfilename, "cw")
-                # get processed channels
-                processed_channels = keys(outdata)
+                # get processed detectors
+                processed_detectors = keys(outdata)
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
                     if haskey(dsp_config_pd, :additional_detectors)
-                        # process additional channels
+                        # process additional detectors
                         for det in DetectorId.(keys(dsp_config_pd.additional_detectors))
                             ch = channelinfo(l200, filekey, det).channel
 
@@ -123,8 +123,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             dsp_config_det = DSPConfig(dsp_config_pd_det)
                             @debug "Loaded DSP config: $(dsp_config_det)"
 
-                            # check if channel can be processed
-                            if "$det" in processed_channels && !reprocess
+                            # check if detector can be processed
+                            if "$det" in processed_detectors && !reprocess
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
                                 continue
@@ -154,8 +154,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         end
                     end
 
-                    # loop over channels
-                    if all(.!haskey.(Ref(raw_data), string.(chinfo_pmts.channel)))
+                    # loop over detectors
+                    if all(.!haskey.(Ref(raw_data), string.(chinfo_pmts.detector)))
                         @warn "No PMT data found in $(fk), skip PMT processing"
                         n_detectors += length(chinfo_pmts)
                     else
@@ -164,8 +164,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             ch = chinfo_det.channel
                             det = chinfo_det.detector
             
-                            # check if channel can be processed
-                            if "$det" in processed_channels && !reprocess
+                            # check if detector can be processed
+                            if "$det" in processed_detectors && !reprocess
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
                                 continue
@@ -175,7 +175,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             @timeit dsp_timer "DSP $det" begin
                                 # get metadata
                                 dsp_meta_det = merge(dsp_meta_pmt.default, get(dsp_meta_pmt, det, PropDict()))
-                                # process channel
+                                # process detector
                                 outdata_det = nothing
                                 try
                                     outdata_det = dsp_pmts(raw_data[det].raw[:], dsp_meta_det)
@@ -200,19 +200,19 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         end
                     end
 
-                    # loop over channels
+                    # loop over detectors
                     @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_det in chinfo_sipm
 
-                        ch = chinfo_det.channel
+                        ch = chinfo_det.detector
                         det = chinfo_det.detector
         
-                        # check if channel can be processed
+                        # check if detector can be processed
                         if !haskey(pars_sipm, det)
-                            @warn "No thresholds for detector $det, skip channel $ch"
+                            @warn "No thresholds for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end
-                        if "$det" in processed_channels && !reprocess
+                        if "$det" in processed_detectors && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -222,7 +222,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         @timeit dsp_timer "DSP $det" begin
                             # get metadata
                             dsp_meta_det = merge(dsp_meta_sipm.default, get(dsp_meta_sipm, det, PropDict()))
-                            # process channel
+                            # process detector
                             outdata_det = nothing
                             try
                                 outdata_det = dsp_sipm_compressed(raw_data[det].raw[:], dsp_meta_det, pars_sipm[det])
@@ -246,7 +246,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         end
                     end
 
-                    # loop over channels
+                    # loop over detectors
                     @showprogress desc="Filekey HPGe: $fk" output=stdout for chinfo_det in chinfo
 
                         ch = chinfo_det.channel
@@ -256,8 +256,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                         dsp_config_det = DSPConfig(dsp_config_pd_det)
                         @debug "Loaded DSP config: $(dsp_config_det)"
 
-                        # check if channel can be processed
-                        if "$det" in processed_channels && !reprocess
+                        # check if detector can be processed
+                        if "$det" in processed_detectors && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -265,27 +265,27 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         # check for decay time
                         if !haskey(pars_tau, det)
-                            @warn "No decay time for detector $det, skip channel $ch"
+                            @warn "No decay time for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end
-                        # check if channel has values for RT and FT for different filters
+                        # check if detector has values for RT and FT for different filters
                         if !haskey(pars_fltoptimization, det)
-                            @warn "No optimization parameters for detector $det, skip channel $ch"
+                            @warn "No optimization parameters for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end
 
-                        # check if channel has all required flt opt pars
+                        # check if detector has all required flt opt pars
                         if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det.required_fltopt)))
-                            @warn "Not all required energy filter optimization parameters for detector $det, skip channel $ch"
+                            @warn "Not all required energy filter optimization parameters for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end
 
-                        # check if channel has all required aoe opt pars
+                        # check if detector has all required aoe opt pars
                         if chinfo_det.usability == :on && chinfo_det.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det.required_aoeopt)))
-                            @warn "Not all required A/E optimization parameters for detector $det, skip channel $ch"
+                            @warn "Not all required A/E optimization parameters for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end

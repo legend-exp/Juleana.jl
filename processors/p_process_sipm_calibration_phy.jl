@@ -9,9 +9,9 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:spms, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
-    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
+    if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
@@ -42,7 +42,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         end
 
         partinfo_det = partitioninfo(l200, det, part)
-        @debug "Loaded channel partition info with $(length(partinfo_det)) runs"
+        @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
     
         filekey_det = first(getproperty(partinfo_det, :phy)).startkey
         @debug "Found filekey $filekey_det"

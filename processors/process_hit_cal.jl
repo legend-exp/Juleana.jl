@@ -8,7 +8,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     qc_config = dataprod_config(l200).qc(filekey)
     @debug "Loaded QC config: $(qc_config)"
@@ -18,7 +18,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     pars_db = PropDict(l200.par.rpars.qc[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Survival Fraction"), Symbol("Number Pulser Events"), :Error)}
@@ -66,7 +66,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     # execute in parallel
     result_puls = parallel([chinfo_puls], det_puls_cal, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
-    @info "Finished Pulser channel processing"
+    @info "Finished Pulser detector processing"
     pulser_processing_time = now() - start_time
 
     # generate hit cal files
@@ -185,7 +185,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     # execute in parallel
     result_qc = parallel(chinfo, det_hit_cal, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
-    @info "Finished Hit channel processing"
+    @info "Finished Hit detector processing"
 
     pars_db = create_pars(pars_db, result_qc)
     writelprops(l200.par.rpars.qc[period], run, pars_db)

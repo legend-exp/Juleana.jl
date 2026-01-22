@@ -8,7 +8,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Found start filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
@@ -33,7 +33,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         det = chinfo_det.detector
         # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
         if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, ch, period, run))
-            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for channel"
+            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for detector"
             parts = partitioninfo(l200, det, period)
             closest_runs_distance = Real[]
             for p in parts
@@ -45,26 +45,26 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
             try
                 merge!(pars_tau, get_values(l200.par.ppars.pz[det, part]))
             catch e
-                @warn "No decay time for detector $det, skip channel $ch"
+                @warn "No decay time for detector $det, skip detector $ch"
                 continue
             end
             try
                 merge!(pars_fltoptimization, get_values(l200.par.ppars.fltopt[det, part]))
             catch e
-                @warn "No flt optimization parameters for detector $det, skip channel $ch"
+                @warn "No flt optimization parameters for detector $det, skip detector $ch"
                 continue
             end
             try
                 merge!(pars_fltoptimization, get_values(l200.par.ppars.aoeopt[det, part]))
             catch e
-                @warn "No aoe flt optimization parameters for detector $det, skip channel $ch"
+                @warn "No aoe flt optimization parameters for detector $det, skip detector $ch"
                 continue
             end
         end
     end
 
-    if reprocess @info "Reprocess all filekeys and channels"
-    else @info "Only reprocess filekeys and channels that are not processed yet" end
+    if reprocess @info "Reprocess all filekeys and detectors"
+    else @info "Only reprocess filekeys and detectors that are not processed yet" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
@@ -84,7 +84,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         @info "Using output file: $(basename(dspfilename))"
         # number of processed detectors
         n_detectors = 0
-        # channel ids of failed detectors
+        # detector ids of failed detectors
         failed_detectors = DetectorId[]
         # start processing
         read_files(rawfilename, use_cache = false) do filename
@@ -99,12 +99,12 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
 
                 # open output file
                 outdata = lh5open(outfilename, "cw")
-                # get processed channels
+                # get processed detectors
                 processed_channels = keys(outdata)
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
-                    # loop over channels
+                    # loop over detectors
                     @showprogress desc="Filekey: $fk" output=stdout for chinfo_det in chinfo
                         
                         ch = chinfo_det.channel
@@ -123,13 +123,13 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                         
                         # check for decay time
                         if !haskey(pars_tau, det)
-                            @warn "No decay time for detector $det, skip channel $ch"
+                            @warn "No decay time for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end
                         # check if channel has values for RT and FT for different filters
                         if !haskey(pars_fltoptimization, det)
-                            @warn "No optimization parameters for detector $det, skip channel $ch"
+                            @warn "No optimization parameters for detector $det, skip detector $ch"
                             push!(failed_detectors, det)
                             continue
                         end

@@ -6,7 +6,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:spms, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     calibration_config = dataprod_config(l200).sipm(filekey).calibration
     @debug "Loaded calibration config: $(calibration_config)"
@@ -25,7 +25,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     pars_db = PropDict(l200.par.rpars.sipmcal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
@@ -55,7 +55,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         energy_types = Symbol.(calibration_config_det.energy_types)
 
         if !reprocess && haskey(pars_db, det)
-            @debug "Channel $(det) already processed, check missing energy types"
+            @debug "Detector $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"

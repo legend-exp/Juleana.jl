@@ -9,14 +9,14 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
             get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
         end
     @info "Loaded trained SVM model"
 
-    if reprocess @info "Reprocess all channels" else @info "Only process channels not in pars_db" end
+    if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, :Usability, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
