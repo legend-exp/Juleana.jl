@@ -203,7 +203,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     # loop over detectors
                     @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_det in chinfo_sipm
 
-                        ch = chinfo_det.detector
+                        ch = chinfo_det.channel
                         det = chinfo_det.detector
         
                         # check if detector can be processed
