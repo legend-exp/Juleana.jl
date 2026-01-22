@@ -31,7 +31,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     flush(stdout)
 
     # write out pulser events
-    chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_channel))
+    chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     @info "Loaded pulser channel info: $(chinfo_puls)"
 
     # get information about pulser events from raw trigger

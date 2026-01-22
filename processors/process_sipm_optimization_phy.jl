@@ -35,11 +35,11 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     flush(stdout)
 
     #  write out pulser events
-    chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_channel))
+    chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     @info "Loaded pulser channel info: $(chinfo_puls)"
 
     # get information about pulser events from raw trigger
-    function ch_puls_phy(chinfo_puls::NamedTuple)
+    function det_puls_phy(chinfo_puls::NamedTuple)
         
         ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
@@ -61,11 +61,11 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
 
         # get pulser events DSP
         @debug "Generate DSP for Pulser events"
-        dsp_pls = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[det_puls]))(raw_pls, dsp_config_det)
+        dsp_pls = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[det_puls]))(raw_pls, dsp_config_det)
 
         # get pulser events data
         @debug "Calibrate Pulser events"
-        data_puls = calibrate_aux_channel_data(l200, filekey, det_puls, dsp_pls)
+        data_puls = calibrate_aux_detector_data(l200, filekey, det_puls, dsp_pls)
 
         @info "Write Pulser events to disk"
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
@@ -81,7 +81,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     start_time = now()
 
     # execute in parallel
-    result_puls = parallel([chinfo_puls], ch_puls_phy, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_puls = parallel([chinfo_puls], det_puls_phy, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished Pulser channel processing"
     pulser_processing_time = now() - start_time

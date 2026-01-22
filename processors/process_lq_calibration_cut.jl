@@ -103,7 +103,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
             if !all([haskey(processed_dict, lq_type) for lq_type in lq_types]) || !all([haskey(processed_dict, lq_classifier) for lq_classifier in lq_classifiers])
                 hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                     @debug "Reading from $(period)-$(run)"
-                    # calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, det); keep_chdata=true) end
+                    # calibrate_ged_detector_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, det); keep_detdata=true) end
                         Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
                     end
                 e_cal = getproperty(hit_cal, e_type)

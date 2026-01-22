@@ -114,9 +114,9 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
-                    if haskey(dsp_config_pd, :additional_channel)
+                    if haskey(dsp_config_pd, :additional_detectors)
                         # process additional channels
-                        for det in DetectorId.(keys(dsp_config_pd.additional_channel))
+                        for det in DetectorId.(keys(dsp_config_pd.additional_detectors))
                             ch = channelinfo(l200, filekey, det).channel
 
                             dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
@@ -135,7 +135,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 # process data
                                 outdata_det = nothing
                                 try
-                                    outdata_det = getfield(LegendDSP, Symbol(dsp_config_pd.additional_channel[Symbol(det)]))(raw_data[det].raw[:], dsp_config_det)
+                                    outdata_det = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[Symbol(det)]))(raw_data[det].raw[:], dsp_config_det)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -331,7 +331,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_channel, []))+length(chinfo_sipm)+length(chinfo_pmts))", string.(failed_detectors), total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_detectors, []))+length(chinfo_sipm)+length(chinfo_pmts))", string.(failed_detectors), total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end

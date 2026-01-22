@@ -92,7 +92,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 hit_cal = fast_flatten([
                     let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, det).dataQC
                         @debug "Calibrating $(pinfo.period)-$(pinfo.run)"
-                        calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, dsp; keep_chdata=true, hpge_kwargs...)
+                        calibrate_ged_detector_data(l200, pinfo.cal.startkey, det, dsp; keep_detdata=true, hpge_kwargs...)
                     end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)

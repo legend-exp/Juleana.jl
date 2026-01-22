@@ -58,7 +58,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         @debug "Loaded pulser config: $(pulser_config_det)"
 
         #  write out pulser events
-        chinfo_puls = channelinfo(l200, filekey_det, Symbol(qc_config.pulser.puls_channel))
+        chinfo_puls = channelinfo(l200, filekey_det, Symbol(qc_config.pulser.puls_detector))
         @info "Loaded pulser channel info: $(chinfo_puls)"
 
         ch_puls = chinfo_puls.channel
