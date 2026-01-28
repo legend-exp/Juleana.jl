@@ -90,7 +90,8 @@
                 "reprocess": false,
                 "max_wvfs": 1000,
                 "timeout": 0,
-                "use_partition_filter": true
+                "use_partition_filter": true,
+                "use_ml_qc": true
             },
             "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
         },
@@ -182,7 +183,8 @@
                 "reprocess": true,
                 "timeout": 0,
                 "max_wvfs": 1000,
-                "use_partition_filter": true
+                "use_partition_filter": true,
+                "use_ml_qc": true
             },
             "dependencies": ["p_process_sipm_optimization_phy"]
         },

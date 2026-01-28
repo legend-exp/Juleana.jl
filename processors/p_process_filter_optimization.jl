@@ -11,11 +11,6 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-        end
-    @info "Loaded trained SVM model"
-
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
@@ -133,7 +128,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         blmean_wdw = nothing
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det_pre, dsp_config_det, pars_tau[det].τ)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
             wvfs_det_pre = wvfs_det_pre[findall(qc)]

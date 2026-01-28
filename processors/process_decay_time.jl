@@ -21,11 +21,6 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all detectors" end
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-        end
-    @info "Loaded trained SVM model"
-
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
@@ -89,7 +84,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         # get QC cuts
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det, dsp_config_det, 400.0u"µs", f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det, dsp_config_det, 400.0u"µs")
             qc = ljl_propfunc(qc_string).(dsp_qc)
             wvfs_det = wvfs_det[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"

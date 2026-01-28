@@ -1,4 +1,4 @@
-function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=0, max_wvfs::Int=10000, use_partition_filter::Bool=true)
+function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=0, max_wvfs::Int=10000, use_partition_filter::Bool=true, use_ml_qc::Bool=true)
     
     @info "Process DSP for period $period and run $run"
 
@@ -13,10 +13,18 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
+    f_evaluate_qc = if use_ml_qc
+        h5open(get_mltrainfilename(l200, filekey)) do train_data
             get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
         end
-    @info "Loaded trained SVM model"
+    else
+        missing
+    end
+    if use_ml_qc
+        @info "Loaded trained SVM model"
+    else
+        @info "ML QC disabled, skipping SVM model"
+    end
 
     pars_type = ifelse(use_partition_filter, :ppars, :rpars)
     @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
