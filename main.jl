@@ -1,5 +1,10 @@
 #!/usr/bin/env -S julia
 
+using Juleana
+
+#!!!!!!!! TODO: run Juleana interactive
+
+
 ##################
 # Start Processing
 ##################
@@ -41,15 +46,9 @@ if isinteractive()
     end
 end
 
-# load packages
-include(joinpath(@__DIR__,"src/LegendJuliaDataflow.jl"))
-
 # evaluate config
 l200, processing_config, runs, periods = get_processingconfig()
 @info "Start Data processing"
-
-# load all available processors
-include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
 if processing_config.runmode == "local"
     runmode = OnLocalhost(
