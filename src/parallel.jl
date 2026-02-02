@@ -1,31 +1,6 @@
 # get worker pool
 function get_workerPool(processing_config::PropDict, process::Symbol)
-    n_workers = get(processing_config.processors[process], :n_workers, "all")
-    @assert typeof(n_workers) <: Int || n_workers == "all" "Number of workers must be an integer or 'all'."
-    if n_workers == "all" || n_workers >= nworkers()
-        wp = default_worker_pool()
-        @info "Use default worker pool with $(length(wp)) workers."
-        return wp
-    else
-        # make sure to distribute the workers evenly between all clusters
-        if length(processing_config.processing.remote_workers) == 0
-            return WorkerPool(2:n_workers+1)
-        end
-        cluster_workers_pids = [2:processing_config.processing.local_workers+1]
-        for p in processing_config.processing.remote_workers
-            last_pid = last(cluster_workers_pids[end])
-            push!(cluster_workers_pids, last_pid+1:last_pid+last(p))
-        end
-        cluster_workers = append!([processing_config.processing.local_workers], [last(p) for p in processing_config.processing.remote_workers])
-        cluster_shares = [floor(Int, n_workers * n / sum(cluster_workers)) for n in cluster_workers]
-        wpool = Int64[]
-        for (pids, share) in zip(cluster_workers_pids, cluster_shares)
-            append!(wpool, rand(pids, share))
-        end
-        wp = WorkerPool(wpool)
-        @info "Use custom worker pool with $(length(wp)) workers."
-        return wp
-    end
+    return default_worker_pool()
 end
 
 # retry delay check for parallel processing

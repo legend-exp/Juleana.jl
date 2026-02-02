@@ -132,7 +132,6 @@ You can configure the `processors` section with the following layout
 ``` json
 "process_dsp_cal": {
             "enabled": true,
-            "n_workers": "all",
             "category": "cal",
             "rank": 5,
             "kwargs": {
@@ -150,8 +149,7 @@ which will result in adding the `process_dsp_cal` processor to the list and proc
 
 The following fields are available:
 1. **`enabled`**: flag can be used to enable or disable the processor in the chain.
-2. **`n_workers`**: field can be used to set the number of workers for the processor. This can be set to `"all"` to use all available workers which will result in a worker pool with the size of the number of channels/filekeys.
-3. **`rank`**: field can be used to set the rank of the processor in the chain. This can be useful if the order of the processing matters. The processors will be sorted by the rank and then processed in this order.
-4. **`category`**: field can be used to set the category of the processor. This is important to tell the dataflow if the processor is acting on `cal` or `phy` data.
-5. **`kwargs`**: field can be used to pass additional keyword arguments to the processor. This can be useful to set specific settings for the processor. Please refer to the processor documentation for all available options.
-6. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully.
+2. **`rank`**: field can be used to set the rank of the processor in the chain. This can be useful if the order of the processing matters. The processors will be sorted by the rank and then processed in this order.
+3. **`category`**: field can be used to set the category of the processor. This is important to tell the dataflow if the processor is acting on `cal` or `phy` data.
+4. **`kwargs`**: field can be used to pass additional keyword arguments to the processor. This can be useful to set specific settings for the processor. Please refer to the processor documentation for all available options.
+5. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully.
