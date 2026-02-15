@@ -28,6 +28,11 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         @info "Using output file: $(basename(evtfilename))"
         # number of forced, pulser and physical triggers
         n_forced, n_pulser, n_phy = 0, 0, 0
+        # Remove old PMT evt file if reprocess is enabled (must be done before write_files block)
+        if reprocess && isfile(pmtevtfilename)
+            @info "Reprocess $(basename(pmtevtfilename)), remove old PMT Evt."
+            rm(pmtevtfilename, force=true)
+        end
         # start processing
         read_files(dspfilename, use_cache = false) do filename
             write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
@@ -44,7 +49,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_det) .> 1)
                         n_forced, n_pulser, n_phy
                     end
-                    return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_phy, n_pulser, n_forced, "", "", "")), processed = false)
+                    return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_phy, n_forced, n_pulser, "", "", "")), processed = false)
                 end
 
                 # open output file
@@ -71,6 +76,10 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         # write pmt evt file
                         if !isempty(pmts_out_t)
                             write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
+                                # Remove cached PMT file if reprocess is enabled
+                                if reprocess && isfile(pmtoutfilename)
+                                    rm(pmtoutfilename, force=true)
+                                end
                                 lh5open(pmtoutfilename, "cw") do ds
                                     ds[:jlpmt] = pmts_out_t
                                 end
@@ -89,7 +98,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), n_phy, n_pulser, n_forced, total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(1), n_phy, n_forced, n_pulser, total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
