@@ -101,7 +101,8 @@
             "rank": 6,
             "kwargs": {
                 "reprocess": true,
-                "timeout": 0
+                "timeout": 0,
+                "quality_cuts": "classical"
             },
             "dependencies": []
         },

@@ -1,4 +1,4 @@
-function process_hit_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+function process_hit_cal(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, quality_cuts::Symbol=:classical)
 
     @info "Generate cal hit for period $period and run $run"
 
@@ -109,12 +109,21 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
 
         # generate qc cuts
+        if quality_cuts ∉ (:classical, :ml)
+            throw(ArgumentError("Invalid value for `quality_cuts`: $quality_cuts. Valid options are `:classical` and `:ml`."))
+        end
         qc, is_physical = nothing, nothing
         try
             @debug "Get QC cuts"
             # result_qc, report_qc  = baseline_qc(data_det, qc_config_det)
             qc = Table(ljl_propfunc(qc_config_det.labels).(data_det))
-            is_physical = ljl_propfunc(qc_config_det.is_physical).(qc)
+            if quality_cuts == :classical
+                @debug "Using classical QC cuts"
+                is_physical = ljl_propfunc(qc_config_det.is_physical_classical).(qc)
+            elseif quality_cuts == :ml
+                @debug "Using ML-based QC cuts"
+                is_physical = ljl_propfunc(qc_config_det.is_physical_ml).(qc)
+            end
             @debug "Total survival fraction: $(round(count(is_physical) / length(is_physical) * 100, digits=2))%"
         catch e
             @error "Error in QC for detector $det: $(truncate_error(e))"
