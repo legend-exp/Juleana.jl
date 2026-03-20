@@ -294,3 +294,37 @@ function setup_dependency_graph(l200::LegendData, processing_config::PropDict, p
 
     return process_status, p_process_status
 end
+
+
+"""
+    load_qc_evaluator(l200::LegendData, filekey::FileKey)
+
+Load the ML QC evaluator function if available, otherwise return a default function 
+that assigns label -1 to all waveforms.
+
+Returns a tuple: (f_evaluate_qc, using_ml::Bool)
+"""
+function load_qc_evaluator(l200::LegendData, filekey::FileKey)
+    ml_filename = get_mltrainfilename(l200, filekey)
+    
+    if isfile(ml_filename)
+        try
+            f_evaluate_qc = h5open(ml_filename) do train_data
+                get_qc_ml_func(
+                    Array(train_data["ml_train/dsp/dwt_norm"]), 
+                    Array(train_data["ml_train/dsp/dc_label"]), 
+                    l200.par.rpars.ml(filekey)
+                )
+            end
+            @debug "Loaded trained SVM model from $(basename(ml_filename))"
+            return (f_evaluate_qc, true)
+        catch e
+            @warn "Failed to load ML model from $(ml_filename): $e - using default QC labels (-1)"
+        end
+    else
+        @debug "ML training file not found: $(ml_filename) - using default QC labels (-1)"
+    end
+    
+    # Return missing to skip expensive Haar filtering in get_qc_classifier
+    return (missing, false)
+end

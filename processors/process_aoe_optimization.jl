@@ -11,10 +11,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-        end
-    @info "Loaded trained SVM model"
+    f_evaluate_qc, using_ml = load_qc_evaluator(l200, filekey)
+    @info using_ml ? "Using trained SVM model for QC" : "Using default QC labels (-1, no ML model available)"
 
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
