@@ -52,7 +52,8 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
 
         pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
 
-        energy_types = Symbol.(calibration_config_det.energy_types)
+        # collect all energy types across filters for skip-checks
+        energy_types = Symbol.(reduce(vcat, [fc.energy_types for (_, fc) in pairs(calibration_config_det.e_filter)]))
 
         if !reprocess && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing energy types"
@@ -88,18 +89,21 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
             throw(ErrorException("Error in Pulser tag for detector: $(truncate_error(e))"))
         end
 
-        # get data
+        for (filter_name, filter_config) in pairs(calibration_config_det.e_filter)
+
+        # get data after per-filter QC
         data_det_after_qc = nothing
         try
-            @debug "Load hit data"
-            # load DSP data and apply QC cut
-            data_det_after_qc = data_dsp[findall(ljl_propfunc(calibration_config_det.qc).(data_dsp) .&& .!is_pulser)]
+            @debug "Load hit data for filter $filter_name"
+            data_det_after_qc = data_dsp[findall(ljl_propfunc(filter_config.qc).(data_dsp) .&& .!is_pulser)]
         catch e
-            @error "Error in loading data for detector $det ($ch): $(truncate_error(e))"
+            @error "Error in loading data for detector $det ($ch), filter $filter_name: $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
         end
 
-        @showprogress desc="Detector: $det" for e_type in energy_types
+        filter_energy_types = Symbol.(filter_config.energy_types)
+
+        @showprogress desc="Detector: $det ($filter_name)" for e_type in filter_energy_types
             if haskey(processed_dict, e_type)
                 continue
             end
@@ -118,7 +122,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                     throw(ErrorException("Error in $e_type data extraction"))
                 end
 
-                p = LegendMakie.lplot(fit(Histogram, e_uncal, calibration_config_det.simple.kwargs.initial_min_amp:0.1:calibration_config_det.simple.kwargs.initial_max_amp), 
+                p = LegendMakie.lplot(fit(Histogram, e_uncal, filter_config.simple.kwargs.initial_min_amp:0.1:filter_config.simple.kwargs.initial_max_amp), 
                     xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts / 0.1", label="Uncalibrated PE", yscale = Makie.log10, 
                     title = get_plottitle(filekey, det, "PE Uncalibrated"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("pe_uncalibrated_$(e_type)"))
@@ -127,7 +131,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(calibration_config_det.simple.kwargs)...)
+                    result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(filter_config.simple.kwargs)...)
                 catch e
                     @error "Error in $e_type simple calibration for detector $det ($ch): $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
@@ -194,6 +198,8 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 processed_dict[e_type] = false
             end
         end
+
+        end # for (filter_name, filter_config)
 
         return (result = result_dict, log = log_info_dict, processed = processed_dict)
     end
