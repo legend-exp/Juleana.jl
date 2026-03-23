@@ -51,11 +51,11 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
 
         calibration_config = dataprod_config(l200).sipm(filekey_det).calibration
         calibration_config_det = merge(calibration_config.p_default, get(calibration_config.p, det, PropDict()))
-        @debug "Loaded calibration config: $(calibration_config_det)"
+        @debug "Loaded calibration config: $(lstring(calibration_config_det))"
 
         qc_config = dataprod_config(l200).qc(filekey_det)
         pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
-        @debug "Loaded pulser config: $(pulser_config_det)"
+        @debug "Loaded pulser config: $(lstring(pulser_config_det))"
 
         #  write out pulser events
         chinfo_puls = channelinfo(l200, filekey_det, Symbol(qc_config.pulser.puls_detector))

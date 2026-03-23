@@ -66,11 +66,11 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         dsp_config_pd = dataprod_config(l200).dsp(filekey_det)
         dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         pz_config = dataprod_config(l200).dsp(filekey_det).pz
         pz_config_det = merge(pz_config.p_default, get(pz_config.p, det, PropDict()))
-        @debug "Loaded PZ config: $(pz_config_det)"
+        @debug "Loaded PZ config: $(lstring(pz_config_det))"
 
         # unpack config
         min_τ, max_τ  = pz_config_det.min_tau, pz_config_det.max_tau

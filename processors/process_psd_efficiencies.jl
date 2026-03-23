@@ -9,7 +9,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     psd_config = dataprod_config(l200).psd(filekey).psd
-    @debug "Loaded psd config: $(psd_config)"
+    @debug "Loaded psd config: $(lstring(psd_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.psd), string(period)))

@@ -57,11 +57,11 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
         dsp_config_pd = dataprod_config(l200).dsp(filekey_det)
         dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         optimization_config = dataprod_config(l200).dsp(filekey_det).flt_optimization
         optimization_config_det = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
-        @debug "Loaded optimization config: $(optimization_config_det)"
+        @debug "Loaded optimization config: $(lstring(optimization_config_det))"
         
         # extract config
         n_evts        = optimization_config_det.n_evts

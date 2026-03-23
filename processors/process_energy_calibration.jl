@@ -9,7 +9,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     energy_config = dataprod_config(l200).energy(filekey)
-    @debug "Loaded energy config: $(energy_config)"
+    @debug "Loaded energy config: $(lstring(energy_config))"
 
     pars_ctc = get_values(l200.par.rpars.ctc[period, run])
     @debug "Loaded CTC parameters"

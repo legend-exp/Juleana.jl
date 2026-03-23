@@ -52,7 +52,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
         # load config
         aoe_config = dataprod_config(l200).psd(filekey_det).aoe
         aoe_config_det = merge(aoe_config.p_default, get(aoe_config.p, det, PropDict()))
-        @debug "Loaded aoe config: $(aoe_config_det)"
+        @debug "Loaded aoe config: $(lstring(aoe_config_det))"
 
         aoe_classifiers = Symbol.(aoe_config_det.aoe_classifiers)
         e_type         = Symbol(aoe_config_det.e_type)
