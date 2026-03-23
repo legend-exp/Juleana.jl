@@ -9,7 +9,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
-    @debug "Loaded DSP config: $(dsp_config_pd)"
+    @debug "Loaded DSP config: $(lstring(dsp_config_pd))"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
             get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -23,7 +23,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     @debug "Loaded energy optimization parameters"
 
     optimization_config = dataprod_config(l200).dsp(filekey).aoe_optimization
-    @debug "Loaded optimization config: $(optimization_config)"
+    @debug "Loaded optimization config: $(lstring(optimization_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.aoeopt), string(period)))
@@ -49,7 +49,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         @info "Processing detector $det ($ch)"
 
         dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         aoe_config_det = merge(optimization_config.default, get(optimization_config, det, PropDict()))
         qc_string     = aoe_config_det.qc

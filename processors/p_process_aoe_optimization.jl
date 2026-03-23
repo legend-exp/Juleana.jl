@@ -62,11 +62,11 @@ function det_sg_optimization(chinfo_det::NamedTuple)
 
         dsp_config_pd = dataprod_config(l200).dsp(filekey_det)
         dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         optimization_config = dataprod_config(l200).dsp(filekey_det).aoe_optimization
         aoe_config_det = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
-        @debug "Loaded optimization config: $(optimization_config)"
+        @debug "Loaded optimization config: $(lstring(optimization_config))"
         
         # extract config
         qc_string       = aoe_config_det.qc

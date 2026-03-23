@@ -53,7 +53,7 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         # load config
         aoe_config = dataprod_config(l200).psd(filekey_det).aoe
         aoe_config_det = merge(aoe_config.p_default, get(aoe_config.p, det, PropDict()))
-        @debug "Loaded aoe config: $(aoe_config_det)"
+        @debug "Loaded aoe config: $(lstring(aoe_config_det))"
 
         compton_bands     = aoe_config_det.compton_bands
         compton_window    = aoe_config_det.compton_window

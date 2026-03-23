@@ -52,7 +52,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
         # load config
         psd_config = dataprod_config(l200).psd(filekey_det).psd
         psd_config_det = merge(psd_config.default, get(psd_config, det, PropDict()))
-        @debug "Loaded psd config: $(psd_config_det)"
+        @debug "Loaded psd config: $(lstring(psd_config_det))"
 
         e_type = Symbol(psd_config_det.e_type)
         psd_classifiers = collect(keys(psd_config_det.psd_classifiers))

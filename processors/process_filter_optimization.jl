@@ -9,13 +9,13 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
-    @debug "Loaded DSP config: $(dsp_config_pd)"
+    @debug "Loaded DSP config: $(lstring(dsp_config_pd))"
 
     pars_tau = get_values(l200.par.rpars.pz[period, run])
     @debug "Loaded decay times"
 
     optimization_config = dataprod_config(l200).dsp(filekey).flt_optimization
-    @debug "Loaded optimization config: $(optimization_config)"
+    @debug "Loaded optimization config: $(lstring(optimization_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.fltopt), string(period)))
@@ -46,7 +46,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         @debug "Processing detector $det ($ch)"
 
         dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         optimization_config_det = merge(optimization_config.default, get(optimization_config, det, PropDict()))
         qc_string     = optimization_config_det.qc

@@ -9,10 +9,10 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
-    @debug "Loaded DSP config: $(dsp_config_pd)"
+    @debug "Loaded DSP config: $(lstring(dsp_config_pd))"
 
     pz_config = dataprod_config(l200).dsp(filekey).pz
-    @debug "Loaded PZ config: $(pz_config)"
+    @debug "Loaded PZ config: $(lstring(pz_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.pz), string(period)))
@@ -50,7 +50,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         @debug "Processing detector $det ($ch)"
 
         dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         pz_config_det = merge(pz_config.default, get(pz_config, det, PropDict()))
         

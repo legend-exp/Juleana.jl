@@ -13,11 +13,11 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
-    @debug "Loaded DSP config: $(dsp_config_pd)"
+    @debug "Loaded DSP config: $(lstring(dsp_config_pd))"
     dsp_meta_sipm = dataprod_config(l200).sipm(filekey)
-    @debug "Loaded SiPM DSP config: $(dsp_meta_sipm)"
+    @debug "Loaded SiPM DSP config: $(lstring(dsp_meta_sipm))"
     dsp_meta_pmt = dataprod_config(l200).pmt(filekey)
-    @debug "Loaded PMT DSP config: $(dsp_meta_pmt)"
+    @debug "Loaded PMT DSP config: $(lstring(dsp_meta_pmt))"
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
             get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
@@ -121,7 +121,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                             dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
                             dsp_config_det = DSPConfig(dsp_config_pd_det)
-                            @debug "Loaded DSP config: $(dsp_config_det)"
+                            @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
                             # check if detector can be processed
                             if "$det" in processed_detectors && !reprocess
@@ -254,7 +254,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
 
                         dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
                         dsp_config_det = DSPConfig(dsp_config_pd_det)
-                        @debug "Loaded DSP config: $(dsp_config_det)"
+                        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
                         # check if detector can be processed
                         if "$det" in processed_detectors && !reprocess
