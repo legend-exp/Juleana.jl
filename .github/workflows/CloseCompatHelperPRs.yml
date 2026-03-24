@@ -1,0 +1,61 @@
+name: Close CompatHelper PRs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  close-compathelper-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close all open CompatHelper PRs and delete their branches
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // List all open PRs
+            const { data: prs } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const compatHelperPRs = prs.filter(pr =>
+              pr.title.startsWith('CompatHelper:') && pr.user.type === 'Bot'
+            );
+
+            console.log(`Found ${compatHelperPRs.length} open CompatHelper PRs`);
+
+            for (const pr of compatHelperPRs) {
+              console.log(`Closing PR #${pr.number}: ${pr.title}`);
+
+              // Close the PR
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: pr.number,
+                state: 'closed',
+              });
+
+              // Delete the branch
+              const branch = pr.head.ref;
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: `heads/${branch}`,
+                });
+                console.log(`Deleted branch: ${branch}`);
+              } catch (err) {
+                console.log(`Could not delete branch ${branch}: ${err.message}`);
+              }
+            }
+
+            console.log('Done!');
