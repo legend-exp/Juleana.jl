@@ -6,7 +6,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
     @debug "Loaded DSP config: $(dsp_config_pd)"
@@ -19,15 +19,15 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     pars_db = PropDict(l200.par.rpars.pz[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all channels" end
+    if reprocess @info "Reprocess all detectors" end
 
     f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-        get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-    end
+            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
+        end
     @info "Loaded trained SVM model"
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Channel, :Detector, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -36,49 +36,49 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     flush(stdout)
 
     # function to process decay time
-    function ch_decay_time(chinfo_ch::NamedTuple)
+    function det_decay_time(chinfo_det::NamedTuple)
 
-        ch  = chinfo_ch.channel
-        det = chinfo_ch.detector
+        ch  = chinfo_det.channel
+        det = chinfo_det.detector
 
         if !reprocess && haskey(pars_db, det)
-            @debug "Channel $det already processed, skip"
-            log_ch = log_nt((ch, det, ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
-            return (processed = false, log = log_ch)
+            @debug "Detector $det already processed, skip"
+            log_det = log_nt((det, ch, ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
+            return (processed = false, log = log_det)
         end
 
-        @debug "Processing channel $ch ($det)"
+        @debug "Processing detector $det ($ch)"
 
-        dsp_config_ch = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
-        @debug "Loaded DSP config: $(dsp_config_ch)"
+        dsp_config_det = DSPConfig(merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict())))
+        @debug "Loaded DSP config: $(dsp_config_det)"
 
-        pz_config_ch = merge(pz_config.default, get(pz_config, det, PropDict()))
+        pz_config_det = merge(pz_config.default, get(pz_config, det, PropDict()))
         
         # unpack config
-        min_τ, max_τ = pz_config_ch.min_tau, pz_config_ch.max_tau
-        nbins        = pz_config_ch.nbins
-        rel_cut_fit  = pz_config_ch.rel_cut_fit
-        peakname     = Symbol(pz_config_ch.peakname)
-        qc_string    = pz_config_ch.qc
-        max_wvfs     = pz_config_ch.max_wvfs
+        min_τ, max_τ = pz_config_det.min_tau, pz_config_det.max_tau
+        nbins        = pz_config_det.nbins
+        rel_cut_fit  = pz_config_det.rel_cut_fit
+        peakname     = Symbol(pz_config_det.peakname)
+        qc_string    = pz_config_det.qc
+        max_wvfs     = pz_config_det.max_wvfs
 
-        filename = l200.tier[:jlpeaks, filekey, ch]
+        filename = l200.tier[:jlpeaks, filekey, det]
         if !isfile(filename)
-            @warn "File $filename does not exist, Skip channel $ch"
+            @warn "File $filename does not exist, Skip detector $det"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
         end
 
         # load data
-        wvfs_ch = nothing
+        wvfs_det = nothing
         try
             data = lh5open(filename, "r")
             @debug "Loading $peakname data from $(filename)"
-            wvfs_ch = data[ch, :jlpeaks, peakname].waveform_presummed[:]
+            wvfs_det = data[det, :jlpeaks, peakname].waveform_presummed[:]
             close(data)
-            if length(wvfs_ch) > max_wvfs
+            if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_ch = wvfs_ch[sel]
+                wvfs_det = wvfs_det[sel]
             end
         catch e
             @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
@@ -89,9 +89,9 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         # get QC cuts
         try
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_ch, dsp_config_ch, 400.0u"µs", f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det, dsp_config_det, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
-            wvfs_ch = wvfs_ch[findall(qc)]
+            wvfs_det = wvfs_det[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
         catch e
             @error "Failed QC cuts: $(truncate_error(e))"
@@ -103,7 +103,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         decay_times = nothing
         try
             @debug "Generating DSP for $peakname decay times"
-            decay_times = dsp_decay_times(wvfs_ch, dsp_config_ch)
+            decay_times = dsp_decay_times(wvfs_det, dsp_config_det)
         catch e
             @error "Error in DSP for $peakname: $(truncate_error(e))"
             throw(ErrorException("Error in DSP for $peakname: $(truncate_error(e))"))
@@ -124,17 +124,17 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey, det, "Decay Time Distribution"))
         savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :decay_time)
 
-        @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for channel $ch ($det)"
+        @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for detector $det ($ch)"
 
-        log_ch = log_nt((ch, det, ProcessStatus(1), result.μ, result.σ, "-"))
-        return (result = (τ = result.μ, fit = result), processed = true, log = log_ch)
+        log_det = log_nt((det, ch, ProcessStatus(1), result.μ, result.σ, "-"))
+        return (result = (τ = result.μ, fit = result), processed = true, log = log_det)
     end
 
     # get start time
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo, ch_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_pz = parallel(chinfo, det_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)

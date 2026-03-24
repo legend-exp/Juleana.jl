@@ -66,7 +66,7 @@ function get_processingconfig()
     # read parsed arguments
     parsed_args = get_argparse()
     # read config
-    processing_config = readprops(parsed_args["config"])
+    processing_config = readlprops(parsed_args["config"])
     # save parsed args for later
     processing_config.parsed_args = parsed_args
     # get environoment variables

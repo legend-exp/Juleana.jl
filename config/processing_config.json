@@ -152,7 +152,7 @@
         "process_psd_efficiencies": {
             "enabled": true,
             "n_workers": "all",
-            "category": "phy",
+            "category": "cal",
             "rank": 11,
             "kwargs": {
                 "reprocess": true,
@@ -270,7 +270,7 @@
                 "reprocess": true,
                 "timeout": 0
             },
-            "dependencies": ["process_aoe_calibration"]
+            "dependencies": ["process_aoe_calibration_cut"]
         },
         "p_process_lq_calibration_cut": {
             "enabled": true,
