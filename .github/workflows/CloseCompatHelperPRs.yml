@@ -2,9 +2,6 @@ name: Close CompatHelper PRs
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'copilot/close-all-compathhelper-prs'
 
 permissions:
   contents: write
@@ -22,17 +19,26 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // List all open PRs
-            const { data: prs } = await github.rest.pulls.list({
-              owner,
-              repo,
-              state: 'open',
-              per_page: 100,
-            });
-
-            const compatHelperPRs = prs.filter(pr =>
-              pr.title.startsWith('CompatHelper:') && pr.user.type === 'Bot'
-            );
+            // List all open CompatHelper PRs with pagination
+            let compatHelperPRs = [];
+            let page = 1;
+            while (true) {
+              const { data: prs } = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+                page,
+              });
+              if (prs.length === 0) break;
+              compatHelperPRs = compatHelperPRs.concat(
+                prs.filter(pr =>
+                  pr.title.startsWith('CompatHelper:') && pr.user.type === 'Bot'
+                )
+              );
+              if (prs.length < 100) break;
+              page++;
+            }
 
             console.log(`Found ${compatHelperPRs.length} open CompatHelper PRs`);
 
