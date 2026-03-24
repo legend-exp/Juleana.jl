@@ -41,7 +41,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         evt_data = ds[:jlevt][:]
                         n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
                         n_pulser = count(evt_data.aux.pulser.aux_trig)
-                        n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_ch) .> 1)
+                        n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_det) .> 1)
                         n_forced, n_pulser, n_phy
                     end
                     return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_phy, n_pulser, n_forced, "", "", "")), processed = false)
@@ -63,7 +63,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         @debug "Number of forced triggers: $n_forced"
                         n_pulser = count(out_t.aux.pulser.aux_trig)
                         @debug "Number of pulser triggers: $n_pulser"
-                        n_phy = count(out_t.geds.is_valid_qc .&& length.(out_t.geds.trig_e_ch) .> 1)
+                        n_phy = count(out_t.geds.is_valid_qc .&& length.(out_t.geds.trig_e_det) .> 1)
                         @debug "Number of physical triggers: $n_phy"
                         lh5open(outfilename, "cw") do ds
                             ds[:jlevt] = out_t

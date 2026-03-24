@@ -42,4 +42,9 @@ UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 
 [compat]
 UnitfulAtomic = "1"
+Measures = "0.3"
+TypedTables = "1"
+Measurements = "2"
+CairoMakie = "0.15"
+TerminalLoggers = "0.1"
 julia = "1.10"
