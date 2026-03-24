@@ -90,9 +90,9 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
                     log_itr = nothing
                     if itr isa NamedTuple && haskey(itr, :channel) && haskey(itr, :detector)
                         if haskey(itr, :partition)
-                            log_itr = log_nt((itr.channel, itr.detector, itr.partition, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-5)..., "$(truncate_string(string(e)))"))
+                            log_itr = log_nt((itr.detector, itr.channel, itr.partition, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-5)..., "$(truncate_string(string(e)))"))
                         else
-                            log_itr = log_nt((itr.channel, itr.detector, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$(truncate_string(string(e)))"))
+                            log_itr = log_nt((itr.detector, itr.channel, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-4)..., "$(truncate_string(string(e)))"))
                         end
                     elseif itr isa FileKey
                         log_itr = log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt))-3)..., "$(truncate_string(string(e)))"))
