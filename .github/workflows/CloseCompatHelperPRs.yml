@@ -2,6 +2,9 @@ name: Close CompatHelper PRs
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'copilot/close-all-compathhelper-prs'
 
 permissions:
   contents: write
