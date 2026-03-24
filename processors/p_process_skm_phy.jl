@@ -9,7 +9,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
     @info "Found filekey $filekey"
 
     chinfo = channelinfo(l200, filekey; system=:geds)
-    @info "Loaded channel info with $(length(chinfo)) channels"
+    @info "Loaded channel info with $(length(chinfo)) detectors"
 
     exposure = get_exposure(l200, chinfo.detector, period; is_analysis_run=true, check_pf=@pf $processable && $usability == :on && $psd_usability == :on && $det_type != :coax)
     @info "Total exposure: $(round(unit(exposure), exposure, digits=2))"
