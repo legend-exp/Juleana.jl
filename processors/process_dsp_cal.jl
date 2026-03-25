@@ -32,9 +32,9 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         ch = chinfo_det.channel
         det = chinfo_det.detector
         # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
-        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, ch, period, run))
+        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, det, :cal, period, run))
             @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for detector"
-            parts = partitioninfo(l200, det, period)
+            parts = partitioninfo(l200, det, :cal, period)
             closest_runs_distance = Real[]
             for p in parts
                 pinfo = filter(row -> row.period == period, partitioninfo(l200, det, p))
