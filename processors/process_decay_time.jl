@@ -21,10 +21,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all detectors" end
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-        end
-    @info "Loaded trained SVM model"
+    f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
