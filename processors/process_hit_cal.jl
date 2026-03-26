@@ -12,7 +12,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     qc_config = dataprod_config(l200).qc(filekey)
-    @debug "Loaded QC config: $(qc_config)"
+    @debug "Loaded QC config: $(lstring(qc_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.qc), string(period)))

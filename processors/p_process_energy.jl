@@ -51,7 +51,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
         energy_config = dataprod_config(l200).energy(filekey_det)
         energy_config_det = merge(energy_config.p_default, get(energy_config.p, det, PropDict()))
-        @debug "Loaded energy config: $(energy_config_det)"
+        @debug "Loaded energy config: $(lstring(energy_config_det))"
 
         energy_types = Symbol.(energy_config_det.energy_types)
 

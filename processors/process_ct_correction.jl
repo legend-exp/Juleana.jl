@@ -9,7 +9,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     energy_config = dataprod_config(l200).energy(filekey)
-    @debug "Loaded energy config: $(energy_config)"
+    @debug "Loaded energy config: $(lstring(energy_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.ctc), string(period)))

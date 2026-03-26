@@ -11,13 +11,13 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config = dataprod_config(l200).sipm(filekey)
-    @debug "Loaded DSP config: $(dsp_config)"
+    @debug "Loaded DSP config: $(lstring(dsp_config))"
 
     optimization_config = dataprod_config(l200).sipm(filekey).optimization
-    @debug "Loaded Optimization config: $(optimization_config)"
+    @debug "Loaded Optimization config: $(lstring(optimization_config))"
 
     qc_config = dataprod_config(l200).qc(filekey)
-    @debug "Loaded QC config: $(qc_config)"
+    @debug "Loaded QC config: $(lstring(qc_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.sipmopt), string(period)))
@@ -59,7 +59,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         dsp_config_pd = dataprod_config(l200).dsp(filekey)
         dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det_puls, PropDict()))
         dsp_config_det = DSPConfig(dsp_config_pd_det)
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         # get pulser events DSP
         @debug "Generate DSP for Pulser events"

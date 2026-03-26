@@ -9,7 +9,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     aoe_config = dataprod_config(l200).psd(filekey).aoe
-    @debug "Loaded aoe config: $(aoe_config)"
+    @debug "Loaded aoe config: $(lstring(aoe_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.aoe), string(period)))
