@@ -29,7 +29,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
         r = fk.run
         p = fk.period
 
-        filekeys = filter(!in(bad_filekeys(l200)), search_disk(FileKey, l200.tier[:jlevt, :phy, p, r]))
+        filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), search_disk(FileKey, l200.tier[:jlevt, :phy, p, r]))
         @info "Found $(length(filekeys)) filekeys for run $r in period $p"
 
         @info "Processing run $r in period $p"

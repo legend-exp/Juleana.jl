@@ -43,6 +43,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
 
         partinfo_det = partitioninfo(l200, det, part)
         @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
+
+        filekeys = reduce(vcat, [filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, r.period, r.run])) for r in partinfo_det])
     
         filekey_det = first(getproperty(partinfo_det, :phy)).startkey
         @debug "Found filekey $filekey_det"
@@ -102,7 +104,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         # load data
         data_det = nothing
         try
-            data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, partinfo_det, det; n_evts=optimization_config_det.n_evts)
+            data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), filekeys, det; n_evts=optimization_config_det.n_evts)
             @debug "Loading SiPM data from $(part)"
             if length(data_det) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
