@@ -56,7 +56,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
         # load lq config
         lq_config = dataprod_config(l200).psd(filekey_det).lq
         lq_config_det = merge(lq_config.p_default, get(lq_config.p, det, PropDict()))
-        @debug "Loaded aoe config: $(lstring(lq_config_det))"
+        @debug "Loaded lq config: $(lq_config_det)"
 
         e_type                      = Symbol(lq_config_det.e_type)
         lq_types                    = collect(keys(lq_config_det.lq_funcs))

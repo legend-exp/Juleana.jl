@@ -2,6 +2,8 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         
     @info "Process SiPM optimization for period $period and run $run"
 
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, period, run]))
+
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found filekey $filekey"
 
@@ -52,7 +54,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
-        raw_pls = read_ldata(l200, DataTier(:raw), :phy, period, run, det_puls)
+        raw_pls = read_ldata(l200, DataTier(:raw), filekeys, det_puls)
         
         dsp_config_pd = dataprod_config(l200).dsp(filekey)
         dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det_puls, PropDict()))
@@ -131,7 +133,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         # load data
         data_det = nothing
         try
-            data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, period, run, det)
+            data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), filekeys, det)
             @debug "Loading SiPM data from $(period)-$(run)"
             if length(data_det) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
