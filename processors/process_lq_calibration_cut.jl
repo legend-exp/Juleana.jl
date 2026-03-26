@@ -12,7 +12,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     @debug "Loaded energy calibration pars"
 
     lq_config = dataprod_config(l200).psd(filekey).lq
-    @debug "Loaded LQ config: $(lq_config)"
+    @debug "Loaded LQ config: $(lstring(lq_config))"
 
     @debug "Create pars db"
     mkpath(joinpath(data_path(l200.par.rpars.lq), string(period)))

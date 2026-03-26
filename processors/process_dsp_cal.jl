@@ -11,7 +11,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
-    @debug "Loaded DSP config: $(dsp_config_pd)"
+    @debug "Loaded DSP config: $(lstring(dsp_config_pd))"
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
@@ -109,7 +109,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
 
                         dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
                         dsp_config_det = DSPConfig(dsp_config_pd_det)
-                        @debug "Loaded DSP config: $(dsp_config_det)"
+                        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
                         # check if channel can be processed
                         if "$det" in processed_channels && !reprocess

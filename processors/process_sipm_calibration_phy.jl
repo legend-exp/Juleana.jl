@@ -9,10 +9,10 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     calibration_config = dataprod_config(l200).sipm(filekey).calibration
-    @debug "Loaded calibration config: $(calibration_config)"
+    @debug "Loaded calibration config: $(lstring(calibration_config))"
 
     qc_config = dataprod_config(l200).qc(filekey)
-    @debug "Loaded QC config: $(qc_config)"
+    @debug "Loaded QC config: $(lstring(qc_config))"
 
     chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     @info "Loaded pulser channel info: $(chinfo_puls)"

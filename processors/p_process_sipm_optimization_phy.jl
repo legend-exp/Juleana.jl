@@ -51,15 +51,15 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
 
         dsp_config = dataprod_config(l200).sipm(filekey_det)
         dsp_config_det = merge(dsp_config.default, get(dsp_config, det, PropDict()))
-        @debug "Loaded DSP config: $(dsp_config_det)"
+        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
     
         optimization_config = dataprod_config(l200).sipm(filekey_det).optimization
         optimization_config_det = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
-        @debug "Loaded Optimization config: $(optimization_config_det)"
+        @debug "Loaded Optimization config: $(lstring(optimization_config_det))"
 
         qc_config = dataprod_config(l200).qc(filekey_det)
         pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
-        @debug "Loaded pulser config: $(pulser_config_det)"
+        @debug "Loaded pulser config: $(lstring(pulser_config_det))"
 
         #  write out pulser events
         chinfo_puls = channelinfo(l200, filekey_det, Symbol(qc_config.pulser.puls_detector))
