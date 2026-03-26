@@ -10,10 +10,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
-    f_evaluate_qc = h5open(get_mltrainfilename(l200, filekey)) do train_data
-            get_qc_ml_func(Array(train_data["ml_train/dsp/dwt_norm"]), Array(train_data["ml_train/dsp/dc_label"]), l200.par.rpars.ml(filekey))
-        end
-    @info "Loaded trained SVM model"
+    f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
