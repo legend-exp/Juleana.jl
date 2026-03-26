@@ -2,7 +2,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
     @info "Generate cal hit for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:removed)), search_disk(FileKey, l200.tier[:jldsp, :cal, period, run]))
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), search_disk(FileKey, l200.tier[:jldsp, :cal, period, run]))
     raw_filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :cal, period, run]))
     
     filekey = start_filekey(l200, (period, run, :cal))
