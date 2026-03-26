@@ -28,11 +28,6 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         @info "Using output file: $(basename(evtfilename))"
         # number of forced, pulser and physical triggers
         n_forced, n_pulser, n_phy = 0, 0, 0
-        # Remove old PMT evt file if reprocess is enabled (must be done before write_files block)
-        if reprocess && isfile(pmtevtfilename)
-            @info "Reprocess $(basename(pmtevtfilename)), remove old PMT Evt."
-            rm(pmtevtfilename, force=true)
-        end
         # start processing
         read_files(dspfilename, use_cache = false) do filename
             write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
@@ -78,6 +73,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                             write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
                                 # Remove cached PMT file if reprocess is enabled
                                 if reprocess && isfile(pmtoutfilename)
+                                    @info "Reprocess $(basename(pmtevtfilename)), remove old PMT Evt."
                                     rm(pmtoutfilename, force=true)
                                 end
                                 lh5open(pmtoutfilename, "cw") do ds
