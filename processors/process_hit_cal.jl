@@ -2,7 +2,8 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
 
     @info "Generate cal hit for period $period and run $run"
 
-    filekeys = search_disk(FileKey, l200.tier[:jldsp, :cal, period, run])
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:removed)), search_disk(FileKey, l200.tier[:jldsp, :cal, period, run]))
+    raw_filekeys = filter(!in(bad_filekeys(l200)), search_disk(FileKey, l200.tier[:raw, :cal, period, run]))
     
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
@@ -46,9 +47,9 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         if !reprocess && isfile(pulserfilename)
             return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(lh5open(pulserfilename)[det_puls, :jlpls, :tags]), "Already processed --> skipped.")))
         end
-        # extract pulser events by loading data from raw files
+        # extract pulser events by loading data from raw files (filtered by bad_filekeys)
         @info "Get pulser events from raw data"
-        data_puls = read_ldata((:daqenergy, :timestamp), l200, DataTier(:raw), DataCategory(:cal), period, run, det_puls)
+        data_puls = read_ldata((:daqenergy, :timestamp), l200, DataTier(:raw), raw_filekeys, det_puls)
         
         @info "Write Pulser events to disk"
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename

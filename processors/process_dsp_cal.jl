@@ -2,7 +2,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     
     @info "Process DSP for period $period and run $run"
 
-    filekeys = search_disk(FileKey, l200.tier[:raw, :cal, period, run])
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :cal, period, run]))
     
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found start filekey $filekey"

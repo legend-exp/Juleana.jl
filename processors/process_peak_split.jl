@@ -59,7 +59,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         filekeys = read_filekeys(keylist_filename)
         files_checked = true
     else
-        filekeys = search_disk(FileKey, l200.tier[:raw, :cal, period, run])
+        filekeys = filter(!in(bad_filekeys(l200)), search_disk(FileKey, l200.tier[:raw, :cal, period, run]))
         files_checked = false
     end
     isempty(filekeys) && error("No files found in \"$input_datadir\"")
