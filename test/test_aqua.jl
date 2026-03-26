@@ -12,6 +12,7 @@ Test.@testset "Aqua tests" begin
     Aqua.test_all(
         Juleana,
         ambiguities = true,
-        stale_deps = false
+        stale_deps = false,
+        persistent_tasks = false
     )
 end # testset
