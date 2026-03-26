@@ -75,6 +75,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                                 if reprocess && isfile(pmtoutfilename)
                                     @info "Reprocess $(basename(pmtevtfilename)), remove old PMT."
                                     rm(pmtoutfilename, force=true)
+                                    rm(pmtevtfilename, force=true)
                                 end
                                 lh5open(pmtoutfilename, "cw") do ds
                                     ds[:jlpmt] = pmts_out_t
