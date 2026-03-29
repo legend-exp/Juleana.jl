@@ -161,7 +161,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                 result_simple, report_simple = nothing, nothing
                 try
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = sipm_simple_calibration(e_uncal; NamedTuple(e_type_config.simple.kwargs)...)
+                    result_simple, report_simple = sipm_simple_calibration(getproperty(data_det_after_qc, e_type); NamedTuple(e_type_config.simple.kwargs)...)
                 catch e
                     @error "Error in $e_type simple calibration for detector $det: $(truncate_error(e))"
                     throw(ErrorException("Error in $e_type simple calibration"))
