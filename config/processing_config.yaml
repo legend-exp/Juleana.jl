@@ -5,14 +5,14 @@ config:
   runmode_settings:
     slurm:
       flags:
-        - "--time=01:00:00"
+        - "--time=02:00:00"
         - "--mem-bind=local"
         - "--threads-per-core=1"
         - "--cpu-bind=cores"
         - "--nodes=4"
-        - "--ntasks-per-node=18"
+        - "--ntasks-per-node=32"
         - "--cpus-per-task=4"
-        - "--mem=234GB"
+        - "--mem=480GB"
       julia_settings: []
     local:
       n: 64
@@ -143,7 +143,7 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-      use_partition_pars: false
+      use_partition_pars: true
     dependencies:
       - p_process_aoe_calibration_cut
       - p_process_lq_calibration_cut
