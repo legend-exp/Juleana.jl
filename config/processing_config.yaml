@@ -10,7 +10,7 @@ config:
         - "--threads-per-core=1"
         - "--cpu-bind=cores"
         - "--nodes=4"
-        - "--ntasks-per-node=26"
+        - "--ntasks-per-node=32"
         - "--cpus-per-task=4"
         - "--mem=450GB"
       julia_settings: []
