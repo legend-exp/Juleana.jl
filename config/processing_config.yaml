@@ -12,7 +12,7 @@ config:
         - "--nodes=4"
         - "--ntasks-per-node=32"
         - "--cpus-per-task=4"
-        - "--mem=450GB"
+        - "--mem=480GB"
       julia_settings: []
     local:
       n: 64
