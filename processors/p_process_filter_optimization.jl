@@ -35,11 +35,9 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
         @debug "Processing detector $det ($ch)"
         
-        mkpath(joinpath(data_path(l200.par.ppars.fltopt), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.yaml"))
             PropDict(l200.par.ppars.fltopt[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.fltopt), "$det"))
             PropDict()
         end
 
