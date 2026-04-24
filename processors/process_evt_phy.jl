@@ -29,65 +29,58 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         # number of forced, pulser and physical triggers
         n_forced, n_pulser, n_phy = 0, 0, 0
         # start processing
-        read_files(dspfilename, use_cache = false) do filename
-            write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
                     rm(evtfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
-                    n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
-                        evt_data = ds[:jlevt][:]
-                        n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
-                        n_pulser = count(evt_data.aux.pulser.aux_trig)
-                        n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_det) .> 1)
-                        n_forced, n_pulser, n_phy
-                    end
+                    evt_data = read_ldata(l200, DataTier(:jlevt), fk)
+                    n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
+                    n_pulser = count(evt_data.aux.pulser.aux_trig)
+                    n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_det) .> 1)
                     return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_phy, n_forced, n_pulser, "", "", "")), processed = false)
                 end
 
                 # open output file
                 @timeit dsp_timer "Evt" begin
-                    n_forced, n_pulser, n_phy = lh5open(filename, "r") do dsp_data
-                        # generate evt level table
-                        out_t, pmts_out_t = nothing, nothing
-                        try 
-                            out_t, pmts_out_t = calibrate_all(l200, fk, dsp_data)
-                        catch e
-                            @error "Error processing $fk: $(truncate_error(e))"
-                            throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
-                        end
-                        # get number of forced, physical and pulser triggers
-                        n_forced = count(out_t.aux.forcedtrigger.aux_trig)
-                        @debug "Number of forced triggers: $n_forced"
-                        n_pulser = count(out_t.aux.pulser.aux_trig)
-                        @debug "Number of pulser triggers: $n_pulser"
-                        n_phy = count(out_t.geds.is_valid_qc .&& length.(out_t.geds.trig_e_det) .> 1)
-                        @debug "Number of physical triggers: $n_phy"
-                        lh5open(outfilename, "cw") do ds
-                            ds[:jlevt] = out_t
-                        end
-                        # write pmt evt file
-                        if !isempty(pmts_out_t)
-                            write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
-                                # Remove cached PMT file if reprocess is enabled
-                                if reprocess && isfile(pmtoutfilename)
-                                    @info "Reprocess $(basename(pmtevtfilename)), remove old PMT."
-                                    rm(pmtoutfilename, force=true)
-                                    rm(pmtevtfilename, force=true)
-                                end
-                                lh5open(pmtoutfilename, "cw") do ds
-                                    ds[:jlpmt] = pmts_out_t
-                                end
+                    # generate evt level table
+                    dsp_data = read_ldata(l200, DataTier(:jldsp), fk)
+                    out_t, pmts_out_t = nothing, nothing
+                    try 
+                        out_t, pmts_out_t = calibrate_all(l200, fk, dsp_data)
+                    catch e
+                        @error "Error processing $fk: $(truncate_error(e))"
+                        throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
+                    end
+                    # get number of forced, physical and pulser triggers
+                    n_forced = count(out_t.aux.forcedtrigger.aux_trig)
+                    @debug "Number of forced triggers: $n_forced"
+                    n_pulser = count(out_t.aux.pulser.aux_trig)
+                    @debug "Number of pulser triggers: $n_pulser"
+                    n_phy = count(out_t.geds.is_valid_qc .&& length.(out_t.geds.trig_e_det) .> 1)
+                    @debug "Number of physical triggers: $n_phy"
+                    lh5open(outfilename, "cw") do ds
+                        ds[:jlevt] = out_t
+                    end
+                    # write pmt evt file
+                    if !isempty(pmts_out_t)
+                        write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
+                            # Remove cached PMT file if reprocess is enabled
+                            if reprocess && isfile(pmtoutfilename)
+                                @info "Reprocess $(basename(pmtevtfilename)), remove old PMT."
+                                rm(pmtoutfilename, force=true)
+                                rm(pmtevtfilename, force=true)
+                            end
+                            lh5open(pmtoutfilename, "cw") do ds
+                                ds[:jlpmt] = pmts_out_t
                             end
                         end
-                        n_forced, n_pulser, n_phy
                     end
                 end
                 
                 @info "Finished processing $(basename(evtfilename))"
-            end
         end
 
         # create total timer by summing over memory usage and time
