@@ -35,6 +35,8 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
                     rm(evtfilename, force=true)
+                    rm(pmtevtfilename, force=true)
+                    rm(pmtoutfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
                     n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
@@ -71,7 +73,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         # write pmt evt file
                         if !isempty(pmts_out_t)
                             write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
-                                lh5open(pmtoutfilename, "cw") do ds
+                                lh5open(pmtoutfilename, "w") do ds
                                     ds[:jlpmt] = pmts_out_t
                                 end
                             end
