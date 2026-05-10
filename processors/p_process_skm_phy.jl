@@ -11,9 +11,6 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
     chinfo = channelinfo(l200, filekey; system=:geds)
     @info "Loaded channel info with $(length(chinfo)) channels"
 
-    exposure = get_exposure(l200, chinfo.detector, period; is_analysis_run=true, check_pf=@pf $processable && $usability == :on && $psd_usability == :on && $det_type != :coax)
-    @info "Total exposure: $(round(unit(exposure), exposure, digits=2))"
-
     if reprocess @info "Reprocess all runs" else @info "Only process runs not found" end
 
     # create log line Tuple
@@ -25,21 +22,28 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
     # flush stdout
     flush(stdout)    
     
-    function skm_fk(fk::FileKey)
-        r = fk.run
-        p = fk.period
+    function skm_fk(startkey::FileKey)
+        r = startkey.run
+        p = startkey.period
 
         filekeys = filter(!in(bad_filekeys(l200)), search_disk(FileKey, l200.tier[:jlevt, :phy, p, r]))
         @info "Found $(length(filekeys)) filekeys for run $r in period $p"
 
+        if isempty(filekeys)
+            err = "No input jlevt files found"
+            @warn "$err for run $r in period $p"
+            log_fk = log_nt((startkey, ProcessStatus(0), "-", "-", "-", "", "", err))
+            return (timer = TimerOutput(), log = log_fk, processed = false)
+        end
+
         @info "Processing run $r in period $p"
         dsp_timer = TimerOutput()
-        skmfilename = l200.tier[:jlskm, fk]
+        skmfilename = l200.tier[:jlskm, startkey]
         @info "Using output file: $(basename(skmfilename))"
         
         # start processing
         n_psd, n_lar, n_larpsd = 0u"percent", 0u"percent", 0u"percent"
-        write_files(skmfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(skmfilename, use_cache = false, mode = CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(skmfilename)), remove old Evt."
                 rm(outfilename, force=true)
@@ -47,13 +51,13 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
             elseif isfile(outfilename)
                 @info "File $(basename(skmfilename)) already exists, skip"
                 n_psd, n_lar, n_larpsd = lh5open(outfilename, "r") do ds
-                    skm_data = ds[:skm][:]
+                    skm_data = ds[:jlskm][:]
                     n_psd = mean(skm_data.geds.is_valid_psd) * 100u"percent"
                     n_lar = mean(skm_data.ged_spm.is_valid_lar) * 100u"percent"
                     n_larpsd = mean(skm_data.geds.is_valid_psd .&& skm_data.ged_spm.is_valid_lar) * 100u"percent"
                     n_psd, n_lar, n_larpsd
                 end
-                return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_larpsd, n_lar, n_psd, "", "", "")), processed = false)
+                return (timer = dsp_timer, log = log_nt((startkey, ProcessStatus(1), n_psd, n_lar, n_larpsd, "", "", "")), processed = false)
             end
 
             # open output file
@@ -61,12 +65,16 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
                 # generate evt level table
                 out_t = nothing
                 try
-                    evt = read_ldata(l200, DataTier(:jlevt), filekeys)
+                    if isempty(filekeys)
+                        throw(ErrorException("No input filekeys for $startkey"))
+                    end
                     skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1 && $geds.max_e_cusp_ctc_cal > 500.0u"keV"
-                    out_t = evt[findall(skm_sel_pf.(evt))][:]
+                    out_t = read_ldata(l200, DataTier(:jlevt), filekeys; parallel=false, filterby=skm_sel_pf)
+                    # skm_sel = skm_sel_pf.(evt)
+                    # out_t = evt[findall(skm_sel)]
                 catch e
-                    @error "Error processing $fk: $(truncate_error(e))"
-                    throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
+                    @error "Error processing $startkey: $(truncate_error(e))"
+                    throw(ErrorException("Error processing $startkey: $(truncate_error(e))"))
                 end
                 # get number of forced, physical and pulser triggers
                 n_psd = mean(out_t.geds.is_valid_psd) * 100u"percent"
@@ -88,7 +96,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), n_larpsd, n_lar, n_psd, total_time, total_allocated, ""))
+        log_fk = log_nt((startkey, ProcessStatus(1), n_psd, n_lar, n_larpsd, total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
