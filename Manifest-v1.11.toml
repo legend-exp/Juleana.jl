@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.6"
+julia_version = "1.11.9"
 manifest_format = "2.0"
 project_hash = "ade2d6983d0d8ae1137d925b2f0d7192fb73d463"
 
@@ -1403,9 +1403,9 @@ version = "0.2.5"
 
 [[deps.LegendDataManagement]]
 deps = ["Dates", "Distributed", "Format", "Glob", "IntervalSets", "JSON", "LRUCache", "LinearAlgebra", "MIMEs", "Markdown", "Measurements", "OhMyThreads", "Pkg", "Printf", "ProgressMeter", "PropDicts", "PropertyDicts", "PropertyFunctions", "StaticStrings", "Statistics", "StructArrays", "Tables", "TypedTables", "UUIDs", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "6dcc928bd8f9f0eba3e07650153e89205a56760e"
+git-tree-sha1 = "2a5eeb16351b796d823f865da922875aa989460c"
 uuid = "9feedd95-f0e0-423f-a8dc-de0970eae6b3"
-version = "0.5.4"
+version = "0.5.7"
 
     [deps.LegendDataManagement.extensions]
     LegendDataManagementLegendHDF5IOExt = ["LegendHDF5IO", "LegendDataTypes"]
@@ -2961,7 +2961,7 @@ uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
 version = "1.59.0+0"
 
 [[deps.oneTBB_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
+deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl"]
 git-tree-sha1 = "d5a767a3bb77135a99e433afe0eb14cd7f6914c3"
 uuid = "1317d2d5-d96f-522e-a858-c73665f53c3e"
 version = "2022.0.0+0"
