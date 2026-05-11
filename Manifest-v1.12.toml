@@ -1516,9 +1516,9 @@ version = "0.1.14"
 
 [[deps.LegendEventAnalysis]]
 deps = ["ArraysOfArrays", "IntervalSets", "LegendDataManagement", "LegendDataTypes", "ProgressMeter", "PropertyFunctions", "StructArrays", "Tables", "TypedTables", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "5034fa44afa59e0a9695f5c071472ddc8068c574"
+git-tree-sha1 = "9fade4f298a7d430fe3f865a657074ea667a253a"
 uuid = "ca666546-4c2a-41e4-9648-72713d810efe"
-version = "0.2.3"
+version = "0.2.4"
 
 [[deps.LegendHDF5IO]]
 deps = ["ArraysOfArrays", "ElasticArrays", "EncodedArrays", "H5Zzstd", "HDF5", "LegendDataTypes", "RadiationDetectorSignals", "StaticArrays", "StatsBase", "StructArrays", "Tables", "TypedTables", "Unitful"]
