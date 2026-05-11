@@ -106,8 +106,10 @@ function menu()
             execute_processors()
         catch e
             e = ParallelProcessingTools.onlyfirst_exception(e)
-            if e isa TaskFailedException
-                e = e.task.exception
+            e = if e isa TaskFailedException
+                e.task.exception
+            else
+                e
             end
             @error "Error in `execute_processors`: $(truncate_string(string(e)))"
         end
