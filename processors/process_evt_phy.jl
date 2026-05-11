@@ -36,7 +36,6 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                     rm(outfilename, force=true)
                     rm(evtfilename, force=true)
                     rm(pmtevtfilename, force=true)
-                    rm(pmtoutfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
                     n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
