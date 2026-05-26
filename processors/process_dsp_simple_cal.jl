@@ -56,7 +56,6 @@ function process_dsp_simple_cal(processing_config::PropDict, l200::LegendData, p
                 @timeit dsp_timer "DSP" begin
                     # loop over channels
                     @showprogress desc="Filekey: $fk" output=stdout for chinfo_ch in chinfo
-                        chinfo_ch = chinfo[1]
                         ch = chinfo_ch.channel
                         det = chinfo_ch.detector
 
