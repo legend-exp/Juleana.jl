@@ -90,7 +90,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
             hpge_kwargs = get_ged_evt_kwargs(l200, filekey_ch)
             if !all([haskey(processed_dict, psd_classifier) for psd_classifier in psd_classifiers])
                 hit_cal = fast_flatten([
-                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch)
+                    let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, ch).dataQC
                         @debug "Calibrating $(pinfo.period)-$(pinfo.run)"
                         calibrate_ged_channel_data(l200, pinfo.cal.startkey, det, dsp; keep_chdata=true, hpge_kwargs...)
                     end
