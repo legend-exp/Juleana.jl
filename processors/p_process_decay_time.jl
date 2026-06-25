@@ -33,11 +33,9 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         det = chinfo_det.detector
         part = chinfo_det.partition
 
-        mkpath(joinpath(data_path(l200.par.ppars.pz), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.pz), "$det", "$part.yaml"))
             PropDict(l200.par.ppars.pz[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.pz), "$det"))
             PropDict()
         end
 
