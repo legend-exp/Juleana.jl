@@ -69,12 +69,8 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         wvfs_det = nothing
         try
             @debug "Loading $peakname data via read_ldata"
-            wvfs_det = read_ldata(l200, DataTier(:jlpeaks), filekey, det)[peakname].waveform_presummed
-            if length(wvfs_det) > max_wvfs
-                @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_det = wvfs_det[sel]
-            end
+            # load only the needed column of the needed peak; n_evts caps to a random subsample
+            wvfs_det = read_ldata((:waveform_presummed,), l200, DataTier(:jlpeaks), filekey, det; subgroup=peakname, n_evts=max_wvfs).waveform_presummed
         catch e
             @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))

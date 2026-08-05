@@ -86,17 +86,12 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
         try
             @debug "Loading $peakname data via read_ldata"
-            peak_data = read_ldata(l200, DataTier(:jlpeaks), filekey, det)[peakname]
+            # load only the needed columns of the needed peak; n_evts caps to a random
+            # subsample with one shared row index, so the columns stay aligned
+            peak_data = read_ldata((:waveform_presummed, :waveform_windowed, :presum_rate), l200, DataTier(:jlpeaks), filekey, det; subgroup=peakname, n_evts=max_wvfs)
             wvfs_det_pre = peak_data.waveform_presummed
             wvfs_det_wdw = peak_data.waveform_windowed
             presum_rate = peak_data.presum_rate
-            if length(wvfs_det_pre) > max_wvfs
-                @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_det_pre = wvfs_det_pre[sel]
-                wvfs_det_wdw = wvfs_det_wdw[sel]
-                presum_rate = presum_rate[sel]
-            end
         catch e
             @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
