@@ -104,6 +104,9 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         end
         yield()
 
+        # upstream precondition: decay_time must have produced a τ for this detector
+        haskey(pars_tau, det) || throw(ErrorException("no pole-zero τ for $det — upstream decay_time failed or was skipped"))
+
         # get QC cuts
         blmean_wdw = nothing
         try

@@ -8,8 +8,15 @@ function truncate_string(s::String, max_length::Int=1000)
 end
 
 function truncate_error(e::Exception, max_length::Int=1000)
-    if e isa CompositeException
-        e = e.exceptions[1]
+    # unwrap task/composite wrappers so reports show the actual cause, not "Task (failed) @0x..."
+    while true
+        if e isa TaskFailedException && e.task.exception isa Exception
+            e = e.task.exception
+        elseif e isa CompositeException && !isempty(e.exceptions)
+            e = e.exceptions[1]
+        else
+            break
+        end
     end
     s = string(@userfriendly_exceptions e)
     if length(s) > max_length
