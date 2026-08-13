@@ -94,8 +94,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
 
             # open output file
             outdata = lh5open(outfilename, "cw")
-            # get processed detectors
-            processed_channels = haskey(outdata, "jldsp") ? keys(outdata["jldsp"]) : String[]
+            # get processed detectors (keys of the group are Symbols, compare as String)
+            processed_channels = haskey(outdata, "jldsp") ? string.(keys(outdata["jldsp"])) : String[]
 
             @info "Start DSP"
             @timeit dsp_timer "DSP" begin
