@@ -8,8 +8,6 @@ function process_pulser_filter_phy(processing_config::PropDict, l200::LegendData
     chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
-    # TODO: adjust if the pulser DSP config (bl_window, ...) lives somewhere else,
-    # e.g. a dedicated `puls` block in dataprod_config rather than the generic `dsp` block
     dsp_config = DSPConfig(dataprod_config(l200).dsp(filekey).default)
 
     puls_ch_name = "PULS01ANA"
@@ -30,7 +28,7 @@ function process_pulser_filter_phy(processing_config::PropDict, l200::LegendData
 
     # get input and output directories
     input_datadir = l200.tier[:raw, :phy, period, run]
-    output_datadir = mkpath(l200.tier[:jlpulsraw, :phy, period, run])
+    output_datadir = mkpath(l200.tier[:jlpuls, :phy, period, run])
     @assert isdir(input_datadir) && isdir(output_datadir)
 
     # get detectors
@@ -164,7 +162,7 @@ function process_pulser_filter_phy(processing_config::PropDict, l200::LegendData
 
         @info "Extracting pulser events for detector $det ($ch)"
 
-        output_filename = l200.tier[:jlpulsraw, first(filekeys), det]
+        output_filename = l200.tier[:jlpuls, first(filekeys), det]
 
         if isfile(output_filename) && !reprocess
             @info "Output file \"$output_filename\" already exists, skipping"
@@ -190,7 +188,7 @@ function process_pulser_filter_phy(processing_config::PropDict, l200::LegendData
         local slim_data
         @timeit extract_timer "$det" begin
             @timeit extract_timer "Filter Raw" begin
-                slim_data = flatten_by_key([
+                per_file_tables = [
                     LHDataStore(l200.tier[:raw, fk]) do ds
                         @debug "Filtering $(l200.tier[:raw, fk]) for detector $det ($ch)"
                         raw_tbl = ds[det].raw[:]
@@ -198,7 +196,8 @@ function process_pulser_filter_phy(processing_config::PropDict, l200::LegendData
                         raw_tbl[mask]
                     end
                     for fk in filekeys
-                ])
+                ]
+                slim_data = fast_flatten(per_file_tables)
             end
         end
 
