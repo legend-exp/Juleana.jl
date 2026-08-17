@@ -8,6 +8,9 @@ function truncate_string(s::String, max_length::Int=1000)
 end
 
 function truncate_error(e::Exception, max_length::Int=1000)
+    # debug rerun: snapshot the full exception chain while it is still live, since
+    # every per-stage catch in the processors goes through here (no-op otherwise)
+    _debug_capture()
     if e isa CompositeException
         e = e.exceptions[1]
     end
