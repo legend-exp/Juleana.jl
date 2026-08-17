@@ -2,7 +2,9 @@
 function get_workerPool(processing_config::PropDict, process::Symbol)
     n_workers = get(processing_config.processors[process], :n_workers, "all")
     @assert typeof(n_workers) <: Int || n_workers == "all" "Number of workers must be an integer or 'all'."
-    if n_workers == "all" || n_workers >= nworkers()
+    # do not compare with nworkers() here: elastic workers may not have joined yet when a
+    # processor is called, and an integer n_workers must still act as the concurrency limit
+    if n_workers == "all"
         wp = default_worker_pool()
         @info "Use default worker pool with $(length(wp)) workers."
         return wp
