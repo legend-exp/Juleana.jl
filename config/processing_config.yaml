@@ -188,7 +188,7 @@ processors:
     category: phy
     rank: 15
     kwargs:
-      include_vetoes: true
+      subsystems: [:geds, :spms, :pmts, :aux]
       reprocess: false
       timeout: 0
     dependencies:

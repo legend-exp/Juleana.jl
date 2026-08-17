@@ -1,4 +1,4 @@
-function process_evt_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; include_vetoes::Bool=true, reprocess::Bool = false, timeout::Int=0)
+function process_evt_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; subsystems::Vector{Symbol}=[:geds, :spms, :pmts, :aux], reprocess::Bool = false, timeout::Int=0)
     
     @info "Process events for period $period and run $run"
 
@@ -53,7 +53,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                         # generate evt level table
                         out_t, pmts_out_t = nothing, nothing
                         try 
-                            out_t, pmts_out_t = calibrate_all(l200, fk, dsp_data, include_vetoes = false)
+                            out_t, pmts_out_t = calibrate_all(l200, fk, dsp_data; subsystems)
                         catch e
                             @error "Error processing $fk: $(truncate_error(e))"
                             throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
@@ -69,7 +69,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                             ds[:jlevt] = out_t
                         end
                         # write pmt evt file
-                        if !isempty(pmts_out_t) && include_vetoes
+                        if !isempty(pmts_out_t) && (:pmt in subsystems)
                             write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
                                 # Remove cached PMT file if reprocess is enabled
                                 if reprocess && isfile(pmtoutfilename)
