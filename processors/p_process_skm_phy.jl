@@ -38,7 +38,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
         @info "Using output file: $(basename(skmfilename))"
         
         # start processing
-        global n_psd, n_lar, n_larpsd = 0, 0, 0
+        n_psd, n_lar, n_larpsd = 0, 0, 0
         write_files(skmfilename, use_cache = true, mode = CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(skmfilename)), remove old Evt."
