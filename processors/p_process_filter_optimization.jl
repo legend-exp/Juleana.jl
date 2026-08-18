@@ -49,7 +49,12 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
         validity_det = get_partitionvalidity(l200, det, part)
 
+        # upstream precondition: p_process_decay_time must have produced a τ for this det/partition
+        isfile(joinpath(data_path(l200.par.ppars.pz), "$det", "$part.yaml")) ||
+            throw(ErrorException("no partition pole-zero pars for $det ($part) — upstream p_process_decay_time failed or was skipped"))
         pars_tau = get_values(l200.par.ppars.pz[det, part])
+        haskey(pars_tau, det) ||
+            throw(ErrorException("no pole-zero τ for $det in $part pars — upstream p_process_decay_time failed or was skipped"))
         @debug "Loaded decay times"
 
         dsp_config_pd = dataprod_config(l200).dsp(filekey_det)

@@ -49,10 +49,19 @@ function det_sg_optimization(chinfo_det::NamedTuple)
 
         validity_det = get_partitionvalidity(l200, det, part)
 
+        # upstream preconditions: pz τ and the trap rt/ft from filter optimization for this det/partition
+        isfile(joinpath(data_path(l200.par.ppars.pz), "$det", "$part.yaml")) ||
+            throw(ErrorException("no partition pole-zero pars for $det ($part) — upstream p_process_decay_time failed or was skipped"))
         pars_tau = get_values(l200.par.ppars.pz[det, part])
+        haskey(pars_tau, det) ||
+            throw(ErrorException("no pole-zero τ for $det in $part pars — upstream p_process_decay_time failed or was skipped"))
         @debug "Loaded decay times"
 
+        isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.yaml")) ||
+            throw(ErrorException("no partition filter-optimization pars for $det ($part) — upstream p_process_filter_optimization failed or was skipped"))
         pars_fltoptimization = get_values(l200.par.ppars.fltopt[det, part])
+        haskey(pars_fltoptimization, det) && haskey(pars_fltoptimization[det], :trap) ||
+            throw(ErrorException("no trap rt/ft pars for $det ($part) — upstream p_process_filter_optimization failed or was skipped"))
         @debug "Loaded energy optimization parameters"
 
         dsp_config_pd = dataprod_config(l200).dsp(filekey_det)

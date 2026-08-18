@@ -123,6 +123,8 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         try
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty=true)
+            # physics guard: a fit escaping the search window has no usable τ peak
+            min_τ <= mvalue(result.μ) <= max_τ || throw(ErrorException("fitted τ = $(round(u"µs", mvalue(result.μ), digits=1)) outside ($min_τ, $max_τ) — no usable τ peak, consider a det-specific pz override or usability change"))
         catch e
             @error "Failed decay time extraction: $(truncate_error(e))"
             throw(ErrorException("Error in decay time extraction: $(truncate_error(e))"))
