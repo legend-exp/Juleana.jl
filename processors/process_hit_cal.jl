@@ -45,7 +45,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         pulserfilename = l200.tier[:jlpls, filekey, det_puls]
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(lh5open(pulserfilename)[det_puls, :jlpls, :tags]), "Already processed --> skipped.")))
+            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(read_ldata(l200, DataTier(:jlpls), filekey, det_puls; subgroup=:tags)), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files (filtered by bad_filekeys)
         @info "Get pulser events from raw data"
@@ -127,7 +127,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         try
             @debug "Get Pulser tags"
             # pulser_tag = pulser_cal_qc(data_det, pulser_config_det; n_pulser_identified=100)
-            data_pulser = lh5open(pulserfilename)[det_puls, :jlpls, :tags][:]
+            data_pulser = read_ldata(l200, DataTier(:jlpls), filekey, det_puls; subgroup=:tags)
             is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp, ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e
