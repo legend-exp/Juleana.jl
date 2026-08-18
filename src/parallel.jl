@@ -54,6 +54,13 @@ function retry_check(delay_state, err)
 end
 
 function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool::WorkerPool; timeout::Int=0, retry::Bool=false, process_name::String="")
+    # debug rerun (see src/debug.jl): run the matching items serially in the driver
+    # task for full exception chains, never dispatch to workers; timeout and retry
+    # do not apply there
+    if !isnothing(DEBUG_RERUN[])
+        return debug_serial_parallel(DEBUG_RERUN[], iterator, f, log_nt; process_name=process_name)
+    end
+
     # prevent crash from Base
     Base.exit_on_sigint(false)
 

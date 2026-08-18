@@ -10,6 +10,9 @@ function truncate_string(s::String, max_length::Int=1000)
 end
 
 function truncate_error(e::Exception, max_length::Int=1000)
+    # debug rerun: snapshot the full exception chain while it is still live, since
+    # every per-stage catch in the processors goes through here (no-op otherwise)
+    _debug_capture()
     # unwrap task/composite wrappers so reports show the actual cause, not "Task (failed) @0x..."
     while true
         if e isa TaskFailedException && e.task.exception isa Exception

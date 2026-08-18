@@ -30,6 +30,7 @@ using ParallelProcessingTools: getlabel
     using ArgParse
 
     global_logger(TerminalLogger())
+    include(joinpath(@__DIR__,"debug.jl"))
     include(joinpath(@__DIR__,"log_texts.jl"))
 
     # free memory
