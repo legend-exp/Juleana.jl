@@ -82,21 +82,21 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
-
-            @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_det_dep_bi121fep_wdw = data[det].jlpeaks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data[det].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate               = data[det].jlpeaks.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data[det].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
+            @debug "Loading Tl208 SEP and DEP data via read_ldata"
+            # per-peak subgroup reads with column selection: avoids loading every peak
+            # with all waveform variants just to use two of them
+            peaks_dep = read_ldata((:waveform_windowed, :waveform_presummed, :daqenergy), l200, DataTier(:jlpeaks), filekey, det; subgroup=:Tl208DEP_Bi212FEP)
+            peaks_sep = read_ldata((:waveform_windowed, :waveform_presummed, :presum_rate), l200, DataTier(:jlpeaks), filekey, det; subgroup=:Tl208SEP)
+            wvfs_det_dep_bi121fep_wdw = peaks_dep.waveform_windowed
+            wvfs_det_dep_bi121fep_pre = peaks_dep.waveform_presummed
+            presum_rate               = peaks_sep.presum_rate[1]
+            e_det_dep_bi121fep        = peaks_dep.daqenergy
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
             # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            wvfs_det_sep_wdw          = data[det].jlpeaks.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data[det].jlpeaks.Tl208SEP.waveform_presummed[:]
-
-            close(data)
+            wvfs_det_sep_wdw          = peaks_sep.waveform_windowed
+            wvfs_det_sep_pre          = peaks_sep.waveform_presummed
         catch e
             @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))

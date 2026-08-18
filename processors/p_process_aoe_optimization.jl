@@ -108,11 +108,14 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpeaks), :cal, partinfo_det, det; n_evts=n_evts)
-            wvfs_det_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate              = data.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data.Tl208DEP_Bi212FEP.daqenergy[:]
+            # per-peak subgroup reads with column selection: avoids loading every peak
+            # with all waveform variants; n_evts samples with one shared row index per run
+            data_dep = read_ldata((:waveform_windowed, :waveform_presummed, :daqenergy), l200, DataTier(:jlpeaks), :cal, partinfo_det, det; subgroup=:Tl208DEP_Bi212FEP, n_evts=n_evts)
+            data_sep = read_ldata((:waveform_windowed, :waveform_presummed, :presum_rate), l200, DataTier(:jlpeaks), :cal, partinfo_det, det; subgroup=:Tl208SEP, n_evts=n_evts)
+            wvfs_det_dep_bi121fep_wdw = data_dep.waveform_windowed[:]
+            wvfs_det_dep_bi121fep_pre = data_dep.waveform_presummed[:]
+            presum_rate              = data_sep.presum_rate[1]
+            e_det_dep_bi121fep        = data_dep.daqenergy[:]
             # DEP
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
@@ -120,16 +123,16 @@ function det_sg_optimization(chinfo_det::NamedTuple)
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
             if length(wvfs_det_dep_pre) > max_wvfs
                 @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sort!(sample(eachindex(wvfs_det_dep_pre), max_wvfs; replace=false))
                 wvfs_det_dep_pre = wvfs_det_dep_pre[sel]
                 wvfs_det_dep_wdw = wvfs_det_dep_wdw[sel]
             end
             # SEP
-            wvfs_det_sep_wdw          = data.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data.Tl208SEP.waveform_presummed[:]
+            wvfs_det_sep_wdw          = data_sep.waveform_windowed[:]
+            wvfs_det_sep_pre          = data_sep.waveform_presummed[:]
             if length(wvfs_det_sep_pre) > max_wvfs
                 @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sort!(sample(eachindex(wvfs_det_sep_pre), max_wvfs; replace=false))
                 wvfs_det_sep_pre = wvfs_det_sep_pre[sel]
                 wvfs_det_sep_wdw = wvfs_det_sep_wdw[sel]
             end
