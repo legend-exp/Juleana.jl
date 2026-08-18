@@ -55,7 +55,7 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
-                outdata[det_puls, :jlpls, :tags] = data_puls;
+                outdata[:jlpls, det_puls, :tags] = data_puls;
             end
         end
         return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(data_puls), "-")))
@@ -159,13 +159,13 @@ function process_hit_cal(processing_config::PropDict, l200::LegendData, period::
         write_files(hitdetfilename, use_cache = true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save QC"
-                outdata[det, :jlhit, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
+                outdata[:jlhit, det, :qc] = Table(merge(columns(qc), (is_physical = is_physical,)));
                 @info "Save Pulser Tags"
-                outdata[det, :jlhit, :pulserTag] = is_pulser;
+                outdata[:jlhit, det, :pulserTag] = is_pulser;
                 @info "Save data after QC"
-                outdata[det, :jlhit, :dataQC] = data_det_after_qc;
+                outdata[:jlhit, det, :dataQC] = data_det_after_qc;
                 @info "Save data pulser"
-                outdata[det, :jlhit, :dataPulser] = data_pulser;
+                outdata[:jlhit, det, :dataPulser] = data_pulser;
             end
         end
 
