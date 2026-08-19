@@ -18,6 +18,8 @@ config:
       n: 64
       julia_settings: []
   env_variables:
+    # ParallelProcessingTools write cache on shared scratch - the node-local /tmp of the compute nodes is small and fills up
+    TMPDIR: "/ptmp/$USER"
     GKSwstype: "100"
     JULIA_DEBUG: "Main,LegendSpecFits"
     JULIA_WORKER_TIMEOUT: "240"
@@ -79,7 +81,7 @@ processors:
       reprocess: false
       max_wvfs: 1000
       timeout: 0
-      use_partition_filter: true
+      use_partition_filter: false
     dependencies:
       - p_process_aoe_optimization
       - p_process_filter_optimization
@@ -168,7 +170,7 @@ processors:
       reprocess: false
       timeout: 0
       max_wvfs: 1000
-      use_partition_filter: true
+      use_partition_filter: false
     dependencies:
       - p_process_sipm_optimization_phy
 
