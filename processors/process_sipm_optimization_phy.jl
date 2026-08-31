@@ -50,7 +50,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         pulserfilename = l200.tier[:jlpls, filekey, det_puls]
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(lh5open(pulserfilename)[det_puls, :jlpls, :tags]), "Already processed --> skipped.")))
+            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(read_ldata(:tags, l200, DataTier(:jlpls), filekey, det_puls).tags), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
@@ -73,7 +73,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 @info "Save Pulser Tags"
-                outdata[det_puls, :jlpls, :tags] = data_puls;
+                outdata[:jlpls, det_puls, :tags] = data_puls;
             end
         end
         return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))

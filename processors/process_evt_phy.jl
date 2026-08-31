@@ -37,8 +37,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                     rm(evtfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
-                    n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
-                        evt_data = ds[:jlevt][:]
+                    n_forced, n_pulser, n_phy = let evt_data = read_ldata(l200, DataTier(:jlevt), fk)
                         n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
                         n_pulser = count(evt_data.aux.pulser.aux_trig)
                         n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_det) .> 1)
@@ -49,7 +48,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
 
                 # open output file
                 @timeit dsp_timer "Evt" begin
-                    n_forced, n_pulser, n_phy = lh5open(filename, "r") do dsp_data
+                    n_forced, n_pulser, n_phy = let dsp_data = read_ldata(l200, DataTier(:jldsp), fk)
                         # generate evt level table
                         out_t, pmts_out_t = nothing, nothing
                         try 

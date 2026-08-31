@@ -85,12 +85,11 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         # load data
         wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
+            data = getproperty(read_ldata(peakname, l200, DataTier(:jlpeaks), filekey, det), peakname)
             @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_det_pre = data[det, :jlpeaks, peakname].waveform_presummed[:]
-            wvfs_det_wdw = data[det, :jlpeaks, peakname].waveform_windowed[:]
-            presum_rate = data[det, :jlpeaks, peakname].presum_rate[:]
-            close(data)
+            wvfs_det_pre = data.waveform_presummed[:]
+            wvfs_det_wdw = data.waveform_windowed[:]
+            presum_rate = data.presum_rate[:]
             if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)

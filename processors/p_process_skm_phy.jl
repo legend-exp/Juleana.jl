@@ -46,8 +46,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
                 rm(skmfilename, force=true)
             elseif isfile(outfilename)
                 @info "File $(basename(skmfilename)) already exists, skip"
-                n_psd, n_lar, n_larpsd = lh5open(outfilename, "r") do ds
-                    skm_data = ds[:skm][:]
+                n_psd, n_lar, n_larpsd = let skm_data = read_ldata(l200, DataTier(:jlskm), fk)
                     n_psd = mean(skm_data.geds.is_valid_psd) * 100u"percent"
                     n_lar = mean(skm_data.ged_spm.is_valid_lar) * 100u"percent"
                     n_larpsd = mean(skm_data.geds.is_valid_psd .&& skm_data.ged_spm.is_valid_lar) * 100u"percent"
