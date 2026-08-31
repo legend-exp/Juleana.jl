@@ -305,3 +305,13 @@ p_processors:
       timeout: 0
     dependencies:
       - process_evt_phy
+
+  p_process_stability_plots_phy:
+    enabled: true
+    n_workers: all
+    category: phy
+    rank: 12
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies: []
