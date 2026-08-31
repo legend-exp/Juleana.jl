@@ -193,6 +193,16 @@ processors:
     dependencies:
       - p_process_sipm_calibration_phy
 
+  process_stability_plots_phy:
+    enabled: true
+    n_workers: all
+    category: phy
+    rank: 12
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies: []
+
 p_processors:
   p_process_decay_time:
     enabled: true
