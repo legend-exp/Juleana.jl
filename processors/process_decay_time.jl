@@ -110,6 +110,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         # get decay time
         cuts_τ, result, report =  nothing, nothing, nothing
         try
+            filter!(x -> min_τ < x < max_τ, decay_times)
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ)
         catch e
