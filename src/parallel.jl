@@ -2,7 +2,9 @@
 function get_workerPool(processing_config::PropDict, process::Symbol)
     n_workers = get(processing_config.processors[process], :n_workers, "all")
     @assert typeof(n_workers) <: Int || n_workers == "all" "Number of workers must be an integer or 'all'."
-    if n_workers == "all" || n_workers >= nworkers()
+    # do not compare with nworkers() here: elastic workers may not have joined yet when a
+    # processor is called, and an integer n_workers must still act as the concurrency limit
+    if n_workers == "all"
         wp = default_worker_pool()
         @info "Use default worker pool with $(length(wp)) workers."
         return wp
@@ -56,10 +58,15 @@ function parallel(iterator::AbstractArray, f::Function, log_nt::UnionAll, wpool:
     Base.exit_on_sigint(false)
 
     flush(stdout)
+    # onworker draws from the global elastic pool; a per-processor `wpool` (config n_workers)
+    # smaller than that pool acts as a concurrency limit - at most length(wpool) items in
+    # flight. The default pool may still be empty at this point (workers joining) - no limit then.
+    n_limit = (wpool === default_worker_pool() || length(wpool) == 0) ? typemax(Int) : length(wpool)
+    slots = Base.Semaphore(n_limit)
     # assign tasks to workers 
     # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
     tasks = broadcast(iterator) do itr
-        Threads.@spawn begin
+        Threads.@spawn Base.acquire(slots) do
             # maxtime will be set togehter with internal timeout for better handling
             onworker(; tries=retry ? 3 : 1, label="$itr", maxtime=1.1*timeout) do
                 try
