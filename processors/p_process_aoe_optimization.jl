@@ -35,11 +35,9 @@ function det_sg_optimization(chinfo_det::NamedTuple)
 
         @info "Processing detector $det ($ch)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.aoeopt), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.aoeopt), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.aoeopt[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.aoeopt), "$det"))
             PropDict()
         end
 
