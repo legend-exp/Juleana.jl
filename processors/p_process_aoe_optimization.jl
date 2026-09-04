@@ -108,7 +108,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpeaks), :cal, partinfo_det, det; n_evts=n_evts)
+            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
             wvfs_det_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
             wvfs_det_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
             presum_rate              = data.Tl208SEP.presum_rate[1]

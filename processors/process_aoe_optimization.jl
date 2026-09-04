@@ -74,7 +74,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             return (processed = processed_dict, log = log_info_dict)
         end
         
-        filename = l200.tier[:jlpeaks, filekey, det]
+        filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
             throw(LoadError(string(filename), 154,"File $(filename) does not exist"))
@@ -85,16 +85,16 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             data = lh5open(filename, "r")
 
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_det_dep_bi121fep_wdw = data[det].jlpeaks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data[det].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate               = data[det].jlpeaks.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data[det].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
+            wvfs_det_dep_bi121fep_wdw = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_windowed[:]
+            wvfs_det_dep_bi121fep_pre = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_presummed[:]
+            presum_rate               = data[det].jlpks.Tl208SEP.presum_rate[1]
+            e_det_dep_bi121fep        = data[det].jlpks.Tl208DEP_Bi212FEP.daqenergy[:]
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
             # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            wvfs_det_sep_wdw          = data[det].jlpeaks.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data[det].jlpeaks.Tl208SEP.waveform_presummed[:]
+            wvfs_det_sep_wdw          = data[det].jlpks.Tl208SEP.waveform_windowed[:]
+            wvfs_det_sep_pre          = data[det].jlpks.Tl208SEP.waveform_presummed[:]
 
             close(data)
         catch e

@@ -73,7 +73,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
             return (processed = processed_dict, log = log_info_dict)
         end
 
-        filename = l200.tier[:jlpeaks, filekey, det]
+        filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
@@ -87,9 +87,9 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         try
             data = lh5open(filename, "r")
             @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_det_pre = data[det, :jlpeaks, peakname].waveform_presummed[:]
-            wvfs_det_wdw = data[det, :jlpeaks, peakname].waveform_windowed[:]
-            presum_rate = data[det, :jlpeaks, peakname].presum_rate[:]
+            wvfs_det_pre = data[det, :jlpks, peakname].waveform_presummed[:]
+            wvfs_det_wdw = data[det, :jlpks, peakname].waveform_windowed[:]
+            presum_rate = data[det, :jlpks, peakname].presum_rate[:]
             close(data)
             if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"

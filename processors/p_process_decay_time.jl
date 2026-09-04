@@ -85,7 +85,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         wvfs_det = nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata(peakname, l200, DataTier(:jlpeaks), :cal, partinfo_det, det; n_evts=n_evts)
+            data = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
             wvfs_det = getproperty(data, peakname).waveform_presummed[:]
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
