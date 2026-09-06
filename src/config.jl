@@ -62,11 +62,35 @@ function get_argparse()
     parse_args(settings)
 end
 
+"""
+    convert_processor_kwargs!(processing_config::PropDict)
+
+Convert string vectors in the `kwargs` of `processors` and `p_processors`
+to `Vector{Symbol}`. Untyped empty vectors from YAML/JSON become `Symbol[]`.
+Other keyword values and settings outside `kwargs` are left unchanged.
+"""
+function convert_processor_kwargs!(processing_config::PropDict)
+    for section in (:processors, :p_processors)
+        for processor in values(get(processing_config, section, PropDict()))
+            kwargs = get(processor, :kwargs, PropDict())
+            for (key, value) in pairs(kwargs)
+                # YAML/JSON readers may also return string lists as Vector{Any}.
+                if value isa AbstractVector{<:AbstractString} ||
+                    (value isa AbstractVector{Any} && all(v -> v isa AbstractString, value))
+                    kwargs[key] = Symbol[Symbol(v) for v in value]
+                end
+            end
+        end
+    end
+    return processing_config
+end
+
 function get_processingconfig()
     # read parsed arguments
     parsed_args = get_argparse()
     # read config
     processing_config = readlprops(parsed_args["config"])
+    convert_processor_kwargs!(processing_config)
     # save parsed args for later
     processing_config.parsed_args = parsed_args
     # get environoment variables
