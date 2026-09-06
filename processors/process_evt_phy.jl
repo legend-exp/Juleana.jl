@@ -1,4 +1,4 @@
-function process_evt_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; subsystems::AbstractVector=["geds", "spms", "pmts", "aux"], reprocess::Bool = false, timeout::Int=0)
+function process_evt_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; subsystems::Vector{Symbol}=[:geds, :spms, :pmts, :aux], reprocess::Bool = false, timeout::Int=0)
     
     @info "Process events for period $period and run $run"
 
@@ -9,9 +9,6 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
 
     if reprocess @info "Reprocess all filekeys"
     else @info "Only reprocess filekeys that are not processed yet" end
-
-    # convert to symbols
-    subsystems = Symbol.(subsystems)
 
     # create log line Tuple
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Physical Trigger"), Symbol("Number of Forced Trigger"), Symbol("Number of Pulser Trigger"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
