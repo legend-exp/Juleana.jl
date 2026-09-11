@@ -142,7 +142,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 try
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, dsp_config_det.a_grid_wl_sg;
+                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
                                                 dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
                                                 sep_rel_cut=aoe_config_flt.sep_rel_cut, 
                                                 min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
@@ -154,8 +154,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                     throw(ErrorException("SG window length optimization: $(truncate_error(e))"))
                 end
                 
-                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "SG Filter Optimization"))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sg_sweep"))
+                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "$(uppercase(string(filter_type))) Filter Optimization"))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("$(filter_type)_sweep"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for detector $det ($ch)"""
 
