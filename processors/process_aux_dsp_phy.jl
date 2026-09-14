@@ -46,6 +46,20 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
         @info "Processing DSP for auxiliary detector $det ($ch)"
         dspfilename = l200.tier[:jlaux, filekey, det]
 
+        if !reprocess && isfile(dspfilename)
+            try
+                n_evts = lh5open(dspfilename, "r") do dsp_file
+                    length(dsp_file[det, :jlaux])
+                end
+                @info "DSP for auxiliary detector $det ($ch) already exists, skip"
+                return (result = (n_evts = n_evts,), processed = false,
+                    log = log_nt((det, ch, ProcessStatus(1), "$n_evts", "Already processed --> skipped.")))
+            catch e
+                @warn "Error reading existing DSP file for auxiliary detector $det ($ch): $(truncate_error(e))"
+                @info "Reprocess auxiliary detector $det ($ch)"
+            end
+        end
+
         try
             raw_data = read_ldata(l200, DataTier(:raw), filekeys, det)
 
