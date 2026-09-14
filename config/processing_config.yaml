@@ -166,8 +166,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-      only_pulser: true
-    dependencies: []
+    dependencies:
+      - process_dsp_aux_phy
 
   process_dsp_phy:
     enabled: true
