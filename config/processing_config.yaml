@@ -148,11 +148,21 @@ processors:
       - p_process_aoe_calibration_cut
       - p_process_lq_calibration_cut
 
-  process_sipm_optimization_phy:
+  process_dsp_aux_phy:
     enabled: true
     n_workers: all
     category: phy
     rank: 12
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies: []
+
+  process_sipm_optimization_phy:
+    enabled: true
+    n_workers: all
+    category: phy
+    rank: 13
     kwargs:
       reprocess: false
       timeout: 0
@@ -176,7 +186,7 @@ processors:
     enabled: true
     n_workers: all
     category: phy
-    rank: 14
+    rank: 15
     kwargs:
       reprocess: false
       timeout: 0
@@ -186,7 +196,7 @@ processors:
     enabled: true
     n_workers: all
     category: phy
-    rank: 15
+    rank: 16
     kwargs:
       reprocess: false
       timeout: 0
