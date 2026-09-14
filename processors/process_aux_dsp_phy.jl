@@ -1,4 +1,4 @@
-function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
 
     @info "Process auxiliary detector DSP for period $period and run $run"
 
@@ -19,7 +19,7 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    function plot_aux_dsp_crosscheck(dsp_data, det, energy_type, threshold)
+    function plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
         energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
         p = LegendMakie.lhist(energy;
             figsize = (700, 450),
@@ -38,7 +38,7 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
         p
     end
 
-    function det_aux_dsp(chinfo_det::NamedTuple)
+    function det_dsp_aux(chinfo_det::NamedTuple)
 
         ch  = chinfo_det.channel
         det = chinfo_det.detector
@@ -67,8 +67,8 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
             @info "Generate auxiliary DSP cross-check plot for $det"
             energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit=2)
             energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
-            p = plot_aux_dsp_crosscheck(dsp_data, det, energy_type, threshold)
-            savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :aux_dsp_energy)
+            p = plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
+            savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
 
             @info "Write DSP data to disk"
             write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
@@ -91,7 +91,7 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
     start_time = now()
 
     # execute in parallel
-    result_aux_dsp = parallel(chinfo_aux, det_aux_dsp, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp_aux = parallel(chinfo_aux, det_dsp_aux, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished auxiliary detector DSP"
 
@@ -102,7 +102,7 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
-    lreport!(report, create_logtbl(result_aux_dsp))
+    lreport!(report, create_logtbl(result_dsp_aux))
 
     @info "Write log report"
     writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
