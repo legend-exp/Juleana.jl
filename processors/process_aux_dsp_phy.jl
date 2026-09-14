@@ -19,6 +19,25 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
+    function plot_aux_dsp_crosscheck(dsp_data, det, energy_type, threshold)
+        energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
+        p = LegendMakie.lhist(energy;
+            figsize = (700, 450),
+            title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
+            xlabel = "$energy_type (ADC)",
+            ylabel = "Counts / bin",
+            xscale = Makie.log10,
+            yscale = Makie.log10,
+            xlims = extrema(energy),
+            legend_position = :none,
+        )
+        ax = Makie.current_axis()
+        Makie.vlines!(ax, [threshold]; color=LegendMakie.BEGeOrange, linestyle=:dash,
+            linewidth=2, label="$energy_type > $threshold")
+        Makie.axislegend(ax; position=:lt)
+        p
+    end
+
     function det_aux_dsp(chinfo_det::NamedTuple)
 
         ch  = chinfo_det.channel
@@ -39,10 +58,17 @@ function process_aux_dsp_phy(processing_config::PropDict, l200::LegendData, peri
             dsp_data = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[det]))(raw_data, dsp_config_det)
 
             @debug "Calibrate DSP data"
+            evt_config_pd_det = dataprod_config(l200).evt(filekey).aux[det]
             auxcal_pf = get_aux_cal_propfunc(l200, filekey, det)
             cal_output = auxcal_pf.(dsp_data)
 
             merged_table = merge(columns(dsp_data), columns(cal_output))
+
+            @info "Generate auxiliary DSP cross-check plot for $det"
+            energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit=2)
+            energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
+            p = plot_aux_dsp_crosscheck(dsp_data, det, energy_type, threshold)
+            savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :aux_dsp_energy)
 
             @info "Write DSP data to disk"
             write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
