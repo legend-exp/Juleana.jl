@@ -50,7 +50,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         pulserfilename = l200.tier[:jlpls, filekey, det_puls]
 
         if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(lh5open(pulserfilename)[:jlpls, det_puls, :tags]), "Already processed --> skipped.")))
+            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(read_ldata(:tags, l200, DataTier(:jlpls), filekey, det_puls)), "Already processed --> skipped.")))
         end
         # extract pulser events by loading data from raw files
         @info "Get pulser events from raw data"
@@ -137,8 +137,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             @debug "Loading SiPM data from $(period)-$(run)"
             if length(data_det) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
-                data_det = data_det[sel]
+                data_det = sample_events(data_det, max_wvfs)
             end
         catch e
             @error "SiPM data from $(period)-$(run) cannot be loaded: $(truncate_error(e))"
@@ -148,7 +147,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         wvfs_det = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls).tags
+            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls)
             is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             wvfs_det = data_det[findall(.!is_pulser)].waveform_bit_drop[:]

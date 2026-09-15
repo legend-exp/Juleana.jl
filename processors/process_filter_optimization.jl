@@ -85,19 +85,16 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
         # load data
         wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
-            @debug "Loading Tl208 FEP data from $(filename)"
-            wvfs_det_pre = data[:jlpks, det, peakname].waveform_presummed[:]
-            wvfs_det_wdw = data[:jlpks, det, peakname].waveform_windowed[:]
-            presum_rate = data[:jlpks, det, peakname].presum_rate[:]
-            close(data)
-            if length(wvfs_det_pre) > max_wvfs
+            @debug "Loading $peakname data from $(basename(filename))"
+            peak_cols = PropSelFunction(PPath(peakname, :waveform_presummed), PPath(peakname, :waveform_windowed), PPath(peakname, :presum_rate))
+            peak_data = read_ldata(peak_cols, l200, DataTier(:jlpks), filekey, det)
+            if length(peak_data) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_det_pre = wvfs_det_pre[sel]
-                wvfs_det_wdw = wvfs_det_wdw[sel]
-                presum_rate = presum_rate[sel]
+                peak_data = sample_events(peak_data, max_wvfs)
             end
+            wvfs_det_pre = peak_data.waveform_presummed
+            wvfs_det_wdw = peak_data.waveform_windowed
+            presum_rate = peak_data.presum_rate
         catch e
             @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
