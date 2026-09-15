@@ -85,7 +85,7 @@ processors:
       - p_process_filter_optimization
       - p_process_decay_time
 
-  process_hit_cal:
+  process_qcs_cal:
     enabled: true
     n_workers: all
     category: cal
