@@ -67,7 +67,8 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         try
             @debug "Load hit file"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_det_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC
+                # the CT correction needs the energies and the drift time only
+                data_det_after_qc = read_ldata(PropSelFunction(PPath.(:dataQC, [energy_types; :qdrift])...), l200, :jlhit, :cal, period, run, det)
             end
         catch e
             @error "Error in loading data for detector $det: $(truncate_error(e))"

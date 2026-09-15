@@ -22,6 +22,7 @@ using ParallelProcessingTools: getlabel
 
     using HDF5
     using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+    using PropertyFunctions: PPath
     using Base.Iterators, StructArrays
 
     # set logging to Terminallogger for Markdown output

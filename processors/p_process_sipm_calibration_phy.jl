@@ -111,7 +111,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         try
             @debug "Get Pulser tags"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls).tags
+                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls)
                 is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
                 @debug "Found $(count(is_pulser)) pulser events"
             end
