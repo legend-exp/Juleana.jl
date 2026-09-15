@@ -70,7 +70,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         try
             data = lh5open(filename, "r")
             @debug "Loading $peakname data from $(filename)"
-            wvfs_det = data[det, :jlpks, peakname].waveform_presummed[:]
+            wvfs_det = data[:jlpks, det, peakname].waveform_presummed[:]
             close(data)
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"

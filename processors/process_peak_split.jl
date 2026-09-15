@@ -148,8 +148,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             n_sep, n_fep = nothing, nothing
             try
                 output = lh5open(output_filename, "r")
-                n_sep = length(output[det].jlpks.Tl208SEP.daqenergy)
-                n_fep = length(output[det].jlpks.Tl208FEP.daqenergy)
+                n_sep = length(output[:jlpks, det].Tl208SEP.daqenergy)
+                n_fep = length(output[:jlpks, det].Tl208FEP.daqenergy)
                 close(output)
             catch e
                 @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_error(e))"
@@ -196,8 +196,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            output[det, :jlpks, label] = slim_data[label]
-                            # output[det, :jlpks, label] = decode_data(slim_data[label])
+                            output[:jlpks, det, label] = slim_data[label]
+                            # output[:jlpks, det, label] = decode_data(slim_data[label])
                         end
                     end
                 end

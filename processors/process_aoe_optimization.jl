@@ -85,16 +85,16 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             data = lh5open(filename, "r")
 
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_det_dep_bi121fep_wdw = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate               = data[det].jlpks.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data[det].jlpks.Tl208DEP_Bi212FEP.daqenergy[:]
+            wvfs_det_dep_bi121fep_wdw = data[:jlpks, det].Tl208DEP_Bi212FEP.waveform_windowed[:]
+            wvfs_det_dep_bi121fep_pre = data[:jlpks, det].Tl208DEP_Bi212FEP.waveform_presummed[:]
+            presum_rate               = data[:jlpks, det].Tl208SEP.presum_rate[1]
+            e_det_dep_bi121fep        = data[:jlpks, det].Tl208DEP_Bi212FEP.daqenergy[:]
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
             # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            wvfs_det_sep_wdw          = data[det].jlpks.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data[det].jlpks.Tl208SEP.waveform_presummed[:]
+            wvfs_det_sep_wdw          = data[:jlpks, det].Tl208SEP.waveform_windowed[:]
+            wvfs_det_sep_pre          = data[:jlpks, det].Tl208SEP.waveform_presummed[:]
 
             close(data)
         catch e
