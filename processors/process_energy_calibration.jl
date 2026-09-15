@@ -61,10 +61,10 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
         # get data
         data_det_after_qc = nothing
         try
-            @debug "Load hit file"
+            @debug "Load DSP data after QC"
             # prevent from loading if all energy types are already processed
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_det_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC
+                data_det_after_qc = read_ldata(l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
             end
         catch e
             @error "Error in loading data for detector $det: $(truncate_error(e))"

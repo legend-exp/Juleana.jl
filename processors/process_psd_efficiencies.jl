@@ -69,7 +69,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
 
         e_cal, hit_cal = nothing, nothing
         try
-            hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+            hit_cal = let dsp=read_ldata(l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser)), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                 @debug "Reading from $(period)-$(run)"
                     Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
                 end
