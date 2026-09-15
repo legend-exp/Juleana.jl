@@ -112,6 +112,10 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
 
                 aoe_config_flt = aoe_config_det.aoe_filter[filter_type]
 
+                # upstream preconditions: pz τ and the trap rt/ft from filter optimization
+                haskey(pars_tau, det) || throw(ErrorException("no pole-zero τ for $det — upstream decay_time failed or was skipped"))
+                haskey(pars_fltoptimization, det) && haskey(pars_fltoptimization[det], :trap) || throw(ErrorException("no trap rt/ft pars for $det — upstream filter_optimization failed or was skipped"))
+
                 dsp_sep, dsp_dep = nothing, nothing
                 try
                     # DSP
