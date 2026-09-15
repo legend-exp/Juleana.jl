@@ -96,8 +96,9 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
 
                 # open output file
                 outdata = lh5open(outfilename, "cw")
-                # get processed detectors
-                processed_channels = keys(outdata)
+                # get processed detectors: list the tier group, which holds one subgroup per detector
+                # (the group is absent in a fresh output file)
+                processed_channels = haskey(outdata, "jldsp") ? keys(outdata.data_store["jldsp"]) : String[]
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
@@ -160,7 +161,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            outdata[det, :jldsp] = outdata_det
+                            outdata[:jldsp, det] = outdata_det
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful

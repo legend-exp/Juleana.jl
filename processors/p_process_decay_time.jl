@@ -84,13 +84,14 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         # load data
         wvfs_det = nothing
         try
-            @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
-            wvfs_det = getproperty(data, peakname).waveform_presummed[:]
-            if length(wvfs_det) > max_wvfs
+            @debug "Loading $peakname data from $(part), $(ifelse(select_random, "random", "first")) $n_evts events from each run"
+            peak_cols = PropSelFunction(PPath(peakname, :waveform_presummed))
+            peak_data = read_ldata_sampled(peak_cols, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts, select_random)
+            if length(peak_data) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                wvfs_det = wvfs_det[rand(1:max_wvfs, max_wvfs)]
+                peak_data = sample_events(peak_data, max_wvfs; select_random)
             end
+            wvfs_det = peak_data.waveform_presummed
         catch e
             @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))

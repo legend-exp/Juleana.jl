@@ -47,7 +47,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
             elseif isfile(outfilename)
                 @info "File $(basename(skmfilename)) already exists, skip"
                 n_psd, n_lar, n_larpsd = lh5open(outfilename, "r") do ds
-                    skm_data = ds[:skm][:]
+                    skm_data = ds[:jlskm][:]
                     n_psd = mean(skm_data.geds.is_valid_psd) * 100u"percent"
                     n_lar = mean(skm_data.ged_spm.is_valid_lar) * 100u"percent"
                     n_larpsd = mean(skm_data.geds.is_valid_psd .&& skm_data.ged_spm.is_valid_lar) * 100u"percent"
@@ -61,9 +61,8 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
                 # generate evt level table
                 out_t = nothing
                 try
-                    evt = read_ldata(l200, DataTier(:jlevt), filekeys)
                     skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1 && $geds.max_e_cusp_ctc_cal > 500.0u"keV"
-                    out_t = evt[findall(skm_sel_pf.(evt))][:]
+                    out_t = read_ldata(l200, DataTier(:jlevt), filekeys; filterby = skm_sel_pf)[:]
                 catch e
                     @error "Error processing $fk: $(truncate_error(e))"
                     throw(ErrorException("Error processing $fk: $(truncate_error(e))"))

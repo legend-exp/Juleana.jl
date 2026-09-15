@@ -33,15 +33,12 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     @info "Expecting $(length(detectors)) detectors each file in \"$input_datadir\"."
 
-    function get_daqenergy_for_det(filelist::AbstractVector{<:AbstractString}, det::DetectorId)
+    function get_daqenergy_for_det(filekeys::AbstractVector{FileKey}, det::DetectorId)
         fast_flatten([
-            LHDataStore(
-                ds -> begin
-                    @debug "Reading DAQ energy for detector $det from \"$(ds.data_store.filename)\""
-                    ds[det].raw.daqenergy[:]
-                end,
-                filename
-            ) for filename in filelist
+            begin
+                @debug "Reading DAQ energy for detector $det from $(key)"
+                read_ldata(:daqenergy, l200, DataTier(:raw), key, det).daqenergy
+            end for key in filekeys
         ])
     end
 
@@ -140,17 +137,16 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
         energy_windows = IdDict(keys(raw_config_det.peaks) .=> [first(v)..last(v) for v in values(raw_config_det.peaks)])
 
-        filelist = [l200.tier[:raw, key] for key in filekeys]
         output_filename = l200.tier[:jlpks, first(filekeys), det]
 
         if isfile(output_filename) && !reprocess
             @info "Output file \"$output_filename\" already exists, skipping"
             n_sep, n_fep = nothing, nothing
             try
-                output = lh5open(output_filename, "r")
-                n_sep = length(output[det].jlpks.Tl208SEP.daqenergy)
-                n_fep = length(output[det].jlpks.Tl208FEP.daqenergy)
-                close(output)
+                # one read per peak: the two peaks hold different numbers of events, so they
+                # cannot share a table
+                n_sep = length(read_ldata(PropSelFunction(PPath(:Tl208SEP, :daqenergy)), l200, DataTier(:jlpks), first(filekeys), det))
+                n_fep = length(read_ldata(PropSelFunction(PPath(:Tl208FEP, :daqenergy)), l200, DataTier(:jlpks), first(filekeys), det))
             catch e
                 @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_error(e))"
                 @warn "Filename $(basename(output_filename)) seems broken, remove it."
@@ -168,7 +164,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         @timeit split_timer "$det" begin
             # get raw daqenergy
             @timeit split_timer "Get DAQ Energy" begin
-                e_raw = get_daqenergy_for_det(filelist, det)
+                e_raw = get_daqenergy_for_det(filekeys, det)
                 @info "Auto calibrating $det ($ch)"
                 result_autocal, report_autocal = autocal_energy(e_raw, raw_config_det.th228_cal_lines; mode=:ratio, min_e=raw_config_det.min_e, max_e=raw_config_det.max_e, max_e_binning_quantile=raw_config_det.max_e_binning_quantile, σ=raw_config_det.σ, threshold=raw_config_det.threshold, min_n_peaks=raw_config_det.min_n_peaks, max_n_peaks=raw_config_det.max_n_peaks, α=raw_config_det.α, rtol=raw_config_det.rtol)
                 f_calib = result_autocal.f_calib
@@ -178,11 +174,10 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             GC.gc()
             @info "Filtering detector $det ($ch)"
             @timeit split_timer "Filter Raw" begin
-                slim_data = flatten_by_key([lh5open(filename) do ds
-                    @debug "Filtering $(filename) for detector $det ($ch)"
-                    filter_raw_data_by_energy(ds[det].raw[:], f_calib, energy_windows; chunk_size=100)
-                    # filter_raw_data_by_energy(Table(decode_data(ds[det].raw[:])), f_calib, energy_windows)
-                end for filename in filelist])
+                slim_data = flatten_by_key([begin
+                    @debug "Filtering $(key) for detector $det ($ch)"
+                    filter_raw_data_by_energy(read_ldata(l200, DataTier(:raw), key, det), f_calib, energy_windows; chunk_size=100)
+                end for key in filekeys])
             end
             n_fep = length(slim_data[:Tl208FEP].daqenergy)
             n_sep = length(slim_data[:Tl208SEP].daqenergy)
@@ -196,8 +191,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            output[det, :jlpks, label] = slim_data[label]
-                            # output[det, :jlpks, label] = decode_data(slim_data[label])
+                            output[:jlpks, det, label] = slim_data[label]
+                            # output[:jlpks, det, label] = decode_data(slim_data[label])
                         end
                     end
                 end

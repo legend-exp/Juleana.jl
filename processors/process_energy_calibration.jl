@@ -64,7 +64,9 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
             @debug "Load hit file"
             # prevent from loading if all energy types are already processed
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_det_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC
+                # the calibration needs the uncorrected energies and the drift time for the CT correction
+                qc_cols = unique([Symbol.(first.(split.(string.(energy_types), "_ctc"))); :qdrift])
+                data_det_after_qc = read_ldata(PropSelFunction(PPath.(:dataQC, qc_cols)...), l200, :jlhit, :cal, period, run, det)
             end
         catch e
             @error "Error in loading data for detector $det: $(truncate_error(e))"

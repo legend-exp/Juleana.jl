@@ -22,6 +22,7 @@ using ParallelProcessingTools: getlabel
 
     using HDF5
     using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
+    using PropertyFunctions: PPath
     using Base.Iterators, StructArrays
 
     # set logging to Terminallogger for Markdown output
@@ -31,6 +32,9 @@ using ParallelProcessingTools: getlabel
 
     global_logger(TerminalLogger())
     include(joinpath(@__DIR__,"log_texts.jl"))
+
+    # event subset selection, used by the processors that read more data than a fit needs
+    include(joinpath(@__DIR__,"sampling.jl"))
 
     # free memory
     GC.gc()

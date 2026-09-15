@@ -107,32 +107,31 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         # load data
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
-            @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
-            wvfs_det_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate              = data.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data.Tl208DEP_Bi212FEP.daqenergy[:]
+            @debug "Loading Tl208 SEP and DEP data from $(part), $(ifelse(select_random, "random", "first")) $n_evts events from each run"
+            dep_cols = PropSelFunction(PPath(:Tl208DEP_Bi212FEP, :waveform_presummed), PPath(:Tl208DEP_Bi212FEP, :waveform_windowed), PPath(:Tl208DEP_Bi212FEP, :daqenergy))
+            sep_cols = PropSelFunction(PPath(:Tl208SEP, :waveform_presummed), PPath(:Tl208SEP, :waveform_windowed), PPath(:Tl208SEP, :presum_rate))
+            dep_data = read_ldata_sampled(dep_cols, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts, select_random)
+            sep_data = read_ldata_sampled(sep_cols, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts, select_random)
+            if length(dep_data) > max_wvfs
+                @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"
+                dep_data = sample_events(dep_data, max_wvfs; select_random)
+            end
+            if length(sep_data) > max_wvfs
+                @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
+                sep_data = sample_events(sep_data, max_wvfs; select_random)
+            end
+            wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
+            wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
+            presum_rate               = sep_data.presum_rate[1]
+            e_det_dep_bi121fep        = dep_data.daqenergy
             # DEP
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
             # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            if length(wvfs_det_dep_pre) > max_wvfs
-                @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_det_dep_pre = wvfs_det_dep_pre[sel]
-                wvfs_det_dep_wdw = wvfs_det_dep_wdw[sel]
-            end
             # SEP
-            wvfs_det_sep_wdw          = data.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data.Tl208SEP.waveform_presummed[:]
-            if length(wvfs_det_sep_pre) > max_wvfs
-                @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
-                wvfs_det_sep_pre = wvfs_det_sep_pre[sel]
-                wvfs_det_sep_wdw = wvfs_det_sep_wdw[sel]
-            end
+            wvfs_det_sep_wdw          = sep_data.waveform_windowed
+            wvfs_det_sep_pre          = sep_data.waveform_presummed
         catch e
             @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
