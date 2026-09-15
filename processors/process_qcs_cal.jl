@@ -128,7 +128,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
         # write QC flags
         write_files(qcsfilename, use_cache = true, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
-                outdata[det, :jlqcs] = qc
+                outdata[:jlqcs, det] = qc
             end
         end
 
