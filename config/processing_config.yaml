@@ -172,7 +172,7 @@ processors:
     dependencies:
       - p_process_sipm_optimization_phy
 
-  process_sipm_calibration_phy:
+  process_qcs_phy:
     enabled: true
     n_workers: all
     category: phy
@@ -182,11 +182,21 @@ processors:
       timeout: 0
     dependencies: []
 
-  process_evt_phy:
+  process_sipm_calibration_phy:
     enabled: true
     n_workers: all
     category: phy
     rank: 15
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies: []
+
+  process_evt_phy:
+    enabled: true
+    n_workers: all
+    category: phy
+    rank: 16
     kwargs:
       reprocess: false
       timeout: 0
