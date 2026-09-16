@@ -103,7 +103,6 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
         end
 
         e_unit = unit(eltype(e_cal))
-        ones_vec = ones(length(e_cal))
 
         @showprogress desc="Detector: $det" for psd_classifier in psd_classifiers
             if haskey(processed_dict, psd_classifier)
@@ -138,8 +137,8 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 result_peaks_low, report_peaks_low = nothing, nothing
                 try
                     @debug "Generate A/E low Survival Fractions"
-                    result_peaks_low, report_peaks_low = get_peaks_survival_fractions(ones_vec, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, -Inf, aoe_low_cut_vec; 
-                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
+                    result_peaks_low, report_peaks_low = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_low_cut_vec;
+                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks low SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated"))
@@ -150,7 +149,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
                 qbb_result_low = nothing
                 try
-                    qbb_result_low, _ = get_continuum_survival_fraction(ones_vec, e_cal, psd_config_det.qbb, psd_config_det.qbb_window, -Inf, aoe_low_cut_vec,; sigma_high_sided=Inf)
+                    qbb_result_low, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_low_cut_vec)
                 catch e
                     @error "Qbb low SF for $det cannot be generated"
                     throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated"))
@@ -164,8 +163,8 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 result_peaks_high, report_peaks_high = nothing, nothing
                 try
                     @debug "Generate A/E high Survival Fractions"
-                    result_peaks_high, report_peaks_high = get_peaks_survival_fractions(ones_vec, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, -Inf, aoe_high_cut_vec;
-                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
+                    result_peaks_high, report_peaks_high = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_high_cut_vec;
+                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks high SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks high SF for $det from $period-$run cannot be generated"))
@@ -176,7 +175,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
                 qbb_result_high = nothing
                 try
-                    qbb_result_high, _ = get_continuum_survival_fraction(ones_vec, e_cal, psd_config_det.qbb, psd_config_det.qbb_window, -Inf, aoe_high_cut_vec,; sigma_high_sided=Inf)
+                    qbb_result_high, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_high_cut_vec)
                 catch e
                     @error "Qbb high SF for $det cannot be generated"
                     throw(ErrorException("Qbb high SF for $det from $period-$run cannot be generated"))
@@ -190,7 +189,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 result_peaks_ds, report_peaks_ds = nothing, nothing
                 try
                     @debug "Generate A/E DS Survival Fractions"
-                    result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(ones_vec, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, -Inf, aoe_ds_cut_vec; 
+                    result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_ds_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks DS SF for $det cannot be generated"
@@ -202,7 +201,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
                 qbb_result_ds = nothing
                 try
-                    qbb_result_ds, _ = get_continuum_survival_fraction(ones_vec, e_cal, psd_config_det.qbb, psd_config_det.qbb_window, -Inf, aoe_ds_cut_vec)
+                    qbb_result_ds, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_ds_cut_vec)
                 catch e
                     @error "Qbb DS SF for $det cannot be generated"
                     throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
@@ -217,8 +216,8 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 result_peaks_low_lq, report_peaks_low_lq = nothing, nothing
                 try
                     @debug "Generate A/E DS Survival Fractions"
-                    result_peaks_low_lq, report_peaks_low_lq = get_peaks_survival_fractions(ones_vec, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, -Inf, aoe_low_cut_vec .&& lq_high_cut_vec; 
-                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
+                    result_peaks_low_lq, report_peaks_low_lq = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_low_cut_vec .&& lq_high_cut_vec;
+                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks DS SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
@@ -229,7 +228,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
                 qbb_result_low_lq = nothing
                 try
-                    qbb_result_low_lq, _ = get_continuum_survival_fraction(ones_vec, e_cal, psd_config_det.qbb, psd_config_det.qbb_window, -Inf, aoe_low_cut_vec .&& lq_high_cut_vec; sigma_high_sided=Inf)
+                    qbb_result_low_lq, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_low_cut_vec .&& lq_high_cut_vec)
                 catch e
                     @error "Qbb DS SF for $det cannot be generated"
                     throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
@@ -245,8 +244,8 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
                 result_peaks_lq_ds, report_peaks_lq_ds = nothing, nothing
                 try
                     @debug "Generate A/E DS Survival Fractions"
-                    result_peaks_lq_ds, report_peaks_lq_ds = get_peaks_survival_fractions(ones_vec, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, -Inf, aoe_ds_cut_vec .&& lq_high_cut_vec; 
-                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
+                    result_peaks_lq_ds, report_peaks_lq_ds = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_ds_cut_vec .&& lq_high_cut_vec;
+                                                    bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks DS SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
@@ -257,7 +256,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
 
                 qbb_result_lq_ds = nothing
                 try
-                    qbb_result_lq_ds, _ = get_continuum_survival_fraction(ones_vec, e_cal, psd_config_det.qbb, psd_config_det.qbb_window, -Inf, aoe_ds_cut_vec .&& lq_high_cut_vec; sigma_high_sided=Inf)
+                    qbb_result_lq_ds, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_ds_cut_vec .&& lq_high_cut_vec)
                 catch e
                     @error "Qbb DS SF for $det cannot be generated"
                     throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
