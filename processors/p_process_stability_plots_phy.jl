@@ -67,10 +67,14 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
             log_det = log_nt((det, part, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
-        time_s = ustrip.(data.timestamp)
-        bl_f   = float.(data.blmean)
-        σbl    = float.(data.blsigma)
-        e10410  = float.(data.e_10410)
+        finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
+        timestamp = data.timestamp[finite_data]
+        time_s    = ustrip.(timestamp)
+        bl_f      = float.(data.blmean[finite_data])
+        σbl       = float.(data.blsigma[finite_data])
+        e10410    = float.(data.e_10410[finite_data])
+        puls_e10410 = puls.e_10410[finite_data]
+        aux_trig = puls.aux_trig[finite_data]
 
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
@@ -107,17 +111,26 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
             LegendMakie.lhist(e10410; bins = 0:1000:6e5, figsize = (900, 400), xlabel = "E_10410 (ADC)", ylabel = "Counts", yscale = Makie.log10, title = get_plottitle(filekey_det, part, det, "E_10410 Distribution"))
         end
 
-        mask_trig = puls.aux_trig .== true
+        mask_trig = aux_trig .== true
         if any(mask_trig)
             run_plot(:stability_time_vs_e10410_trig) do
                 LegendMakie.lhist(time_s[mask_trig], e10410[mask_trig]; heatmap_kwargs..., ylabel = "E_10410 (ADC)", title = get_plottitle(filekey_det, part, det, "Time vs E_10410 (Pulser-Triggered)"))
             end
         end
 
-        mask_gain = .!isnan.(puls.e_10410) .&& .!isnan.(e10410) .&& mask_trig
+        mask_gain = isfinite.(puls_e10410) .&& mask_trig
         if count(mask_gain) > n_ref
             run_plot(:stability_gain_stability) do
-                LegendMakie.lgainstability(time_s[mask_gain], e10410[mask_gain], puls.e_10410[mask_gain]; Qbb, n_ref, n_smooth, energy_label = "E_10410", title = get_plottitle(filekey_det, part, det, "Gain Stability"))
+                pulser_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], puls_e10410[mask_gain]), n_ref), n_smooth)
+                energy_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], e10410[mask_gain]), n_ref), n_smooth)
+                pulser_gain = TimeEvolution(pulser_gain.time, pulser_gain.values .* (Qbb / 100))
+                energy_gain = TimeEvolution(energy_gain.time, energy_gain.values .* (Qbb / 100))
+
+                p = LegendMakie.lplot(pulser_gain; figsize = (1000, 450), label = "Pulser", sigmas = (1,), ylabel = "ΔE (keV)", ylims = (-8, 8), title = get_plottitle(filekey_det, part, det, "Gain Stability"))
+                ax = Makie.content(p[1, 1])
+                LegendMakie.lplot!(ax, energy_gain; color = :red, label = "E_10410", sigmas = (1,))
+                Makie.axislegend(ax; position = :rt)
+                p
             end
         else
             @warn "Not enough pulser statistics for gain plot: $det in partition $part"
