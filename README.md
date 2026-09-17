@@ -155,3 +155,9 @@ The following fields are available:
 4. **`category`**: field can be used to set the category of the processor. This is important to tell the dataflow if the processor is acting on `cal` or `phy` data.
 5. **`kwargs`**: field can be used to pass additional keyword arguments to the processor. This can be useful to set specific settings for the processor. Please refer to the processor documentation for all available options.
 6. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully.
+
+String lists in `processors.*.kwargs` and `p_processors.*.kwargs` are converted to
+Julia symbol vectors when the processing config is loaded. For example, YAML
+`subsystems: [geds, spms, pmts, aux]` is passed as `[:geds, :spms, :pmts, :aux]`.
+Use ordinary strings in YAML/JSON, without a leading colon. Scalar strings and
+lists outside processor `kwargs` keep their original types.
