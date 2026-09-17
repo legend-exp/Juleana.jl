@@ -25,7 +25,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     # get input and output directories
     input_datadir = l200.tier[:raw, :cal, period, run]
-    output_datadir = mkpath(l200.tier[:jlpeaks, :cal, period, run])
+    output_datadir = mkpath(l200.tier[:jlpks, :cal, period, run])
     @assert isdir(input_datadir) && isdir(output_datadir)
 
     # get detectors
@@ -141,15 +141,15 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         energy_windows = IdDict(keys(raw_config_det.peaks) .=> [first(v)..last(v) for v in values(raw_config_det.peaks)])
 
         filelist = [l200.tier[:raw, key] for key in filekeys]
-        output_filename = l200.tier[:jlpeaks, first(filekeys), det]
+        output_filename = l200.tier[:jlpks, first(filekeys), det]
 
         if isfile(output_filename) && !reprocess
             @info "Output file \"$output_filename\" already exists, skipping"
             n_sep, n_fep = nothing, nothing
             try
                 output = lh5open(output_filename, "r")
-                n_sep = length(output[det].jlpeaks.Tl208SEP.daqenergy)
-                n_fep = length(output[det].jlpeaks.Tl208FEP.daqenergy)
+                n_sep = length(output[det].jlpks.Tl208SEP.daqenergy)
+                n_fep = length(output[det].jlpks.Tl208FEP.daqenergy)
                 close(output)
             catch e
                 @error "Error reading SEP and FEP events from $(basename(output_filename)): $(truncate_error(e))"
@@ -196,8 +196,8 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for label in sort(collect(keys(slim_data)))
-                            output[det, :jlpeaks, label] = slim_data[label]
-                            # output[det, :jlpeaks, label] = decode_data(slim_data[label])
+                            output[det, :jlpks, label] = slim_data[label]
+                            # output[det, :jlpks, label] = decode_data(slim_data[label])
                         end
                     end
                 end
