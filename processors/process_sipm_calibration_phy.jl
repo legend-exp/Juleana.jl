@@ -178,6 +178,8 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
                 result_energy = (
                     m_cal_simple = result_simple.c,
                     n_cal_simple = result_simple.offset,
+                    noise_threshold = result_simple.noise_threshold,
+                    noise_threshold_cal = result_simple.noise_threshold_cal,
                     cal = result_calib,
                     fit  = result_fit,
                 )

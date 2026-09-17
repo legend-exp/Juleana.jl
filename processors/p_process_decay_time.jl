@@ -85,7 +85,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         wvfs_det = nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata(peakname, l200, DataTier(:jlpeaks), :cal, partinfo_det, det; n_evts=n_evts)
+            data = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
             wvfs_det = getproperty(data, peakname).waveform_presummed[:]
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
@@ -123,6 +123,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
         # get decay time
         cuts_τ, result, report =  nothing, nothing, nothing
         try
+            filter!(x -> min_τ < x < max_τ, decay_times)
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty=true)
         catch e

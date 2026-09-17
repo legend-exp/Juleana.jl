@@ -74,7 +74,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             return (processed = processed_dict, log = log_info_dict)
         end
         
-        filename = l200.tier[:jlpeaks, filekey, det]
+        filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
             throw(LoadError(string(filename), 154,"File $(filename) does not exist"))
@@ -85,16 +85,16 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
             data = lh5open(filename, "r")
 
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_det_dep_bi121fep_wdw = data[det].jlpeaks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data[det].jlpeaks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate               = data[det].jlpeaks.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data[det].jlpeaks.Tl208DEP_Bi212FEP.daqenergy[:]
+            wvfs_det_dep_bi121fep_wdw = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_windowed[:]
+            wvfs_det_dep_bi121fep_pre = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_presummed[:]
+            presum_rate               = data[det].jlpks.Tl208SEP.presum_rate[1]
+            e_det_dep_bi121fep        = data[det].jlpks.Tl208DEP_Bi212FEP.daqenergy[:]
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
             # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            wvfs_det_sep_wdw          = data[det].jlpeaks.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data[det].jlpeaks.Tl208SEP.waveform_presummed[:]
+            wvfs_det_sep_wdw          = data[det].jlpks.Tl208SEP.waveform_windowed[:]
+            wvfs_det_sep_pre          = data[det].jlpks.Tl208SEP.waveform_presummed[:]
 
             close(data)
         catch e
@@ -142,7 +142,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                 try
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, dsp_config_det.a_grid_wl_sg;
+                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
                                                 dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
                                                 sep_rel_cut=aoe_config_flt.sep_rel_cut, 
                                                 min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
@@ -154,8 +154,8 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
                     throw(ErrorException("SG window length optimization: $(truncate_error(e))"))
                 end
                 
-                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "SG Filter Optimization"))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sg_sweep"))
+                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "$(uppercase(string(filter_type))) Filter Optimization"))
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("$(filter_type)_sweep"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for detector $det ($ch)"""
 

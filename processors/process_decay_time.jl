@@ -59,7 +59,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         qc_string    = pz_config_det.qc
         max_wvfs     = pz_config_det.max_wvfs
 
-        filename = l200.tier[:jlpeaks, filekey, det]
+        filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
             throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
@@ -70,7 +70,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         try
             data = lh5open(filename, "r")
             @debug "Loading $peakname data from $(filename)"
-            wvfs_det = data[det, :jlpeaks, peakname].waveform_presummed[:]
+            wvfs_det = data[det, :jlpks, peakname].waveform_presummed[:]
             close(data)
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
@@ -110,6 +110,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
         # get decay time
         cuts_τ, result, report =  nothing, nothing, nothing
         try
+            filter!(x -> min_τ < x < max_τ, decay_times)
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             result, report = fit_single_trunc_gauss(decay_times, cuts_τ)
         catch e
