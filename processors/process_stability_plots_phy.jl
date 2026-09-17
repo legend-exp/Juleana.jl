@@ -14,6 +14,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
     n_ref = qc_config.stability_plots.n_ref
     n_smooth = qc_config.stability_plots.n_smooth
     Qbb = qc_config.stability_plots.Qbb
+    smooth_window = 20n_smooth * u"s"
 
     chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     det_puls = chinfo_puls.detector
@@ -94,13 +95,16 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
             run_plot(:stability_time_vs_e10410_trig) do
                 LegendMakie.lhist(time_s[mask_trig], e10410[mask_trig]; heatmap_kwargs..., ylabel = "E_10410 (ADC)", title = get_plottitle(filekey, det, "Time vs E_10410 (Pulser-Triggered)"))
             end
+            run_plot(:stability_pulser_rate) do
+                LegendMakie.lplot(rate(timestamp[mask_trig], smooth_window); figsize = (900, 400), ylabel = "Pulser rate (Hz)", title = get_plottitle(filekey, det, "Pulser Rate"))
+            end
         end
 
         mask_gain = isfinite.(puls_e10410) .&& mask_trig
         if count(mask_gain) > n_ref
             run_plot(:stability_gain_stability) do
-                pulser_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], puls_e10410[mask_gain]), n_ref), n_smooth)
-                energy_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], e10410[mask_gain]), n_ref), n_smooth)
+                pulser_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], puls_e10410[mask_gain]), n_ref), smooth_window)
+                energy_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], e10410[mask_gain]), n_ref), smooth_window)
                 pulser_gain = TimeEvolution(pulser_gain.time, pulser_gain.values .* (Qbb / 100))
                 energy_gain = TimeEvolution(energy_gain.time, energy_gain.values .* (Qbb / 100))
 
