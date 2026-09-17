@@ -1,4 +1,4 @@
-function process_sipm_optimization_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, only_pulser::Bool=false)
+function process_sipm_optimization_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
         
     @info "Process SiPM optimization for period $period and run $run"
 
@@ -28,65 +28,15 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
 
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
-    log_nt_puls = NamedTuple{(:Detector, :Channel, :Status, Symbol("Number Pulser Events"), :Error)}
-
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
 
-    #  write out pulser events
+    # get pulser detector information
     chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     @info "Loaded pulser channel info: $(chinfo_puls)"
-
-    # get information about pulser events from raw trigger
-    function det_puls_phy(chinfo_puls::NamedTuple)
-        
-        ch_puls = chinfo_puls.channel
-        det_puls = chinfo_puls.detector
-        
-        # get pulser filename
-        pulserfilename = l200.tier[:jlpls, filekey, det_puls]
-
-        if !reprocess && isfile(pulserfilename)
-            return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(lh5open(pulserfilename)[det_puls, :jlpls, :tags]), "Already processed --> skipped.")))
-        end
-        # extract pulser events by loading data from raw files
-        @info "Get pulser events from raw data"
-        raw_pls = read_ldata(l200, DataTier(:raw), filekeys, det_puls)
-        
-        dsp_config_pd = dataprod_config(l200).dsp(filekey)
-        dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det_puls, PropDict()))
-        dsp_config_det = DSPConfig(dsp_config_pd_det)
-        @debug "Loaded DSP config: $(lstring(dsp_config_det))"
-
-        # get pulser events DSP
-        @debug "Generate DSP for Pulser events"
-        dsp_pls = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[det_puls]))(raw_pls, dsp_config_det)
-
-        # get pulser events data
-        @debug "Calibrate Pulser events"
-        data_puls = calibrate_aux_detector_data(l200, filekey, det_puls, dsp_pls)
-
-        @info "Write Pulser events to disk"
-        write_files(pulserfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
-            lh5open(outfilename, "w") do outdata
-                @info "Save Pulser Tags"
-                outdata[det_puls, :jlpls, :tags] = data_puls;
-            end
-        end
-        return (processed = false, log = log_nt_puls((det_puls, ch_puls, ProcessStatus(1), length(data_puls), "Already processed --> skipped.")))
-    end
-
-    # get start time
-    start_time = now()
-
-    # execute in parallel
-    result_puls = parallel([chinfo_puls], det_puls_phy, log_nt_puls, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
-
-    @info "Finished Pulser detector processing"
-    pulser_processing_time = now() - start_time
 
     # function to process filter optimization
     function det_sipm_optimization(chinfo_det::NamedTuple)
@@ -94,7 +44,6 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         ch  = chinfo_det.channel
         det = chinfo_det.detector
 
-        ch_puls = chinfo_puls.channel
         det_puls = chinfo_puls.detector
 
         @debug "Processing detector $det ($ch)"
@@ -148,7 +97,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
         wvfs_det = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls).tags
+            data_pulser = read_ldata(l200, DataTier(:jlaux), :phy, period, run, det_puls)
             is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             wvfs_det = data_det[findall(.!is_pulser)].waveform_bit_drop[:]
@@ -256,31 +205,24 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     # get start time
     start_time = now()
 
-    if !only_pulser
-        # execute in parallel
-        result_sipm_optimization = parallel(chinfo, det_sipm_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
-        @info "Finished SiPM optimization extraction"
+    # execute in parallel
+    result_sipm_optimization = parallel(chinfo, det_sipm_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    @info "Finished SiPM optimization extraction"
 
-        pars_db = create_pars(pars_db, result_sipm_optimization)
-        writelprops(l200.par.rpars.sipmopt[period], run, pars_db)
-        writevalidity(l200.par.rpars.sipmopt, filekey, (period, run))
-        @info "Saved pars to disk"
-    end
+    pars_db = create_pars(pars_db, result_sipm_optimization)
+    writelprops(l200.par.rpars.sipmopt[period], run, pars_db)
+    writevalidity(l200.par.rpars.sipmopt, filekey, (period, run))
+    @info "Saved pars to disk"
 
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, "Date of processing: $(now())")
-    lreport!(report, "Pulser Processing time: $(canonicalize(pulser_processing_time))")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, sipm_opt_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
-    lreport!(report, "# Results Pulser")
-    lreport!(report, create_logtbl(result_puls))
-    if !only_pulser
-        lreport!(report, "# Results")
-        lreport!(report, create_logtbl(result_sipm_optimization))
-    end
+    lreport!(report, "# Results")
+    lreport!(report, create_logtbl(result_sipm_optimization))
 
     @info "Write log report"
     writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
