@@ -182,7 +182,7 @@ cat <<EOL > "$config_file"
 
                 "tier": "\$_/generated/tier/",
                 "tier/jllog": "\$_/generated/jllog/",
-                "tier/jlreport": "\$_/generated/jlreport/",
+                "tier/jlrep": "\$_/generated/jlreport/",
                 "tier/jlplt": "\$_/generated/jlplt/",
 
                 "par": "\$_/generated/jlpar/"
