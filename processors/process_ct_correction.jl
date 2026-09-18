@@ -34,11 +34,11 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
 
         @debug "Processing detector $det ($ch)"
 
-        hitchfilename = l200.tier[:jlhit, filekey, det]
+        qcsfilename = l200.tier[:jlqcs, filekey, det]
         # load data file
-        if !isfile(hitchfilename)
-            @error "Hit file $hitchfilename not found"
-            throw(ErrorException("Hit file not found"))
+        if !isfile(qcsfilename)
+            @error "QC file $qcsfilename not found"
+            throw(ErrorException("QC file not found"))
         end
 
         result_dict    = Dict{Symbol, NamedTuple}()
@@ -65,9 +65,9 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
         # get data
         data_det_after_qc = nothing
         try
-            @debug "Load hit file"
+            @debug "Load DSP data after QC"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_det_after_qc = read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC
+                data_det_after_qc = read_ldata((energy_types..., :qdrift), l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
             end
         catch e
             @error "Error in loading data for detector $det: $(truncate_error(e))"

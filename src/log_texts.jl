@@ -48,9 +48,14 @@ window length with the lowest survival fraction is chosen."""
 const dsp_cal_log_text = """## DSP
 This is the log for the dsp. The algorithm iterates through each file and process within each file each detector separate."""
 
-const hit_cal_log_text = """## Hit Cal QC generation
-This is the log for the qualtiy cuts generation for calibration data. The algorithm generates the QC cuts and saves a hit file per detector
-for the following processing."""
+const qcs_cal_log_text = """## Cal QC generation
+The configured QC labels and single-pulse aggregates are evaluated on the calibration DSP data.
+Pulser coincidences are tagged from the raw pulser-trigger timestamps, and all flags are written to one jlqcs table.
+Per-flag survival fractions for pulser events and the Tl-208 FEP are stored in rpars/qcs."""
+
+const qcs_phy_log_text = """## Physics QC generation
+The configured QC labels and single-pulse aggregates are evaluated on the physics DSP data.
+The quality flags are written to one jlqcs table, and their K-40 peak survival fractions are stored in rpars/qcs."""
 
 const energy_ctc_log_text = """## CT Correction
 This is the log for the charge trapping correction. The algorithm loads all data for a channel and performs the correction while optimizing maximum height and FWHM of a defined peak in the energy spectrum.
