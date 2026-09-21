@@ -301,8 +301,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 result_peaks_low, report_peaks_low = nothing, nothing
                 try
                     @debug "Generate A/E low Survival Fractions"
-                    result_peaks_low, report_peaks_low = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right, result_cut.lowcut,; 
-                                                    bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, sigma_high_sided=Inf, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
+                    result_peaks_low, report_peaks_low = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
+                                                    low_cut=result_cut.lowcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks low SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated"))
@@ -313,7 +313,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
                 qbb_result_low = nothing
                 try
-                    qbb_result_low, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window, result_cut.lowcut,; sigma_high_sided=Inf)
+                    qbb_result_low, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut)
                 catch e
                     @error "Qbb low SF for $det cannot be generated"
                     throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated"))
@@ -324,8 +324,8 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
                 result_peaks_ds, report_peaks_ds = nothing, nothing
                 try
                     @debug "Generate A/E DS Survival Fractions"
-                    result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right, result_cut.lowcut,; 
-                                                    bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, sigma_high_sided=result_cut.highcut, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
+                    result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
+                                                    low_cut=result_cut.lowcut, high_cut=result_cut.highcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks DS SF for $det cannot be generated"
                     throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
@@ -336,7 +336,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
 
                 qbb_result_ds = nothing
                 try
-                    qbb_result_ds, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window, result_cut.lowcut,; sigma_high_sided=result_cut.highcut)
+                    qbb_result_ds, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut, high_cut=result_cut.highcut)
                 catch e
                     @error "Qbb DS SF for $det cannot be generated"
                     throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))

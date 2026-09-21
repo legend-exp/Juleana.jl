@@ -291,7 +291,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 result_peaks, report_peaks = nothing, nothing
                 try
-                    result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right, high_cut_sigma; inverted_mode=true, fit_funcs=lq_peaks_fit_funcs)
+                    result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right; high_cut=high_cut_sigma, fit_funcs=lq_peaks_fit_funcs)
                 catch e
                     @error "Error in peak lq survival fraction calculation: $e"
                     throw(ErrorException("Error in peak lq survival fraction calculation: $e"))
@@ -299,7 +299,7 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
 
                 result_qbb, report_qbb = nothing, nothing
                 try
-                    result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window, high_cut_sigma, inverted_mode=true)
+                    result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window; high_cut=high_cut_sigma)
                 catch e
                     @error "Error in qbb lq survival fraction calculation: $e"
                     throw(ErrorException("Error in qbb lq survival fraction calculation: $e"))
