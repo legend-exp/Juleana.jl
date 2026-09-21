@@ -113,9 +113,10 @@ function p_process_aoe_calibration_cut(processing_config::PropDict, l200::Legend
         try
             if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([
-                    let dsp=read_ldata(l200, :jldsp, :cal, pinfo.period, pinfo.run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser)), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                    let e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                         @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                        cal_func = ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func)
+                        read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, pinfo.period, pinfo.run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
                     end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)

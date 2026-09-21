@@ -101,9 +101,10 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
         hit_cal, e_cal, dep_σ = nothing, nothing, nothing
         try 
             if !all([haskey(processed_dict, lq_type) for lq_type in lq_types]) || !all([haskey(processed_dict, lq_classifier) for lq_classifier in lq_classifiers])
-                hit_cal = let dsp=read_ldata(l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser)), e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                hit_cal = let e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                     @debug "Reading from $(period)-$(run)"
-                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                        cal_func = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func)
+                        read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
                     end
                 e_cal = getproperty(hit_cal, e_type)
                 dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
