@@ -89,9 +89,8 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
         fep_peak = energy_config_det.th228_lines[fep_idx]
         fep_window = [energy_config_det.left_window_sizes[fep_idx], energy_config_det.right_window_sizes[fep_idx]]
         fep_fit_func = Symbol(energy_config_det.th228_fit_func[fep_idx])
-        ones_vec = ones(length(e_cal))
         fep_sf_values = map(flag_names) do flag_name
-            result_fep, _ = get_peak_survival_fraction(ones_vec, e_cal, fep_peak, fep_window, -Inf, BitVector(getproperty(qc_flags, flag_name)[valid_energy]); fit_func = fep_fit_func, uncertainty = true)
+            result_fep, _ = get_peak_survival_fraction(e_cal, fep_peak, fep_window, getproperty(qc_flags, flag_name)[valid_energy]; fit_func = fep_fit_func, uncertainty = true)
             result_fep.sf
         end
         fep_sf = NamedTuple{Tuple(flag_names)}(Tuple(fep_sf_values))
