@@ -52,18 +52,19 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
         end
 
         @debug "Processing detector $det ($ch)"
-        data_det = read_ldata(l200, DataTier(:jldsp), filekeys, det)
+        data_det = read_ldata((:timestamp, :e_trap), l200, DataTier(:jldsp), filekeys, det)
         if length(data_det) < 5000
             @error "Not enough data points for detector $det ($ch), skip"
             throw(ErrorException("Not enough data points for detector $det ($ch)"))
         end
 
         # generate QC flags
-        qc_labels = Table(ljl_propfunc(qc_config_det.labels).(data_det))
+        qc_labels = read_ldata(ljl_propfunc(qc_config_det.labels), l200, DataTier(:jldsp), filekeys, det)
+        single_pulse_pf = ljl_propfunc(qc_config_det.is_single_pulse)
         qc_flags = Table(merge(
             columns(qc_labels),
             (
-                is_single_pulse = ljl_propfunc(qc_config_det.is_single_pulse).(qc_labels),
+                is_single_pulse = single_pulse_pf.(qc_labels),
             ),
         ))
         qc_propfunc = merge(qc_config_det.labels, PropDict(:is_single_pulse => qc_config_det.is_single_pulse))
@@ -76,6 +77,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
         # calculate survival fractions
         qc = Table(merge(columns(qc_flags), (is_pulser = is_pulser,)))
         flag_names = collect(columnnames(qc_flags))
+        plot_flag_names = Symbol[first(typeof(path).parameters[1]) for path in PropertyFunctions.input_property_paths(single_pulse_pf)]
         n_pulser = count(is_pulser)
         pulser_sf_values = [count(getproperty(qc_flags, flag_name)[is_pulser]) / n_pulser * 100u"percent" for flag_name in flag_names]
         pulser_sf = NamedTuple{Tuple(flag_names)}(Tuple(pulser_sf_values))
@@ -86,11 +88,8 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
         quantile_perc = if energy_config_det.quantile_perc isa String parse(Float64, energy_config_det.quantile_perc) else energy_config_det.quantile_perc end
         result_simple, _ = simple_calibration(e_uncal, energy_config_det.th228_lines, energy_config_det.left_window_sizes, energy_config_det.right_window_sizes,; calib_type = :th228, quantile_perc = quantile_perc, binning_peak_window = energy_config_det.binning_peak_window)
         e_cal = e_uncal .* result_simple.c
-        fep_peak = energy_config_det.th228_lines[fep_idx]
-        fep_window = [energy_config_det.left_window_sizes[fep_idx], energy_config_det.right_window_sizes[fep_idx]]
-        fep_fit_func = Symbol(energy_config_det.th228_fit_func[fep_idx])
         fep_sf_values = map(flag_names) do flag_name
-            result_fep, _ = get_peak_survival_fraction(e_cal, fep_peak, fep_window, getproperty(qc_flags, flag_name)[valid_energy]; fit_func = fep_fit_func, uncertainty = true)
+            result_fep, _ = get_peak_survival_fraction(e_cal, mvalue(energy_config_det.th228_lines[fep_idx]), (energy_config_det.left_window_sizes[fep_idx], energy_config_det.right_window_sizes[fep_idx]), getproperty(qc_flags, flag_name)[valid_energy]; fit_func = Symbol(energy_config_det.th228_fit_func[fep_idx]), uncertainty = true)
             result_fep.sf
         end
         fep_sf = NamedTuple{Tuple(flag_names)}(Tuple(fep_sf_values))
@@ -112,12 +111,12 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
         LegendMakie.add_watermarks!(final = true)
         savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :raw_energy_e_trap)
 
-        # plot survival fractions
-        x = collect(eachindex(flag_names))
-        pulser_sf_plot = mvalue.(ustrip.(u"percent", collect(values(pulser_sf))))
-        fep_sf_plot = mvalue.(ustrip.(u"percent", collect(values(fep_sf))))
-        fig = Makie.Figure(size = (max(800, 55 * length(flag_names)), 500))
-        ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x, string.(flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(flag_names) + 0.7), (0, 105)))
+        # plot survival fractions for the flags used by is_single_pulse
+        x = collect(eachindex(plot_flag_names))
+        pulser_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(pulser_sf, flag_name) for flag_name in plot_flag_names]))
+        fep_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(fep_sf, flag_name) for flag_name in plot_flag_names]))
+        fig = Makie.Figure(size = (max(800, 55 * length(plot_flag_names)), 500))
+        ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x, string.(plot_flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(plot_flag_names) + 0.7), (0, 105)))
         Makie.barplot!(ax, x .- 0.2, pulser_sf_plot, width = 0.38, color = LegendMakie.AchatBlue, label = "Pulser")
         Makie.barplot!(ax, x .+ 0.2, fep_sf_plot, width = 0.38, color = LegendMakie.BEGeOrange, label = "Tl-208 FEP")
         Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
