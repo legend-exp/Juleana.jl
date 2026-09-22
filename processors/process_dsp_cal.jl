@@ -84,10 +84,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
         # detector ids of failed detectors
         failed_detectors = DetectorId[]
         # start processing
-        read_files(rawfilename, use_cache = false) do filename
-            write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 @timeit dsp_timer "Startup" begin
-                    raw_data = lh5open(filename, "r")
                     if reprocess && isfile(dspfilename)
                         @info "Reprocess $(basename(dspfilename)), remove old DSP."
                         rm(outfilename, force=true)
@@ -97,7 +95,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                 # open output file
                 outdata = lh5open(outfilename, "cw")
                 # get processed detectors
-                processed_channels = keys(outdata)
+                processed_detectors = haskey(outdata, :jldsp) ? keys(outdata[:jldsp]) : String[]
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
@@ -112,7 +110,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                         @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
                         # check if channel can be processed
-                        if "$det" in processed_channels && !reprocess
+                        if "$det" in processed_detectors && !reprocess
                             @info "Detector $det ($ch) already processed, skip"
                             n_detectors += 1
                             continue
@@ -150,7 +148,8 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                             # process data
                             outdata_det = nothing
                             try
-                                outdata_det = dsp_icpc_compressed(raw_data[det].raw[:], dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                outdata_det = dsp_icpc_compressed(raw_data_det, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -160,7 +159,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            outdata[det, :jldsp] = outdata_det
+                            outdata[:jldsp, det] = outdata_det
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful
@@ -174,9 +173,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
                     close(outdata)
                 end
                 @info "Finished processing file: $(basename(rawfilename))"
-                close(raw_data)
                 # return number of processed detectors and failed detectors
-            end
         end
         if n_detectors == 0
             @warn "No detectors processed in $(basename(rawfilename))"

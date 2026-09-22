@@ -82,21 +82,33 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
         
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
-            data = lh5open(filename, "r")
-
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
-            wvfs_det_dep_bi121fep_wdw = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data[det].jlpks.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate               = data[det].jlpks.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data[det].jlpks.Tl208DEP_Bi212FEP.daqenergy[:]
+            dep_data = read_ldata(
+                (@pf (;
+                    waveform_windowed = $Tl208DEP_Bi212FEP.waveform_windowed,
+                    waveform_presummed = $Tl208DEP_Bi212FEP.waveform_presummed,
+                    daqenergy = $Tl208DEP_Bi212FEP.daqenergy,
+                )),
+                l200, DataTier(:jlpks), filekey, det,
+            )
+            sep_data = read_ldata(
+                (@pf (;
+                    waveform_windowed = $Tl208SEP.waveform_windowed,
+                    waveform_presummed = $Tl208SEP.waveform_presummed,
+                    presum_rate = $Tl208SEP.presum_rate,
+                )),
+                l200, DataTier(:jlpks), filekey, det,
+            )
+            wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
+            wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
+            presum_rate               = first(sep_data.presum_rate)
+            e_det_dep_bi121fep        = dep_data.daqenergy
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
             # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            wvfs_det_sep_wdw          = data[det].jlpks.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data[det].jlpks.Tl208SEP.waveform_presummed[:]
-
-            close(data)
+            wvfs_det_sep_wdw          = sep_data.waveform_windowed
+            wvfs_det_sep_pre          = sep_data.waveform_presummed
         catch e
             @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
             throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
@@ -212,4 +224,3 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     # flush stdout
     flush(stdout)
 end
-

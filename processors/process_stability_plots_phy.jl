@@ -27,7 +27,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     @info "Loading pulser data for period $period and run $run"
-    puls = read_ldata(l200, DataTier(:jlpls), :phy, period, run, det_puls)
+    puls = read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlpls), :phy, period, run, det_puls)
 
     start_time = now()
 
@@ -39,7 +39,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
         @info "Processing detector $det ($ch)"
 
         data = try
-            read_ldata(l200, DataTier(:jldsp), :phy, period, run, det)
+            read_ldata((:timestamp, :blmean, :blsigma, :e_10410), l200, DataTier(:jldsp), :phy, period, run, det)
         catch e
             @error "Stability data for $det cannot be loaded: $(truncate_error(e))"
             log_det = log_nt((det, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))

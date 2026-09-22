@@ -48,9 +48,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
         if !reprocess && isfile(dspfilename)
             try
-                n_evts = lh5open(dspfilename, "r") do dsp_file
-                    length(dsp_file[det, :jlaux])
-                end
+                n_evts = length(read_ldata(:timestamp, l200, DataTier(:jlaux), filekey, det))
                 @info "DSP for auxiliary detector $det ($ch) already exists, skip"
                 return (result = (n_evts = n_evts,), processed = false,
                     log = log_nt((det, ch, ProcessStatus(1), "$n_evts", "Already processed --> skipped.")))
@@ -87,7 +85,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
             @info "Write DSP data to disk"
             write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
                 lh5open(outfilename, "w") do outdata
-                    outdata[det, :jlaux] = merged_table
+                    outdata[:jlaux, det] = merged_table
                 end
             end
 

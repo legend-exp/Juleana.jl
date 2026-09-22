@@ -29,27 +29,32 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
         # number of forced, pulser and physical triggers
         n_forced, n_pulser, n_phy = 0, 0, 0
         # start processing
-        read_files(dspfilename, use_cache = false) do filename
-            write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
                     rm(evtfilename, force=true)
                 elseif isfile(outfilename)
                     @info "File $(basename(evtfilename)) already exists, skip"
-                    n_forced, n_pulser, n_phy = lh5open(outfilename, "r") do ds
-                        evt_data = ds[:jlevt][:]
-                        n_forced = count(evt_data.aux.forcedtrigger.aux_trig)
-                        n_pulser = count(evt_data.aux.pulser.aux_trig)
-                        n_phy = count(evt_data.geds.is_valid_qc .&& length.(evt_data.geds.trig_e_det) .> 1)
-                        n_forced, n_pulser, n_phy
-                    end
+                    evt_counts = read_ldata(
+                        (@pf (;
+                            is_forced = $aux.forcedtrigger.aux_trig,
+                            is_pulser = $aux.pulser.aux_trig,
+                            is_valid_qc = $geds.is_valid_qc,
+                            trig_e_det = $geds.trig_e_det,
+                        )),
+                        l200, DataTier(:jlevt), fk,
+                    )
+                    n_forced = count(evt_counts.is_forced)
+                    n_pulser = count(evt_counts.is_pulser)
+                    n_phy = count(evt_counts.is_valid_qc .&& length.(evt_counts.trig_e_det) .> 1)
                     return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_phy, n_forced, n_pulser, "", "", "")), processed = false)
                 end
 
                 # open output file
                 @timeit dsp_timer "Evt" begin
-                    n_forced, n_pulser, n_phy = lh5open(filename, "r") do dsp_data
+                    dsp_detectors = unique(reduce(vcat, [channelinfo(l200, fk; system).detector for system in subsystems]))
+                    dsp_data = read_ldata(l200, DataTier(:jldsp), fk, dsp_detectors; ignore_missing=true)
                         # generate evt level table
                         out_t, pmts_out_t = nothing, nothing
                         try 
@@ -82,12 +87,9 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
                                 end
                             end
                         end
-                        n_forced, n_pulser, n_phy
-                    end
                 end
                 
                 @info "Finished processing $(basename(evtfilename))"
-            end
         end
 
         # create total timer by summing over memory usage and time

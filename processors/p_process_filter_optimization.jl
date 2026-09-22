@@ -108,11 +108,10 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
         try
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
-            peak_data = getproperty(data, peakname)
-            wvfs_det_pre = peak_data.waveform_presummed[:]
-            wvfs_det_wdw = peak_data.waveform_windowed[:]
-            presum_rate = peak_data.presum_rate[:]
+            peak_data = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts)
+            wvfs_det_pre = peak_data.waveform_presummed
+            wvfs_det_wdw = peak_data.waveform_windowed
+            presum_rate = peak_data.presum_rate
             if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
@@ -278,4 +277,3 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
 
     return any(x -> get(last(x), :skipped, false), values(result_flt))
 end
-
