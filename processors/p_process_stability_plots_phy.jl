@@ -54,7 +54,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
         @debug "Loaded pulser channel info for partition $part: $chinfo_puls"
 
         data = try
-            read_ldata(l200, DataTier(:jldsp), :phy, partinfo_det, det)
+            read_ldata((:timestamp, :blmean, :blsigma, :e_10410), l200, DataTier(:jldsp), :phy, partinfo_det, det)
         catch e
             @error "Stability data for $det in partition $part cannot be loaded: $(truncate_error(e))"
             log_det = log_nt((det, part, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))
@@ -62,7 +62,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
         end
 
         puls = try
-            read_ldata(l200, DataTier(:jlpls), :phy, partinfo_det, det_puls)
+            read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlpls), :phy, partinfo_det, det_puls)
         catch e
             @error "Pulser data for $det_puls in partition $part cannot be loaded: $(truncate_error(e))"
             log_det = log_nt((det, part, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))

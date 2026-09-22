@@ -79,10 +79,10 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
         e_cal, hit_cal = nothing, nothing
         try
             if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
-                hit_cal = let dsp=read_ldata(:dataQC, l200, :jlhit, :cal, period, run, det).dataQC, e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
+                hit_cal = let e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                     @debug "Reading from $(period)-$(run)"
-                    # calibrate_ged_detector_data(l200, pinfo.cal.startkey, det, read_ldata(:dataQC, l200, :jlhit, :cal, pinfo.period, pinfo.run, det); keep_detdata=true) end
-                        Table(merge(NamedTuple{(e_type_cal, )}([collect(ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func).(dsp))]), columns(dsp)))
+                        cal_func = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func)
+                        read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
                     end
                 e_cal = getproperty(hit_cal, e_type)
             end

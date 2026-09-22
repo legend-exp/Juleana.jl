@@ -94,10 +94,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
         # detector ids of failed detectors
         failed_detectors = DetectorId[]
         # start processing
-        read_files(rawfilename, use_cache = false) do filename
-            write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
                 @timeit dsp_timer "Startup" begin
-                    raw_data = lh5open(filename, "r")
                     if reprocess && isfile(outfilename)
                         @info "Reprocess $(basename(outfilename)), remove old DSP."
                         rm(outfilename, force=true)
@@ -107,7 +105,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                 # open output file
                 outdata = lh5open(outfilename, "cw")
                 # get processed detectors
-                processed_detectors = keys(outdata)
+                processed_detectors = haskey(outdata, :jldsp) ? keys(outdata[:jldsp]) : String[]
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
@@ -132,7 +130,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 # process data
                                 outdata_det = nothing
                                 try
-                                    outdata_det = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[Symbol(det)]))(raw_data[det].raw[:], dsp_config_det)
+                                    raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                    outdata_det = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[Symbol(det)]))(raw_data_det, dsp_config_det)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -142,7 +141,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     continue
                                 end
                                 # save data to hdf5
-                                outdata[det, :jldsp] = outdata_det
+                                outdata[:jldsp, det] = outdata_det
                                 # free memory
                                 GC.gc()
                                 # count number of detectors processed and Successful
@@ -152,11 +151,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     end
 
                     # loop over detectors
-                    if all(.!haskey.(Ref(raw_data), string.(chinfo_pmts.detector)))
-                        @warn "No PMT data found in $(fk), skip PMT processing"
-                        n_detectors += length(chinfo_pmts)
-                    else
-                        @showprogress desc="Filekey PMTS: $fk" output=stdout for chinfo_det in chinfo_pmts
+                    @showprogress desc="Filekey PMTS: $fk" output=stdout for chinfo_det in chinfo_pmts
 
                             ch = chinfo_det.channel
                             det = chinfo_det.detector
@@ -175,7 +170,13 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 # process detector
                                 outdata_det = nothing
                                 try
-                                    outdata_det = dsp_pmts(raw_data[det].raw[:], dsp_meta_det)
+                                    raw_data_det = read_ldata(l200, DataTier(:raw), fk, det; ignore_missing=true)
+                                    if isnothing(raw_data_det)
+                                        @warn "No raw data found for PMT detector $det ($ch) in $fk, skip"
+                                        n_detectors += 1
+                                        continue
+                                    end
+                                    outdata_det = dsp_pmts(raw_data_det, dsp_meta_det)
                                 catch e
                                     if e isa TaskFailedException
                                         e = e.task.exception
@@ -185,7 +186,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                     continue
                                 end
                                 # save data to hdf5
-                                outdata[det, :jldsp] = outdata_det
+                                outdata[:jldsp, det] = outdata_det
                                 # free memory
                                 GC.gc()
                                 # count number of detectors processed and Successful
@@ -194,7 +195,6 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 flush(stdout)
                                 flush(stderr)
                             end
-                        end
                     end
 
                     # loop over detectors
@@ -222,7 +222,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process detector
                             outdata_det = nothing
                             try
-                                outdata_det = dsp_sipm_compressed(raw_data[det].raw[:], dsp_meta_det, pars_sipm[det])
+                                raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                outdata_det = dsp_sipm_compressed(raw_data_det, dsp_meta_det, pars_sipm[det])
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -232,7 +233,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            outdata[det, :jldsp] = outdata_det
+                            outdata[:jldsp, det] = outdata_det
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful
@@ -292,7 +293,8 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                             # process data
                             outdata_det = nothing
                             try
-                                outdata_det = dsp_icpc_compressed(raw_data[det].raw[:], dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                outdata_det = dsp_icpc_compressed(raw_data_det, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -302,7 +304,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                                 continue
                             end
                             # save data to hdf5
-                            outdata[det, :jldsp] = outdata_det
+                            outdata[:jldsp, det] = outdata_det
                             # free memory
                             GC.gc()
                             # count number of detectors processed and Successful
@@ -315,12 +317,10 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                     # close outdata file
                     close(outdata)
                 end
-                @info "Finished processing file: $(basename(filename))"
-                close(raw_data)
-            end
+                @info "Finished processing file: $(basename(rawfilename))"
         end
         if n_detectors == 0
-            @warn "No detectors processed in $(basename(filename))"
+            @warn "No detectors processed in $(basename(rawfilename))"
         end
 
         # create total timer by summing over memory usage and time

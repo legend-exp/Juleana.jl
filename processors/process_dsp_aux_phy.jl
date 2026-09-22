@@ -21,14 +21,18 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
     function plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
         energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
+        log_min = floor(log10(max(minimum(energy), 1.0)))
+        log_max = max(log_min + 1, ceil(log10(max(maximum(energy), threshold))))
+        bins = 10.0 .^ range(log_min, log_max; length=101)
         p = LegendMakie.lhist(energy;
+            bins = bins,
             figsize = (700, 450),
             title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
             xlabel = "$energy_type (ADC)",
             ylabel = "Counts / bin",
             xscale = Makie.log10,
             yscale = Makie.log10,
-            xlims = extrema(energy),
+            xlims = extrema(bins),
             legend_position = :none,
         )
         ax = Makie.current_axis()
@@ -48,9 +52,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
         if !reprocess && isfile(dspfilename)
             try
-                n_evts = lh5open(dspfilename, "r") do dsp_file
-                    length(dsp_file[det, :jlaux])
-                end
+                n_evts = length(read_ldata(:timestamp, l200, DataTier(:jlaux), filekey, det))
                 @info "DSP for auxiliary detector $det ($ch) already exists, skip"
                 return (result = (n_evts = n_evts,), processed = false,
                     log = log_nt((det, ch, ProcessStatus(1), "$n_evts", "Already processed --> skipped.")))
@@ -87,7 +89,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
             @info "Write DSP data to disk"
             write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
                 lh5open(outfilename, "w") do outdata
-                    outdata[det, :jlaux] = merged_table
+                    outdata[:jlaux, det] = merged_table
                 end
             end
 

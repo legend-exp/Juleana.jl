@@ -108,11 +108,26 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            data = read_ldata((:Tl208DEP_Bi212FEP, :Tl208SEP), l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts=n_evts)
-            wvfs_det_dep_bi121fep_wdw = data.Tl208DEP_Bi212FEP.waveform_windowed[:]
-            wvfs_det_dep_bi121fep_pre = data.Tl208DEP_Bi212FEP.waveform_presummed[:]
-            presum_rate              = data.Tl208SEP.presum_rate[1]
-            e_det_dep_bi121fep        = data.Tl208DEP_Bi212FEP.daqenergy[:]
+            dep_data = read_ldata(
+                (@pf (;
+                    waveform_windowed = $Tl208DEP_Bi212FEP.waveform_windowed,
+                    waveform_presummed = $Tl208DEP_Bi212FEP.waveform_presummed,
+                    daqenergy = $Tl208DEP_Bi212FEP.daqenergy,
+                )),
+                l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts,
+            )
+            sep_data = read_ldata(
+                (@pf (;
+                    waveform_windowed = $Tl208SEP.waveform_windowed,
+                    waveform_presummed = $Tl208SEP.waveform_presummed,
+                    presum_rate = $Tl208SEP.presum_rate,
+                )),
+                l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts,
+            )
+            wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
+            wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
+            presum_rate               = first(sep_data.presum_rate)
+            e_det_dep_bi121fep        = dep_data.daqenergy
             # DEP
             # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
@@ -125,8 +140,8 @@ function det_sg_optimization(chinfo_det::NamedTuple)
                 wvfs_det_dep_wdw = wvfs_det_dep_wdw[sel]
             end
             # SEP
-            wvfs_det_sep_wdw          = data.Tl208SEP.waveform_windowed[:]
-            wvfs_det_sep_pre          = data.Tl208SEP.waveform_presummed[:]
+            wvfs_det_sep_wdw          = sep_data.waveform_windowed
+            wvfs_det_sep_pre          = sep_data.waveform_presummed
             if length(wvfs_det_sep_pre) > max_wvfs
                 @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
                 sel = rand(1:max_wvfs, max_wvfs)
@@ -258,4 +273,3 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     # return if any channel was skipped so that the partition is not valid until the lower period is finished
     return any(x -> get(last(x), :skipped, false), values(result_sg))
 end
-
