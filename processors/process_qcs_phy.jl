@@ -125,6 +125,24 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
 
     @info "Finished physics QC detector processing"
 
+    # plot the final survival fractions for all successfully processed detectors
+    overview_results = [(chinfo_det, result_det) for (chinfo_det, result_det) in result_qc if result_det.log.Status == process_succeeded]
+    overview_plot_filename = nothing
+    if !isempty(overview_results)
+        detector_names = string.([chinfo_det.detector for (chinfo_det, _) in overview_results])
+        pulser_sf_plot = [mvalue(ustrip(u"percent", getproperty(result_det.log, Symbol("Pulser SF")))) for (_, result_det) in overview_results]
+        forced_trigger_sf_plot = [mvalue(ustrip(u"percent", getproperty(result_det.log, Symbol("Forced-trigger SF")))) for (_, result_det) in overview_results]
+        x = collect(eachindex(detector_names))
+        fig = Makie.Figure(size = (max(1200, 18 * length(detector_names)), 600))
+        ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, :all, "QC Survival Fractions"), xlabel = "Detector", ylabel = "Survival fraction (%)", xticks = (x, detector_names), xticklabelrotation = pi / 2, limits = ((0.3, length(detector_names) + 0.7), (0, 105)))
+        Makie.barplot!(ax, x .- 0.2, pulser_sf_plot, width = 0.38, color = LegendMakie.AchatBlue, label = "Pulser")
+        Makie.barplot!(ax, x .+ 0.2, forced_trigger_sf_plot, width = 0.38, color = LegendMakie.BEGeOrange, label = "Forced trigger")
+        Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
+        LegendMakie.add_watermarks!(final = true)
+        overview_plot_filename = LegendDataManagement.LDMUtils.get_pltfilename(l200, filekey, :all, :qc_survival_fractions)
+        LegendMakie.lsavefig(fig, overview_plot_filename)
+    end
+
     pars_db = create_pars(pars_db, result_qc)
     writelprops(l200.par.rpars.qcs[period], pars_file, pars_db)
     writevalidity(l200.par.rpars.qcs, filekey, "$(period)/$(pars_file).yaml"; category=:phy)
@@ -140,8 +158,14 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_qc))
 
+    report_filename = get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))"))
+    if !isnothing(overview_plot_filename)
+        lreport!(report, "## Detector overview")
+        lreport!(report, "![QC survival fractions by detector]($(relpath(overview_plot_filename, dirname(report_filename))))")
+    end
+
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(report_filename, report)
     @info report
 
     # flush stdout
