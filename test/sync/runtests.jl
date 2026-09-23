@@ -19,7 +19,10 @@ using .JuleanaSync: main,
     node_local_state, filekey_groups,
     Selection, effective_mode, set_mode!, first_n_filekeys!, find_node!,
     selection_propdict, save_selection, load_selection, apply_selection!,
-    Estimate, format_bytes, running_estimate, format_estimate, parse_rsync_stats
+    Estimate, format_bytes, running_estimate, format_estimate, parse_rsync_stats,
+    Progress, TransferResult, check_rsync, check_mount, rsync_command,
+    parse_progress, rsync_dry_run, remove_stale_links!, create_links!,
+    apply!, summary_text
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -41,4 +44,5 @@ const LOCAL_ROOT = mktempdir()
     include("test_inventory.jl")
     include("test_selection.jl")
     include("test_estimate.jl")
+    include("test_transfer.jl")
 end

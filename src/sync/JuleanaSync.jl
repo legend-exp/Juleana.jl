@@ -25,8 +25,9 @@ include("production.jl")
 include("inventory.jl")
 include("selection.jl")
 include("estimate.jl")
+include("transfer.jl")
 
-# Later tasks add: transfer.jl, options.jl, tui.jl — in that order.
+# Later tasks add: options.jl, tui.jl — in that order.
 
 """
     main(args::AbstractVector{<:AbstractString})::Int
