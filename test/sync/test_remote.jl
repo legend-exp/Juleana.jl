@@ -63,6 +63,24 @@
         @test rsync_source(s, "/mnt/scratch/projects/legend/data/l200") ==
               "cslg4:/mnt/scratch/projects/legend/data/l200/"
         @test rsync_source(h, "/tmp/root") == "/tmp/root/"
+
+        # The control socket path must stay short enough for a Unix domain
+        # socket (about 100 bytes): it lives under ~/.ssh and uses OpenSSH's
+        # short %C hash rather than the unbounded %r@%h:%p expansion.
+        control_opt = only(filter(p -> startswith(p, "ControlPath="), parts))
+        @test control_opt == "ControlPath=$(s.control_path)"
+        @test startswith(s.control_path, joinpath(homedir(), ".ssh", "juleana-sync-"))
+        @test occursin("%C", s.control_path)
+        @test length(s.control_path) < 90
+    end
+
+    @testset "SSHHost requires ~/.ssh to exist" begin
+        mktempdir() do d
+            withenv("HOME" => d) do
+                @test homedir() == d
+                @test_throws "does not exist" SSHHost("cslg4")
+            end
+        end
     end
 
     @testset "SSH listing command matches a live GNU find" begin

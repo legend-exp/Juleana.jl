@@ -12,14 +12,23 @@ abstract type RemoteHost end
 A host reached through an `ssh` alias from `~/.ssh/config`. All commands share one
 multiplexed connection: `control_path` is the socket `ControlMaster` opens, so
 expanding a tree node costs a round trip and not a handshake.
+
+The socket lives under `~/.ssh`, OpenSSH's recommended location for control
+sockets, and is named with the `%C` token: OpenSSH's own hash of the local host,
+remote host, port and user. A Unix domain socket path is limited to about 100
+bytes; `%C` keeps the name short and unique regardless of how long the alias or
+remote hostname is, which `%r@%h:%p` does not guarantee.
 """
 struct SSHHost <: RemoteHost
     alias::String
     control_path::String
 end
 
-SSHHost(alias::AbstractString) =
-    SSHHost(String(alias), joinpath(tempdir(), "juleana-sync-%r@%h:%p"))
+function SSHHost(alias::AbstractString)
+    sshdir = joinpath(homedir(), ".ssh")
+    isdir(sshdir) || throw(ArgumentError("SSH control directory does not exist: $sshdir"))
+    SSHHost(String(alias), joinpath(sshdir, "juleana-sync-%C"))
+end
 
 """
     LocalHost()
