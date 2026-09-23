@@ -33,6 +33,11 @@
               joinpath("/Volumes/cslg4", "temp", "jl-dev", "generated", "tier", "jlevt")
     end
 
+    @testset "normdir" begin
+        @test normdir("/") == "/"
+        @test normdir("/a/b/") == "/a/b"
+    end
+
     @testset "configs that must be rejected" begin
         outside = """
         {"setups": {"l200": {"paths": {"tier": "/somewhere/else/tier"}}}}
@@ -53,6 +58,20 @@
         {"setups": {"l200": {"paths": {"tier": "\$NOPE/tier"}}}}
         """
         @test_throws "Unknown variable" parse_production_config(unknown, joinpath(FIXTURE_ROOT, "test"))
+    end
+
+    @testset "local_config maps a root-equal path" begin
+        raw = replace("""
+            {"setups": {"l200": {"paths": {"tier": "\$_/a", "root": "@REMOTE_ROOT@"}}}}
+            """, "@REMOTE_ROOT@" => FIXTURE_ROOT)
+        dir = joinpath(FIXTURE_ROOT, "test")
+        cfg = parse_production_config(raw, dir)
+        roots = production_roots(cfg, FIXTURE_ROOT)
+        pr = Production("test", FIXTURE_ROOT, LOCAL_ROOT, nothing, cfg, roots, raw)
+        paths = only(values(local_config(pr).setups)).paths
+        # A value equal to the remote root maps into the mirror like any other
+        # path inside it, not just one strictly nested below it.
+        @test String(paths[Symbol("root")]) == LOCAL_ROOT
     end
 
     @testset "config_local.json" begin

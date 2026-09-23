@@ -14,7 +14,7 @@ using .JuleanaSync: main,
     run_remote, list_dir, dir_sizes, read_file, rsync_source,
     ssh_command, parse_dir_listing,
     Production, parse_production_config, production_roots,
-    relative, to_local, to_mount, local_config, write_local_config
+    relative, to_local, to_mount, local_config, write_local_config, normdir
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and

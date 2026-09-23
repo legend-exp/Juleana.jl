@@ -19,17 +19,19 @@ struct Production
     raw_config::String
 end
 
+# A directory path without a trailing separator; the filesystem root normalizes
+# to "/" rather than the empty string that stripping it would otherwise produce.
+normdir(x) = (s = rstrip(normpath(String(x)), '/'); isempty(s) ? "/" : s)
+
 function Production(h::RemoteHost, name::AbstractString,
                     remote_root::AbstractString, local_root::AbstractString;
                     mount_root::Union{Nothing,AbstractString} = nothing)
-    root = rstrip(normpath(String(remote_root)), '/')
+    root = normdir(remote_root)
     dir = joinpath(root, String(name))
     raw = read_file(h, joinpath(dir, "config.json"))
     config = parse_production_config(raw, dir)
-    mount = mount_root === nothing ? nothing : rstrip(normpath(String(mount_root)), '/')
-    # Stripping the separator from the filesystem root leaves nothing behind.
-    mount == "" && (mount = "/")
-    Production(String(name), root, rstrip(normpath(String(local_root)), '/'),
+    mount = mount_root === nothing ? nothing : normdir(mount_root)
+    Production(String(name), root, normdir(local_root),
                mount, config, production_roots(config, root), raw)
 end
 
@@ -63,10 +65,10 @@ function production_roots(config::PropDict, remote_root::AbstractString)
     length(setups) == 1 || throw(ArgumentError(
         "a production config must contain exactly one setup, found $(length(setups)): " *
         join(string.(keys(setups)), ", ")))
-    root = rstrip(normpath(String(remote_root)), '/')
+    root = normdir(remote_root)
     roots = Pair{String,String}[]
     for (key, value) in PropDicts._dict(only(values(setups)).paths)
-        dir = rstrip(normpath(String(value)), '/')
+        dir = normdir(value)
         dir == root || startswith(dir, root * "/") || throw(ArgumentError(
             "path key $key resolves to $dir, which is outside the remote root $root and cannot be mirrored"))
         push!(roots, String(key) => dir)
@@ -81,8 +83,8 @@ end
 `--files-from` list consumes. The remote root itself maps to `""`.
 """
 function relative(p::Production, remote_path::AbstractString)
-    path = rstrip(normpath(String(remote_path)), '/')
-    root = rstrip(normpath(p.remote_root), '/')
+    path = normdir(remote_path)
+    root = normdir(p.remote_root)
     path == root && return ""
     startswith(path, root * "/") || throw(ArgumentError(
         "$path is not inside the remote root $root"))
@@ -95,7 +97,7 @@ end
 Where `remote_path` lives in the local mirror.
 """
 to_local(p::Production, remote_path::AbstractString) =
-    rstrip(normpath(joinpath(p.local_root, relative(p, remote_path))), '/')
+    normdir(joinpath(p.local_root, relative(p, remote_path)))
 
 """
     to_mount(p::Production, remote_path)::String
@@ -106,27 +108,28 @@ a mount root; without one there is nothing for a symlink to point at.
 function to_mount(p::Production, remote_path::AbstractString)
     p.mount_root === nothing && throw(ArgumentError(
         "no mount root configured; pass --mount-root to use link mode"))
-    rstrip(normpath(joinpath(p.mount_root, relative(p, remote_path))), '/')
+    normdir(joinpath(p.mount_root, relative(p, remote_path)))
 end
 
 """
     local_config(p::Production)::PropDict
 
 The production's config with every path pointing into the mirror. `\$_` entries
-are re-expanded against the mirrored production directory; entries that were
-absolute remote paths are mapped through [`to_local`](@ref).
+are re-expanded against the mirrored production directory; every other path lies
+inside `remote_root` (see [`production_roots`](@ref)), including a value that is
+the remote root itself, and is mapped through [`to_local`](@ref).
 """
 function local_config(p::Production)
     config = parse_production_config(p.raw_config,
                                      to_local(p, joinpath(p.remote_root, p.name)))
     paths = PropDicts._dict(only(values(config.setups)).paths)
-    prefix = rstrip(normpath(p.remote_root), '/') * "/"
+    prefix = p.remote_root * "/"
     for (key, value) in collect(paths)
-        dir = rstrip(normpath(String(value)), '/')
-        # Every value is written back normalized. A "$_" entry already points into
-        # the mirror and only needs its trailing separator dropped; an absolute
-        # remote path is mapped across as well.
-        paths[key] = startswith(dir, prefix) ? to_local(p, dir) : dir
+        dir = normdir(value)
+        # A "$_" entry already points into the mirror and only needs normalizing.
+        # Every other configured path is inside the remote root -- possibly equal
+        # to it -- and is mapped into the mirror through to_local.
+        paths[key] = (dir == p.remote_root || startswith(dir, prefix)) ? to_local(p, dir) : dir
     end
     config
 end
