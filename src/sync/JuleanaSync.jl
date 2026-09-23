@@ -21,8 +21,9 @@ using Tachikoma: Model, Frame, Buffer, Rect, Span,
 import Tachikoma: view, update!, should_quit, task_queue
 
 include("remote.jl")
+include("production.jl")
 
-# Later tasks add: production.jl, inventory.jl, selection.jl,
+# Later tasks add: inventory.jl, selection.jl,
 # estimate.jl, transfer.jl, options.jl, tui.jl — in that order.
 
 """
