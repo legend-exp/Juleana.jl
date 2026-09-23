@@ -16,7 +16,9 @@ using .JuleanaSync: main,
     Production, parse_production_config, production_roots,
     relative, to_local, to_mount, local_config, write_local_config, normdir,
     Node, tier_file_id, group_children, production_tree, expand!,
-    node_local_state, filekey_groups
+    node_local_state, filekey_groups,
+    Selection, effective_mode, set_mode!, first_n_filekeys!, find_node!,
+    selection_propdict, save_selection, load_selection, apply_selection!
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -36,4 +38,5 @@ const LOCAL_ROOT = mktempdir()
     include("test_remote.jl")
     include("test_production.jl")
     include("test_inventory.jl")
+    include("test_selection.jl")
 end
