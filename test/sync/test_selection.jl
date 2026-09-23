@@ -68,6 +68,85 @@
                     relative(p, r000.children[3].remote_path)])
     end
 
+    @testset "exclude! pushes each level's own mode onto that level's siblings" begin
+        # A synthetic tree, unrelated to the fixture on disk: exclude! only ever
+        # touches Node.mode and the paths Selection() collects from it.
+        node(label, rel; parent = nothing) =
+            Node(label, joinpath(FIXTURE_ROOT, "synthetic", rel), :dir; parent)
+        mandatory = [joinpath("test", "config.json"), joinpath("test", "legend-metadata")]
+
+        @testset "a multi-level path clears every ancestor and marks every sibling" begin
+            root = node("root", "a-root")
+            anc = node("anc", "a-root/anc"; parent = root)
+            kid1 = node("kid1", "a-root/anc/kid1"; parent = anc)
+            kid2 = node("kid2", "a-root/anc/kid2"; parent = anc)
+            anc.children = [kid1, kid2]
+            gc1 = node("gc1", "a-root/anc/kid2/gc1"; parent = kid2)
+            gc2 = node("gc2", "a-root/anc/kid2/gc2"; parent = kid2)
+            kid2.children = [gc1, gc2]
+            root.children = [anc]
+
+            set_mode!(anc, :copy)
+            exclude!(gc2)
+
+            @test anc.mode == :none && kid2.mode == :none && gc2.mode == :none
+            @test kid1.mode == :copy && gc1.mode == :copy
+            @test effective_mode(gc2) == :none
+
+            sel = Selection(p, "cslg4", root)
+            @test setdiff(sel.copy, mandatory) ==
+                  sort([relative(p, kid1.remote_path), relative(p, gc1.remote_path)])
+            @test sel.link == String[]
+        end
+
+        @testset "a :link ancestor with a :copy descendant pushes each level's own mode" begin
+            root = node("root", "b-root")
+            anc = node("anc", "b-root/anc"; parent = root)
+            kid1 = node("kid1", "b-root/anc/kid1"; parent = anc)
+            kid2 = node("kid2", "b-root/anc/kid2"; parent = anc)
+            anc.children = [kid1, kid2]
+            gc1 = node("gc1", "b-root/anc/kid2/gc1"; parent = kid2)
+            gc2 = node("gc2", "b-root/anc/kid2/gc2"; parent = kid2)
+            kid2.children = [gc1, gc2]
+            root.children = [anc]
+
+            set_mode!(kid2, :copy)   # set before the link, so it survives the link below
+            set_mode!(anc, :link)
+            @test kid2.mode == :copy
+
+            exclude!(gc2)
+
+            @test anc.mode == :none && kid2.mode == :none && gc2.mode == :none
+            @test kid1.mode == :link
+            @test gc1.mode == :copy
+
+            sel = Selection(p, "cslg4", root)
+            @test setdiff(sel.copy, mandatory) == [relative(p, gc1.remote_path)]
+            @test sel.link == [relative(p, kid1.remote_path)]
+        end
+
+        @testset "the production root can be the supplying ancestor" begin
+            root = node("root", "c-root")
+            x1 = node("x1", "c-root/x1"; parent = root)
+            x2 = node("x2", "c-root/x2"; parent = root)
+            root.children = [x1, x2]
+            y1 = node("y1", "c-root/x2/y1"; parent = x2)
+            y2 = node("y2", "c-root/x2/y2"; parent = x2)
+            x2.children = [y1, y2]
+
+            set_mode!(root, :copy)
+            exclude!(y2)
+
+            @test root.mode == :none && x2.mode == :none && y2.mode == :none
+            @test x1.mode == :copy && y1.mode == :copy
+
+            sel = Selection(p, "cslg4", root)
+            @test setdiff(sel.copy, mandatory) ==
+                  sort([relative(p, x1.remote_path), relative(p, y1.remote_path)])
+            @test sel.link == String[]
+        end
+    end
+
     @testset "first_n_filekeys!" begin
         r000 = Node("r000", rundir, :dir)
         expand!(h, p, r000)

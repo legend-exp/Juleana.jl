@@ -171,6 +171,24 @@
         @test current_node(m).local_state == :present
     end
 
+    @testset "escape does not dismiss the transfer modal" begin
+        m = model()
+        update!(m, KeyEvent(:down))
+        update!(m, KeyEvent(' '))
+        update!(m, KeyEvent('t'))
+        settle!(m)
+        update!(m, KeyEvent(:enter))       # confirm: starts the transfer
+        @test m.modal_kind == :transfer
+
+        update!(m, KeyEvent(:escape))
+        @test m.modal_kind == :transfer
+        @test m.modal !== nothing
+
+        settle!(m)
+        @test m.modal_kind == :message
+        @test occursin("transferred", m.modal.message)
+    end
+
     @testset "a progress reading drives the gauge" begin
         m = model()
         m.progress = Progress(4096, 0.5, "1.2MB/s", "0:00:03")
@@ -197,6 +215,27 @@
         @test m.modal_kind == :none
         update!(m, KeyEvent(:up))
         @test current_node(m) !== nothing
+    end
+
+    @testset "a failing listing only clears its own pending marker" begin
+        m = model()
+        # A second, unrelated listing that is still in flight when this one fails.
+        push!(m.pending, "some/other/listing/in-flight")
+
+        for _ in 1:4
+            update!(m, KeyEvent(:down))   # tier
+        end
+        bad = current_node(m)
+        # Offline failure: no test may reach cslg4.
+        bad.remote_path = joinpath(FIXTURE_ROOT, "no-such-directory")
+
+        request_expand!(m, bad)
+        @test bad.remote_path in m.pending
+        settle!(m)
+
+        @test bad.remote_path ∉ m.pending
+        @test "some/other/listing/in-flight" in m.pending
+        @test m.modal_kind == :error
     end
 
     @testset "an unexpected background result is an error" begin

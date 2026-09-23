@@ -119,6 +119,10 @@ end
 Start listing `node` in the background. The listing is built on a detached node
 and linked in by [`attach_listing!`](@ref) on the main thread, so nothing the
 renderer is reading changes underneath it.
+
+The background task carries `node.remote_path` in its own id, `listing:<path>`,
+so that a listing which fails only clears its own entry from `m.pending` and
+never disturbs a second listing still in flight.
 """
 function request_expand!(m::SyncModel, node::Node)
     (node.children !== nothing || node.remote_path in m.pending) && return m
@@ -126,7 +130,7 @@ function request_expand!(m::SyncModel, node::Node)
     push!(m.pending, node.remote_path)
     host = m.host
     production = m.production
-    spawn_task!(m.tasks, :listing) do
+    spawn_task!(m.tasks, Symbol("listing:", node.remote_path)) do
         scratch = Node(node.label, node.remote_path, node.kind)
         expand!(host, production, scratch)
         (node, scratch.children)
@@ -379,6 +383,13 @@ should_quit(m::SyncModel) = m.quit
 task_queue(m::SyncModel) = m.tasks
 
 function update!(m::SyncModel, e::KeyEvent)
+    # The transfer dialog has no buttons to answer, and Modal.handle_key!
+    # returns :cancel on :escape unconditionally regardless of what labels
+    # the modal carries; letting any key reach it would dismiss the dialog
+    # while apply! keeps running underneath, opening the door to a second,
+    # concurrent transfer.
+    m.modal_kind == :transfer && return m
+
     # The prompt owns the keyboard while it is up; TextInput handles neither
     # :enter nor :escape, so those two are decided here.
     if m.modal_kind == :firstn
@@ -480,15 +491,22 @@ function update!(m::SyncModel, e::KeyEvent)
 end
 
 function update!(m::SyncModel, e::TaskEvent)
+    id = String(e.id)
+    if startswith(id, "listing:")
+        path = chopprefix(id, "listing:")
+        if e.value isa Exception
+            delete!(m.pending, path)
+            return show_error!(m, e.value)
+        end
+        return attach_listing!(m, e.value)
+    end
+
     if e.value isa Exception
         m.progress = nothing
-        empty!(m.pending)
         return show_error!(m, e.value)
     end
 
-    if e.id == :listing
-        return attach_listing!(m, e.value)
-    elseif e.id == :estimate
+    if e.id == :estimate
         estimate, confirm = e.value
         m.estimate = estimate
         m.modal = Modal(title = "Estimate",

@@ -60,11 +60,12 @@ end
 """
     exclude!(node::Node)::Node
 
-Take `node` out of the selection it inherits. Every ancestor between the root and
-`node` that carries a mode hands that mode to the siblings of the path down to
-`node` and keeps none itself, so the rest of those subtrees stay selected while
-`node` ends up with no mode at all. A node that carries its own mode simply loses
-it, along with the explicit modes below it.
+Take `node` out of the selection it inherits. Walking down from the root, the
+nearest explicit mode seen so far is handed to the siblings of whichever child
+stays on the path to `node`, updating to a level's own mode whenever one is
+carried there; every node on the path, `node` included, ends up with no mode of
+its own. A node that carries its own mode simply loses it, along with the
+explicit modes below it.
 """
 function exclude!(node::Node)
     effective_mode(node) == :none && return node
@@ -75,13 +76,13 @@ function exclude!(node::Node)
         current = current.parent
         pushfirst!(ancestors, current)
     end
+    carry = :none
     for (i, level) in pairs(ancestors)
-        level.mode == :none && continue
-        mode = level.mode
+        level.mode == :none || (carry = level.mode; level.mode = :none)
+        carry == :none && continue
         on_path = i < lastindex(ancestors) ? ancestors[i + 1] : node
-        level.mode = :none
         for sibling in level.children
-            sibling === on_path || set_mode!(sibling, mode)
+            sibling === on_path || set_mode!(sibling, carry)
         end
     end
     node
