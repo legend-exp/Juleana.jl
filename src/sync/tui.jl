@@ -89,13 +89,16 @@ end
 """
     rebuild_tree!(m::SyncModel)::SyncModel
 
-Rebuild the `TreeView` from the inventory, keeping the cursor where it was.
+Rebuild the `TreeView` from the inventory, keeping the cursor where it was. The
+cursor is pulled back to the last row when the tree shrank under it, because a
+`TreeView` whose `selected` points past the rows has no selected node at all.
 """
 function rebuild_tree!(m::SyncModel)
     selected = m.tree.selected
     offset = m.tree.offset
     m.tree = TreeView(build_tree(m); selected, offset, focused = true,
                       block = Block(title = "Production: $(m.production.name) @ $(m.options.host)"))
+    m.tree.selected = min(selected, tree_visible_count(m.tree))
     m
 end
 
@@ -149,12 +152,114 @@ function attach_listing!(m::SyncModel, listing::Tuple{Node,Vector{Node}})
 end
 
 """
+    open_estimate!(m::SyncModel; confirm::Bool)::SyncModel
+
+Ask rsync what the selection would actually move, in the background. `confirm`
+decides which button the modal opens on: `e` looks, `t` intends to sync.
+"""
+function open_estimate!(m::SyncModel; confirm::Bool)
+    host = m.host
+    production = m.production
+    selection = Selection(production, m.options.host, m.root)
+    m.modal_kind = :estimating
+    m.status = "estimating…"
+    spawn_task!(m.tasks, :estimate) do
+        (apply!(host, production, selection; dry_run = true), confirm)
+    end
+    m
+end
+
+"""
+    start_transfer!(m::SyncModel)::SyncModel
+
+Run the transfer in the background. The progress callback runs on that task and
+never touches the model: it pushes a `TaskEvent` like every other result.
+"""
+function start_transfer!(m::SyncModel)
+    host = m.host
+    production = m.production
+    selection = Selection(production, m.options.host, m.root)
+    queue = m.tasks
+    m.modal = Modal(title = "Transferring", message = "starting rsync…",
+                    confirm_label = "", cancel_label = "")
+    m.modal_kind = :transfer
+    m.progress = Progress(0, 0.0, "", "")
+    spawn_task!(queue, :transfer) do
+        apply!(host, production, selection;
+               progress = reading -> put!(queue.channel, TaskEvent(:progress, reading)))
+    end
+    m
+end
+
+"""
+    open_prompt!(m::SyncModel, node::Node)::SyncModel
+
+Open the "first N filekeys" prompt for a listed run directory.
+"""
+function open_prompt!(m::SyncModel, node::Node)
+    isempty(filekey_groups(node)) && return show_error!(m, ArgumentError(
+        "$(node.label) has no filekey groups; expand a run directory first"))
+    m.input = TextInput(label = "N: ", text = "")
+    m.modal_kind = :firstn
+    m.status = ""
+    m
+end
+
+"""
+    open_message!(m::SyncModel, title, message)::SyncModel
+
+Show a dialog that only has to be dismissed.
+"""
+function open_message!(m::SyncModel, title::AbstractString, message::AbstractString)
+    m.modal = Modal(; title, message, confirm_label = "", cancel_label = "Close")
+    m.modal_kind = :message
+    m.status = ""
+    m
+end
+
+"""
     show_error!(m::SyncModel, err)::SyncModel
 
 Report a failure and leave the tool usable.
 """
-function show_error!(m::SyncModel, err)
-    m.status = "error: " * sprint(showerror, err)
+show_error!(m::SyncModel, err) =
+    (open_message!(m, "Error", sprint(showerror, err)); m.modal_kind = :error; m)
+
+"""
+    apply_prompt!(m::SyncModel)::SyncModel
+
+Read the number from the prompt and mark that many filekeys. A number that
+cannot be used is reported and the prompt stays open.
+"""
+function apply_prompt!(m::SyncModel)
+    node = current_node(m)
+    typed = strip(Tachikoma.text(m.input))
+    count = tryparse(Int, typed)
+    if node === nothing || count === nothing || count < 1
+        m.status = "expected a positive number of filekeys, got \"$typed\""
+        return m
+    end
+    first_n_filekeys!(node, count)
+    m.input = nothing
+    m.modal_kind = :none
+    m.dirty = true
+    m.status = ""
+    rebuild_tree!(m)
+end
+
+"""
+    refresh_local_state!(m::SyncModel, node::Node = m.root)::SyncModel
+
+Recompute what is on disk for every listed node, children first so a directory
+sees its children's final states.
+"""
+function refresh_local_state!(m::SyncModel, node::Node = m.root)
+    if node.children !== nothing
+        for child in node.children
+            refresh_local_state!(m, child)
+        end
+    end
+    node.local_state = node_local_state(m.production, node)
     m
 end
 
@@ -171,8 +276,22 @@ function save!(m::SyncModel)
     path
 end
 
+"""
+    toggle_mode!(m::SyncModel, node::Node, mode::Symbol)::SyncModel
+
+Turn `mode` on or off for `node`. A node that carries `mode` itself loses it; one
+that only inherits it is excluded from the ancestor's choice by
+[`exclude!`](@ref); anything else takes `mode` on. Every branch changes a mode,
+which is why the selection is dirty afterwards.
+"""
 function toggle_mode!(m::SyncModel, node::Node, mode::Symbol)
-    set_mode!(node, effective_mode(node) == mode ? :none : mode)
+    if node.mode == mode
+        set_mode!(node, :none)
+    elseif effective_mode(node) == mode
+        exclude!(node)
+    else
+        set_mode!(node, mode)
+    end
     m.dirty = true
     m.status = ""
     rebuild_tree!(m)
@@ -201,13 +320,35 @@ end
 """
     status_bar(m::SyncModel)::StatusBar
 
-The running estimate on the left, and whatever the tool last had to say — or the
-selection file — on the right.
+The running estimate and whatever the tool last had to say on the left, and the
+selection file on the right. The right span keeps only the part of the path that
+tells the files apart — the name under the default selection directory — because
+`StatusBar` gives the left span priority and clips the right one away.
 """
-status_bar(m::SyncModel) = StatusBar(
-    left = [Span(format_estimate(running_estimate(m.root)), tstyle(:text_bright))],
-    right = [Span(isempty(m.status) ?
-                  (m.saved === nothing ? "unsaved" : "saved: $(m.saved)") : m.status)])
+function status_bar(m::SyncModel)
+    out = m.options.out
+    name = startswith(out, DEFAULT_SELECTION_DIR * "/") ?
+           relpath(out, DEFAULT_SELECTION_DIR) : basename(out)
+    StatusBar(
+        left = [Span(format_estimate(running_estimate(m.root)), tstyle(:text_bright)),
+                Span(isempty(m.status) ? "" : "   " * m.status)],
+        right = [Span((m.saved === nothing ? "unsaved: " : "saved: ") * name)])
+end
+
+"""
+    render_prompt(m::SyncModel, area::Rect, buf::Buffer)
+
+The "first N filekeys" prompt. `Modal` holds static text and cannot host a
+widget, so the prompt is a `Block` with a `TextInput` drawn inside it.
+"""
+function render_prompt(m::SyncModel, area::Rect, buf::Buffer)
+    rect = center(area, 46, 5)
+    inner = render(Block(title = "First N filekeys",
+                         border_style = tstyle(:accent, bold = true),
+                         box = BOX_HEAVY), rect, buf)
+    render(m.input, inner, buf)
+    nothing
+end
 
 """
     render_sync(m::SyncModel, area::Rect, buf::Buffer)
@@ -220,7 +361,15 @@ function render_sync(m::SyncModel, area::Rect, buf::Buffer)
     panes = split_layout(Layout(Horizontal, Constraint[Percent(55), Fill(1)]), rows[1])
     render(m.tree, panes[1], buf)
     render(details(m), panes[2], buf)
-    render(status_bar(m), rows[2], buf)
+    if m.progress === nothing
+        render(status_bar(m), rows[2], buf)
+    else
+        render(Gauge(m.progress.fraction;
+                     label = string(format_bytes(m.progress.bytes), "  ",
+                                    m.progress.rate, "  ETA ", m.progress.eta)),
+               rows[2], buf)
+    end
+    m.modal_kind == :firstn && return render_prompt(m, area, buf)
     m.modal === nothing || render(m.modal, area, buf)
     nothing
 end
@@ -230,6 +379,41 @@ should_quit(m::SyncModel) = m.quit
 task_queue(m::SyncModel) = m.tasks
 
 function update!(m::SyncModel, e::KeyEvent)
+    # The prompt owns the keyboard while it is up; TextInput handles neither
+    # :enter nor :escape, so those two are decided here.
+    if m.modal_kind == :firstn
+        e.key == :enter && return apply_prompt!(m)
+        if e.key == :escape
+            m.input = nothing
+            m.modal_kind = :none
+            return m
+        end
+        handle_key!(m.input, e)
+        return m
+    end
+
+    if m.modal !== nothing
+        answer = handle_key!(m.modal, e)
+        answer === false && return m
+        answer == :none && return m
+        if m.modal_kind == :estimate && answer == :confirm
+            return start_transfer!(m)
+        end
+        if m.modal_kind == :quit
+            answer == :confirm && save!(m)
+            m.quit = true
+        end
+        m.modal = nothing
+        m.modal_kind = :none
+        return m
+    end
+
+    m.modal_kind == :estimating && return m   # waiting on the dry run
+
+    # Ctrl+C is the terminal's own way of asking to leave, and leaves the same
+    # way q does, unsaved-selection question included.
+    e.key == :ctrl_c && (e = KeyEvent('q'))
+
     node = current_node(m)
 
     # :up, :down, :home and :end_key are the only keys TreeView gets. It also
@@ -270,18 +454,63 @@ function update!(m::SyncModel, e::KeyEvent)
         elseif node !== nothing
             toggle_mode!(m, node, :link)
         end
+    elseif e.char == 'n'
+        node === nothing || open_prompt!(m, node)
+    elseif e.char == 'e'
+        open_estimate!(m; confirm = false)
+    elseif e.char == 't'
+        open_estimate!(m; confirm = true)
     elseif e.char == 's'
         save!(m)
     elseif e.char == 'q'
-        m.quit = true
+        if m.dirty
+            # Opens on "Save and quit": Modal defaults to :cancel, which here
+            # means leaving the selection behind.
+            m.modal = Modal(title = "Unsaved selection",
+                            message = "Save the selection to\n$(m.options.out)\nbefore leaving?",
+                            confirm_label = "Save and quit",
+                            cancel_label = "Quit without saving",
+                            selected = :confirm)
+            m.modal_kind = :quit
+        else
+            m.quit = true
+        end
     end
     m
 end
 
 function update!(m::SyncModel, e::TaskEvent)
-    e.value isa Exception && return show_error!(m, e.value)
-    e.id == :listing && return attach_listing!(m, e.value)
-    m
+    if e.value isa Exception
+        m.progress = nothing
+        empty!(m.pending)
+        return show_error!(m, e.value)
+    end
+
+    if e.id == :listing
+        return attach_listing!(m, e.value)
+    elseif e.id == :estimate
+        estimate, confirm = e.value
+        m.estimate = estimate
+        m.modal = Modal(title = "Estimate",
+                        message = string(format_estimate(estimate), "\n",
+                                         "from ", m.options.host, ":", m.production.remote_root, "\n",
+                                         "into ", m.production.local_root),
+                        confirm_label = "Sync", cancel_label = "Close",
+                        selected = confirm ? :confirm : :cancel)
+        m.modal_kind = :estimate
+        m.status = ""
+        return m
+    elseif e.id == :progress
+        m.progress = e.value
+        return m
+    elseif e.id == :transfer
+        m.progress = nothing
+        refresh_local_state!(m)
+        rebuild_tree!(m)
+        return open_message!(m, "Transfer complete", summary_text(e.value))
+    end
+    error("unexpected background result :$(e.id); every task this model spawns " *
+          "must be handled here")
 end
 
 """

@@ -2,7 +2,7 @@ using Test
 using Dates
 using PropDicts
 using LegendDataManagement: LegendDataConfig, data_path
-using Tachikoma: TestBackend, Frame, Rect, KeyEvent, GraphicsRegion, PixelSnapshot,
+using Tachikoma: TestBackend, Frame, Rect, KeyEvent, TaskEvent, GraphicsRegion, PixelSnapshot,
                  reset!, row_text, find_text, drain_tasks!, render_widget!,
                  view, update!, should_quit
 
@@ -18,7 +18,7 @@ using .JuleanaSync: main,
     relative, to_local, to_mount, local_config, write_local_config, normdir,
     Node, tier_file_id, group_children, production_tree, expand!,
     node_local_state, filekey_groups,
-    Selection, effective_mode, set_mode!, first_n_filekeys!, find_node!,
+    Selection, effective_mode, set_mode!, exclude!, first_n_filekeys!, find_node!,
     selection_propdict, save_selection, load_selection, apply_selection!,
     Estimate, format_bytes, running_estimate, format_estimate, parse_rsync_stats,
     Progress, TransferResult, check_rsync, check_mount, rsync_command,
@@ -27,7 +27,9 @@ using .JuleanaSync: main,
     Options, parse_options, run_headless, DEFAULT_LOCAL_ROOT, DEFAULT_SELECTION_DIR,
     SyncModel, checkbox, node_label, build_tree, rebuild_tree!, current_node,
     request_expand!, attach_listing!, show_error!, save!, details, status_bar,
-    render_sync, run_tui, task_queue
+    render_sync, run_tui, task_queue,
+    open_estimate!, start_transfer!, open_prompt!, open_message!,
+    apply_prompt!, refresh_local_state!, render_prompt
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and

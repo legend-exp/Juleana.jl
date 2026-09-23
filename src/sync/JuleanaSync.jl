@@ -14,7 +14,7 @@ import Tachikoma
 using LegendDataManagement: DetectorId, Timestamp
 using Tachikoma: Model, Frame, Buffer, Rect, Span,
                  KeyEvent, TaskEvent, TaskQueue, spawn_task!,
-                 TreeView, TreeNode, selected_node, handle_key!,
+                 TreeView, TreeNode, selected_node, tree_visible_count, handle_key!,
                  Block, StatusBar, Paragraph, Modal, TextInput, Gauge,
                  Layout, Constraint, Vertical, Horizontal, Fill, Fixed, Percent,
                  split_layout, render, tstyle, center, word_wrap, BOX_HEAVY, app

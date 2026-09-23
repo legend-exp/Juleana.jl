@@ -58,6 +58,36 @@ function clear_descendants!(node::Node, mode::Symbol)
 end
 
 """
+    exclude!(node::Node)::Node
+
+Take `node` out of the selection it inherits. Every ancestor between the root and
+`node` that carries a mode hands that mode to the siblings of the path down to
+`node` and keeps none itself, so the rest of those subtrees stay selected while
+`node` ends up with no mode at all. A node that carries its own mode simply loses
+it, along with the explicit modes below it.
+"""
+function exclude!(node::Node)
+    effective_mode(node) == :none && return node
+    node.mode == :none || return set_mode!(node, :none)
+    ancestors = Node[]
+    current = node
+    while current.parent !== nothing
+        current = current.parent
+        pushfirst!(ancestors, current)
+    end
+    for (i, level) in pairs(ancestors)
+        level.mode == :none && continue
+        mode = level.mode
+        on_path = i < lastindex(ancestors) ? ancestors[i + 1] : node
+        level.mode = :none
+        for sibling in level.children
+            sibling === on_path || set_mode!(sibling, mode)
+        end
+    end
+    node
+end
+
+"""
     first_n_filekeys!(node::Node, n::Integer)::Int
 
 Mark the first `n` filekeys of a listed run directory for copying, in timestamp

@@ -48,6 +48,26 @@
         @test_throws "mode must be" set_mode!(jlevt, :sideways)
     end
 
+    @testset "exclude! pushes an inherited mode onto the siblings" begin
+        hitdir = joinpath(FIXTURE_ROOT, "temp", "jl-dev", "generated", "tier",
+                          "jlhit", "cal", "p18", "r000")
+        root = production_tree(h, p)
+        r000 = find_node!(h, p, root, relpath(hitdir, FIXTURE_ROOT))
+        @test length(r000.children) == 3
+
+        set_mode!(r000, :copy)
+        exclude!(r000.children[2])
+        @test r000.mode == :none
+        @test [c.mode for c in r000.children] == [:copy, :none, :copy]
+        @test effective_mode(r000.children[2]) == :none
+
+        sel = Selection(p, "cslg4", root)
+        mandatory = [joinpath("test", "config.json"), joinpath("test", "legend-metadata")]
+        @test setdiff(sel.copy, mandatory) ==
+              sort([relative(p, r000.children[1].remote_path),
+                    relative(p, r000.children[3].remote_path)])
+    end
+
     @testset "first_n_filekeys!" begin
         r000 = Node("r000", rundir, :dir)
         expand!(h, p, r000)
