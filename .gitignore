@@ -169,3 +169,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Fixture data for the sync tool tests: zero-filled stand-ins, a few KB each.
+!test/sync/fixtures/**/*.lh5
