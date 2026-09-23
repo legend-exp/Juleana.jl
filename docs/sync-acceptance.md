@@ -1,4 +1,4 @@
-# Data sync tool — acceptance checklist
+# Data sync tool: acceptance checklist
 
 Run against `cslg4` and the `test` production. The automated suite never touches
 the cluster, so this is where the ssh, rsync and mount paths are confirmed.
@@ -17,17 +17,25 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 - [ ] `julia --project=. sync.jl --production test` opens the two-pane layout,
       and the status bar reads `selected: 0 B copy (0 files), 0 links`.
 - [ ] The tree shows `config.json` and one row per configured path key of the
-      production — at minimum `metadata`, `par`, `tier`, `tier/jldsp`,
+      production, at minimum `metadata`, `par`, `tier`, `tier/jldsp`,
       `tier/jlpks`, `tier/raw`.
 - [ ] `enter` on `tier` lists it within a few seconds; the row shows `…listing`
       while the request is out.
 - [ ] Every row that appears shows a size, or `…` for a section.
 - [ ] Expanding a second directory is visibly faster than the first: the ssh
       connection is being reused.
+- [ ] Expanding a period node of `tier/jldsp` sizes its run directories (about
+      27 GB each) with one `du -sb` call; record how long the expansion takes
+      and whether it is acceptable for interactive use.
+- [ ] Outside a dialog, `ctrl+c` quits like `q` (offering to save first when
+      the selection changed). While a transfer dialog is open no key is
+      accepted; press `ctrl+c` at the terminal during a transfer and record
+      whether the process still exits and what state the mirror is left in
+      (partial files under `--partial` are expected).
 - [ ] Walking down `tier/jldsp` → `cal` → `p18` → `r000` shows one row per
-      detector, labelled with the detector name.
+      detector, labeled with the detector name.
 - [ ] Walking down `tier/jlevt` → `phy` → `p18` → `r000` shows one row per
-      filekey, labelled with the timestamp, in ascending timestamp order.
+      filekey, labeled with the timestamp, in ascending timestamp order.
 
 ## Copy one filekey
 
@@ -63,7 +71,7 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 - [ ] Read a waveform from the linked `raw` file for the same filekey; it goes
       through the mount and succeeds.
 - [ ] Unmount and read it again: it fails with `ENOENT`, which is the intended
-      behavior — the tool never pretends data is there.
+      behavior: the tool never pretends data is there.
 
 ## Headless re-apply
 

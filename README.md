@@ -156,11 +156,13 @@ julia --project=. sync.jl --production test
 
 This opens a terminal interface:
 
-- The left pane is the production's tree — its `config.json`, then one branch per
+- The left pane is the production's tree: its `config.json`, then one branch per
   configured path key. Directories are listed when you open them, so nothing
   walks the cluster's filesystem up front.
 - The right pane describes the row under the cursor and lists the keys.
-- The status bar shows what the current selection would transfer.
+- The status bar's left span shows what the current selection would transfer;
+  its right span shows where the selection will be saved, relative to
+  `config/sync`.
 
 | Key | Action |
 |-----|--------|
@@ -177,6 +179,7 @@ This opens a terminal interface:
 
 A `[-]` marker means the row itself is not selected but something below it is.
 While a transfer is running, the interface accepts no key until it finishes.
+A successful transfer's summary ends with any warnings rsync printed.
 
 ## Command line options
 
@@ -209,6 +212,8 @@ readable and keeps working as new runs appear under a chosen directory.
   to start otherwise rather than transferring without progress or totals.
 - `ssh` access to the host, and GNU `find` and `du` on it (both present on
   `cslg4`).
+- A copied directory's remote symlinks, such as a `current` pointer, are
+  mirrored as symlinks rather than resolved.
 
 ## Link mode
 
@@ -223,6 +228,8 @@ through the mount. With the mount absent, opening a linked file fails with
 ## What the tool never does
 
 It never writes to the remote, never deletes local data, and never rewrites the
-mirrored `config.json`. The only thing it removes is a symlink it created
-earlier that stands where a real copy has to go. The local config it writes is a
-sibling, `config_local.json`, so the mirror stays byte-identical to the remote.
+mirrored `config.json`. The only things it removes are symlinks: one standing
+where a real copy is about to land, and one standing where a fresh link is
+about to replace it. A regular file or a directory is never removed. The local
+config it writes is a sibling, `config_local.json`, so the mirror stays
+byte-identical to the remote.
