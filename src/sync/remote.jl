@@ -130,13 +130,18 @@ function dir_sizes(h::SSHHost, dirs::AbstractVector{<:AbstractString})
     sizes
 end
 
+# Sums the apparent size of every non-directory entry below `dir`: regular
+# files by their content length, symlinks by the length of their target
+# string (lstat's size for a symlink), matching what `du -sb` reports for a
+# symlink on the remote. `du -sb` additionally counts directory inodes, so a
+# remote total exceeds this one by a few kilobytes per directory — immaterial
+# for a transfer size estimate.
 function dir_sizes(::LocalHost, dirs::AbstractVector{<:AbstractString})
     map(dirs) do dir
         isdir(dir) || throw(ArgumentError("not a directory: $dir"))
         total = 0
-        for (root, _, files) in walkdir(dir), f in files
-            path = joinpath(root, f)
-            islink(path) || (total += Int(filesize(path)))
+        for (root, _, files) in walkdir(dir; follow_symlinks = false), f in files
+            total += Int(lstat(joinpath(root, f)).size)
         end
         total
     end

@@ -31,6 +31,12 @@
                           "jlevt", "phy", "p18", "r000")
         @test dir_sizes(h, [evtdir, hitdir]) == [4096 + 8192, 2048 + 1024 + 18]
         @test_throws "not a directory" dir_sizes(h, [joinpath(FIXTURE_ROOT, "nope")])
+
+        mktempdir() do d
+            write(joinpath(d, "data.bin"), "12345")
+            symlink("target-name", joinpath(d, "lnk"))
+            @test dir_sizes(h, [d]) == [5 + length("target-name")]
+        end
     end
 
     @testset "read_file" begin
