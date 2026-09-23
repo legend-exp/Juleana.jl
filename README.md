@@ -142,3 +142,87 @@ The following fields are available:
 4. **`category`**: field can be used to set the category of the processor. This is important to tell the dataflow if the processor is acting on `cal` or `phy` data.
 5. **`kwargs`**: field can be used to pass additional keyword arguments to the processor. This can be useful to set specific settings for the processor. Please refer to the processor documentation for all available options.
 6. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully.
+
+# Data sync tool
+
+`sync.jl` mirrors part of a remote LEGEND data production onto this machine so
+that the dataflow and the analysis scripts can be developed against real data
+without an open session on the cluster. The mirror keeps the remote layout, so
+`LegendDataManagement` opens it with the config the tool writes beside it.
+
+``` bash
+julia --project=. sync.jl --production test
+```
+
+This opens a terminal interface:
+
+- The left pane is the production's tree — its `config.json`, then one branch per
+  configured path key. Directories are listed when you open them, so nothing
+  walks the cluster's filesystem up front.
+- The right pane describes the row under the cursor and lists the keys.
+- The status bar shows what the current selection would transfer.
+
+| Key | Action |
+|-----|--------|
+| `↑` `↓` `home` `end` | Move the cursor |
+| `enter` | Expand or collapse; lists the directory the first time |
+| `space` | Copy this row (`[x]`), or stop copying it |
+| `l` | Reach this row through the mount instead (`[~]`); needs `--mount-root` |
+| `n` | On a run directory: copy the first N filekeys |
+| `e` | Ask rsync exactly what the selection would move |
+| `t` | Estimate, confirm, and transfer |
+| `s` | Save the selection to `config/sync/<production>.json` |
+| `q` | Leave, offering to save first |
+| `ctrl+c` | Same as `q`, outside a dialog |
+
+A `[-]` marker means the row itself is not selected but something below it is.
+While a transfer is running, the interface accepts no key until it finishes.
+
+## Command line options
+
+| Option | Description |
+|--------|-------------|
+| `--host ALIAS` | ssh alias of the machine holding the production (default `cslg4`) |
+| `--remote-root PATH` | Remote directory holding the productions (default `/mnt/scratch/projects/legend/data/l200`) |
+| `--local-root PATH` | Local directory mirroring it (default `../data` next to this checkout) |
+| `--mount-root PATH` | Where the remote root is mounted; enables link mode |
+| `--production NAME` | Production to sync (default `test`) |
+| `--out FILE` | Where the interface saves the selection |
+| `--from FILE` | Apply a saved selection without starting the interface |
+| `--dry-run` | With `--from`: ask rsync what would move and print it, then stop |
+| `--yes` | With `--from`: transfer without asking |
+
+## Re-applying a selection
+
+``` bash
+julia --project=. sync.jl --from config/sync/test.json --yes
+```
+
+The saved selection lists only the rows that were chosen explicitly, so it stays
+readable and keeps working as new runs appear under a chosen directory.
+
+## Requirements
+
+- GNU `rsync` 3.1 or newer on this machine. macOS ships Apple `openrsync`, which
+  has neither `--info=progress2` nor a readable `--stats`; install GNU rsync with
+  `brew install rsync` and put it ahead of `/usr/bin` in `PATH`. The tool refuses
+  to start otherwise rather than transferring without progress or totals.
+- `ssh` access to the host, and GNU `find` and `du` on it (both present on
+  `cslg4`).
+
+## Link mode
+
+A linked row is not copied: the tool puts a symlink at its place in the mirror
+pointing into `--mount-root`, where the remote filesystem is mounted (with
+`sshfs`, `rclone mount`, or anything else). Syncing `jlevt` for a run and linking
+`tier/raw` for the same run gives a mirror where every file is at its usual path:
+the analysis tiers are local, and reading a few waveforms out of a raw file goes
+through the mount. With the mount absent, opening a linked file fails with
+`ENOENT` rather than appearing to succeed.
+
+## What the tool never does
+
+It never writes to the remote, never deletes local data, and never rewrites the
+mirrored `config.json`. The only thing it removes is a symlink it created
+earlier that stands where a real copy has to go. The local config it writes is a
+sibling, `config_local.json`, so the mirror stays byte-identical to the remote.
