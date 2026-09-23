@@ -3,7 +3,8 @@ using Dates
 using PropDicts
 using LegendDataManagement: LegendDataConfig, data_path
 using Tachikoma: TestBackend, Frame, Rect, KeyEvent, GraphicsRegion, PixelSnapshot,
-                 reset!, row_text, find_text, drain_tasks!, render_widget!
+                 reset!, row_text, find_text, drain_tasks!, render_widget!,
+                 view, update!, should_quit
 
 include(joinpath(@__DIR__, "..", "..", "src", "sync", "JuleanaSync.jl"))
 
@@ -23,7 +24,10 @@ using .JuleanaSync: main,
     Progress, TransferResult, check_rsync, check_mount, rsync_command,
     parse_progress, rsync_dry_run, remove_stale_links!, create_links!,
     apply!, summary_text,
-    Options, parse_options, run_headless, DEFAULT_LOCAL_ROOT, DEFAULT_SELECTION_DIR
+    Options, parse_options, run_headless, DEFAULT_LOCAL_ROOT, DEFAULT_SELECTION_DIR,
+    SyncModel, checkbox, node_label, build_tree, rebuild_tree!, current_node,
+    request_expand!, attach_listing!, show_error!, save!, details, status_bar,
+    render_sync, run_tui, task_queue
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -47,4 +51,5 @@ const LOCAL_ROOT = mktempdir()
     include("test_estimate.jl")
     include("test_transfer.jl")
     include("test_options.jl")
+    include("test_tui.jl")
 end

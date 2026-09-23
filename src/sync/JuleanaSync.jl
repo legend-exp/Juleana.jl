@@ -27,7 +27,6 @@ include("selection.jl")
 include("estimate.jl")
 include("transfer.jl")
 include("options.jl")
-
-# Later tasks add: tui.jl.
+include("tui.jl")
 
 end # module
