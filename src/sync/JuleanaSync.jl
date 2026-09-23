@@ -26,15 +26,8 @@ include("inventory.jl")
 include("selection.jl")
 include("estimate.jl")
 include("transfer.jl")
+include("options.jl")
 
-# Later tasks add: options.jl, tui.jl — in that order.
-
-"""
-    main(args::AbstractVector{<:AbstractString})::Int
-
-Run the sync tool. Returns the process exit code; every failure is thrown, so a
-nonzero return means the tool declined the request, not that it swallowed an error.
-"""
-main(args::AbstractVector{<:AbstractString}) = 0
+# Later tasks add: tui.jl.
 
 end # module
