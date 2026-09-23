@@ -16,6 +16,7 @@
         @test "-t" in args
         @test "-p" in args
         @test "--partial" in args
+        @test "-l" in args
         @test "--files-from=/tmp/files.txt" in args
         @test "--info=progress2" in args
         @test "--stats" in args
@@ -48,6 +49,12 @@
         notmounted = Production(h, "test", FIXTURE_ROOT, mktempdir();
                                 mount_root = mktempdir())
         @test_throws "is not a mount point" check_mount(notmounted)
+
+        # A plain temp directory sits on the same device as its parent, so the
+        # device comparison rejects it even though `mount`'s output would have
+        # matched it as a substring of some unrelated mounted path.
+        plain = Production(h, "test", FIXTURE_ROOT, mktempdir(); mount_root = mktempdir())
+        @test_throws "is not a mount point" check_mount(plain)
 
         mounted = Production(h, "test", FIXTURE_ROOT, mktempdir(); mount_root = "/")
         @test check_mount(mounted) == "/"
@@ -90,11 +97,27 @@
               read(joinpath(FIXTURE_ROOT, "test", "config.json"), String)
         @test result.config == joinpath(p.local_root, "test", "config_local.json")
         @test isfile(result.config)
+        @test result.warnings == ""
         @test occursin("LEGEND_DATA_CONFIG=$(result.config)", summary_text(result))
+        # Every progress reading is well formed; tiny fixtures may transfer
+        # before rsync ever prints one, so `seen` itself may be empty.
+        @test all(prog -> 0 <= prog.fraction <= 1, seen)
+        @test all(prog -> !isempty(prog.rate), seen)
 
         # Re-running transfers nothing: -t and -p make the files match.
         again = apply!(h, p, sel)
         @test again.bytes == 0
+    end
+
+    @testset "remote symlinks are mirrored as symlinks" begin
+        symlink("config.json", joinpath(FIXTURE_ROOT, "test", "current"))
+        p = Production(h, "test", FIXTURE_ROOT, mktempdir())
+        sel = Selection("local", "test", FIXTURE_ROOT, p.local_root, nothing,
+                        [joinpath("test", "config.json"), joinpath("test", "current")],
+                        String[], now())
+        apply!(h, p, sel)
+        @test islink(joinpath(p.local_root, "test", "current"))
+        @test readlink(joinpath(p.local_root, "test", "current")) == "config.json"
     end
 
     @testset "stale symlinks are replaced, real data is not" begin
@@ -153,6 +176,14 @@
         @test created3 == 0
         @test skipped3 == [jlhit]
         @test isfile(joinpath(p3.local_root, jlhit, "already-here.lh5"))
+    end
+
+    @testset "apply! requires an existing local root" begin
+        missing_root = joinpath(mktempdir(), "missing")
+        p = Production(h, "test", FIXTURE_ROOT, missing_root)
+        sel = Selection("local", "test", FIXTURE_ROOT, missing_root, nothing,
+                        [joinpath("test", "config.json")], String[], now())
+        @test_throws "does not exist" apply!(h, p, sel)
     end
 
     @testset "apply! refuses links without a mount" begin

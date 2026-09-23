@@ -14,7 +14,10 @@ end
     TransferResult
 
 What an [`apply!`](@ref) did. `skipped` lists the link targets that were left
-alone because real data already stood there.
+alone because real data already stood there. `warnings` holds rsync's standard
+error text from the transfer, which is never discarded: GNU rsync can print a
+warning (for example about a file that vanished mid-transfer) while still
+exiting 0. It is `""` when rsync printed nothing.
 """
 struct TransferResult
     bytes::Int
@@ -23,6 +26,7 @@ struct TransferResult
     replaced_links::Int
     skipped::Vector{String}
     config::String
+    warnings::String
 end
 
 """
@@ -49,16 +53,23 @@ end
 """
     check_mount(p::Production)::String
 
-The mount root, once it is known to be mounted. Link mode points symlinks into a
-filesystem the user mounted; without it every link would dangle from the moment
-it was created.
+The mount root, once it is known to be mounted: a readable directory whose
+device differs from its parent's, or the filesystem root `/` itself. Link mode
+points symlinks into a filesystem the user mounted; without it every link
+would dangle from the moment it was created. A substring match against `mount`'s
+output would accept an unmounted directory such as `/Volumes` whenever some
+unrelated mounted path happens to contain it as a prefix, so the check instead
+compares device numbers.
 """
 function check_mount(p::Production)
     p.mount_root === nothing && throw(ArgumentError(
         "no mount root configured; pass --mount-root to use link mode"))
     isdir(p.mount_root) || throw(ArgumentError(
         "mount root $(p.mount_root) does not exist"))
-    occursin(p.mount_root, read(`mount`, String)) || throw(ArgumentError(
+    readdir(p.mount_root)  # throws on its own if the directory is not readable
+    mounted = p.mount_root == "/" ||
+              stat(p.mount_root).device != stat(dirname(p.mount_root)).device
+    mounted || throw(ArgumentError(
         "mount root $(p.mount_root) is not a mount point; mount the remote filesystem there first"))
     p.mount_root
 end
@@ -68,12 +79,13 @@ end
 
 The one rsync invocation the tool makes. `-r` is explicit because `--files-from`
 switches off the recursion `-a` would imply, and without it a selected directory
-arrives empty. `--stats` is on in both modes: it is the only place rsync reports
-how many files it sent.
+arrives empty. `-l` copies a remote symlink (such as a `current` pointer) as a
+symlink; without it rsync silently omits symlinks from the transfer. `--stats`
+is on in both modes: it is the only place rsync reports how many files it sent.
 """
 function rsync_command(h::RemoteHost, p::Production, files_from::AbstractString;
                        dry_run::Bool)
-    args = String["-r", "-t", "-p", "--partial", "--stats",
+    args = String["-r", "-l", "-t", "-p", "--partial", "--stats",
                   "--files-from=$files_from"]
     push!(args, dry_run ? "--dry-run" : "--info=progress2")
     push!(args, rsync_source(h, p.remote_root), rstrip(p.local_root, '/') * "/")
@@ -95,9 +107,12 @@ function parse_progress(chunk::AbstractString)
              String(m[3]), String(m[4]))
 end
 
-# Run rsync, feed every progress reading to `progress`, and return everything it
-# printed so the --stats block at the end can be parsed. Progress readings are
-# separated by carriage returns, not newlines.
+# Run rsync, feed every progress reading to `progress`, and return
+# (stdout, stderr) so the --stats block can be parsed and any warning rsync
+# printed can be reported. GNU rsync can exit 0 while still writing a warning
+# to stderr (for example about a file that vanished mid-transfer), so stderr is
+# read and returned rather than discarded on the success path. Progress
+# readings are separated by carriage returns, not newlines.
 function run_rsync(cmd::Cmd, progress)
     errfile = tempname()
     transcript = IOBuffer()
@@ -118,13 +133,11 @@ function run_rsync(cmd::Cmd, progress)
     end
     println(transcript, String(take!(chunk)))
     wait(proc)
-    if !success(proc)
-        message = "rsync failed with exit code $(proc.exitcode): $cmd\n$(read(errfile, String))"
-        rm(errfile; force = true)
-        throw(ErrorException(message))
-    end
+    stderr_text = read(errfile, String)
     rm(errfile; force = true)
-    String(take!(transcript))
+    success(proc) || throw(ErrorException(
+        "rsync failed with exit code $(proc.exitcode): $cmd\n$stderr_text"))
+    String(take!(transcript)), stderr_text
 end
 
 """
@@ -133,7 +146,7 @@ end
 What the transfer would actually move, given what is already in the mirror.
 """
 function rsync_dry_run(h::RemoteHost, p::Production, sel::Selection)
-    out = mktempdir() do dir
+    out, _ = mktempdir() do dir
         path = joinpath(dir, "files.txt")
         write(path, join(sel.copy, "\n") * "\n")
         run_rsync(rsync_command(h, p, path; dry_run = true), nothing)
@@ -221,7 +234,7 @@ and writes `config_local.json`, and returns a [`TransferResult`](@ref).
 function apply!(h::RemoteHost, p::Production, sel::Selection;
                 dry_run::Bool = false, progress = nothing)
     check_rsync()
-    mkpath(p.local_root)
+    isdir(p.local_root) || error("local root $(p.local_root) does not exist")
     # Find out now, not halfway through a transfer, whether the mirror is writable.
     probe, io = mktemp(p.local_root)
     close(io)
@@ -230,7 +243,7 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
     dry_run && return rsync_dry_run(h, p, sel)
 
     replaced = remove_stale_links!(p, sel)
-    out = mktempdir() do dir
+    out, warnings = mktempdir() do dir
         path = joinpath(dir, "files.txt")
         write(path, join(sel.copy, "\n") * "\n")
         run_rsync(rsync_command(h, p, path; dry_run = false), progress)
@@ -238,7 +251,7 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
     moved = parse_rsync_stats(out, length(sel.link))
     created, skipped = create_links!(h, p, sel)
     TransferResult(moved.bytes, moved.files, created, replaced, skipped,
-                   write_local_config(p))
+                   write_local_config(p), warnings)
 end
 
 """
@@ -252,6 +265,7 @@ function summary_text(r::TransferResult)
     isempty(r.skipped) ||
         push!(lines, "kept existing data at $(length(r.skipped)) link targets: " *
                      join(r.skipped, ", "))
+    isempty(r.warnings) || push!(lines, "rsync warnings:\n$(r.warnings)")
     push!(lines, "export LEGEND_DATA_CONFIG=$(r.config)")
     join(lines, "\n")
 end
