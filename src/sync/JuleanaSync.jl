@@ -20,7 +20,9 @@ using Tachikoma: Model, Frame, Buffer, Rect, Span,
                  split_layout, render, tstyle, center, word_wrap, BOX_HEAVY, app
 import Tachikoma: view, update!, should_quit, task_queue
 
-# Later tasks add: remote.jl, production.jl, inventory.jl, selection.jl,
+include("remote.jl")
+
+# Later tasks add: production.jl, inventory.jl, selection.jl,
 # estimate.jl, transfer.jl, options.jl, tui.jl — in that order.
 
 """
