@@ -22,8 +22,9 @@ import Tachikoma: view, update!, should_quit, task_queue
 
 include("remote.jl")
 include("production.jl")
+include("inventory.jl")
 
-# Later tasks add: inventory.jl, selection.jl,
+# Later tasks add: selection.jl,
 # estimate.jl, transfer.jl, options.jl, tui.jl — in that order.
 
 """
