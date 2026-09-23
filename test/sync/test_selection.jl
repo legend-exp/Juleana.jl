@@ -33,7 +33,7 @@
         set_mode!(r000.children[2], :copy)
         @test [c.mode for c in r000.children] == [:copy, :copy]
 
-        # :copy anywhere below a :link ancestor survives — copy a few files,
+        # :copy anywhere below a :link ancestor survives: copy a few files,
         # link the rest of the directory.
         set_mode!(jlevt, :link)
         @test jlevt.mode == :link
@@ -161,6 +161,14 @@
         expand!(h, p, hit)
         @test_throws "no filekey groups" first_n_filekeys!(hit, 1)
         @test_throws "has not been listed" first_n_filekeys!(Node("x", rundir, :dir), 1)
+    end
+
+    @testset "Selection requires a metadata root" begin
+        no_metadata = Production(p.name, p.remote_root, p.local_root, p.mount_root,
+                                 p.config, filter(kv -> first(kv) != "metadata", p.roots),
+                                 p.raw_config)
+        root = production_tree(h, no_metadata)
+        @test_throws "has no \"metadata\" path key" Selection(no_metadata, "cslg4", root)
     end
 
     @testset "Selection round trip" begin

@@ -33,6 +33,12 @@
     @testset "user-supplied paths are made absolute" begin
         o = parse_options(["--local-root", "relative/mirror"])
         @test o.local_root == abspath("relative/mirror")
+
+        o2 = parse_options(["--mount-root", "relative/mount"])
+        @test o2.mount_root == abspath("relative/mount")
+
+        o3 = parse_options(["--remote-root", "relative/remote"])
+        @test o3.remote_root == abspath("relative/remote")
     end
 
     @testset "flags that need --from" begin

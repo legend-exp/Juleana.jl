@@ -326,7 +326,7 @@ end
 
 The running estimate and whatever the tool last had to say on the left, and the
 selection file on the right. The right span keeps only the part of the path that
-tells the files apart — the name under the default selection directory — because
+tells the files apart (the name under the default selection directory), because
 `StatusBar` gives the left span priority and clips the right one away.
 """
 function status_bar(m::SyncModel)

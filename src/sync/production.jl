@@ -79,7 +79,7 @@ end
 """
     relative(p::Production, remote_path)::String
 
-`remote_path` expressed relative to the remote root — the form rsync's
+`remote_path` expressed relative to the remote root, the form rsync's
 `--files-from` list consumes. The remote root itself maps to `""`.
 """
 function relative(p::Production, remote_path::AbstractString)

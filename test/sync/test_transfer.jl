@@ -160,6 +160,7 @@
         mixed = Selection("local", "test", FIXTURE_ROOT, p2.local_root, "/",
                           [file], [evt], now())
         created2, skipped2 = create_links!(h, p2, mixed)
+        @test isempty(skipped2)
         @test isdir(joinpath(p2.local_root, evt, "phy", "p18", "r000"))
         @test !islink(joinpath(p2.local_root, evt))
         @test !ispath(joinpath(p2.local_root, file))       # rsync brings this one

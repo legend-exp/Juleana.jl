@@ -158,7 +158,9 @@ function Selection(p::Production, host::AbstractString, root::Node)
     # mirror openable at all, so they are copied whether or not they were picked.
     mandatory = [relative(p, joinpath(p.remote_root, p.name, "config.json"))]
     i = findfirst(kv -> first(kv) == "metadata", p.roots)
-    i === nothing || push!(mandatory, relative(p, last(p.roots[i])))
+    i === nothing && throw(ArgumentError(
+        "production $(p.name) has no \"metadata\" path key; legend-metadata cannot be mirrored"))
+    push!(mandatory, relative(p, last(p.roots[i])))
     for path in mandatory
         path in copies || push!(copies, path)
     end

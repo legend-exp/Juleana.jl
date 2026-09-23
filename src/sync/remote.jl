@@ -35,16 +35,13 @@ struct LocalHost <: RemoteHost end
 
 One entry of a directory listing. `kind` is `:file`, `:dir`, `:link` or `:other`.
 `size` is the file size in bytes, and `nothing` for anything that is not a regular
-file — a directory's size comes from `dir_sizes`.
+file: a directory's size comes from `dir_sizes`.
 """
 struct DirEntry
     name::String
     kind::Symbol
     size::Union{Nothing,Int}
 end
-
-Base.:(==)(a::DirEntry, b::DirEntry) =
-    a.name == b.name && a.kind == b.kind && a.size == b.size
 
 """
     ssh_command(h::SSHHost, remote::AbstractString)::Cmd
@@ -134,8 +131,8 @@ end
 # files by their content length, symlinks by the length of their target
 # string (lstat's size for a symlink), matching what `du -sb` reports for a
 # symlink on the remote. `du -sb` additionally counts directory inodes, so a
-# remote total exceeds this one by a few kilobytes per directory — immaterial
-# for a transfer size estimate.
+# remote total exceeds this one by a few kilobytes per directory, which is
+# immaterial for a transfer size estimate.
 function dir_sizes(::LocalHost, dirs::AbstractVector{<:AbstractString})
     map(dirs) do dir
         isdir(dir) || throw(ArgumentError("not a directory: $dir"))
@@ -150,7 +147,7 @@ end
 """
     read_file(h::RemoteHost, path::AbstractString)::String
 
-Read a small text file — the tool uses this for a production's `config.json`.
+Read a small text file: the tool uses this for a production's `config.json`.
 """
 function read_file(h::SSHHost, path::AbstractString)
     run_remote(h, `test -f $path`)

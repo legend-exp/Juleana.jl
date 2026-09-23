@@ -15,10 +15,6 @@ struct Estimate
     complete::Bool
 end
 
-Base.:(==)(a::Estimate, b::Estimate) =
-    a.bytes == b.bytes && a.files == b.files &&
-    a.links == b.links && a.complete == b.complete
-
 """
     format_bytes(n::Integer)::String
 
