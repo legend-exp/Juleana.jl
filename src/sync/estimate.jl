@@ -74,8 +74,9 @@ format_estimate(e::Estimate) = string(
 """
     parse_rsync_stats(out::AbstractString, links::Integer)::Estimate
 
-The totals from `rsync --dry-run --stats`. Digit grouping is stripped; Task 7
-runs rsync under `LC_ALL=C` so the grouping character stays a comma.
+The totals from `rsync --dry-run --stats`. Digit grouping is stripped; callers
+must run rsync with a fixed locale (`LC_ALL=C`) so the grouping character is a
+comma.
 """
 function parse_rsync_stats(out::AbstractString, links::Integer)
     bytes = match(r"^Total transferred file size:\s+([0-9,]+)"m, out)
