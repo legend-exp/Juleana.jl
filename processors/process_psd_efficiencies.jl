@@ -71,9 +71,10 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
         try
             hit_cal = let e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                 @debug "Reading from $(period)-$(run)"
-                    cal_func = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func)
-                        read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, period, run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
-                end
+                cal_func = ljl_propfunc(l200.par.rpars.ecal[period, run][det][e_type].cal.func)
+                qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, filekey, det)
+                read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, period, run, det)[qc_mask]
+            end
             e_cal = getproperty(hit_cal, e_type)
         catch e
             @error "Hit data for $det from cannot be loaded: $(truncate_error(e))"

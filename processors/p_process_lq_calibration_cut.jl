@@ -139,7 +139,8 @@ function p_process_lq_calibration_cut(processing_config::PropDict, l200::LegendD
                     let e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
                         @debug "Reading from $(pinfo.period)-$(pinfo.run)"
                         cal_func = ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func)
-                        read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, pinfo.period, pinfo.run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser))
+                        qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, pinfo.cal.startkey, det)
+                        read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, pinfo.period, pinfo.run, det)[qc_mask]
                     end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)

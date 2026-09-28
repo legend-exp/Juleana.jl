@@ -96,7 +96,9 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 try
                     energy = fast_flatten([begin 
                             @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                            read_ldata(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func), l200, :jldsp, :cal, pinfo.period, pinfo.run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser)) end
+                            qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, pinfo.cal.startkey, det)
+                            read_ldata(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func), l200, :jldsp, :cal, pinfo.period, pinfo.run, det)[qc_mask]
+                        end
                     for pinfo in partinfo_det])
                 catch e
                     @error "E data for $det from cannot be loaded"

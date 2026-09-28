@@ -92,7 +92,10 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             if !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([begin
                     @debug "Reading from $(pinfo.period)-$(pinfo.run)"
-                    calibrate_ged_detector_data(l200, pinfo.cal.startkey, det, read_ldata(l200, :jldsp, :cal, pinfo.period, pinfo.run, det; filterby = :jlqcs => @pf($is_single_pulse && !$is_pulser)); aoe_cal_pars_type=:rpars, aoe_cal_pars_cat=:aoe, aoe_cut_pars_type=:rpars, aoe_cut_pars_cat=:aoe) end
+                    qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, pinfo.cal.startkey, det)
+                    dsp = read_ldata(l200, :jldsp, :cal, pinfo.period, pinfo.run, det)[qc_mask]
+                    calibrate_ged_detector_data(l200, pinfo.cal.startkey, det, dsp; aoe_cal_pars_type=:rpars, aoe_cal_pars_cat=:aoe, aoe_cut_pars_type=:rpars, aoe_cut_pars_cat=:aoe)
+                end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)
             end
