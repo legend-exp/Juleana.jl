@@ -29,7 +29,8 @@ using ParallelProcessingTools: getlabel
     using TerminalLoggers: TerminalLogger
     using ArgParse
 
-    global_logger(TerminalLogger())
+    include(joinpath(@__DIR__, "markdown_logging.jl"))
+    global_logger(UnderscoreSafeLogger(TerminalLogger()))
     include(joinpath(@__DIR__,"log_texts.jl"))
 
     # free memory
