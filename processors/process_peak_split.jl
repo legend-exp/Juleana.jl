@@ -33,11 +33,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     @info "Expecting $(length(detectors)) detectors each file in \"$input_datadir\"."
 
-    function get_daqenergy_for_det(filekeys::AbstractVector{FileKey}, det::DetectorId)
-        @debug "Reading DAQ energy for detector $det from $(length(filekeys)) files"
-        read_ldata(:daqenergy, l200, DataTier(:raw), filekeys, det).daqenergy
-    end
-
     # get keylists and check files
     keylist_filename = joinpath(output_datadir, "filekeys.txt")
     broken_keylist_filename = joinpath(output_datadir, "broken_filekeys.txt")
@@ -148,7 +143,18 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         @timeit split_timer "$det" begin
             # get raw daqenergy
             @timeit split_timer "Get DAQ Energy" begin
-                e_raw = get_daqenergy_for_det(filekeys, det)
+                @debug "Reading DAQ energy for detector $det from $(length(filekeys)) files"
+                e_raw = read_ldata(:daqenergy, l200, DataTier(:raw), filekeys, det).daqenergy
+                begin
+                    fig = Makie.Figure(size = (620, 400))
+                    binwidth = 8 * 15
+                    hall = StatsBase.fit(StatsBase.Histogram, e_raw, range(0, maximum(e_raw), step = binwidth))
+                    ax = Makie.Axis(fig[1,1], xlabel = "Energy (ADC)", ylabel = "Counts / $(binwidth) ADC", xtickformat = x -> string.(round.(Int,x)), yscale = Makie.log10, limits = (extrema(first(hall.edges)), (0.9, maximum(hall.weights) * 1.2)), title = get_plottitle(filekey, det, "Raw Energy Spectrum"))
+                    Makie.stephist!(ax, StatsBase.midpoints(first(hall.edges)), weights = replace(hall.weights, 0 => 1e-10), bins = first(hall.edges), color = LegendMakie.BEGeOrange, label = "DAQ Energy before QC")
+                    Makie.axislegend(ax, position = :rt, framevisible = true, framecolor = :lightgray)
+                    LegendMakie.add_watermarks!(final = true)
+                    savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, Symbol("daq_energy_raw"))
+                end
                 @info "Auto calibrating $det ($ch)"
                 result_autocal, report_autocal = autocal_energy(e_raw, raw_config_det.th228_cal_lines; mode=:ratio, min_e=raw_config_det.min_e, max_e=raw_config_det.max_e, max_e_binning_quantile=raw_config_det.max_e_binning_quantile, σ=raw_config_det.σ, threshold=raw_config_det.threshold, min_n_peaks=raw_config_det.min_n_peaks, max_n_peaks=raw_config_det.max_n_peaks, α=raw_config_det.α, rtol=raw_config_det.rtol)
                 f_calib = result_autocal.f_calib
@@ -156,35 +162,24 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 savelfig(LegendMakie.lsavefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
             GC.gc()
-            @info "Filtering detector $det ($ch)"
             @timeit split_timer "Filter Raw" begin
-                minimum_energy = minimum(first.(values(energy_windows)))
-                maximum_energy = maximum(last.(values(energy_windows)))
+                minimum_energy = minimum(leftendpoint.(values(energy_windows)))
+                maximum_energy = maximum(rightendpoint.(values(energy_windows)))
                 energy_filter = @pf minimum_energy <= f_calib($daqenergy) <= maximum_energy
-                slim_data = flatten_by_key([begin
-                    @debug "Filtering $fk for detector $det ($ch)"
-                    raw_data = read_ldata(l200, DataTier(:raw), fk, det; filterby=energy_filter)
-                    filter_raw_data_by_energy(raw_data, f_calib, energy_windows; chunk_size=100)
-                end for fk in filekeys])
-            end
-            n_fep = length(slim_data[:Tl208FEP].daqenergy)
-            n_sep = length(slim_data[:Tl208SEP].daqenergy)
-
-            # stephist(f_calib.(slim_data[:Tl208a].daqenergy), nbins = 100)
-            # stephist(f_calib.(slim_data[:Tl208aDEP_Bi212b].daqenergy), nbins = 100)
-            
-            @info "Writing $output_filename"
-            
-            @timeit split_timer "Write Data" begin
+                slim_data = read_ldata(l200, DataTier(:raw), filekeys, det; filterby=energy_filter)
                 write_files(output_filename, use_cache = false, mode = CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
-                        for label in sort(collect(keys(slim_data)))
-                            output[:jlpks, det, label] = slim_data[label]
-                            # output[:jlpks, det, label] = decode_data(slim_data[label])
+                        for (label, window) in energy_windows
+                            @debug "Filtering $label for detector $det ($ch)"
+                            output[:jlpks, det, label] = slim_data |> filterby(@pf f_calib($daqenergy) ∈ window)
                         end
                     end
-                end
+                end            
+                @info "Writing $output_filename"
             end
+            n_sep = length(read_ldata((@pf $Tl208SEP.daqenergy), l200, DataTier(:jlpks), first(filekeys), det))
+            n_fep = length(read_ldata((@pf $Tl208FEP.daqenergy), l200, DataTier(:jlpks), first(filekeys), det))
+
         end
 
         # create total timer by summing over memory usage and time
