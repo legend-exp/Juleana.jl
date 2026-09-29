@@ -145,6 +145,16 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             @timeit split_timer "Get DAQ Energy" begin
                 @debug "Reading DAQ energy for detector $det from $(length(filekeys)) files"
                 e_raw = read_ldata(:daqenergy, l200, DataTier(:raw), filekeys, det).daqenergy
+                begin
+                    fig = Makie.Figure(size = (620, 400))
+                    binwidth = 8 * 15
+                    hall = StatsBase.fit(StatsBase.Histogram, e_raw, range(0, maximum(e_raw), step = binwidth))
+                    ax = Makie.Axis(fig[1,1], xlabel = "Energy (ADC)", ylabel = "Counts / $(binwidth) ADC", xtickformat = x -> string.(round.(Int,x)), yscale = Makie.log10, limits = (extrema(first(hall.edges)), (0.9, maximum(hall.weights) * 1.2)), title = get_plottitle(filekey, det, "Raw Energy Spectrum"))
+                    Makie.stephist!(ax, StatsBase.midpoints(first(hall.edges)), weights = replace(hall.weights, 0 => 1e-10), bins = first(hall.edges), color = LegendMakie.BEGeOrange, label = "DAQ Energy before QC")
+                    Makie.axislegend(ax, position = :rt, framevisible = true, framecolor = :lightgray)
+                    LegendMakie.add_watermarks!(final = true)
+                    savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, Symbol("daq_energy_raw"))
+                end
                 @info "Auto calibrating $det ($ch)"
                 result_autocal, report_autocal = autocal_energy(e_raw, raw_config_det.th228_cal_lines; mode=:ratio, min_e=raw_config_det.min_e, max_e=raw_config_det.max_e, max_e_binning_quantile=raw_config_det.max_e_binning_quantile, σ=raw_config_det.σ, threshold=raw_config_det.threshold, min_n_peaks=raw_config_det.min_n_peaks, max_n_peaks=raw_config_det.max_n_peaks, α=raw_config_det.α, rtol=raw_config_det.rtol)
                 f_calib = result_autocal.f_calib
@@ -161,8 +171,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                     lh5open(outfile, "w") do output
                         for (label, window) in energy_windows
                             @debug "Filtering $label for detector $det ($ch)"
-                            # slim_data = read_ldata(l200, DataTier(:raw), filekeys, det; filterby=@pf f_calib($daqenergy) ∈ window)
-                            # slim_data = read_ldata(l200, DataTier(:raw), filekeys, det; filterby=@pf f_calib($daqenergy) ∈ window)
                             output[:jlpks, det, label] = slim_data |> filterby(@pf f_calib($daqenergy) ∈ window)
                         end
                     end
