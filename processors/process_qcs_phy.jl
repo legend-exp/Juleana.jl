@@ -139,9 +139,9 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
     @info "Saved QC-survival pars to disk"
 
     # plot the final survival fractions for all detectors from the parameter database
-    fig = LegendMakie.lplot(chinfo, pars_db, [:survival_fractions, :pulser, :is_single_pulse]; figsize = (max(1600, 18 * length(chinfo)), 600), ylabel = "Survival fraction (%)", color = LegendMakie.AchatBlue, label = "Pulser", watermark = false)
+    fig = LegendMakie.lplot(chinfo, pars_db, [:survival_fractions, :pulser, :is_single_pulse]; figsize = (max(1600, 18 * length(chinfo)), 600), ylabel = "Survival fraction (%)", color = LegendMakie.AchatBlue, label = "Pulser", detector_status_colors = true, watermark = false)
     ax = Makie.current_axis()
-    LegendMakie.parameterplot!(ax, chinfo, pars_db, [:survival_fractions, :forced_trigger, :is_empty_trace]; ylabel = "Survival fraction (%)", color = LegendMakie.BEGeOrange, label = "Forced trigger empty trace")
+    LegendMakie.parameterplot!(ax, chinfo, pars_db, [:survival_fractions, :forced_trigger, :is_empty_trace]; ylabel = "Survival fraction (%)", color = LegendMakie.BEGeOrange, label = "Forced trigger empty trace", detector_status_colors = true)
     ax.title = get_plottitle(filekey, :all, "QC Survival Fractions")
     Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
     LegendMakie.add_watermarks!(final = true)
