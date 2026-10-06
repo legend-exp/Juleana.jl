@@ -16,7 +16,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, :Usability, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -78,7 +78,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for filter_type in aoe_filter
-                log_info = log_nt((det, ch, part, ProcessStatus(1), chinfo_det.usability, filter_type, fill("-", 4)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -90,7 +90,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
             @debug "Detector $(det) already processed, check missing filters"
             for filter_type in aoe_filter
                 if haskey(pars_db_det[det], filter_type)
-                    log_info = log_nt((det, ch, part, ProcessStatus(1), chinfo_det.usability, filter_type, pars_db_det[det][filter_type].wl, pars_db_det[det][filter_type].sf, pars_db_det[det][filter_type].n_dep, pars_db_det[det][filter_type].n_sep, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, pars_db_det[det][filter_type].wl, pars_db_det[det][filter_type].sf, pars_db_det[det][filter_type].n_dep, pars_db_det[det][filter_type].n_sep, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -211,7 +211,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf; digits=2)) for detector $det ($ch)"""
 
                 # write log
-                log_info = log_nt((det, ch, part, ProcessStatus(1), chinfo_det.usability, filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
                 
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = true
@@ -222,7 +222,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((det, ch, part, ProcessStatus(0), chinfo_det.usability, filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false

@@ -28,7 +28,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt_cut = NamedTuple{(:Detector, :Channel, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
+    log_nt_cut = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -59,7 +59,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
             @debug "Detector $(det) already processed, check missing energy types"
             for psd_classifier in psd_classifiers
                 if haskey(pars_db[det], psd_classifier)
-                    log_info = log_nt_cut((det, ch, ProcessStatus(1), psd_classifier, pars_db[det][psd_classifier].cuts.lowcut, pars_db[det][psd_classifier].peaks.ds[:Tl208SEP].sf, pars_db[det][psd_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((det, detector_status(chinfo_det.usability), ProcessStatus(1), psd_classifier, pars_db[det][psd_classifier].cuts.lowcut, pars_db[det][psd_classifier].peaks.ds[:Tl208SEP].sf, pars_db[det][psd_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[psd_classifier] = log_info
                     processed_dict[psd_classifier] = false
@@ -220,7 +220,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
                 # save results
                 result = merge((cuts = (lowcut = aoe_low_cut, highcut = aoe_high_cut, lq = lq_cut), ), (peaks = (low = result_peaks_low, ds = result_peaks_ds, low_lq = result_peaks_low_lq, lq_ds = result_peaks_lq_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds, low_lq = qbb_result_low_lq, lq_ds = qbb_result_lq_ds)))
 
-                log_info = log_nt_cut((det, ch, ProcessStatus(1), psd_classifier, aoe_low_cut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
+                log_info = log_nt_cut((det, detector_status(chinfo_det.usability), ProcessStatus(1), psd_classifier, aoe_low_cut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[psd_classifier]   = result
@@ -230,7 +230,7 @@ function process_psd_efficiencies(processing_config::PropDict, l200::LegendData,
                 GC.gc()
             catch e
                 @error "Error in $psd_classifier cut generation: $(truncate_error(e))"
-                log_info = log_nt_cut((det, ch, ProcessStatus(0), psd_classifier, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt_cut((det, detector_status(chinfo_det.usability), ProcessStatus(0), psd_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[psd_classifier] = log_info

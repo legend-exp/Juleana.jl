@@ -14,7 +14,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Partition, :Channel, :Plot, :Status, :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, :Plot, :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -37,7 +37,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
 
         if only_first_period && period != first(partinfo_det.period)
             @info "Skip $det in partition $part for period $period, as it starts in period $(first(partinfo_det.period))"
-            log_det = log_nt((det, part, ch, :all, ProcessStatus(0), "Skipped, starts in period $(first(partinfo_det.period))"))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), :all, "Skipped, starts in period $(first(partinfo_det.period))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det), skipped = true)
         end
 
@@ -57,7 +57,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
             read_ldata((:timestamp, :blmean, :blsigma, :e_10410), l200, DataTier(:jldsp), :phy, partinfo_det, det)
         catch e
             @error "Stability data for $det in partition $part cannot be loaded: $(truncate_error(e))"
-            log_det = log_nt((det, part, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), :all, "$(truncate_error(e))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
 
@@ -65,7 +65,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
             read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlpls), :phy, partinfo_det, det_puls)
         catch e
             @error "Pulser data for $det_puls in partition $part cannot be loaded: $(truncate_error(e))"
-            log_det = log_nt((det, part, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), :all, "$(truncate_error(e))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
         finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
@@ -85,11 +85,11 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
             try
                 p = make_plot()
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, plot_name)
-                log_info_dict[plot_name]  = log_nt((det, part, ch, plot_name, ProcessStatus(1), ""))
+                log_info_dict[plot_name]  = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), plot_name, ""))
                 processed_dict[plot_name] = true
             catch e
                 @error "Failed plot $plot_name for detector $det ($ch) in partition $part: $(truncate_error(e))"
-                log_info_dict[plot_name]  = log_nt((det, part, ch, plot_name, ProcessStatus(0), "$(truncate_error(e))"))
+                log_info_dict[plot_name]  = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), plot_name, "$(truncate_error(e))"))
                 processed_dict[plot_name] = false
             end
         end

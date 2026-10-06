@@ -22,7 +22,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
 
     if reprocess @info "Reprocess all detectors" end
 
-    log_nt = NamedTuple{(:Detector, :Channel, :Plot, :Status, :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, :Plot, :Error)}
 
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
@@ -42,7 +42,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
             read_ldata((:timestamp, :blmean, :blsigma, :e_10410), l200, DataTier(:jldsp), :phy, period, run, det)
         catch e
             @error "Stability data for $det cannot be loaded: $(truncate_error(e))"
-            log_det = log_nt((det, ch, :all, ProcessStatus(0), "$(truncate_error(e))"))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), :all, "$(truncate_error(e))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
 
@@ -63,11 +63,11 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
             try
                 p = make_plot()
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, plot_name)
-                log_info_dict[plot_name] = log_nt((det, ch, plot_name, ProcessStatus(1), ""))
+                log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), plot_name, ""))
                 processed_dict[plot_name] = true
             catch e
                 @error "Failed plot $plot_name for detector $det ($ch): $(truncate_error(e))"
-                log_info_dict[plot_name] = log_nt((det, ch, plot_name, ProcessStatus(0), "$(truncate_error(e))"))
+                log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), plot_name, "$(truncate_error(e))"))
                 processed_dict[plot_name] = false
             end
         end

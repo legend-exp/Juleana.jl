@@ -24,7 +24,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -40,7 +40,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         if !reprocess && haskey(pars_db, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, ch, ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
             return (processed = false, log = log_det)
         end
 
@@ -122,7 +122,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for detector $det ($ch)"
 
-        log_det = log_nt((det, ch, ProcessStatus(1), result.μ, result.σ, "-"))
+        log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), result.μ, result.σ, "-"))
         return (result = (τ = result.μ, fit = result), processed = true, log = log_det)
     end
 

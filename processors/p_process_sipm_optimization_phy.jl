@@ -14,7 +14,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -81,7 +81,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for filter_type in e_filter
-                log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -94,7 +94,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
             for filter_type in e_filter
                 if haskey(pars_db_det[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, pars_db_det[det][filter_type].wl, pars_db_det[det][filter_type].gain, pars_db_det[det][filter_type].res_1pe, pars_db_det[det][filter_type].trig_threshold.bsl_deriv.σ, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, pars_db_det[det][filter_type].wl, pars_db_det[det][filter_type].gain, pars_db_det[det][filter_type].res_1pe, pars_db_det[det][filter_type].trig_threshold.bsl_deriv.σ, "Already processed --> skipped."))
                     processed_dict[filter_type] = false
                     log_info_dict[filter_type] = log_info
                 end
@@ -200,7 +200,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end
 
-                log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, result_wl.wl, result_wl.gain, result_wl.res_1pe, result_trig.bsl_deriv.σ, "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, result_wl.wl, result_wl.gain, result_wl.res_1pe, result_trig.bsl_deriv.σ, "-"))
 
                 # add results to dict
                 result_wl_dict[filter_type] = merge(result_wl, (trig_threshold = result_trig, ))
@@ -211,7 +211,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
                 GC.gc()
             catch e
                 @error "Error in processing detector $det: $(truncate_error(e))"
-                log_info = log_nt((det, ch, part, ProcessStatus(0), filter_type, "-", "-", "-", "-", string(e)))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), filter_type, "-", "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false

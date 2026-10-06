@@ -19,7 +19,7 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Pulser single-pulse SF"), Symbol("Forced-trigger empty-trace SF"), Symbol("Number Pulser Events"), Symbol("Number Forced-trigger Events"), Symbol("Number Physics Events"), Symbol("Single pulses with invalid DSP properties"), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Pulser single-pulse SF"), Symbol("Forced-trigger empty-trace SF"), Symbol("Number Pulser Events"), Symbol("Number Forced-trigger Events"), Symbol("Number Physics Events"), Symbol("Single pulses with invalid DSP properties"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -52,7 +52,7 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
 
         if !reprocess && haskey(pars_db, det) && haskey(pars_db[det].survival_fractions, :pulser) && haskey(pars_db[det].survival_fractions, :forced_trigger) && haskey(pars_db[det].survival_fractions.pulser, :is_valid_dsp) && haskey(pars_db[det], :n_pulser) && haskey(pars_db[det], :n_forced) && haskey(pars_db[det], :n_physics) && haskey(pars_db[det], :n_invalid_dsp_single_pulse) && isfile(qcsfilename)
             sf = pars_db[det].survival_fractions
-            log_det = log_nt((det, ch, ProcessStatus(1), sf.pulser.is_single_pulse, sf.forced_trigger.is_empty_trace, pars_db[det].n_pulser, pars_db[det].n_forced, pars_db[det].n_physics, pars_db[det].n_invalid_dsp_single_pulse, "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), sf.pulser.is_single_pulse, sf.forced_trigger.is_empty_trace, pars_db[det].n_pulser, pars_db[det].n_forced, pars_db[det].n_physics, pars_db[det].n_invalid_dsp_single_pulse, "Already processed --> skipped."))
             @debug "Detector $det already processed"
             return (processed = false, log = log_det)
         end
@@ -121,7 +121,7 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
             end
         end
 
-        log_det = log_nt((det, ch, ProcessStatus(1), pulser_sf.is_single_pulse, forced_trigger_sf.is_empty_trace, n_pulser, n_forced, n_physics, n_invalid_dsp_single_pulse, "-"))
+        log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pulser_sf.is_single_pulse, forced_trigger_sf.is_empty_trace, n_pulser, n_forced, n_physics, n_invalid_dsp_single_pulse, "-"))
         return (result = (func = qc_propfunc, survival_fractions = survival_fractions, n_pulser = n_pulser, n_forced = n_forced, n_single_pulse = n_single_pulse, n_physics = n_physics, n_invalid_dsp_single_pulse = n_invalid_dsp_single_pulse), log = log_det, processed = true)
     end
 

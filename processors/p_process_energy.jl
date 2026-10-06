@@ -14,7 +14,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -62,7 +62,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for e_type in energy_types
-                log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 processed_dict[e_type] = false
                 log_info_dict[e_type] = log_info
@@ -75,7 +75,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
             for e_type in energy_types
                 if haskey(pars_db_det[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, pars_db_det[det][e_type].fwhm.qbb, pars_db_det[det][e_type].fit.Tl208FEP.fwhm, pars_db_det[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), e_type, pars_db_det[det][e_type].fwhm.qbb, pars_db_det[det][e_type].fit.Tl208FEP.fwhm, pars_db_det[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -198,7 +198,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
 
                 yield()
 
-                log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), e_type, result_fwhm.qbb, result_fit[:Tl208FEP].fwhm, result_calib.par[2], "-"))
 
                 result_energy = (
                     fwhm = result_fwhm,
@@ -214,7 +214,7 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 GC.gc()
             catch e
                 @error "Error in $e_type: $(truncate_error(e))"
-                log_info = log_nt((det, ch, part, ProcessStatus(0), e_type, "-", "-", "-", e))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), e_type, "-", "-", "-", e))
 
                 # add results to dict
                 log_info_dict[e_type] = log_info

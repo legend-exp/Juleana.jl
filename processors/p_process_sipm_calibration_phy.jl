@@ -14,7 +14,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -73,7 +73,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for e_type in energy_types
-                log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), e_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false
@@ -86,7 +86,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
             for e_type in energy_types
                 if haskey(pars_db_det[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, pars_db_det[det][e_type].fit.positions[1], pars_db_det[det][e_type].fit.resolutions_cal[1], pars_db_det[det][e_type].cal.par[2], "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), e_type, pars_db_det[det][e_type].fit.positions[1], pars_db_det[det][e_type].fit.resolutions_cal[1], pars_db_det[det][e_type].cal.par[2], "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -205,7 +205,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                 p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey_det, part, det, "Calibration Curve"; additional_type=string(e_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("sipm_calibration_curve_$(e_type)"))
                 
-                log_info = log_nt((det, ch, part, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
 
                 result_energy = (
                     m_cal_simple = result_simple.c,
@@ -224,7 +224,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
                 GC.gc()
             catch e
                 @error "Error in processing detector $det: $(truncate_error(e))"
-                log_info = log_nt((det, ch, part, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), e_type, "-", "-", "-", string(e)))
                 # add results to dict
                 log_info_dict[e_type] = log_info
                 processed_dict[e_type] = false

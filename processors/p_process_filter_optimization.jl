@@ -16,7 +16,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
+    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -77,7 +77,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for filter_type in e_filter
-                log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -90,7 +90,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
             for filter_type in e_filter
                 if haskey(pars_db_det[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, pars_db_det[det][filter_type].rt, pars_db_det[det][filter_type].ft, pars_db_det[det][filter_type].min_fwhm, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, pars_db_det[det][filter_type].rt, pars_db_det[det][filter_type].ft, pars_db_det[det][filter_type].min_fwhm, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -216,7 +216,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey_det, part, det, "FEP FT Scan"; additional_type=string(filter_type)))
                 savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("fwhm_ft_scan_$(filter_type)"))
 
-                log_info = log_nt((det, ch, part, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
                 # add results to dict
                 result_rt_ft_dict[filter_type] = merge(result_rt, result_ft)
@@ -228,7 +228,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((det, ch, part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
