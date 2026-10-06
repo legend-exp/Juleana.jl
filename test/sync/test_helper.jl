@@ -49,11 +49,18 @@
         """
         @test parse_df(text) == 162144000 * 1024
         @test_throws "cannot parse df output" parse_df("Filesystem\n")
+        @test parse_df("""
+        Filesystem     1024-blocks Used Available Capacity Mounted on
+        my server:/a b   1000 400 600      40% /mnt/x
+        """) == 600 * 1024
+        @test_throws "cannot parse df output" parse_df("Filesystem\nno capacity column here at all\n")
     end
 
     @testset "pushing a file" begin
         @test collect(push_command(ssh, "/a/extract.jl", "/stage").exec) ==
               ["rsync", "-t", "--", "/a/extract.jl", "cslg4:/stage/"]
+        @test collect(push_command(ssh, "/a/job.toml", "/stage"; checksum = true).exec) ==
+              ["rsync", "-t", "--checksum", "--", "/a/job.toml", "cslg4:/stage/"]
         src = joinpath(work, "pushed.txt")
         write(src, "payload")
         dest = push_file(h, src, joinpath(work, "dest", "dir"))
@@ -86,6 +93,27 @@
             h, staging, [joinpath(staging, "..", "outside.txt")])
         @test_throws "not below the staging directory" remove_staged!(h, staging, ["relative.txt"])
         @test isfile(outside)
+
+        # A degenerate or relative staging root removes nothing and is rejected up front.
+        victim = joinpath(work, "victim.txt")
+        write(victim, "4")
+        for bad_root in ("/", "//", "", "relative/stage")
+            @test_throws "staging directory must be an absolute path" remove_staged!(h, bad_root, [victim])
+        end
+        @test isfile(victim)
+
+        # A symlink anywhere under staging blocks every removal.
+        linked = joinpath(work, "linked")
+        staged = joinpath(linked, "d", "f.lh5")
+        mkpath(dirname(staged))
+        write(staged, "5")
+        symlink(outside, joinpath(linked, "d", "escape"))
+        @test_throws "contains a symlink" remove_staged!(h, linked, [staged])
+        @test isfile(staged) && isfile(outside)
+        rm(joinpath(linked, "d", "escape"))
+        symlink(dirname(outside), joinpath(linked, "dirlink"))
+        @test_throws "contains a symlink" remove_staged!(h, linked, [staged])
+        @test isfile(staged) && isfile(outside)
     end
 
     @testset "host configuration resolution" begin
@@ -171,6 +199,9 @@
         @test partial.lacking == ["ParallelProcessingTools"]
         @test occursin("lacks ParallelProcessingTools", environment_problem(partial, h, c))
 
+        @test_throws "already exists; refusing to modify it" bootstrap_environment!(
+            h, HelperConfig(; julia = stub, julia_project = joinpath(work, "partial")))
+        @test !occursin("ParallelProcessingTools =", read(joinpath(work, "partial", "Project.toml"), String))
         @test_throws "refusing to modify the dataflow project" bootstrap_environment!(h, HelperConfig())
         @test_throws "no such file or directory" ensure_environment(
             h, HelperConfig(; julia = joinpath(work, "no-julia")))

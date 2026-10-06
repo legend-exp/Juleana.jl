@@ -245,26 +245,30 @@ rsync_source(::LocalHost, root::AbstractString) = "$(rstrip(root, '/'))/"
 
 Run `cmd` on `h` and call `on_line(line)` for each line of standard output as it
 arrives. A nonzero exit is an error carrying the command and the captured standard
-error; a failing `on_line` kills the command and rethrows. Returns the standard
+error; a failing `on_line` kills the local command and rethrows (for an `SSHHost`
+this ends the client, not necessarily the process on the remote). Returns the standard
 error text of a successful run, which callers must not discard: a command can
 warn and still exit 0.
 """
 function stream_remote(h::RemoteHost, cmd::Cmd, on_line)
     full = remote_command(h, cmd)
     errfile = tempname()
-    proc = open(pipeline(ignorestatus(full); stderr = errfile), "r")
-    try
-        for line in eachline(proc)
-            on_line(line)
+    proc, text = try
+        proc = open(pipeline(ignorestatus(full); stderr = errfile), "r")
+        try
+            for line in eachline(proc)
+                on_line(line)
+            end
+        catch
+            kill(proc)
+            rethrow()
+        finally
+            wait(proc)
         end
-    catch
-        kill(proc)
-        rethrow()
+        proc, read(errfile, String)
     finally
-        wait(proc)
+        rm(errfile; force = true)
     end
-    text = read(errfile, String)
-    rm(errfile; force = true)
     success(proc) || throw(ErrorException(
         "remote command failed with exit code $(proc.exitcode): $full\n$text"))
     text
@@ -332,8 +336,11 @@ function parse_df(text::AbstractString)
     lines = filter(!isempty, split(chomp(text), '\n'))
     length(lines) >= 2 || throw(ArgumentError("cannot parse df output: $(repr(text))"))
     fields = split(last(lines))
-    length(fields) >= 6 || throw(ArgumentError("cannot parse df output: $(repr(text))"))
-    parse(Int, fields[4]) * 1024
+    # Counted from the capacity column, so a file system name with spaces does not shift the columns.
+    capacity = findlast(f -> endswith(f, "%"), fields)
+    (capacity !== nothing && capacity >= 4) || throw(ArgumentError(
+        "cannot parse df output: $(repr(text))"))
+    parse(Int, fields[capacity - 1]) * 1024
 end
 
 """
@@ -345,32 +352,37 @@ free_bytes(h::SSHHost, dir::AbstractString) = parse_df(run_remote(h, `df -Pk $di
 free_bytes(::LocalHost, dir::AbstractString) = Int(Base.diskstat(dir).available)
 
 """
-    push_command(h::SSHHost, file, remote_dir)::Cmd
+    push_command(h::SSHHost, file, remote_dir; checksum = false)::Cmd
 
 The rsync invocation that copies `file` into `remote_dir` on `h`. `-t` keeps the
-modification time, so an unchanged file is not sent again.
+modification time, so an unchanged file is not sent again. With `checksum`, rsync
+compares content instead of size and time, which a file that is rewritten with the
+same size within one second needs.
 """
-push_command(h::SSHHost, file::AbstractString, remote_dir::AbstractString) =
-    `rsync -t -- $file $(h.alias):$(rstrip(remote_dir, '/'))/`
+push_command(h::SSHHost, file::AbstractString, remote_dir::AbstractString; checksum::Bool = false) =
+    `rsync -t $(checksum ? ["--checksum"] : String[]) -- $file $(h.alias):$(rstrip(remote_dir, '/'))/`
 
 """
-    push_file(h::RemoteHost, file, remote_dir)::String
+    push_file(h::RemoteHost, file, remote_dir; checksum = false)::String
 
 Copy `file` into `remote_dir` on `h`, creating the directory, and return the path
-of the copy on `h`.
+of the copy on `h`. `checksum` is passed to [`push_command`](@ref); a `LocalHost`
+always copies.
 """
-function push_file(h::SSHHost, file::AbstractString, remote_dir::AbstractString)
+function push_file(h::SSHHost, file::AbstractString, remote_dir::AbstractString;
+                   checksum::Bool = false)
     make_dir(h, remote_dir)
     out = IOBuffer()
     err = IOBuffer()
-    cmd = push_command(h, file, remote_dir)
+    cmd = push_command(h, file, remote_dir; checksum)
     proc = run(pipeline(ignorestatus(cmd); stdout = out, stderr = err))
     success(proc) || throw(ErrorException(
         "rsync failed with exit code $(proc.exitcode): $cmd\n$(String(take!(err)))"))
     joinpath(remote_dir, basename(file))
 end
 
-function push_file(::LocalHost, file::AbstractString, remote_dir::AbstractString)
+function push_file(::LocalHost, file::AbstractString, remote_dir::AbstractString;
+                   checksum::Bool = false)
     mkpath(remote_dir)
     dest = joinpath(remote_dir, basename(file))
     cp(file, dest; force = true)
@@ -385,17 +397,38 @@ Remove the files `paths` from `h`, then the ancestors of those files below
 empty and are not an ancestor of a removed file are never touched. This is the
 only place the tool deletes anything on a remote host, so every path must be
 absolute, free of `..` components and below `staging`; anything else is an error
-and nothing is removed. `staging` itself stays.
+and nothing is removed. `staging` itself stays, and it must be an absolute path
+with at least one component. Symlinks are never followed: a symlink anywhere
+under `staging` is an error, since the tool creates none there.
 """
 function remove_staged!(h::RemoteHost, staging::AbstractString,
                         paths::AbstractVector{<:AbstractString})
     root = String(rstrip(staging, '/'))
+    (isabspath(root) && length(splitpath(root)) >= 2 && !(".." in splitpath(root))) ||
+        throw(ArgumentError("refusing to remove below $(repr(staging)): the staging directory must be an absolute path other than /"))
     for path in paths
         (isabspath(path) && startswith(path, root * "/") && !(".." in splitpath(path))) ||
             throw(ArgumentError("refusing to remove $path: it is not below the staging directory $root"))
     end
+    link = find_symlink(h, root)
+    link === nothing || throw(ArgumentError(
+        "staging directory $root contains a symlink ($link); refusing to remove anything"))
     remove_paths!(h, root, paths)
     length(paths)
+end
+
+# The first symlink at or below `root`, or `nothing`.
+find_symlink(h::SSHHost, root::String) =
+    (out = strip(run_remote(h, `find $root -type l -print -quit`)); isempty(out) ? nothing : String(out))
+
+function find_symlink(::LocalHost, root::String)
+    islink(root) && return root
+    isdir(root) || return nothing
+    for (dir, dirs, files) in walkdir(root; follow_symlinks = false)
+        for name in Iterators.flatten((dirs, files))
+            islink(joinpath(dir, name)) && return joinpath(dir, name)
+        end
+    end
 end
 
 # The directories between `root` (exclusive) and the files `paths`, deepest first.

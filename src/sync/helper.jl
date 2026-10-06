@@ -123,11 +123,16 @@ environment_problem(s::EnvironmentStatus, h::RemoteHost, c::HelperConfig) =
     bootstrap_environment!(h::RemoteHost, c::HelperConfig)::EnvironmentStatus
 
 Run [`bootstrap_command`](@ref) and return the resulting status, which must be
-ready. The dataflow project that `LocalHost` uses by default is never modified.
+ready. Only an environment that does not exist yet is created: an existing one is
+never modified, and neither is the dataflow project that `LocalHost` uses by default.
 """
 function bootstrap_environment!(h::RemoteHost, c::HelperConfig)
     h isa LocalHost && c.julia_project === nothing && throw(ArgumentError(
         "refusing to modify the dataflow project $DATAFLOW_PROJECT; name a helper environment with julia_project"))
+    existing = ensure_environment(h, c)
+    existing.present && throw(ErrorException(
+        "the helper environment $(existing.project) already exists; refusing to modify it. " *
+        "Add the missing packages ($(isempty(existing.lacking) ? "none" : join(existing.lacking, ", "))) yourself, or name another julia_project in hosts.json"))
     make_dir(h, julia_project(h, c))
     run_remote(h, bootstrap_command(h, c))
     status = ensure_environment(h, c)
@@ -169,7 +174,7 @@ function run_helper(h::RemoteHost, c::HelperConfig, command::AbstractString,
     jobfile = mktempdir() do dir
         file = joinpath(dir, "$command.toml")
         open(io -> TOML.print(io, spec), file, "w")
-        push_file(h, file, joinpath(staging, "jobs"))
+        push_file(h, file, joinpath(staging, "jobs"); checksum = true)
     end
     cmd = `$(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) $script $command $jobfile`
     jobs > 0 && (cmd = `$cmd --jobs $jobs`)
