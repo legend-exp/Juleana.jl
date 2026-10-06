@@ -1,12 +1,15 @@
 using Test
 using Dates
 using PropDicts
+using TOML
+using HDF5
 using LegendDataManagement: LegendDataConfig, data_path
 using Tachikoma: TestBackend, Frame, Rect, KeyEvent, TaskEvent, GraphicsRegion, PixelSnapshot,
                  reset!, row_text, find_text, drain_tasks!, render_widget!,
                  view, update!, should_quit
 
 include(joinpath(@__DIR__, "..", "..", "src", "sync", "JuleanaSync.jl"))
+include(joinpath(@__DIR__, "fixture_lh5.jl"))
 
 # JuleanaSync exports nothing, so every name the tests use is named here. Each
 # task appends the names from its Interfaces/Produces block to this line.
@@ -45,13 +48,18 @@ end
 
 const LOCAL_ROOT = mktempdir()
 
+const SELECTED_TEST_FILES = filter(!isempty, split(get(ENV, "SYNC_TEST_FILES", ""), ','))
+run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &&
+                 include(joinpath(@__DIR__, name))
+
 @testset "JuleanaSync" begin
-    include("test_remote.jl")
-    include("test_production.jl")
-    include("test_inventory.jl")
-    include("test_selection.jl")
-    include("test_estimate.jl")
-    include("test_transfer.jl")
-    include("test_options.jl")
-    include("test_tui.jl")
+    run_file("test_extract_helper.jl")
+    run_file("test_remote.jl")
+    run_file("test_production.jl")
+    run_file("test_inventory.jl")
+    run_file("test_selection.jl")
+    run_file("test_estimate.jl")
+    run_file("test_transfer.jl")
+    run_file("test_options.jl")
+    run_file("test_tui.jl")
 end
