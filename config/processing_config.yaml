@@ -23,7 +23,7 @@ config:
     JULIA_WORKER_TIMEOUT: "240"
 
 processing:
-  periods: [16, 18, 19]
+  periods: [16, 18, 19, 20, 21, 22]
   runs: all
   analysis_runs_only: false
   only_partitions: false
