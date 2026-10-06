@@ -4,8 +4,9 @@
 One row of the inventory tree.
 
 `kind` is `:production` (the tree root), `:section` (one configured path key),
-`:dir`, `:group` (one filekey or one detector, standing for the files that belong
-to it) or `:file`.
+`:dir`, `:group` (one filekey or one detector tier file, standing for the files that
+belong to it), `:file`, `:detectors` (the lazily listed per-detector view of a run
+directory) or `:detector` (one top-level HDF5 group of the run's files).
 
 `children === nothing` means "not listed yet", which is different from an empty
 directory. `mode` is the mode chosen explicitly on this node; the mode that
@@ -111,12 +112,13 @@ function production_tree(h::RemoteHost, p::Production)
 end
 
 """
-    expand!(h::RemoteHost, p::Production, node::Node)::Node
+    expand!(h::RemoteHost, p::Production, node::Node; detectors = false)::Node
 
 List `node` if it has not been listed yet, size its directory children with one
-call, and refresh its local state. Returns `node`.
+call, and refresh its local state. With `detectors`, a directory that holds filekey
+files also gets its `:detectors` child. Returns `node`.
 """
-function expand!(h::RemoteHost, p::Production, node::Node)
+function expand!(h::RemoteHost, p::Production, node::Node; detectors::Bool = false)
     node.children === nothing || return node
     node.kind in (:section, :dir) || throw(ArgumentError(
         "a :$(node.kind) node cannot be expanded: $(node.label)"))
@@ -132,6 +134,7 @@ function expand!(h::RemoteHost, p::Production, node::Node)
         child.parent = node
     end
     node.children = children
+    detectors && !isempty(filekey_groups(node)) && ensure_detectors!(node)
     node.local_state = node_local_state(p, node)
     node
 end
@@ -149,7 +152,8 @@ function node_local_state(p::Production, node::Node)
     isfile(path) && return :present
     isdir(path) || return :missing
     node.children === nothing && return isempty(readdir(path)) ? :missing : :present
-    states = map(c -> node_local_state(p, c), node.children)
+    # Detector rows have no path on the host, so they carry no local state.
+    states = [node_local_state(p, c) for c in node.children if c.kind ∉ (:detectors, :detector)]
     all(==(:missing), states) && return :missing
     all(s -> s in (:present, :linked), states) ? :present : :partial
 end
@@ -163,3 +167,85 @@ directory has not been listed or holds no filekey-named files.
 filekey_groups(node::Node) = node.children === nothing ? Node[] :
     [c for c in node.children
      if c.kind == :group && LegendDataManagement._can_convert_to(Timestamp, c.label)]
+
+"""
+    tier_name(file::AbstractString)::Union{Nothing,String}
+
+The tier of a LEGEND tier file name, `jldsp` for `...-tier_jldsp.lh5`, and
+`nothing` for any other name.
+"""
+function tier_name(file::AbstractString)
+    m = match(r"-tier_([a-z0-9]+)\.[a-z0-9]+$", file)
+    m === nothing ? nothing : String(m[1])
+end
+
+"""
+    ensure_detectors!(run::Node)::Node
+
+The `:detectors` child of the listed run directory `run`, appended when it is not
+there yet. Its `remote_path` does not exist on the host; it only identifies the
+node.
+"""
+function ensure_detectors!(run::Node)
+    run.children === nothing && throw(ArgumentError(
+        "$(run.label) has not been listed yet; expand it before asking for detectors"))
+    i = findfirst(c -> c.kind == :detectors, run.children)
+    i === nothing || return run.children[i]
+    isempty(filekey_groups(run)) && throw(ArgumentError(
+        "$(run.label) holds no filekey files, so it has no detectors"))
+    node = Node("detectors", joinpath(run.remote_path, "detectors"), :detectors; parent = run)
+    push!(run.children, node)
+    node
+end
+
+"""
+    detector_nodes(h::RemoteHost, helper::HelperConfig, run::Node; jobs = 0)::Vector{Node}
+
+Inspect the first filekey file of `run` with the remote helper and return one
+detached `:detector` node per top-level group, sized by the group's stored bytes.
+A file whose only group is named after its tier (`jlevt` in a `jlevt` file) has no
+detector axis and gives an empty vector; whether a tier has per-detector groups is
+decided by looking, never by a list of tier names.
+"""
+function detector_nodes(h::RemoteHost, helper::HelperConfig, run::Node; jobs::Integer = 0)
+    groups = filekey_groups(run)
+    isempty(groups) && throw(ArgumentError("$(run.label) holds no filekey files to inspect"))
+    file = only(first(groups).children)
+    names, bytes = only(inspect_files(h, helper, [file.remote_path]; jobs))
+    names == [tier_name(file.label)] && return Node[]
+    [Node(names[i], joinpath(run.remote_path, "detectors", names[i]), :detector; size = bytes[i])
+     for i in eachindex(names, bytes)]
+end
+
+"""
+    attach_detectors!(node::Node, children::Vector{Node})::Node
+
+Make `children` the rows of the `:detectors` node `node` and size it by their sum.
+"""
+function attach_detectors!(node::Node, children::Vector{Node})
+    for child in children
+        child.parent = node
+    end
+    node.children = children
+    node.size = sum(c -> something(c.size, 0), children; init = 0)
+    node
+end
+
+"""
+    expand_detectors!(h::RemoteHost, helper::HelperConfig, node::Node; jobs = 0)::Node
+
+List the detectors of the run that `node` belongs to, once. Returns `node`.
+"""
+function expand_detectors!(h::RemoteHost, helper::HelperConfig, node::Node; jobs::Integer = 0)
+    node.kind == :detectors || throw(ArgumentError("not a detectors node: $(node.label)"))
+    node.children === nothing || return node
+    attach_detectors!(node, detector_nodes(h, helper, node.parent; jobs))
+end
+
+"""
+    has_detectors(node::Node)::Bool
+
+`false` for a `:detectors` node that was inspected and found no per-detector groups;
+`true` for one that has detectors or has not been inspected yet.
+"""
+has_detectors(node::Node) = node.children === nothing || !isempty(node.children)

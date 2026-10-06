@@ -10,6 +10,7 @@ using Tachikoma: TestBackend, Frame, Rect, KeyEvent, TaskEvent, GraphicsRegion, 
 
 include(joinpath(@__DIR__, "..", "..", "src", "sync", "JuleanaSync.jl"))
 include(joinpath(@__DIR__, "fixture_lh5.jl"))
+include(joinpath(@__DIR__, "fixture_extract_remote.jl"))
 
 # JuleanaSync exports nothing, so every name the tests use is named here. Each
 # task appends the names from its Interfaces/Produces block to this line.
@@ -39,7 +40,9 @@ using .JuleanaSync: main,
     ensure_environment, environment_ready, environment_problem, bootstrap_command,
     bootstrap_environment!, parse_record, run_helper, inspect_files, host_helper_config,
     HELPER_SCRIPT, HELPER_PACKAGES, DATAFLOW_PROJECT, DEFAULT_REMOTE_JULIA,
-    DEFAULT_REMOTE_PROJECT, REMOTE_STAGING_SCRIPT
+    DEFAULT_REMOTE_PROJECT, REMOTE_STAGING_SCRIPT,
+    ExtractEntry, tier_name, ensure_detectors!, detector_nodes, attach_detectors!,
+    expand_detectors!, has_detectors
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -52,6 +55,8 @@ const FIXTURE_ROOT = let dest = joinpath(mktempdir(), "remote")
     rm(joinpath(dest, "test", "config.json.in"))
     dest
 end
+
+const EXTRACT_ROOT = make_extract_remote()
 
 const LOCAL_ROOT = mktempdir()
 
@@ -66,6 +71,7 @@ run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &
     run_file("test_production.jl")
     run_file("test_inventory.jl")
     run_file("test_selection.jl")
+    run_file("test_extract_tree.jl")
     run_file("test_estimate.jl")
     run_file("test_transfer.jl")
     run_file("test_options.jl")

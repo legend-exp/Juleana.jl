@@ -1,10 +1,23 @@
 """
+    ExtractEntry(run_dir, groups)
+
+The detectors to take out of every filekey file of one run directory: `run_dir`
+relative to the remote root, `groups` the top-level HDF5 group names, sorted.
+"""
+struct ExtractEntry
+    run_dir::String
+    groups::Vector{String}
+end
+
+Base.:(==)(a::ExtractEntry, b::ExtractEntry) = a.run_dir == b.run_dir && a.groups == b.groups
+
+"""
     Selection
 
 What the user chose, in a form that survives a restart: remote paths relative to
-the remote root, split into the ones to copy and the ones to link. Only the
-nodes carrying an explicit mode are listed; the tree is reconstructed by
-expanding those paths again.
+the remote root, split into the ones to copy and the ones to link, plus the
+detectors to extract from individual runs. Only the nodes carrying an explicit
+mode are listed; the tree is reconstructed by expanding those paths again.
 """
 struct Selection
     host::String
@@ -15,7 +28,12 @@ struct Selection
     copy::Vector{String}
     link::Vector{String}
     created::DateTime
+    extract::Vector{ExtractEntry}
 end
+
+Selection(host, production, remote_root, local_root, mount_root, copy, link, created) =
+    Selection(host, production, remote_root, local_root, mount_root, copy, link, created,
+              ExtractEntry[])
 
 """
     effective_mode(node::Node)::Symbol
@@ -41,8 +59,12 @@ that combination is how a few files are pulled out of an otherwise linked
 directory.
 """
 function set_mode!(node::Node, mode::Symbol)
-    mode in (:none, :copy, :link) || throw(ArgumentError(
-        "mode must be :none, :copy or :link, got :$mode"))
+    mode in (:none, :copy, :link, :extract) || throw(ArgumentError(
+        "mode must be :none, :copy, :link or :extract, got :$mode"))
+    mode == :extract && node.kind != :detector && throw(ArgumentError(
+        "only detector rows can be extracted, not the :$(node.kind) row $(node.label)"))
+    mode in (:copy, :link) && node.kind in (:detectors, :detector) && throw(ArgumentError(
+        "detector rows have no path on the host; use :extract, not :$mode, on $(node.label)"))
     node.mode = mode
     clear_descendants!(node, mode)
     node
@@ -82,7 +104,7 @@ function exclude!(node::Node)
         carry == :none && continue
         on_path = i < lastindex(ancestors) ? ancestors[i + 1] : node
         for sibling in level.children
-            sibling === on_path || set_mode!(sibling, carry)
+            sibling === on_path || sibling.kind == :detectors || set_mode!(sibling, carry)
         end
     end
     node
@@ -139,13 +161,16 @@ function find_node!(h::RemoteHost, p::Production, root::Node, rel::AbstractStrin
     node
 end
 
-function collect_modes!(node::Node, p::Production,
-                        copies::Vector{String}, links::Vector{String})
+function collect_modes!(node::Node, p::Production, copies::Vector{String},
+                        links::Vector{String}, extracts::Dict{String,Vector{String}})
     node.mode == :copy && push!(copies, relative(p, node.remote_path))
     node.mode == :link && push!(links, relative(p, node.remote_path))
+    # A detector row hangs below the run's `detectors` node, so its run is two levels up.
+    node.mode == :extract && push!(get!(extracts, relative(p, node.parent.parent.remote_path), String[]),
+                                   node.label)
     node.children === nothing && return nothing
     for child in node.children
-        collect_modes!(child, p, copies, links)
+        collect_modes!(child, p, copies, links, extracts)
     end
     nothing
 end
@@ -153,7 +178,8 @@ end
 function Selection(p::Production, host::AbstractString, root::Node)
     copies = String[]
     links = String[]
-    collect_modes!(root, p, copies, links)
+    extracts = Dict{String,Vector{String}}()
+    collect_modes!(root, p, copies, links, extracts)
     # The production's own config.json, the overlays applied to it and its metadata
     # checkout are what make the mirror openable at all, so they are copied whether
     # or not they were picked.
@@ -165,15 +191,17 @@ function Selection(p::Production, host::AbstractString, root::Node)
     for path in mandatory
         path in copies || push!(copies, path)
     end
+    entries = [ExtractEntry(run, sort!(groups)) for (run, groups) in sort!(collect(extracts); by = first)]
     Selection(host, p.name, p.remote_root, p.local_root, p.mount_root,
-              sort!(copies), sort!(links), now())
+              sort!(copies), sort!(links), now(), entries)
 end
 
 """
     selection_propdict(sel::Selection)::PropDict
 
 The serialized form. A missing mount root is written as `""`: `readprops` trims
-JSON nulls, so a null would come back as an absent key.
+JSON nulls, so a null would come back as an absent key. The extract entries are
+written as objects; a file without the key reads as no entries.
 """
 selection_propdict(sel::Selection) = PropDict(
     :host => sel.host,
@@ -183,16 +211,21 @@ selection_propdict(sel::Selection) = PropDict(
     :mount_root => sel.mount_root === nothing ? "" : sel.mount_root,
     :copy => sel.copy,
     :link => sel.link,
+    :extract => [PropDict(:run_dir => e.run_dir, :groups => e.groups) for e in sel.extract],
     :created => string(sel.created),
 )
 
 function Selection(props::PropDict)
     mount = String(props.mount_root)
+    # readprops returns array elements as plain dictionaries with string keys.
+    extract = haskey(props, :extract) ?
+              [ExtractEntry(String(e["run_dir"]), String.(e["groups"])) for e in props.extract] :
+              ExtractEntry[]
     Selection(String(props.host), String(props.production),
               String(props.remote_root), String(props.local_root),
               isempty(mount) ? nothing : mount,
               String.(props.copy), String.(props.link),
-              DateTime(String(props.created)))
+              DateTime(String(props.created)), extract)
 end
 
 """
@@ -223,19 +256,33 @@ function load_selection(path::AbstractString, p::Production)
 end
 
 """
-    apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection)::Node
+    apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection;
+                     helper = HelperConfig(), jobs = 0)::Node
 
-Expand `root` along every path in `sel` and set the modes it records. The overlay
-configs of `p` are copied with the production but are not nodes of its tree, so
-they are skipped.
+Expand `root` along every path in `sel` and set the modes it records, including
+the detectors of every extract entry (which are listed with the remote helper). The
+overlay configs of `p` are copied with the production but are not nodes of its tree,
+so they are skipped. A recorded detector group that is not in the first file of its
+run is an error.
 """
-function apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection)
+function apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection;
+                          helper::HelperConfig = HelperConfig(), jobs::Integer = 0)
     for rel in sel.link
         set_mode!(find_node!(h, p, root, rel), :link)
     end
     for rel in sel.copy
         rel in p.overlays && continue
         set_mode!(find_node!(h, p, root, rel), :copy)
+    end
+    for entry in sel.extract
+        run = find_node!(h, p, root, entry.run_dir)
+        detectors = expand_detectors!(h, helper, ensure_detectors!(run); jobs)
+        for group in entry.groups
+            i = findfirst(c -> c.label == group, detectors.children)
+            i === nothing && throw(ArgumentError(
+                "detector group $group of $(entry.run_dir) is not in the first file of the run"))
+            set_mode!(detectors.children[i], :extract)
+        end
     end
     root
 end
