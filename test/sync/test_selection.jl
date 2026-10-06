@@ -62,7 +62,8 @@
         @test effective_mode(r000.children[2]) == :none
 
         sel = Selection(p, "cslg4", root)
-        mandatory = [joinpath("test", "config.json"), joinpath("test", "legend-metadata")]
+        mandatory = [joinpath("test", "config.json"), "config_fixture.json",
+                     joinpath("test", "legend-metadata")]
         @test setdiff(sel.copy, mandatory) ==
               sort([relative(p, r000.children[1].remote_path),
                     relative(p, r000.children[3].remote_path)])
@@ -73,7 +74,8 @@
         # touches Node.mode and the paths Selection() collects from it.
         node(label, rel; parent = nothing) =
             Node(label, joinpath(FIXTURE_ROOT, "synthetic", rel), :dir; parent)
-        mandatory = [joinpath("test", "config.json"), joinpath("test", "legend-metadata")]
+        mandatory = [joinpath("test", "config.json"), "config_fixture.json",
+                     joinpath("test", "legend-metadata")]
 
         @testset "a multi-level path clears every ancestor and marks every sibling" begin
             root = node("root", "a-root")
@@ -166,7 +168,7 @@
     @testset "Selection requires a metadata root" begin
         no_metadata = Production(p.name, p.remote_root, p.local_root, p.mount_root,
                                  p.config, filter(kv -> first(kv) != "metadata", p.roots),
-                                 p.raw_config)
+                                 p.overlays)
         root = production_tree(h, no_metadata)
         @test_throws "has no \"metadata\" path key" Selection(no_metadata, "cslg4", root)
     end
@@ -187,6 +189,7 @@
         # config.json and legend-metadata are always copied (spec section 8).
         @test joinpath("test", "config.json") in sel.copy
         @test joinpath("test", "legend-metadata") in sel.copy
+        @test "config_fixture.json" in sel.copy
         @test relpath(joinpath(rundir, "l200-p18-r000-phy-20251107T191821Z-tier_jlevt.lh5"),
                       FIXTURE_ROOT) in sel.copy
         @test sel.link == [relpath(raw, FIXTURE_ROOT)]
@@ -239,5 +242,19 @@
         @test effective_mode(find_node!(h, p, fresh, joinpath("test", "legend-metadata"))) == :copy
 
         @test_throws "is not in the production tree" find_node!(h, p, fresh, joinpath("temp", "nope"))
+    end
+
+    @testset "a nested production copies its overlays and keeps its path" begin
+        n = Production(h, "temp/jl-dev", FIXTURE_ROOT, local_root)
+        sel = Selection(n, "cslg4", production_tree(h, n))
+        @test sel.production == "temp/jl-dev"
+        @test sel.copy == sort(["temp/jl-dev/config.json", "config_fixture.json",
+                                "temp/config_site.yaml", "temp/jl-dev/legend-metadata"])
+        path = save_selection(joinpath(mktempdir(), "temp-jl-dev.json"), sel)
+        @test load_selection(path, n).production == "temp/jl-dev"
+        @test_throws "is for production temp/jl-dev" load_selection(path, p)
+        root = production_tree(h, n)
+        apply_selection!(h, n, root, sel)
+        @test effective_mode(find_node!(h, n, root, "temp/jl-dev/legend-metadata")) == :copy
     end
 end

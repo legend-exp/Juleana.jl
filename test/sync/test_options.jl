@@ -3,14 +3,35 @@
         o = parse_options(String[])
         @test o.host == "cslg4"
         @test o.remote_root == "/mnt/scratch/projects/legend/data/l200"
-        @test o.production == "test"
+        @test o.production == ""
         @test o.local_root == DEFAULT_LOCAL_ROOT
         @test o.mount_root === nothing
         @test o.from === nothing
         @test o.dry_run == false
         @test o.yes == false
-        # The selection file is named after the production.
-        @test o.out == joinpath(DEFAULT_SELECTION_DIR, "test.json")
+        @test o.out == ""
+    end
+
+    @testset "the selection file is named after the production" begin
+        @test parse_options(["--production", "test"]).out ==
+              joinpath(DEFAULT_SELECTION_DIR, "test.json")
+        @test parse_options(["--production", "juleana/tmp/jl-v0.7.0dev1"]).out ==
+              joinpath(DEFAULT_SELECTION_DIR, "juleana-tmp-jl-v0.7.0dev1.json")
+    end
+
+    @testset "remote roots per host" begin
+        @test parse_options(["--host", "viper"]).remote_root == "/ptmp/oschulz/legend/data/l200"
+        file = joinpath(mktempdir(), "hosts.json")
+        write(file, """{"alpha": {"remote_root": "/srv/alpha"}}""")
+        @test host_remote_root(file, "alpha") == "/srv/alpha"
+        @test parse_options(["--host", "alpha"]; hosts_file = file).remote_root == "/srv/alpha"
+        @test parse_options(["--host", "alpha", "--remote-root", "/elsewhere"];
+                            hosts_file = file).remote_root == "/elsewhere"
+        @test_throws "host beta is not listed in $file" host_remote_root(file, "beta")
+        @test_throws "host beta is not listed in $file" parse_options(["--host", "beta"]; hosts_file = file)
+        # A host that is not listed is fine when the root is given explicitly.
+        @test parse_options(["--host", "beta", "--remote-root", "/x"];
+                            hosts_file = file).remote_root == "/x"
     end
 
     @testset "overrides" begin
@@ -89,6 +110,27 @@
                               "l200-p18-r000-phy-20251107T191821Z-tier_jlevt.lh5"))
         @test occursin("LEGEND_DATA_CONFIG=", text)
         @test occursin("transferred ", text)
+    end
+
+    @testset "--from alone takes the production from the selection" begin
+        local_root = mktempdir()
+        h = LocalHost()
+        sel = Selection("local", "temp/jl-dev", FIXTURE_ROOT, local_root, nothing,
+                        ["temp/jl-dev/config.json", "config_fixture.json", "temp/config_site.yaml",
+                         "temp/jl-dev/legend-metadata"], String[], now())
+        selpath = save_selection(joinpath(mktempdir(), "sel.json"), sel)
+        options = parse_options(["--remote-root", FIXTURE_ROOT, "--local-root", local_root,
+                                 "--from", selpath, "--dry-run"])
+        @test options.production == ""
+        code = open(tempname(), "w") do io
+            redirect_stdout(() -> main(options, h), io)
+        end
+        @test code == 0
+
+        # When both are given they must agree.
+        both = parse_options(["--remote-root", FIXTURE_ROOT, "--local-root", local_root,
+                              "--production", "test", "--from", selpath, "--dry-run"])
+        @test_throws "is for production temp/jl-dev" main(both, h)
     end
 
     @testset "a selection for another production is refused" begin

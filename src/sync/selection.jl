@@ -154,9 +154,10 @@ function Selection(p::Production, host::AbstractString, root::Node)
     copies = String[]
     links = String[]
     collect_modes!(root, p, copies, links)
-    # The production's own config.json and its metadata checkout are what make the
-    # mirror openable at all, so they are copied whether or not they were picked.
-    mandatory = [relative(p, joinpath(p.remote_root, p.name, "config.json"))]
+    # The production's own config.json, the overlays applied to it and its metadata
+    # checkout are what make the mirror openable at all, so they are copied whether
+    # or not they were picked.
+    mandatory = [relative(p, joinpath(p.remote_root, p.name, "config.json")); p.overlays]
     i = findfirst(kv -> first(kv) == "metadata", p.roots)
     i === nothing && throw(ArgumentError(
         "production $(p.name) has no \"metadata\" path key; legend-metadata cannot be mirrored"))
@@ -224,13 +225,16 @@ end
 """
     apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection)::Node
 
-Expand `root` along every path in `sel` and set the modes it records.
+Expand `root` along every path in `sel` and set the modes it records. The overlay
+configs of `p` are copied with the production but are not nodes of its tree, so
+they are skipped.
 """
 function apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection)
     for rel in sel.link
         set_mode!(find_node!(h, p, root, rel), :link)
     end
     for rel in sel.copy
+        rel in p.overlays && continue
         set_mode!(find_node!(h, p, root, rel), :copy)
     end
     root

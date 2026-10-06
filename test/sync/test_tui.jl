@@ -138,8 +138,8 @@
         tb = draw(m)
         @test find_text(tb, "Estimate") !== nothing
         @test find_text(tb, "Sync") !== nothing
-        # config.json plus the always-copied legend-metadata README.
-        @test m.estimate.files == 2
+        # config.json, the overlay and the always-copied legend-metadata README.
+        @test m.estimate.files == 3
 
         # Escape closes it and changes nothing on disk.
         update!(m, KeyEvent(:escape))

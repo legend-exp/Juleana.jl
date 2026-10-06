@@ -2,12 +2,37 @@
 # layout is the same here as on the remote.
 const DEFAULT_LOCAL_ROOT = normpath(joinpath(@__DIR__, "..", "..", "..", "data"))
 const DEFAULT_SELECTION_DIR = normpath(joinpath(@__DIR__, "..", "..", "config", "sync"))
+const DEFAULT_HOSTS_FILE = joinpath(DEFAULT_SELECTION_DIR, "hosts.json")
+
+"""
+    host_remote_root(file::AbstractString, host::AbstractString)::String
+
+The remote root that `file` (a JSON object mapping host aliases to
+`{"remote_root": ...}`) lists for `host`.
+"""
+function host_remote_root(file::AbstractString, host::AbstractString)
+    hosts = readprops(file; subst_pathvar = false, subst_env = false)
+    haskey(hosts, Symbol(host)) || throw(ArgumentError(
+        "host $host is not listed in $file; add it there or pass --remote-root"))
+    String(hosts[Symbol(host)].remote_root)
+end
+
+"""
+    default_selection_path(production::AbstractString)::String
+
+Where the interface saves the selection for `production` unless told otherwise.
+Directory separators in the production path become dashes.
+"""
+default_selection_path(production::AbstractString) =
+    joinpath(DEFAULT_SELECTION_DIR, replace(production, '/' => '-') * ".json")
 
 """
     Options
 
 The parsed command line. `mount_root` and `from` are `nothing` when the flag was
-not given; every other field always has a value.
+not given. `production` and `out` are empty when no production was named: the
+interface then asks for one, and a headless run takes it from the selection file.
+Every other field always has a value.
 """
 struct Options
     host::String
@@ -22,9 +47,11 @@ struct Options
 end
 
 """
-    parse_options(args::AbstractVector{<:AbstractString})::Options
+    parse_options(args::AbstractVector{<:AbstractString}; hosts_file = DEFAULT_HOSTS_FILE)::Options
+
+Without `--remote-root`, the root of `--host` is read from `hosts_file`.
 """
-function parse_options(args::AbstractVector{<:AbstractString})
+function parse_options(args::AbstractVector{<:AbstractString}; hosts_file::AbstractString = DEFAULT_HOSTS_FILE)
     settings = ArgParseSettings(
         prog = "juleana sync",
         description = "Mirror part of a remote LEGEND data production into a local " *
@@ -35,10 +62,10 @@ function parse_options(args::AbstractVector{<:AbstractString})
             arg_type = String
             default = "cslg4"
         "--remote-root"
-            help = "remote directory holding the productions"
+            help = "remote directory holding the productions (default: the host's entry in config/sync/hosts.json)"
             dest_name = "remote_root"
             arg_type = String
-            default = "/mnt/scratch/projects/legend/data/l200"
+            default = ""
         "--local-root"
             help = "local directory mirroring the remote root"
             dest_name = "local_root"
@@ -50,9 +77,9 @@ function parse_options(args::AbstractVector{<:AbstractString})
             arg_type = String
             default = ""
         "--production"
-            help = "production to sync"
+            help = "production to sync, as a path relative to the remote root (default: choose in the interface)"
             arg_type = String
-            default = "test"
+            default = ""
         "--out"
             help = "where the interface saves the selection"
             arg_type = String
@@ -75,13 +102,15 @@ function parse_options(args::AbstractVector{<:AbstractString})
     (from === nothing && (parsed["dry_run"] || parsed["yes"])) && throw(ArgumentError(
         "--dry-run and --yes only mean something together with --from"))
     mount = isempty(parsed["mount_root"]) ? nothing : abspath(parsed["mount_root"])
-    out = isempty(parsed["out"]) ?
-          joinpath(DEFAULT_SELECTION_DIR, parsed["production"] * ".json") : parsed["out"]
+    out = !isempty(parsed["out"]) ? parsed["out"] :
+          isempty(parsed["production"]) ? "" : default_selection_path(parsed["production"])
+    remote_root = isempty(parsed["remote_root"]) ?
+                  host_remote_root(hosts_file, parsed["host"]) : parsed["remote_root"]
 
     # check_mount compares a path's device with its parent's, which only works
     # for an absolute path; --remote-root feeds path arithmetic that assumes
     # the same.
-    Options(parsed["host"], abspath(parsed["remote_root"]), abspath(parsed["local_root"]),
+    Options(parsed["host"], abspath(remote_root), abspath(parsed["local_root"]),
             mount, parsed["production"], out, from, parsed["dry_run"], parsed["yes"])
 end
 
@@ -100,12 +129,16 @@ main(options::Options, host::RemoteHost = SSHHost(options.host)) =
 """
     run_headless(options::Options, host::RemoteHost)::Int
 
-Apply a saved selection without starting the interface. The estimate is always
+Apply a saved selection without starting the interface. The production is the one
+named by `--production`, or else the one the selection records. The estimate is always
 shown first; `--yes` skips the question that follows it, `--dry-run` stops there.
 Returns 1 when the user answers no.
 """
 function run_headless(options::Options, host::RemoteHost)
-    production = Production(host, options.production, options.remote_root,
+    name = isempty(options.production) ?
+           String(readprops(options.from; subst_pathvar = false, subst_env = false).production) :
+           options.production
+    production = Production(host, name, options.remote_root,
                             options.local_root; mount_root = options.mount_root)
     selection = load_selection(options.from, production)
 

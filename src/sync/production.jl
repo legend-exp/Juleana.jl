@@ -2,12 +2,16 @@
     Production(h::RemoteHost, name, remote_root, local_root; mount_root = nothing)
 
 A production of `remote_root` on `h`, together with the local directory that
-mirrors it. Reading a production resolves its `config.json`: `\$_` expands to the
-production's own directory and every resulting path must lie inside
-`remote_root`, because a path outside it has no place in the mirror.
+mirrors it. `name` is the production's path relative to `remote_root` and may
+have several components (`temp/jl-dev`); it must stay below the root.
 
-`raw_config` keeps the config as it was read. `config_local.json` is produced by
-expanding `\$_` a second time, against the mirror, which needs the unexpanded text.
+The production's `config.json` is read first, then every overlay returned by
+[`overlay_files`](@ref), root first. `\$_` expands to the directory of the file it
+appears in, and the files are deep-merged so that a later file wins: an overlay
+overrides the production, and a deeper overlay overrides a shallower one. Every
+path of the merged `config` must lie inside `remote_root`, because a path outside
+it has no place in the mirror. `overlays` lists the overlay files applied, relative
+to `remote_root`.
 """
 struct Production
     name::String
@@ -16,37 +20,72 @@ struct Production
     mount_root::Union{Nothing,String}
     config::PropDict
     roots::Vector{Pair{String,String}}
-    raw_config::String
+    overlays::Vector{String}
 end
 
 # A directory path without a trailing separator; the filesystem root normalizes
 # to "/" rather than the empty string that stripping it would otherwise produce.
 normdir(x) = (s = rstrip(normpath(String(x)), '/'); isempty(s) ? "/" : s)
 
+"""
+    overlay_files(h::RemoteHost, remote_root, name)::Vector{String}
+
+The site overlay configs that apply to production `name`: the files called
+`config_<site>.json`, `.yaml` or `.yml` in each directory from `remote_root` down
+to the parent of the production, root first and sorted by name within a
+directory. The production directory itself is not searched. Paths are relative to
+`remote_root`.
+"""
+function overlay_files(h::RemoteHost, remote_root::AbstractString, name::AbstractString)
+    root = normdir(remote_root)
+    parts = splitpath(name)
+    found = String[]
+    for depth in 0:length(parts) - 1
+        rel = join(parts[1:depth], "/")
+        for entry in sort!(list_dir(h, normdir(joinpath(root, rel))); by = e -> e.name)
+            entry.kind == :file && occursin(r"^config_[^/]+\.(json|ya?ml)$", entry.name) &&
+                push!(found, joinpath(rel, entry.name))
+        end
+    end
+    found
+end
+
 function Production(h::RemoteHost, name::AbstractString,
                     remote_root::AbstractString, local_root::AbstractString;
                     mount_root::Union{Nothing,AbstractString} = nothing)
     root = normdir(remote_root)
-    dir = joinpath(root, String(name))
-    raw = read_file(h, joinpath(dir, "config.json"))
-    config = parse_production_config(raw, dir)
+    dir = normdir(joinpath(root, name))
+    (isabspath(name) || ".." in splitpath(name) || !startswith(dir, root * "/")) &&
+        throw(ArgumentError(
+            "production name must be a relative path below the remote root, got \"$name\""))
+    files = [joinpath(name, "config.json"); overlay_files(h, root, name)]
+    config = nothing
+    for file in files
+        path = joinpath(root, file)
+        part = parse_production_config(read_file(h, path), dirname(path);
+                                       extension = splitext(file)[2])
+        config === nothing ? (config = part) : merge!(config, part)
+    end
     mount = mount_root === nothing ? nothing : normdir(mount_root)
-    Production(String(name), root, normdir(local_root),
-               mount, config, production_roots(config, root), raw)
+    Production(String(name), root, normdir(local_root), mount, config,
+               production_roots(config, root), files[2:end])
 end
 
 """
-    parse_production_config(json::AbstractString, config_dir::AbstractString)::PropDict
+    parse_production_config(text::AbstractString, config_dir::AbstractString; extension = ".json")::PropDict
 
-Parse a production `config.json` that was read as text, expanding `\$_` to
-`config_dir`. Environment variables are not expanded: the config describes the
-remote machine, so a variable resolved against this one would be a different path.
-Any variable other than `_` is an error.
+Parse a config file that was read as text, expanding `\$_` to `config_dir`.
+`extension` selects the format (`.json`, `.yaml` or `.yml`). Environment variables
+are not expanded: the config describes the remote machine, so a variable resolved
+against this one would be a different path. Any variable other than `_` is an
+error.
 """
-function parse_production_config(json::AbstractString, config_dir::AbstractString)
+function parse_production_config(text::AbstractString, config_dir::AbstractString;
+                                 extension::AbstractString = ".json")
     config = mktempdir() do dir
-        path = joinpath(dir, "config.json")
-        write(path, json)
+        # The YAML reader returns nothing for a `.yml` file; `.yaml` reads the same format.
+        path = joinpath(dir, extension == ".json" ? "config.json" : "config.yaml")
+        write(path, text)
         readprops(path; subst_pathvar = false, subst_env = false, trim_null = false)
     end
     PropDicts.substitute_vars!(PropDicts._dict(config),
@@ -114,22 +153,15 @@ end
 """
     local_config(p::Production)::PropDict
 
-The production's config with every path pointing into the mirror. `\$_` entries
-are re-expanded against the mirrored production directory; every other path lies
-inside `remote_root` (see [`production_roots`](@ref)), including a value that is
-the remote root itself, and is mapped through [`to_local`](@ref).
+The production's merged config with every path pointing into the mirror. Every
+path lies inside `remote_root` (see [`production_roots`](@ref)), including a value
+that is the remote root itself, and is mapped through [`to_local`](@ref).
 """
 function local_config(p::Production)
-    config = parse_production_config(p.raw_config,
-                                     to_local(p, joinpath(p.remote_root, p.name)))
+    config = deepcopy(p.config)
     paths = PropDicts._dict(only(values(config.setups)).paths)
-    prefix = p.remote_root * "/"
     for (key, value) in collect(paths)
-        dir = normdir(value)
-        # A "$_" entry already points into the mirror and only needs normalizing.
-        # Every other configured path is inside the remote root -- possibly equal
-        # to it -- and is mapped into the mirror through to_local.
-        paths[key] = (dir == p.remote_root || startswith(dir, prefix)) ? to_local(p, dir) : dir
+        paths[key] = to_local(p, value)
     end
     config
 end

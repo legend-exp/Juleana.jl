@@ -20,7 +20,7 @@
         @test root.kind == :production
         @test root.label == "Production: test"
         @test [c.label for c in root.children] ==
-              ["config.json", "metadata", "par", "tier", "tier/jlhit"]
+              ["config.json", "metadata", "par", "tier", "tier/jlhit", "tier/jlpks"]
         @test root.children[1].kind == :file
         @test root.children[1].size > 0
         @test all(c -> c.kind == :section, root.children[2:end])

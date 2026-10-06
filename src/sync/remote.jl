@@ -118,6 +118,30 @@ function list_dir(::LocalHost, dir::AbstractString)
 end
 
 """
+    list_productions(h::RemoteHost, remote_root::AbstractString)::Vector{String}
+
+The directories at most three levels below `remote_root` that hold a
+`config.json`, relative to `remote_root` and sorted. These are the productions;
+no other part of the tree is searched.
+"""
+function list_productions(h::SSHHost, remote_root::AbstractString)
+    text = run_remote(h, `find $remote_root -mindepth 2 -maxdepth 4 -name config.json -type f -printf '%h\n'`)
+    sort!([relpath(line, remote_root) for line in eachsplit(chomp(text), '\n') if !isempty(line)])
+end
+
+function list_productions(::LocalHost, remote_root::AbstractString)
+    isdir(remote_root) || throw(ArgumentError("not a directory: $remote_root"))
+    found = String[]
+    for (dir, dirs, files) in walkdir(remote_root; follow_symlinks = false)
+        depth = dir == remote_root ? 0 : length(splitpath(relpath(dir, remote_root)))
+        depth >= 1 && "config.json" in files && isfile(joinpath(dir, "config.json")) &&
+            push!(found, relpath(dir, remote_root))
+        depth >= 3 && empty!(dirs)
+    end
+    sort!(found)
+end
+
+"""
     dir_sizes(h::RemoteHost, dirs::AbstractVector{<:AbstractString})::Vector{Int}
 
 Apparent size in bytes of each directory in `dirs`, in the order given. One call
