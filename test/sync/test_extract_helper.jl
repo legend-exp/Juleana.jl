@@ -7,9 +7,11 @@
 
     # Run the script as the sync tool does: a TOML job file in, one TOML record
     # per line on standard output.
-    function run_script(command, spec; jobs = nothing)
-        jobfile = joinpath(mktempdir(), "job.toml")
-        open(io -> TOML.print(io, spec), jobfile, "w")
+    function run_script(command, spec; jobs = nothing, jobfile = nothing)
+        if jobfile === nothing
+            jobfile = joinpath(mktempdir(), "job.toml")
+            open(io -> TOML.print(io, spec), jobfile, "w")
+        end
         extra = jobs === nothing ? String[] : ["--jobs", string(jobs)]
         out = IOBuffer()
         err = IOBuffer()
@@ -91,6 +93,7 @@
         @test sort([rec["status"] for rec in r.records if rec["event"] == "file"]) ==
               ["extracted", "extracted"]
         @test only(filter(rec -> rec["event"] == "summary", r.records))["workers"] == 2
+        @test any(rec["worker"] != 1 for rec in r.records if rec["event"] == "file")
         for i in 1:2
             h5open(joinpath(dest, "o$i.lh5"), "r") do out
                 h5open(sources[i], "r") do src
@@ -118,6 +121,7 @@
             spec["job"][1]["groups"] = ["missing"]
             r = run_script("extract", spec; jobs)
             @test r.code == 1
+            jobs === nothing || @test occursin("On worker", r.stderr)
             @test occursin("$(sources[1]): group missing not found in $(sources[1])", r.stderr)
             @test !isfile(joinpath(dest, "o1.lh5"))
             @test !isfile(joinpath(dest, "o1.lh5.partial"))
@@ -144,6 +148,31 @@
         @test r.code == 1
         written = count(i -> isfile(joinpath(dest, "o$i.lh5")), 2:6)
         @test written < 5
+    end
+
+    @testset "a corrupt destination stops the job and names both files" begin
+        dest = joinpath(work, "out-corrupt", "o1.lh5")
+        mkpath(dirname(dest))
+        write(dest, "garbage bytes")
+        spec = Dict("job" => [Dict("source" => sources[1], "groups" => ["aux"],
+                                   "destination" => dest)])
+        r = run_script("extract", spec)
+        @test r.code == 1
+        @test occursin(sources[1], r.stderr)
+        @test occursin(dest, r.stderr)
+        @test read(dest, String) == "garbage bytes"
+    end
+
+    @testset "a missing job file fails with a message" begin
+        r = run_script("inspect", Dict("files" => sources); jobfile = joinpath(work, "nope.toml"))
+        @test r.code == 1
+        @test occursin("extract.jl:", r.stderr)
+    end
+
+    @testset "--jobs below one is rejected" begin
+        r = run_script("inspect", Dict("files" => sources); jobs = 0)
+        @test r.code == 2
+        @test occursin("usage:", r.stderr)
     end
 
     @testset "a bad command line is rejected" begin

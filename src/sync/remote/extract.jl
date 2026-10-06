@@ -26,13 +26,19 @@ end
 
 # The return type is concrete because `onworker` converts the remote result to
 # the inferred return type.
-function extract_file(source::String, groups::Vector{String}, destination::String)::Tuple{Symbol,Int}
+# An existing destination that cannot be read as HDF5 stops the job; it is never
+# overwritten silently. The result also carries the id of the process that ran it.
+function extract_file(source::String, groups::Vector{String}, destination::String)::Tuple{Symbol,Int,Int}
     if isfile(destination)
-        held = h5open(destination, "r") do f
-            haskey(attrs(f), "juleana_sync_groups") ? String.(attrs(f)["juleana_sync_groups"]) : String[]
+        held = try
+            h5open(destination, "r") do f
+                haskey(attrs(f), "juleana_sync_groups") ? String.(attrs(f)["juleana_sync_groups"]) : String[]
+            end
+        catch err
+            error(source, ": cannot read existing destination ", destination, ": ", sprint(showerror, err))
         end
         held == groups && mtime(source) <= mtime(destination) &&
-            return (:skipped, Int(filesize(destination)))
+            return (:skipped, Int(filesize(destination)), myid())
     end
     mkpath(dirname(destination))
     # The final name only ever holds a complete file, so an interrupted run
@@ -55,7 +61,7 @@ function extract_file(source::String, groups::Vector{String}, destination::Strin
         # The message leads with the source so a failure on a worker names its file.
         error(source, ": ", sprint(showerror, err))
     end
-    (:extracted, Int(filesize(destination)))
+    (:extracted, Int(filesize(destination)), myid())
 end
 
 # TOML's own encoder formats the values, so strings are escaped correctly.
@@ -92,8 +98,8 @@ function run_items(done, f, items::Vector, n::Integer)
         end
         return nothing
     end
-    start_workers(n)
     try
+        start_workers(n)
         queue = Channel{eltype(items)}(length(items))
         foreach(item -> put!(queue, item), items)
         close(queue)
@@ -127,12 +133,13 @@ end
 function main(args)
     usage = "usage: extract.jl (inspect|extract) JOBFILE [--jobs N]"
     valid = length(args) in (2, 4) && args[1] in ("inspect", "extract") &&
-            (length(args) == 2 || (args[3] == "--jobs" && tryparse(Int, args[4]) !== nothing))
+            (length(args) == 2 ||
+             (args[3] == "--jobs" && something(tryparse(Int, args[4]), 0) >= 1))
     valid || (println(stderr, usage); return 2)
     command, jobfile = args[1], args[2]
     jobs = length(args) == 4 ? parse(Int, args[4]) : 0
-    spec = TOML.parsefile(jobfile)
     try
+        spec = TOML.parsefile(jobfile)
         if command == "inspect"
             files = String.(spec["files"])
             n = jobs > 0 ? min(jobs, length(files)) : default_workers(length(files))
@@ -145,11 +152,12 @@ function main(args)
             n = jobs > 0 ? min(jobs, length(list)) : default_workers(length(list))
             io_lock = ReentrantLock()
             counts = Dict(:extracted => 0, :skipped => 0)
-            run_items(extract_file, list, n) do item, (status, bytes)
+            run_items(extract_file, list, n) do item, (status, bytes, worker)
                 Base.@lock io_lock begin
                     counts[status] += 1
                     emit(event = "file", source = item[1], destination = item[3],
-                         status = String(status), groups = length(item[2]), bytes = bytes)
+                         status = String(status), groups = length(item[2]), bytes = bytes,
+                         worker = worker)
                 end
             end
             emit(event = "summary", files = length(list), extracted = counts[:extracted],
