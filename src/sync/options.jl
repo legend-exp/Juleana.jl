@@ -18,6 +18,21 @@ function host_remote_root(file::AbstractString, host::AbstractString)
 end
 
 """
+    host_helper_config(file::AbstractString, host::AbstractString)::HelperConfig
+
+The optional `julia`, `julia_project` and `staging` keys of `host`'s entry in the
+hosts file `file`. A host without an entry, or an entry without those keys, selects
+the defaults of [`HelperConfig`](@ref).
+"""
+function host_helper_config(file::AbstractString, host::AbstractString)
+    hosts = readprops(file; subst_pathvar = false, subst_env = false)
+    haskey(hosts, Symbol(host)) || return HelperConfig()
+    entry = hosts[Symbol(host)]
+    value(key) = haskey(entry, key) ? String(entry[key]) : nothing
+    HelperConfig(value(:julia), value(:julia_project), value(:staging))
+end
+
+"""
     default_selection_path(production::AbstractString)::String
 
 Where the interface saves the selection for `production` unless told otherwise.

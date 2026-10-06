@@ -32,7 +32,14 @@ using .JuleanaSync: main,
     request_expand!, attach_listing!, show_error!, save!, details, status_bar,
     render_sync, run_tui, task_queue,
     open_estimate!, start_transfer!, open_prompt!, open_message!,
-    apply_prompt!, refresh_local_state!, render_prompt
+    apply_prompt!, refresh_local_state!, render_prompt,
+    remote_command, stream_remote, remote_home, expand_home, file_exists, make_dir,
+    parse_df, free_bytes, push_command, push_file, remove_staged!,
+    HelperConfig, EnvironmentStatus, remote_julia, julia_project, staging_dir,
+    ensure_environment, environment_ready, environment_problem, bootstrap_command,
+    bootstrap_environment!, parse_record, run_helper, inspect_files, host_helper_config,
+    HELPER_SCRIPT, HELPER_PACKAGES, DATAFLOW_PROJECT, DEFAULT_REMOTE_JULIA,
+    DEFAULT_REMOTE_PROJECT, REMOTE_STAGING_SCRIPT
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -55,6 +62,7 @@ run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &
 @testset "JuleanaSync" begin
     run_file("test_extract_helper.jl")
     run_file("test_remote.jl")
+    run_file("test_helper.jl")
     run_file("test_production.jl")
     run_file("test_inventory.jl")
     run_file("test_selection.jl")

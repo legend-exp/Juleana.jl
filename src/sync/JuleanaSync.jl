@@ -12,6 +12,7 @@ using PropDicts
 # directly for PropDicts' YAML reader, which the site overlay configs use.
 import LegendDataManagement
 import YAML
+import TOML
 import Tachikoma
 using LegendDataManagement: DetectorId, Timestamp
 using Tachikoma: Model, Frame, Buffer, Rect, Span,
@@ -23,6 +24,7 @@ using Tachikoma: Model, Frame, Buffer, Rect, Span,
 import Tachikoma: view, update!, should_quit, task_queue
 
 include("remote.jl")
+include("helper.jl")
 include("production.jl")
 include("inventory.jl")
 include("selection.jl")

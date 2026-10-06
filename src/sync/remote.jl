@@ -91,13 +91,22 @@ ssh_command(h::SSHHost, remote::AbstractString) = h.control_path === nothing ?
     `ssh -o ControlMaster=auto -o ControlPath=$(h.control_path) -o ControlPersist=60s $(h.alias) $remote`
 
 """
+    remote_command(h::RemoteHost, cmd::Cmd)::Cmd
+
+The command that runs `cmd` on `h`: wrapped in `ssh` for an `SSHHost`, unchanged
+for `LocalHost`.
+"""
+remote_command(h::SSHHost, cmd::Cmd) = ssh_command(h, Base.shell_escape(cmd))
+remote_command(::LocalHost, cmd::Cmd) = cmd
+
+"""
     run_remote(h::RemoteHost, cmd::Cmd)::String
 
 Run `cmd` on `h` and return its standard output. A nonzero exit is an error
 carrying the command and the captured standard error.
 """
 function run_remote(h::RemoteHost, cmd::Cmd)
-    full = h isa SSHHost ? ssh_command(h, Base.shell_escape(cmd)) : cmd
+    full = remote_command(h, cmd)
     out = IOBuffer()
     err = IOBuffer()
     proc = run(pipeline(ignorestatus(full); stdout = out, stderr = err))
@@ -230,3 +239,190 @@ the contract: with `--files-from`, rsync resolves the file list against it.
 """
 rsync_source(h::SSHHost, root::AbstractString) = "$(h.alias):$(rstrip(root, '/'))/"
 rsync_source(::LocalHost, root::AbstractString) = "$(rstrip(root, '/'))/"
+
+"""
+    stream_remote(h::RemoteHost, cmd::Cmd, on_line)::String
+
+Run `cmd` on `h` and call `on_line(line)` for each line of standard output as it
+arrives. A nonzero exit is an error carrying the command and the captured standard
+error; a failing `on_line` kills the command and rethrows. Returns the standard
+error text of a successful run, which callers must not discard: a command can
+warn and still exit 0.
+"""
+function stream_remote(h::RemoteHost, cmd::Cmd, on_line)
+    full = remote_command(h, cmd)
+    errfile = tempname()
+    proc = open(pipeline(ignorestatus(full); stderr = errfile), "r")
+    try
+        for line in eachline(proc)
+            on_line(line)
+        end
+    catch
+        kill(proc)
+        rethrow()
+    finally
+        wait(proc)
+    end
+    text = read(errfile, String)
+    rm(errfile; force = true)
+    success(proc) || throw(ErrorException(
+        "remote command failed with exit code $(proc.exitcode): $full\n$text"))
+    text
+end
+
+"""
+    remote_home(h::RemoteHost)::String
+
+The home directory of the user on `h`.
+"""
+remote_home(h::SSHHost) = String(strip(run_remote(h, `sh -c $("printf %s \"\$HOME\"")`)))
+remote_home(::LocalHost) = homedir()
+
+"""
+    expand_home(path, home)::String
+    expand_home(h::RemoteHost, path)::String
+
+Replace a leading `~` or `~/` of `path` by `home`. `ssh` quotes a tilde, so the
+remote shell would never expand one; every remote path is made absolute before it
+is placed in a command. Only the current user's home is supported. The form that
+takes a host asks it for its home directory only when `path` starts with a tilde.
+"""
+function expand_home(path::AbstractString, home::AbstractString)
+    path == "~" && return String(home)
+    startswith(path, "~/") && return joinpath(home, path[3:end])
+    startswith(path, "~") && throw(ArgumentError(
+        "only ~ and ~/... are supported in remote paths, got \"$path\""))
+    String(path)
+end
+
+expand_home(h::RemoteHost, path::AbstractString) =
+    startswith(path, "~") ? expand_home(path, remote_home(h)) : String(path)
+
+"""
+    file_exists(h::RemoteHost, path::AbstractString)::Bool
+
+Whether the regular file `path` exists on `h`. An exit status other than 0 (yes)
+and 1 (no) from the remote `test` is an error, so a lost connection never reads
+as "absent".
+"""
+function file_exists(h::SSHHost, path::AbstractString)
+    err = IOBuffer()
+    proc = run(pipeline(ignorestatus(remote_command(h, `test -f $path`)); stderr = err))
+    proc.exitcode in (0, 1) || throw(ErrorException(
+        "test -f $path on $(h.alias) failed with exit code $(proc.exitcode)\n$(String(take!(err)))"))
+    proc.exitcode == 0
+end
+file_exists(::LocalHost, path::AbstractString) = isfile(path)
+
+"""
+    make_dir(h::RemoteHost, dir::AbstractString)::String
+
+Create `dir` and its parents on `h` (`mkdir -p`) and return `dir`.
+"""
+make_dir(h::SSHHost, dir::AbstractString) = (run_remote(h, `mkdir -p $dir`); String(dir))
+make_dir(::LocalHost, dir::AbstractString) = (mkpath(dir); String(dir))
+
+"""
+    parse_df(text::AbstractString)::Int
+
+Bytes available according to the output of `df -Pk DIR`. The POSIX format puts
+the block counts in fixed columns: file system, 1024-blocks, used, available.
+"""
+function parse_df(text::AbstractString)
+    lines = filter(!isempty, split(chomp(text), '\n'))
+    length(lines) >= 2 || throw(ArgumentError("cannot parse df output: $(repr(text))"))
+    fields = split(last(lines))
+    length(fields) >= 6 || throw(ArgumentError("cannot parse df output: $(repr(text))"))
+    parse(Int, fields[4]) * 1024
+end
+
+"""
+    free_bytes(h::RemoteHost, dir::AbstractString)::Int
+
+Bytes available to the user on the file system holding the existing directory `dir`.
+"""
+free_bytes(h::SSHHost, dir::AbstractString) = parse_df(run_remote(h, `df -Pk $dir`))
+free_bytes(::LocalHost, dir::AbstractString) = Int(Base.diskstat(dir).available)
+
+"""
+    push_command(h::SSHHost, file, remote_dir)::Cmd
+
+The rsync invocation that copies `file` into `remote_dir` on `h`. `-t` keeps the
+modification time, so an unchanged file is not sent again.
+"""
+push_command(h::SSHHost, file::AbstractString, remote_dir::AbstractString) =
+    `rsync -t -- $file $(h.alias):$(rstrip(remote_dir, '/'))/`
+
+"""
+    push_file(h::RemoteHost, file, remote_dir)::String
+
+Copy `file` into `remote_dir` on `h`, creating the directory, and return the path
+of the copy on `h`.
+"""
+function push_file(h::SSHHost, file::AbstractString, remote_dir::AbstractString)
+    make_dir(h, remote_dir)
+    out = IOBuffer()
+    err = IOBuffer()
+    cmd = push_command(h, file, remote_dir)
+    proc = run(pipeline(ignorestatus(cmd); stdout = out, stderr = err))
+    success(proc) || throw(ErrorException(
+        "rsync failed with exit code $(proc.exitcode): $cmd\n$(String(take!(err)))"))
+    joinpath(remote_dir, basename(file))
+end
+
+function push_file(::LocalHost, file::AbstractString, remote_dir::AbstractString)
+    mkpath(remote_dir)
+    dest = joinpath(remote_dir, basename(file))
+    cp(file, dest; force = true)
+    dest
+end
+
+"""
+    remove_staged!(h::RemoteHost, staging, paths)::Int
+
+Remove the files `paths` from `h`, then the ancestors of those files below
+`staging` that this leaves empty, deepest first. Directories that were already
+empty and are not an ancestor of a removed file are never touched. This is the
+only place the tool deletes anything on a remote host, so every path must be
+absolute, free of `..` components and below `staging`; anything else is an error
+and nothing is removed. `staging` itself stays.
+"""
+function remove_staged!(h::RemoteHost, staging::AbstractString,
+                        paths::AbstractVector{<:AbstractString})
+    root = String(rstrip(staging, '/'))
+    for path in paths
+        (isabspath(path) && startswith(path, root * "/") && !(".." in splitpath(path))) ||
+            throw(ArgumentError("refusing to remove $path: it is not below the staging directory $root"))
+    end
+    remove_paths!(h, root, paths)
+    length(paths)
+end
+
+# The directories between `root` (exclusive) and the files `paths`, deepest first.
+function staged_ancestors(root::String, paths)
+    dirs = Set{String}()
+    for path in paths
+        dir = dirname(path)
+        while length(dir) > length(root)
+            push!(dirs, dir)
+            dir = dirname(dir)
+        end
+    end
+    sort!(collect(dirs); by = dir -> -length(dir))
+end
+
+function remove_paths!(h::SSHHost, root::String, paths)
+    for chunk in Iterators.partition(paths, 100)
+        run_remote(h, `rm -f -- $(collect(String, chunk))`)
+    end
+    for chunk in Iterators.partition(staged_ancestors(root, paths), 100)
+        run_remote(h, `rmdir --ignore-fail-on-non-empty -- $(collect(String, chunk))`)
+    end
+end
+
+function remove_paths!(::LocalHost, root::String, paths)
+    foreach(path -> rm(path; force = true), paths)
+    for dir in staged_ancestors(root, paths)
+        isdir(dir) && isempty(readdir(dir)) && rm(dir)
+    end
+end

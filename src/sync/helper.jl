@@ -1,0 +1,201 @@
+const HELPER_SCRIPT = joinpath(@__DIR__, "remote", "extract.jl")
+
+# The dataflow project already depends on HDF5 and ParallelProcessingTools, so
+# `LocalHost` runs the helper in it and the tests need no second environment.
+const DATAFLOW_PROJECT = normpath(joinpath(@__DIR__, "..", ".."))
+
+# Versions the helper is written against; the remote environment is created with
+# these bounds.
+const HELPER_PACKAGES = ["HDF5" => "0.17", "ParallelProcessingTools" => "0.4"]
+
+const DEFAULT_REMOTE_JULIA = "~/.juliaup/bin/julia"
+const DEFAULT_REMOTE_PROJECT = "~/.julia/environments/juleana-sync"
+
+# Run by `sh -c` on the remote: the home directory is quota-limited on the
+# clusters, so staging defaults to the temporary directory.
+const REMOTE_STAGING_SCRIPT = "printf %s \"\${TMPDIR:-/tmp}/juleana-sync-\$USER\""
+
+"""
+    HelperConfig(; julia = nothing, julia_project = nothing, staging = nothing)
+
+How to run the remote helper on one host: the Julia executable, the environment
+that holds HDF5 and ParallelProcessingTools, and the staging directory. `nothing`
+selects the default ([`DEFAULT_REMOTE_JULIA`](@ref), [`DEFAULT_REMOTE_PROJECT`](@ref)
+and `\${TMPDIR:-/tmp}/juleana-sync-\$USER`). A leading `~` is expanded on the host.
+"""
+struct HelperConfig
+    julia::Union{Nothing,String}
+    julia_project::Union{Nothing,String}
+    staging::Union{Nothing,String}
+end
+
+HelperConfig(; julia = nothing, julia_project = nothing, staging = nothing) =
+    HelperConfig(julia, julia_project, staging)
+
+"""
+    remote_julia(h::RemoteHost, c::HelperConfig)::Cmd
+
+The Julia executable to run the helper with. `LocalHost` uses the running Julia.
+"""
+remote_julia(h::SSHHost, c::HelperConfig) =
+    Cmd([expand_home(h, something(c.julia, DEFAULT_REMOTE_JULIA))])
+remote_julia(::LocalHost, c::HelperConfig) =
+    c.julia === nothing ? Base.julia_cmd() : Cmd([c.julia])
+
+"""
+    julia_project(h::RemoteHost, c::HelperConfig)::String
+
+The environment the helper runs in. `LocalHost` uses the dataflow project.
+"""
+julia_project(h::SSHHost, c::HelperConfig) =
+    expand_home(h, something(c.julia_project, DEFAULT_REMOTE_PROJECT))
+julia_project(::LocalHost, c::HelperConfig) = something(c.julia_project, DATAFLOW_PROJECT)
+
+"""
+    staging_dir(h::RemoteHost, c::HelperConfig)::String
+
+The directory the helper writes reduced files to and the tool pulls them from.
+"""
+staging_dir(h::SSHHost, c::HelperConfig) = c.staging === nothing ?
+    String(strip(run_remote(h, `sh -c $REMOTE_STAGING_SCRIPT`))) : expand_home(h, c.staging)
+staging_dir(::LocalHost, c::HelperConfig) =
+    something(c.staging, joinpath(tempdir(), "juleana-sync-" * get(ENV, "USER", "user")))
+
+"""
+    EnvironmentStatus(julia, project, present, lacking)
+
+What is on the host: the Julia version string, the environment path, whether the
+environment has a `Project.toml`, and which of [`HELPER_PACKAGES`](@ref) its
+`[deps]` lacks. The packages being installed and precompiled is not checked here;
+the helper's own error says so when they are not.
+"""
+struct EnvironmentStatus
+    julia::String
+    project::String
+    present::Bool
+    lacking::Vector{String}
+end
+
+environment_ready(s::EnvironmentStatus) = s.present && isempty(s.lacking)
+
+"""
+    ensure_environment(h::RemoteHost, c::HelperConfig)::EnvironmentStatus
+
+Check that Julia runs on `h` and report the state of the helper environment. A
+missing executable is an error carrying the remote standard error.
+"""
+function ensure_environment(h::RemoteHost, c::HelperConfig)
+    julia = remote_julia(h, c)
+    version = String(strip(run_remote(h, `$julia --version`)))
+    project = julia_project(h, c)
+    toml = joinpath(project, "Project.toml")
+    names = first.(HELPER_PACKAGES)
+    file_exists(h, toml) || return EnvironmentStatus(version, project, false, names)
+    deps = get(TOML.parse(read_file(h, toml)), "deps", Dict{String,Any}())
+    EnvironmentStatus(version, project, true, [name for name in names if !haskey(deps, name)])
+end
+
+"""
+    bootstrap_command(h::RemoteHost, c::HelperConfig)::Cmd
+
+The command that adds the helper's packages to its environment, creating the
+environment when it does not exist. The interface shows it before running it.
+"""
+function bootstrap_command(h::RemoteHost, c::HelperConfig)
+    specs = join(("Pkg.PackageSpec(name = \"$name\", version = \"$version\")"
+                  for (name, version) in HELPER_PACKAGES), ", ")
+    code = "import Pkg; Pkg.add([$specs])"
+    `$(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) -e $code`
+end
+
+"""
+    environment_problem(s::EnvironmentStatus, h::RemoteHost, c::HelperConfig)::String
+
+The error text for an environment that is not ready, ending with the command that
+creates it.
+"""
+environment_problem(s::EnvironmentStatus, h::RemoteHost, c::HelperConfig) =
+    "the helper environment $(s.project) " *
+    (s.present ? "lacks $(join(s.lacking, ", "))" : "does not exist") *
+    "; create it with: $(Base.shell_escape(bootstrap_command(h, c)))"
+
+"""
+    bootstrap_environment!(h::RemoteHost, c::HelperConfig)::EnvironmentStatus
+
+Run [`bootstrap_command`](@ref) and return the resulting status, which must be
+ready. The dataflow project that `LocalHost` uses by default is never modified.
+"""
+function bootstrap_environment!(h::RemoteHost, c::HelperConfig)
+    h isa LocalHost && c.julia_project === nothing && throw(ArgumentError(
+        "refusing to modify the dataflow project $DATAFLOW_PROJECT; name a helper environment with julia_project"))
+    make_dir(h, julia_project(h, c))
+    run_remote(h, bootstrap_command(h, c))
+    status = ensure_environment(h, c)
+    environment_ready(status) || throw(ErrorException(environment_problem(status, h, c)))
+    status
+end
+
+"""
+    parse_record(line::AbstractString)::Dict{String,Any}
+
+One output line of the helper: a TOML document `r = {...}`. Any other line is an
+error, so stray output is never mistaken for a result. Keys are passed through
+as they are.
+"""
+function parse_record(line::AbstractString)
+    startswith(line, "r = {") || throw(ErrorException(
+        "unexpected output from the remote helper: $(repr(line))"))
+    Dict{String,Any}(TOML.parse(line)["r"])
+end
+
+"""
+    run_helper(h, c, command, spec; jobs = 0, on_record = Returns(nothing),
+               warn = Returns(nothing))::Vector{Dict{String,Any}}
+
+Run `command` (`"inspect"` or `"extract"`) of the remote helper with the job
+description `spec`, a TOML-serializable dictionary. The script and the job file
+are pushed to the staging directory first, so the host always runs the script that
+matches this checkout. `on_record` is called with each output record as it
+arrives; all records are returned. Standard error of a successful run, which the
+helper uses for warnings, is passed to `warn` and never discarded. `jobs` is the
+helper's `--jobs` (0 lets it decide). The job file is removed after a successful
+run and kept after a failed one.
+"""
+function run_helper(h::RemoteHost, c::HelperConfig, command::AbstractString,
+                    spec::AbstractDict; jobs::Integer = 0, on_record = Returns(nothing),
+                    warn = Returns(nothing))
+    staging = staging_dir(h, c)
+    script = push_file(h, HELPER_SCRIPT, staging)
+    jobfile = mktempdir() do dir
+        file = joinpath(dir, "$command.toml")
+        open(io -> TOML.print(io, spec), file, "w")
+        push_file(h, file, joinpath(staging, "jobs"))
+    end
+    cmd = `$(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) $script $command $jobfile`
+    jobs > 0 && (cmd = `$cmd --jobs $jobs`)
+    records = Dict{String,Any}[]
+    warnings = stream_remote(h, cmd, function (line)
+        record = parse_record(line)
+        push!(records, record)
+        on_record(record)
+    end)
+    isempty(warnings) || warn(warnings)
+    remove_staged!(h, staging, [jobfile])
+    records
+end
+
+"""
+    inspect_files(h, c, files; jobs = 0)::Vector{Tuple{Vector{String},Vector{Int}}}
+
+The top-level group names of each file in `files` and the stored size in bytes of
+each group, in the order of `files`.
+"""
+function inspect_files(h::RemoteHost, c::HelperConfig, files::AbstractVector{<:AbstractString};
+                       jobs::Integer = 0)
+    records = run_helper(h, c, "inspect", Dict("files" => collect(String, files)); jobs)
+    found = Dict(r["file"] => (String.(r["groups"]), Int.(r["bytes"])) for r in records)
+    map(files) do file
+        haskey(found, file) || throw(ErrorException("the remote helper reported nothing for $file"))
+        found[file]
+    end
+end
