@@ -142,6 +142,12 @@
         @test_throws "relative path" Production(h, "", FIXTURE_ROOT, LOCAL_ROOT)
     end
 
+    @testset "equivalent spellings are the same production" begin
+        @test Production(h, "test/", FIXTURE_ROOT, LOCAL_ROOT).name == "test"
+        @test Production(h, "./temp//jl-dev/", FIXTURE_ROOT, LOCAL_ROOT).name == "temp/jl-dev"
+        @test_throws "temp/x/../../test" Production(h, "temp/x/../../test", FIXTURE_ROOT, LOCAL_ROOT)
+    end
+
     @testset "config_local.json of a nested production" begin
         n = Production(h, "temp/jl-dev", FIXTURE_ROOT, LOCAL_ROOT)
         path = write_local_config(n)

@@ -74,6 +74,20 @@
         @test length(s.control_path) < 90
     end
 
+    @testset "an existing ssh ControlMaster is respected" begin
+        configured = "user flo\nhostname viper\ncontrolmaster auto\ncontrolpath /home/x/.ssh/master-%C\n"
+        @test has_control_master(configured)
+        @test has_control_master("ControlMaster ask\n")
+        @test !has_control_master("user flo\ncontrolmaster false\ncontrolpersist no\n")
+        @test !has_control_master("controlmaster no\n")
+        @test !has_control_master("user flo\n")
+
+        own = collect(ssh_command(SSHHost("cslg4", "/tmp/sock-%C"), "true").exec)
+        @test "ControlPath=/tmp/sock-%C" in own
+        kept = collect(ssh_command(SSHHost("viper", nothing), "uname -a").exec)
+        @test kept == ["ssh", "viper", "uname -a"]
+    end
+
     @testset "SSHHost requires ~/.ssh to exist" begin
         mktempdir() do d
             withenv("HOME" => d) do

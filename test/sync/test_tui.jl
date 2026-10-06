@@ -408,5 +408,17 @@
         settle!(m4)
         @test m4.modal_kind == :error
         @test find_text(draw(m4), "not a directory") !== nothing
+
+        # After the error is dismissed the picker says so and can retry.
+        update!(m4, KeyEvent(:escape))
+        @test m4.modal === nothing
+        tb = draw(m4)
+        @test find_text(tb, "no productions found") !== nothing
+        @test find_text(tb, "listing…") === nothing
+        m4.options = options
+        update!(m4, KeyEvent('r'))
+        @test find_text(draw(m4), "listing…") !== nothing
+        settle!(m4)
+        @test find_text(draw(m4), "temp/jl-dev") !== nothing
     end
 end

@@ -8,26 +8,55 @@ abstract type RemoteHost end
 
 """
     SSHHost(alias::AbstractString)
+    SSHHost(alias, control_path::Union{Nothing,AbstractString})
 
-A host reached through an `ssh` alias from `~/.ssh/config`. All commands share one
-multiplexed connection: `control_path` is the socket `ControlMaster` opens, so
-expanding a tree node costs a round trip and not a handshake.
+A host reached through an `ssh` alias from `~/.ssh/config`. The one-argument form
+asks `ssh -G alias` for the effective configuration and fails with ssh's own error
+when that does not succeed.
 
-The socket lives under `~/.ssh`, OpenSSH's recommended location for control
-sockets, and is named with the `%C` token: OpenSSH's own hash of the local host,
-remote host, port and user. A Unix domain socket path is limited to about 100
-bytes; `%C` keeps the name short and unique regardless of how long the alias or
-remote hostname is, which `%r@%h:%p` does not guarantee.
+When the configuration already enables `ControlMaster` (see
+[`has_control_master`](@ref)), the user's master connection is reused as it is:
+`control_path` is `nothing` and the tool adds no `Control*` option, because
+overriding the socket would force a new login, which can need a second factor
+and a terminal.
+
+Otherwise all commands share one multiplexed connection: `control_path` is the
+socket `ControlMaster` opens, so expanding a tree node costs a round trip and not
+a handshake. The socket lives under `~/.ssh`, OpenSSH's recommended location for
+control sockets, and is named with the `%C` token: OpenSSH's own hash of the local
+host, remote host, port and user. A Unix domain socket path is limited to about
+100 bytes; `%C` keeps the name short and unique regardless of how long the alias
+or remote hostname is, which `%r@%h:%p` does not guarantee.
 """
 struct SSHHost <: RemoteHost
     alias::String
-    control_path::String
+    control_path::Union{Nothing,String}
 end
 
+SSHHost(alias::AbstractString, control_path::Union{Nothing,AbstractString}) =
+    SSHHost(String(alias), control_path === nothing ? nothing : String(control_path))
+
 function SSHHost(alias::AbstractString)
+    out = IOBuffer()
+    err = IOBuffer()
+    proc = run(pipeline(ignorestatus(`ssh -G $alias`); stdout = out, stderr = err))
+    success(proc) || throw(ErrorException(
+        "ssh -G $alias failed with exit code $(proc.exitcode)\n$(String(take!(err)))"))
+    has_control_master(String(take!(out))) && return SSHHost(alias, nothing)
     sshdir = joinpath(homedir(), ".ssh")
     isdir(sshdir) || throw(ArgumentError("SSH control directory does not exist: $sshdir"))
-    SSHHost(String(alias), joinpath(sshdir, "juleana-sync-%C"))
+    SSHHost(alias, joinpath(sshdir, "juleana-sync-%C"))
+end
+
+"""
+    has_control_master(ssh_g_output::AbstractString)::Bool
+
+Whether the output of `ssh -G` enables `ControlMaster` (any value other than `no`
+or `false`). A missing line counts as disabled.
+"""
+function has_control_master(ssh_g_output::AbstractString)
+    m = match(r"^controlmaster[ \t]+(\S+)"mi, ssh_g_output)
+    m !== nothing && lowercase(m.captures[1]) ∉ ("no", "false")
 end
 
 """
@@ -57,7 +86,8 @@ end
 
 The `ssh` invocation that runs the single shell command `remote` on `h`.
 """
-ssh_command(h::SSHHost, remote::AbstractString) =
+ssh_command(h::SSHHost, remote::AbstractString) = h.control_path === nothing ?
+    `ssh $(h.alias) $remote` :
     `ssh -o ControlMaster=auto -o ControlPath=$(h.control_path) -o ControlPersist=60s $(h.alias) $remote`
 
 """

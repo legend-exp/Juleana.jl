@@ -13,7 +13,7 @@ include(joinpath(@__DIR__, "..", "..", "src", "sync", "JuleanaSync.jl"))
 using .JuleanaSync: main,
     RemoteHost, SSHHost, LocalHost, DirEntry,
     run_remote, list_dir, dir_sizes, read_file, rsync_source,
-    ssh_command, parse_dir_listing,
+    ssh_command, parse_dir_listing, has_control_master,
     Production, parse_production_config, production_roots,
     overlay_files, list_productions, host_remote_root, relative, to_local, to_mount, local_config, write_local_config, normdir,
     Node, tier_file_id, group_children, production_tree, expand!,

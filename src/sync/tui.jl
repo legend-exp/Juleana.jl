@@ -57,7 +57,20 @@ function SyncModel(host::RemoteHost, options::Options)
                   false, false, "", nothing,
                   nothing, :none, nothing, nothing, nothing,
                   :pick, nothing, nothing)
-    remote_root = options.remote_root
+    request_productions!(m)
+end
+
+"""
+    request_productions!(m::SyncModel)::SyncModel
+
+List the productions of the remote root in the background; the picker shows
+`listing…` until the result arrives.
+"""
+function request_productions!(m::SyncModel)
+    host = m.host
+    remote_root = m.options.remote_root
+    m.productions = nothing
+    m.picker = nothing
     spawn_task!(() -> list_productions(host, remote_root), m.tasks, :productions)
     m
 end
@@ -396,7 +409,7 @@ function render_pick(m::SyncModel, area::Rect, buf::Buffer)
     else
         render(m.picker, rows[1], buf)
     end
-    render(StatusBar(left = [Span(isempty(m.status) ? "↑/↓ move   enter open   q quit" : m.status)]),
+    render(StatusBar(left = [Span(isempty(m.status) ? "↑/↓ move   enter open   r reload   q quit" : m.status)]),
            rows[2], buf)
     m.modal === nothing || render(m.modal, area, buf)
     nothing
@@ -435,7 +448,9 @@ task_queue(m::SyncModel) = m.tasks
 # so that a second enter cannot start a second build.
 function update_pick!(m::SyncModel, e::KeyEvent)
     (e.key == :ctrl_c || (e.key == :char && e.char == 'q')) && (m.quit = true; return m)
-    (m.picker === nothing || m.tasks.active[] > 0) && return m
+    m.tasks.active[] > 0 && return m
+    (e.key == :char && e.char == 'r') && return request_productions!(m)
+    m.picker === nothing && return m
     if e.key in (:up, :down, :home, :end_key)
         handle_key!(m.picker, e)
     elseif e.key == :enter
@@ -575,7 +590,10 @@ function update!(m::SyncModel, e::TaskEvent)
 
     if e.value isa Exception
         m.progress = nothing
-        m.screen == :pick && (m.status = "")
+        if m.screen == :pick
+            m.status = ""
+            e.id == :productions && (m.productions = String[])
+        end
         return show_error!(m, e.value)
     end
 

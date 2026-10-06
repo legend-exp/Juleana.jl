@@ -54,10 +54,12 @@ function Production(h::RemoteHost, name::AbstractString,
                     remote_root::AbstractString, local_root::AbstractString;
                     mount_root::Union{Nothing,AbstractString} = nothing)
     root = normdir(remote_root)
+    (isabspath(name) || ".." in splitpath(name)) && throw(ArgumentError(
+        "production name must be a relative path below the remote root, got \"$name\""))
+    name = rstrip(normpath(name), '/')
     dir = normdir(joinpath(root, name))
-    (isabspath(name) || ".." in splitpath(name) || !startswith(dir, root * "/")) &&
-        throw(ArgumentError(
-            "production name must be a relative path below the remote root, got \"$name\""))
+    startswith(dir, root * "/") || throw(ArgumentError(
+        "production name must be a relative path below the remote root, got \"$name\""))
     files = [joinpath(name, "config.json"); overlay_files(h, root, name)]
     config = nothing
     for file in files
