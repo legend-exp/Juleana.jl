@@ -141,6 +141,87 @@ function run_rsync(cmd::Cmd, progress)
 end
 
 """
+    ExtractJob(source, destination, relative, groups)
+
+One file to reduce: `source` is its absolute path on the host, `destination` the
+absolute path of the reduced file in the staging tree, `relative` the path
+relative to the remote root (which is also the path in the local mirror), and
+`groups` the top-level HDF5 groups to keep.
+"""
+struct ExtractJob
+    source::String
+    destination::String
+    relative::String
+    groups::Vector{String}
+end
+
+"""
+    staging_production_dir(staging::AbstractString, p::Production)::String
+
+The directory of the staging tree that mirrors the remote root for `p`; rsync with
+this directory as its source recreates the mirror layout.
+"""
+staging_production_dir(staging::AbstractString, p::Production) =
+    joinpath(staging, replace(p.name, '/' => '-'))
+
+"""
+    plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging)::Vector{ExtractJob}
+
+One job per filekey file in each extract entry's run directory, in name order. A
+file that `sel.copy` already covers, as itself or through a directory above it, is
+copied whole and left out.
+"""
+function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::AbstractString)
+    covered(rel) = any(c -> rel == c || startswith(rel, c * "/"), sel.copy)
+    stage = staging_production_dir(staging, p)
+    plan = ExtractJob[]
+    for entry in sel.extract
+        dir = joinpath(p.remote_root, entry.run_dir)
+        for file in sort!(list_dir(h, dir); by = e -> e.name)
+            id = tier_file_id(file.name)
+            (file.kind == :file && id !== nothing && first(id) == :filekey) || continue
+            rel = joinpath(entry.run_dir, file.name)
+            covered(rel) || push!(plan, ExtractJob(joinpath(dir, file.name),
+                                                   joinpath(stage, rel), rel, entry.groups))
+        end
+    end
+    plan
+end
+
+"""
+    plan_bytes(h::RemoteHost, helper::HelperConfig, plan::Vector{ExtractJob}; jobs = 0)::Int
+
+The summed stored size of the groups the jobs of `plan` take, from inspecting
+every source file with the remote helper. A group that is not in its file is an
+error.
+"""
+function plan_bytes(h::RemoteHost, helper::HelperConfig, plan::Vector{ExtractJob}; jobs::Integer = 0)
+    isempty(plan) && return 0
+    total = 0
+    for (job, (names, bytes)) in zip(plan, inspect_files(h, helper, [j.source for j in plan]; jobs))
+        for group in job.groups
+            i = findfirst(==(group), names)
+            i === nothing && throw(ErrorException("group $group is not in $(job.source)"))
+            total += bytes[i]
+        end
+    end
+    total
+end
+
+"""
+    prepare_extraction(h::RemoteHost, p::Production, sel::Selection, helper::HelperConfig)
+
+The staging directory and the extraction plan for `sel`, once the helper
+environment on `h` is known to be ready.
+"""
+function prepare_extraction(h::RemoteHost, p::Production, sel::Selection, helper::HelperConfig)
+    status = ensure_environment(h, helper)
+    environment_ready(status) || throw(ErrorException(environment_problem(status, h, helper)))
+    staging = staging_dir(h, helper)
+    staging, plan_extraction(h, p, sel, staging)
+end
+
+"""
     rsync_dry_run(h::RemoteHost, p::Production, sel::Selection)::Estimate
 
 What the transfer would actually move, given what is already in the mirror.
@@ -223,16 +304,19 @@ function create_links!(h::RemoteHost, p::Production, sel::Selection)
 end
 
 """
-    apply!(h::RemoteHost, p::Production, sel::Selection; dry_run = false, progress = nothing)
+    apply!(h::RemoteHost, p::Production, sel::Selection; dry_run = false, progress = nothing,
+           helper = HelperConfig(), jobs = 0)
 
 Bring the mirror in line with `sel`. With `dry_run` it only asks rsync what would
 move and returns an [`Estimate`](@ref); otherwise it transfers, creates the links
 and writes `config_local.json`, and returns a [`TransferResult`](@ref).
 
 `progress` is called with a [`Progress`](@ref) for each reading rsync prints.
+`helper` and `jobs` configure the remote helper that extract entries need.
 """
 function apply!(h::RemoteHost, p::Production, sel::Selection;
-                dry_run::Bool = false, progress = nothing)
+                dry_run::Bool = false, progress = nothing,
+                helper::HelperConfig = HelperConfig(), jobs::Integer = 0)
     check_rsync()
     isdir(p.local_root) || error("local root $(p.local_root) does not exist")
     # Find out now, not halfway through a transfer, whether the mirror is writable.
@@ -240,7 +324,13 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
     close(io)
     rm(probe)
     isempty(sel.link) || check_mount(p)
-    dry_run && return rsync_dry_run(h, p, sel)
+    if dry_run
+        estimate = rsync_dry_run(h, p, sel)
+        isempty(sel.extract) && return estimate
+        _, plan = prepare_extraction(h, p, sel, helper)
+        return Estimate(estimate.bytes, estimate.files, estimate.links, true,
+                        plan_bytes(h, helper, plan; jobs), length(plan), true)
+    end
 
     replaced = remove_stale_links!(p, sel)
     out, warnings = mktempdir() do dir

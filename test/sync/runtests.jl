@@ -42,7 +42,8 @@ using .JuleanaSync: main,
     HELPER_SCRIPT, HELPER_PACKAGES, DATAFLOW_PROJECT, DEFAULT_REMOTE_JULIA,
     DEFAULT_REMOTE_PROJECT, REMOTE_STAGING_SCRIPT,
     ExtractEntry, tier_name, ensure_detectors!, detector_nodes, attach_detectors!,
-    expand_detectors!, has_detectors
+    expand_detectors!, has_detectors,
+    ExtractJob, staging_production_dir, plan_extraction, plan_bytes, prepare_extraction
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -72,6 +73,7 @@ run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &
     run_file("test_inventory.jl")
     run_file("test_selection.jl")
     run_file("test_extract_tree.jl")
+    run_file("test_extract_estimate.jl")
     run_file("test_estimate.jl")
     run_file("test_transfer.jl")
     run_file("test_options.jl")
