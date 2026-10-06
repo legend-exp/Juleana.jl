@@ -1,4 +1,14 @@
 # helper functions for logging
+"""
+    detector_status(usability::Symbol)
+
+Format detector usability for Markdown reports: green `on`, yellow `ac`, red `off`.
+"""
+function detector_status(usability::Symbol)
+    color = get((on="green", ac="yellow", off="red"), usability, "gray")
+    return """<span style="color:$color">$usability</span>"""
+end
+
 function truncate_string(s::String, max_length::Int=1000)
     if length(s) > max_length
         return s[1:max_length] * "..."
