@@ -52,7 +52,7 @@
     end
 
     @testset "SSHHost command construction" begin
-        s = SSHHost("cslg4")
+        s = SSHHost("cslg4", joinpath(homedir(), ".ssh", "juleana-sync-%C"))
         c = ssh_command(s, "du -sb /mnt/scratch/x")
         parts = collect(c.exec)
         @test parts[1] == "ssh"
@@ -88,11 +88,21 @@
         @test kept == ["ssh", "viper", "uname -a"]
     end
 
-    @testset "SSHHost requires ~/.ssh to exist" begin
-        mktempdir() do d
-            withenv("HOME" => d) do
-                @test homedir() == d
-                @test_throws "does not exist" SSHHost("cslg4")
+    @testset "SSHHost(alias) follows the ssh configuration" begin
+        # Both outcomes are valid: the user's own master (nothing) or the tool's
+        # socket under ~/.ssh, depending on the machine's ssh config.
+        s = SSHHost("cslg4")
+        @test s.control_path === nothing ||
+              startswith(s.control_path, joinpath(homedir(), ".ssh") * "/")
+
+        if has_control_master(read(`ssh -G cslg4`, String))
+            @info "ssh already configures a ControlMaster for cslg4; the ~/.ssh existence check of SSHHost did not run"
+        else
+            mktempdir() do d
+                withenv("HOME" => d) do
+                    @test homedir() == d
+                    @test_throws "does not exist" SSHHost("cslg4")
+                end
             end
         end
     end

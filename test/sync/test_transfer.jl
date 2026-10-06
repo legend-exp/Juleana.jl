@@ -28,7 +28,7 @@
         @test "--dry-run" in dry
         @test "--info=progress2" ∉ dry
 
-        ssh = collect(rsync_command(SSHHost("cslg4"), p, "/tmp/files.txt"; dry_run = false).exec)
+        ssh = collect(rsync_command(SSHHost("cslg4", nothing), p, "/tmp/files.txt"; dry_run = false).exec)
         @test ssh[end - 1] == "cslg4:" * FIXTURE_ROOT * "/"
     end
 
