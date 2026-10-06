@@ -154,6 +154,11 @@ without an open session on the cluster. The mirror keeps the remote layout, so
 julia --project=. sync.jl --production test
 ```
 
+`--production` is the production's path relative to the remote root, for example
+`test`, `temp/jl-v0.6.0dev5` or `juleana/tmp/jl-v0.7.0dev1`. Without it, the
+interface opens on a picker that lists every directory with a `config.json`
+within three levels of the root (`↑` `↓` move, `enter` opens, `q` quits).
+
 This opens a terminal interface:
 
 - The left pane is the production's tree: its `config.json`, then one branch per
@@ -186,14 +191,37 @@ A successful transfer's summary ends with any warnings rsync printed.
 | Option | Description |
 |--------|-------------|
 | `--host ALIAS` | ssh alias of the machine holding the production (default `cslg4`) |
-| `--remote-root PATH` | Remote directory holding the productions (default `/mnt/scratch/projects/legend/data/l200`) |
+| `--remote-root PATH` | Remote directory holding the productions (default: the entry for `--host` in `config/sync/hosts.json`) |
 | `--local-root PATH` | Local directory mirroring it (default `../data` next to this checkout) |
 | `--mount-root PATH` | Where the remote root is mounted; enables link mode |
-| `--production NAME` | Production to sync (default `test`) |
-| `--out FILE` | Where the interface saves the selection |
-| `--from FILE` | Apply a saved selection without starting the interface |
+| `--production PATH` | Production to sync, relative to the remote root (default: choose in the interface) |
+| `--out FILE` | Where the interface saves the selection (default `config/sync/<production>.json`, with `/` in the production path replaced by `-`) |
+| `--from FILE` | Apply a saved selection without starting the interface; the production is taken from the selection unless `--production` is given, in which case the two must agree |
 | `--dry-run` | With `--from`: ask rsync what would move and print it, then stop |
 | `--yes` | With `--from`: transfer without asking |
+
+## Hosts, layouts and site overlays
+
+The remote root of each host is listed in `config/sync/hosts.json`, so
+`--host viper` works without `--remote-root`. The productions sit at different
+places on the two sites:
+
+- `cslg4`: `test/`, `temp/<name>/`, `ref/<name>/` and `preprod/...` below the
+  root.
+- `viper`: `juleana/{auto,preprod,ref,tmp}/<name>/` below the root, with the raw
+  data at `raw-compressed/` beside `juleana/`.
+
+Each site keeps a config next to its productions that redirects some path keys,
+for example `config_cslg4.json` in the root of `cslg4` and `config_viper.yaml` in
+`juleana/` on `viper`. The tool applies every file named
+`config_<site>.json`, `.yaml` or `.yml` in the directories from the remote root
+down to the parent of the production. The production's own `config.json` is read
+first, then the overlays from the root downwards. A later file wins, so each
+overlay overrides the production and a deeper overlay overrides a shallower one.
+`$_` expands to the directory of the file it is written in. The overlays are
+always copied with the production, and `config_local.json` is derived from the
+merged config. The row of the production in the interface lists the overlays
+that were applied.
 
 ## Re-applying a selection
 

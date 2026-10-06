@@ -1,7 +1,13 @@
 """
     SyncModel(host, production, options)
+    SyncModel(host, options)
 
-The interface's state. The `Node` tree is the source of truth; the `TreeView` is
+The interface's state. The second form starts on the production picker: it lists
+the productions of `options.remote_root` in the background, and choosing one
+builds the production and switches to the tree screen. `screen` is `:pick` or
+`:tree`; `production` and `root` are `nothing` on the picker.
+
+On the tree screen the `Node` tree is the source of truth; the `TreeView` is
 rebuilt from it whenever anything changes, because `TreeView` caches its
 flattened rows and mutating its nodes in place would leave that cache stale.
 
@@ -10,9 +16,9 @@ reason. `pending` holds the remote paths of listings in flight.
 """
 mutable struct SyncModel <: Model
     host::RemoteHost
-    production::Production
+    production::Union{Nothing,Production}
     options::Options
-    root::Node
+    root::Union{Nothing,Node}
     collapsed::Set{String}
     pending::Set{String}
     tree::TreeView
@@ -26,6 +32,9 @@ mutable struct SyncModel <: Model
     input::Union{Nothing,TextInput}
     estimate::Union{Nothing,Estimate}
     progress::Union{Nothing,Progress}
+    screen::Symbol
+    productions::Union{Nothing,Vector{String}}
+    picker::Union{Nothing,SelectableList}
 end
 
 function SyncModel(host::RemoteHost, production::Production, options::Options)
@@ -34,9 +43,22 @@ function SyncModel(host::RemoteHost, production::Production, options::Options)
                   # Replaced immediately: rebuild_tree! needs the model to exist.
                   TreeView(TreeNode("")), TaskQueue(),
                   false, false, "", nothing,
-                  nothing, :none, nothing, nothing, nothing)
+                  nothing, :none, nothing, nothing, nothing,
+                  :tree, nothing, nothing)
     rebuild_tree!(m)
     m.tree.selected = 1
+    m
+end
+
+function SyncModel(host::RemoteHost, options::Options)
+    m = SyncModel(host, nothing, options, nothing,
+                  Set{String}(), Set{String}(),
+                  TreeView(TreeNode("")), TaskQueue(),
+                  false, false, "", nothing,
+                  nothing, :none, nothing, nothing, nothing,
+                  :pick, nothing, nothing)
+    remote_root = options.remote_root
+    spawn_task!(() -> list_productions(host, remote_root), m.tasks, :productions)
     m
 end
 
@@ -315,6 +337,11 @@ function details(m::SyncModel)
         "size: " * (node.size === nothing ? "…" : format_bytes(node.size)),
         "",
     ]
+    if node !== nothing && node.kind == :production
+        overlays = m.production.overlays
+        insert!(lines, lastindex(lines),
+                "overlays: " * (isempty(overlays) ? "none" : join(overlays, ", ")))
+    end
     append!(lines, ["space copy   l link   n first N",
                     "enter expand/collapse   s save",
                     "e estimate   t sync   q quit"])
@@ -355,12 +382,34 @@ function render_prompt(m::SyncModel, area::Rect, buf::Buffer)
 end
 
 """
+    render_pick(m::SyncModel, area::Rect, buf::Buffer)
+
+The production picker: the productions found under the remote root, or a
+placeholder while the search runs.
+"""
+function render_pick(m::SyncModel, area::Rect, buf::Buffer)
+    rows = split_layout(Layout(Vertical, Constraint[Fill(1), Fixed(1)]), area)
+    block = Block(title = "Productions on $(m.options.host)")
+    if m.picker === nothing
+        render(Paragraph(m.productions === nothing ? "listing…" : "no productions found in $(m.options.remote_root)";
+                         block), rows[1], buf)
+    else
+        render(m.picker, rows[1], buf)
+    end
+    render(StatusBar(left = [Span(isempty(m.status) ? "↑/↓ move   enter open   q quit" : m.status)]),
+           rows[2], buf)
+    m.modal === nothing || render(m.modal, area, buf)
+    nothing
+end
+
+"""
     render_sync(m::SyncModel, area::Rect, buf::Buffer)
 
 Draw the interface into `area`. The area is explicit and nothing assumes it owns
 the terminal, so the future Juleana app can host this as one screen.
 """
 function render_sync(m::SyncModel, area::Rect, buf::Buffer)
+    m.screen == :pick && return render_pick(m, area, buf)
     rows = split_layout(Layout(Vertical, Constraint[Fill(1), Fixed(1)]), area)
     panes = split_layout(Layout(Horizontal, Constraint[Percent(55), Fill(1)]), rows[1])
     render(m.tree, panes[1], buf)
@@ -381,6 +430,27 @@ end
 view(m::SyncModel, f::Frame) = render_sync(m, f.area, f.buffer)
 should_quit(m::SyncModel) = m.quit
 task_queue(m::SyncModel) = m.tasks
+
+# Keys on the picker screen. Input is ignored while the production is being opened,
+# so that a second enter cannot start a second build.
+function update_pick!(m::SyncModel, e::KeyEvent)
+    (e.key == :ctrl_c || (e.key == :char && e.char == 'q')) && (m.quit = true; return m)
+    (m.picker === nothing || m.tasks.active[] > 0) && return m
+    if e.key in (:up, :down, :home, :end_key)
+        handle_key!(m.picker, e)
+    elseif e.key == :enter
+        name = m.productions[m.picker.selected]
+        host = m.host
+        options = m.options
+        m.status = "opening $name…"
+        spawn_task!(m.tasks, :open) do
+            production = Production(host, name, options.remote_root, options.local_root;
+                                    mount_root = options.mount_root)
+            (production, production_tree(host, production))
+        end
+    end
+    m
+end
 
 function update!(m::SyncModel, e::KeyEvent)
     # The transfer dialog has no buttons to answer, and Modal.handle_key!
@@ -420,6 +490,8 @@ function update!(m::SyncModel, e::KeyEvent)
     end
 
     m.modal_kind == :estimating && return m   # waiting on the dry run
+
+    m.screen == :pick && return update_pick!(m, e)
 
     # Ctrl+C is the terminal's own way of asking to leave, and leaves the same
     # way q does, unsaved-selection question included.
@@ -503,7 +575,27 @@ function update!(m::SyncModel, e::TaskEvent)
 
     if e.value isa Exception
         m.progress = nothing
+        m.screen == :pick && (m.status = "")
         return show_error!(m, e.value)
+    end
+
+    if e.id == :productions
+        m.productions = e.value
+        isempty(e.value) || (m.picker = SelectableList(e.value; focused = true,
+                                  block = Block(title = "Productions on $(m.options.host)")))
+        return m
+    elseif e.id == :open
+        m.production, m.root = e.value
+        o = m.options
+        name = m.production.name
+        m.options = Options(o.host, o.remote_root, o.local_root, o.mount_root, name,
+                            isempty(o.out) ? default_selection_path(name) : o.out,
+                            o.from, o.dry_run, o.yes)
+        m.screen = :tree
+        m.status = ""
+        rebuild_tree!(m)
+        m.tree.selected = 1
+        return m
     end
 
     if e.id == :estimate
@@ -534,11 +626,16 @@ end
 """
     run_tui(options::Options, host::RemoteHost)::Int
 
-Open the interface for `options` and return the exit code once it closes.
+Open the interface for `options` and return the exit code once it closes. It
+starts on the production picker when `options` names no production.
 """
 function run_tui(options::Options, host::RemoteHost)
-    production = Production(host, options.production, options.remote_root,
-                            options.local_root; mount_root = options.mount_root)
-    app(SyncModel(host, production, options))
+    if isempty(options.production)
+        app(SyncModel(host, options))
+    else
+        production = Production(host, options.production, options.remote_root,
+                                options.local_root; mount_root = options.mount_root)
+        app(SyncModel(host, production, options))
+    end
     0
 end

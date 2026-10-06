@@ -342,4 +342,71 @@
         attach_listing!(m, (section, Node[]))
         @test current_node(m) !== nothing
     end
+
+    @testset "the production node lists the overlays" begin
+        local_root = mktempdir()
+        nested = Production(h, "temp/jl-dev", FIXTURE_ROOT, local_root)
+        options = Options("local", FIXTURE_ROOT, local_root, nothing, "temp/jl-dev",
+                          joinpath(mktempdir(), "sel.json"), nothing, false, false)
+        tb = draw(SyncModel(h, nested, options); width = 160)
+        @test find_text(tb, "overlays: config_fixture.json, temp/config_site.yaml") !== nothing
+
+        bare = Production(nested.name, nested.remote_root, nested.local_root, nothing,
+                          nested.config, nested.roots, String[])
+        @test find_text(draw(SyncModel(h, bare, options); width = 160), "overlays: none") !== nothing
+    end
+
+    @testset "production picker" begin
+        local_root = mktempdir()
+        options = Options("local", FIXTURE_ROOT, local_root, nothing, "", "", nothing, false, false)
+        m = SyncModel(h, options)
+        @test find_text(draw(m), "Productions on local") !== nothing
+        @test find_text(draw(m), "listing…") !== nothing
+        settle!(m)
+        tb = draw(m)
+        @test find_text(tb, "listing…") === nothing
+        @test find_text(tb, "temp/jl-dev") !== nothing
+        @test find_text(tb, "test") !== nothing
+
+        update!(m, KeyEvent(:enter))
+        settle!(m)
+        tb = draw(m)
+        @test find_text(tb, "Production: temp/jl-dev") !== nothing
+        @test find_text(tb, "config.json") !== nothing
+        @test m.options.production == "temp/jl-dev"
+        @test m.options.out == joinpath(DEFAULT_SELECTION_DIR, "temp-jl-dev.json")
+        @test m.production.name == "temp/jl-dev"
+
+        # The tree screen behaves as before: save writes the chosen file.
+        m.options = Options("local", FIXTURE_ROOT, local_root, nothing, "temp/jl-dev",
+                            joinpath(mktempdir(), "sel.json"), nothing, false, false)
+        update!(m, KeyEvent('s'))
+        @test load_selection(m.options.out, m.production).production == "temp/jl-dev"
+    end
+
+    @testset "picker: arrows move, q and ctrl-c quit, errors open the modal" begin
+        local_root = mktempdir()
+        options = Options("local", FIXTURE_ROOT, local_root, nothing, "", "", nothing, false, false)
+        m = SyncModel(h, options)
+        settle!(m)
+        update!(m, KeyEvent(:down))
+        update!(m, KeyEvent(:enter))
+        settle!(m)
+        @test m.production.name == "test"
+
+        m2 = SyncModel(h, options)
+        settle!(m2)
+        update!(m2, KeyEvent('q'))
+        @test should_quit(m2)
+        m3 = SyncModel(h, options)
+        update!(m3, KeyEvent(:ctrl_c))
+        @test should_quit(m3)
+
+        missing_root = Options("local", joinpath(FIXTURE_ROOT, "nosuch"), local_root, nothing,
+                               "", "", nothing, false, false)
+        m4 = SyncModel(h, missing_root)
+        settle!(m4)
+        @test m4.modal_kind == :error
+        @test find_text(draw(m4), "not a directory") !== nothing
+    end
 end

@@ -1,7 +1,9 @@
 # Data sync tool: acceptance checklist
 
-Run against `cslg4` and the `test` production. The automated suite never touches
-the cluster, so this is where the ssh, rsync and mount paths are confirmed.
+Run against `cslg4` and `viper`. The automated suite never touches the
+clusters, so this is where the ssh, rsync and mount paths are confirmed. The
+`cslg4` steps use a production chosen in the picker; pick one that holds `jlevt`
+data and call it `<production>` below.
 
 Record the date and the outcome of each step in a comment on the pull request.
 Do not paste per-detector numbers or plots: sizes, file counts and timings only.
@@ -14,8 +16,12 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 
 ## Interface
 
-- [ ] `julia --project=. sync.jl --production test` opens the two-pane layout,
+- [ ] `julia --project=. sync.jl` opens the picker, titled `Productions on cslg4`,
+      and lists `test`, `temp/...`, `ref/...` and `preprod/...` productions
+      within a few seconds (it shows `listing…` meanwhile).
+- [ ] `enter` on a production that holds `jlevt` opens the two-pane layout,
       and the status bar reads `selected: 0 B copy (0 files), 0 links`.
+- [ ] The details pane of the production row reads `overlays: config_cslg4.json`.
 - [ ] The tree shows `config.json` and one row per configured path key of the
       production, at minimum `metadata`, `par`, `tier`, `tier/jldsp`,
       `tier/jlpks`, `tier/raw`.
@@ -46,8 +52,8 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 - [ ] `t` transfers it; the gauge advances and the summary names the bytes, the
       file count and the `LEGEND_DATA_CONFIG` line.
 - [ ] The file is at the mirrored path and its size matches the remote one.
-- [ ] `<local-root>/test/config_local.json` exists; `<local-root>/test/config.json`
-      is byte-identical to the remote one.
+- [ ] `<local-root>/<production>/config_local.json` exists;
+      `<local-root>/<production>/config.json` is byte-identical to the remote one.
 - [ ] Running `t` again transfers 0 bytes.
 
 ## Link `tier/raw` for the same run
@@ -65,7 +71,7 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 
 ## Hybrid read
 
-- [ ] `export LEGEND_DATA_CONFIG=<local-root>/test/config_local.json`
+- [ ] `export LEGEND_DATA_CONFIG=<local-root>/<production>/config_local.json`
 - [ ] In Julia: `using LegendDataManagement; l200 = LegendData(:l200)` and read
       the copied `jlevt` file through it.
 - [ ] Read a waveform from the linked `raw` file for the same filekey; it goes
@@ -75,10 +81,29 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 
 ## Headless re-apply
 
-- [ ] `s` in the interface writes `config/sync/test.json`.
-- [ ] `julia --project=. sync.jl --from config/sync/test.json --dry-run` prints
-      an estimate of 0 bytes, because everything is already there.
+- [ ] `s` in the interface writes `config/sync/<production>.json`, with `/` in
+      the production path replaced by `-`.
+- [ ] `julia --project=. sync.jl --from config/sync/<production>.json --dry-run`
+      prints an estimate of 0 bytes, because everything is already there; no
+      `--production` is needed.
 - [ ] Delete one copied file and re-run without `--dry-run` and with `--yes`:
       only that file comes back.
 - [ ] Editing the saved file to name another production makes `--from` fail on
       load, naming both productions.
+
+## viper
+
+- [ ] `ssh viper true` succeeds without a password prompt.
+- [ ] `julia --project=. sync.jl --host viper` opens the picker, titled
+      `Productions on viper`, and lists productions below `juleana/`
+      (`auto`, `preprod`, `ref`, `tmp`).
+- [ ] `enter` on `juleana/tmp/jl-v0.7.0dev1` opens the tree. The details pane of
+      the production row reads `overlays: juleana/config_viper.yaml`, and the
+      `tier/raw` section points into `raw-compressed/` beside `juleana/`.
+- [ ] Copy one `jlevt` filekey as in "Copy one filekey": `n`, `1`, `enter`.
+- [ ] `e` shows an estimate within a few percent of the file size.
+- [ ] `t` transfers it; the file is at the mirrored path
+      `<local-root>/juleana/tmp/jl-v0.7.0dev1/...`.
+- [ ] `<local-root>/juleana/config_viper.yaml` is mirrored, and
+      `<local-root>/juleana/tmp/jl-v0.7.0dev1/config_local.json` holds absolute
+      local paths for every key, including `tier/raw`.
