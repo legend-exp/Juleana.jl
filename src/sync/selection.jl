@@ -2,14 +2,17 @@
     ExtractEntry(run_dir, groups)
 
 The detectors to take out of every filekey file of one run directory: `run_dir`
-relative to the remote root, `groups` the top-level HDF5 group names, sorted.
+relative to the remote root, `groups` the top-level HDF5 group names, sorted and
+without duplicates.
 """
 struct ExtractEntry
     run_dir::String
     groups::Vector{String}
+    ExtractEntry(run_dir, groups) = new(run_dir, sort!(unique(String.(groups))))
 end
 
 Base.:(==)(a::ExtractEntry, b::ExtractEntry) = a.run_dir == b.run_dir && a.groups == b.groups
+Base.hash(e::ExtractEntry, h::UInt) = hash(e.groups, hash(e.run_dir, h))
 
 """
     Selection
@@ -65,6 +68,8 @@ function set_mode!(node::Node, mode::Symbol)
         "only detector rows can be extracted, not the :$(node.kind) row $(node.label)"))
     mode in (:copy, :link) && node.kind in (:detectors, :detector) && throw(ArgumentError(
         "detector rows have no path on the host; use :extract, not :$mode, on $(node.label)"))
+    mode == :extract && effective_mode(node.parent.parent) in (:copy, :link) && throw(ArgumentError(
+        "the run $(node.parent.parent.label) is already transferred whole; cannot extract $(node.label)"))
     node.mode = mode
     clear_descendants!(node, mode)
     node
@@ -90,6 +95,9 @@ its own. A node that carries its own mode simply loses it, along with the
 explicit modes below it.
 """
 function exclude!(node::Node)
+    # Detector rows without an own mode inherit the run's mode, which cannot be split per detector.
+    node.kind in (:detectors, :detector) && node.mode == :none && effective_mode(node) != :none &&
+        throw(ArgumentError("cannot exclude detector row $(node.label); unmark the run instead"))
     effective_mode(node) == :none && return node
     node.mode == :none || return set_mode!(node, :none)
     ancestors = Node[]

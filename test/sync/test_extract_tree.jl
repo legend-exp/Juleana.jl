@@ -103,6 +103,43 @@
         @test detectors.mode == :none
     end
 
+    @testset "a run transferred whole takes no per-detector changes" begin
+        node = Node("r000", dsp, :dir)
+        expand!(h, p, node; detectors = true)
+        detectors = expand_detectors!(h, helper, node.children[3])
+        for mode in (:copy, :link)
+            set_mode!(node, mode)
+            @test_throws "already transferred whole" set_mode!(detectors.children[1], :extract)
+            @test_throws "unmark the run instead" exclude!(detectors.children[1])
+            @test_throws "unmark the run instead" exclude!(detectors)
+            @test node.mode == mode
+        end
+        set_mode!(node, :none)
+        set_mode!(detectors.children[1], :extract)
+        @test detectors.children[1].mode == :extract
+        exclude!(detectors.children[1])
+        @test detectors.children[1].mode == :none
+    end
+
+    @testset "ExtractEntry normalizes its groups" begin
+        e = ExtractEntry("run", ["b", "a", "a"])
+        @test e.groups == ["a", "b"]
+        @test hash(e) == hash(ExtractEntry("run", ["a", "b"]))
+    end
+
+    @testset "extract entries round trip through a file" begin
+        none = Selection("local", "xprod", EXTRACT_ROOT, local_root, nothing,
+                         String[], String[], now())
+        path = save_selection(joinpath(mktempdir(), "none.json"), none)
+        @test load_selection(path, p).extract == ExtractEntry[]
+
+        two = Selection("local", "xprod", EXTRACT_ROOT, local_root, nothing, String[], String[], now(),
+                        [ExtractEntry("a/run", ["z", "m"]), ExtractEntry("b/run", ["y", "x"])])
+        path = save_selection(joinpath(mktempdir(), "two.json"), two)
+        @test load_selection(path, p).extract == [ExtractEntry("a/run", ["m", "z"]),
+                                                  ExtractEntry("b/run", ["x", "y"])]
+    end
+
     @testset "the selection records extract entries" begin
         root = production_tree(h, p)
         run = find_node!(h, p, root, relative(p, dsp))
