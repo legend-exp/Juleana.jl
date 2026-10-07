@@ -90,4 +90,19 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
 
         @test_throws "no failure_log method for items of type Int64" parallel([1, 2], identity, FkLog)
     end
+
+    @testset "wait_for" begin
+        abort = Threads.Atomic{Bool}(false)
+        @test isnothing(Juleana.wait_for(() -> true, "ready step"; abort, timeout = 1, poll = 0.01))
+
+        flag = Threads.Atomic{Bool}(false)
+        t = Threads.@spawn Juleana.wait_for(() -> flag[], "flagged step"; abort, timeout = 10, poll = 0.01)
+        sleep(0.05)
+        flag[] = true
+        @test isnothing(fetch(t))
+
+        @test_throws "Timed out after 0.05 s waiting for slow step" Juleana.wait_for(() -> false, "slow step"; abort, timeout = 0.05, poll = 0.01)
+        abort[] = true
+        @test_throws "Stopped waiting for blocked step: another processing task failed" Juleana.wait_for(() -> false, "blocked step"; abort, timeout = 10, poll = 0.01)
+    end
 end
