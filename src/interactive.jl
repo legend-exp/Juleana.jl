@@ -126,7 +126,6 @@ function execute_processors()
         return
     end
     
-    # execute steps one after each other without period and run parallelization
     if isempty(process_steps) && isempty(p_process_steps)
         @warn "No processing steps selected"
         return
@@ -143,135 +142,13 @@ function execute_processors()
             process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
         end
 
-        @sync begin
-
-            if !isempty(process_steps)
-                # process periods
-                Threads.@spawn begin
-                    for period in periods
-                        Threads.@spawn begin
-                            @info "Process period $period"
-
-                            # select runs to process
-                            processable_runs = sort(collect(keys(last(first(process_status[period])))))
-
-                            # process runs
-                            for run in processable_runs
-
-                                Threads.@spawn begin
-                                    # iterate through process steps
-                                    @info "Process run $run"
-                                    for process in process_steps
-                                        @info "$(string(process))"
-                                        flush(stdout)
-
-                                        # check if run is a analysis run if switched on
-                                        if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config.processors[process].category))
-                                            @warn "$period-$run-$(processing_config.processors[process].category) is not a analysis run, skip $(string(process))"
-                                            continue
-                                        elseif !is_lrun(l200, (period, run, processing_config.processors[process].category))
-                                            @warn "$period-$run-$(processing_config.processors[process].category) is not in runinfo, skip $(string(process))"
-                                            continue
-                                        end
-                                        
-                                        # check if process has dependencies
-                                        if "check_dependencies" in additional_args
-                                            # get all dependencies of process from config
-                                            dependencies = processing_config.processors[process].dependencies
-                                            # add all smaller ranks to list of dependencies and remove duplicates
-                                            dependencies = unique(vcat([possible_p_steps[1:findfirst(possible_p_steps .== dep)] for dep in dependencies]...))
-                                            # check if dependencies are met
-                                            if !all([p_process_status[period][dep] for dep in dependencies])
-                                                @warn "Dependencies not yet met for $(string(process))"
-                                            end
-                                            # if not met wait till met
-                                            while !all([p_process_status[period][dep] for dep in dependencies])
-                                                sleep(10)
-                                            end
-                                        end
-
-                                        # run process
-                                        kwargs = NamedTuple(processing_config.processors[process].kwargs)
-                                        if "reprocess" in additional_args
-                                            kwargs = merge(kwargs, (reprocess = true, ))
-                                        end
-                                        if "no-reprocess" in additional_args
-                                            kwargs = merge(kwargs, (reprocess = false, ))
-                                        end
-                                        getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
-                                        flush(stdout)
-
-                                        # update process status
-                                        process_status[period][process][run] = true
-
-                                        @info "Finished $period-$run $(string(process))"
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            if !isempty(p_process_steps)
-                # process partitions 
-                Threads.@spawn begin
-                    for period in periods
-
-                        @info "Process partitions in $period"
-
-                        Threads.@spawn begin
-                            # iterate through process steps
-                            for process in p_process_steps
-                                @info "$(string(process))"
-
-                                if "check_dependencies" in additional_args
-                                    # check if p process has dependencies
-                                    dependencies = processing_config.p_processors[process].dependencies
-                                    # combined periods and actual period to check for dependency globally
-                                    combined_periods = unique(push!(get_partition_combined_periods(l200, period), period))
-                                    # add all smaller ranks to list of dependencies and remove duplicates
-                                    dependencies = unique(vcat([possible_steps[1:findfirst(possible_steps .== dep)] for dep in dependencies]...))
-                                    if !all([all(values(process_status[period][dep])) for dep in dependencies for period in combined_periods])
-                                        @warn "Dependencies not yet met for $(string(process))"
-                                    end
-                                    while !all([all(values(process_status[period][dep])) for dep in dependencies])
-                                        sleep(10)
-                                    end
-                                end
-                                
-                                # get kwargs
-                                kwargs = NamedTuple(processing_config.p_processors[process].kwargs)
-                                # make sure that only the first period in each partitions are processed
-                                kwargs = merge(kwargs, (only_first_period = DataPeriod(period.no - 1) in periods, ))
-                                if "reprocess" in additional_args
-                                    kwargs = merge(kwargs, (reprocess = true, ))
-                                end
-                                if "no-reprocess" in additional_args
-                                    kwargs = merge(kwargs, (reprocess = false, ))
-                                end
-                                # process partitions
-                                has_lower_period_depedency = getfield(Main, process)(processing_config, l200, period,; kwargs...)
-                                
-                                # if process finished but depends on lower period dependency wait till met
-                                if has_lower_period_depedency && "check_dependencies" in additional_args
-                                    if !p_process_status[DataPeriod(period.no - 1)][process]
-                                        @warn "Processed $period $(string(process)) but depends on $(DataPeriod(period.no - 1)) --> wait"
-                                    end
-                                    while !p_process_status[DataPeriod(period.no - 1)][process]
-                                        sleep(10)
-                                    end
-                                end
-                                # update process status
-                                p_process_status[period][process] = true
-
-                                @info "Finished $period $(string(process))"
-                            end
-                        end
-                    end
-                end
-            end
+        if "reprocess" in additional_args && "no-reprocess" in additional_args
+            @error "Select only one of `reprocess` and `no-reprocess`"
+            return
         end
+        reprocess = "reprocess" in additional_args ? true : "no-reprocess" in additional_args ? false : nothing
+        run_processing(processing_config, l200, periods, process_steps, p_process_steps, process_status, p_process_status;
+            mod = Main, check_dependencies = "check_dependencies" in additional_args, reprocess)
     end
 end
 
