@@ -219,8 +219,8 @@
         @test length(records) == 2
         @test seen == records
         found = inspect_files(h, c, reverse(files))
-        @test found[1] == (["B00000C", "V01234A", "aux"], [800, 1600, 2400])
-        @test found[2] == (["B00000C", "V01234A", "aux"], [400, 800, 1200])
+        @test found[1] == (["B00000C", "V01234A", "aux"], [800, 1600, 2400], "")
+        @test found[2] == (["B00000C", "V01234A", "aux"], [400, 800, 1200], "")
         # The script is pushed to the staging directory; the job file is removed again.
         @test isfile(joinpath(staging, "extract.jl"))
         @test !isfile(joinpath(staging, "jobs", "inspect.toml"))

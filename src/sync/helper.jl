@@ -190,15 +190,18 @@ function run_helper(h::RemoteHost, c::HelperConfig, command::AbstractString,
 end
 
 """
-    inspect_files(h, c, files; jobs = 0)::Vector{Tuple{Vector{String},Vector{Int}}}
+    inspect_files(h, c, files; jobs = 0)::Vector{Tuple{Vector{String},Vector{Int},String}}
 
-The top-level group names of each file in `files` and the stored size in bytes of
-each group, in the order of `files`.
+For each file in `files`, in order: the detector names, the stored size in bytes of
+each, and the layout. The layout is the name of the tier group that holds the
+detectors (`jlpks` in `jlpks/B00000C`) or `""` when the detectors are top-level
+groups. A file without a detector axis has no names.
 """
 function inspect_files(h::RemoteHost, c::HelperConfig, files::AbstractVector{<:AbstractString};
                        jobs::Integer = 0)
     records = run_helper(h, c, "inspect", Dict("files" => collect(String, files)); jobs)
-    found = Dict(r["file"] => (String.(r["groups"]), Int.(r["bytes"])) for r in records)
+    found = Dict(r["file"] => (String.(r["groups"]), Int.(r["bytes"]), String(r["layout"]))
+                 for r in records)
     map(files) do file
         haskey(found, file) || throw(ErrorException("the remote helper reported nothing for $file"))
         found[file]

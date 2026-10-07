@@ -46,10 +46,34 @@ Selection(host, production, remote_root, local_root, mount_root, copy, link, cre
               ExtractEntry[])
 
 """
+    covering_extract(node::Node)::Union{Nothing,Node}
+
+For a `:detector` row of a run directory, the row of the same detector below the
+`detectors` node of a period directory above the run, when that row is marked for
+extraction; `nothing` for every other node. Period-level rows are never covered.
+"""
+function covering_extract(node::Node)
+    (node.kind == :detector && node.parent !== nothing) || return nothing
+    run = node.parent.parent
+    period_level(run) && return nothing
+    dir = run.parent
+    while dir !== nothing
+        i = dir.children === nothing ? nothing : findfirst(c -> c.kind == :detectors, dir.children)
+        if i !== nothing && dir.children[i].children !== nothing
+            j = findfirst(c -> c.label == node.label && c.mode == :extract, dir.children[i].children)
+            j === nothing || return dir.children[i].children[j]
+        end
+        dir = dir.parent
+    end
+    nothing
+end
+
+"""
     effective_mode(node::Node)::Symbol
 
 The mode that applies to `node`: its own if it has one, otherwise the nearest
-ancestor's, otherwise `:none`.
+ancestor's, otherwise `:extract` for a run-level detector row covered by a
+period-level mark (see [`covering_extract`](@ref)), otherwise `:none`.
 """
 function effective_mode(node::Node)
     current = node
@@ -57,7 +81,7 @@ function effective_mode(node::Node)
         current.mode == :none || return current.mode
         current = current.parent
     end
-    :none
+    covering_extract(node) === nothing ? :none : :extract
 end
 
 """
