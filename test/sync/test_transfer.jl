@@ -15,7 +15,7 @@
         @test "-r" in args
         @test "-t" in args
         @test "-p" in args
-        @test "--partial" in args
+        @test "--partial-dir=.juleana-partial" in args
         @test "-l" in args
         @test "--files-from=/tmp/files.txt" in args
         @test "--info=progress2" in args

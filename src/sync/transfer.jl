@@ -98,7 +98,7 @@ is on in both modes: it is the only place rsync reports how many files it sent.
 """
 function rsync_command(h::RemoteHost, source_root::AbstractString, local_root::AbstractString,
                        files_from::AbstractString; dry_run::Bool)
-    args = String["-r", "-l", "-t", "-p", "--partial", "--stats",
+    args = String["-r", "-l", "-t", "-p", "--partial-dir=.juleana-partial", "--stats",
                   "--files-from=$files_from"]
     push!(args, dry_run ? "--dry-run" : "--info=progress2")
     push!(args, rsync_source(h, source_root), rstrip(local_root, '/') * "/")
@@ -296,9 +296,14 @@ The groups a reduced file holds, from its `juleana_sync_groups` root attribute, 
 `nothing` for an HDF5 file that has none, which is a full copy.
 """
 function reduced_groups(path::AbstractString)
-    HDF5.h5open(path, "r") do f
-        a = HDF5.attrs(f)
-        haskey(a, "juleana_sync_groups") ? String.(a["juleana_sync_groups"]) : nothing
+    try
+        HDF5.h5open(path, "r") do f
+            a = HDF5.attrs(f)
+            haskey(a, "juleana_sync_groups") ? String.(a["juleana_sync_groups"]) : nothing
+        end
+    catch err
+        throw(ErrorException("cannot read $path as HDF5 ($(sprint(showerror, err))); " *
+                             "remove the file before retrying"))
     end
 end
 
@@ -458,7 +463,8 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
     warnings = String[]
     pulled = Estimate(0, 0, 0, true)
     replaced = 0
-    out = ""
+    in_mirror = false
+    result = nothing
     try
         if !isempty(plan)
             spec = Dict("job" => [Dict("source" => j.source, "groups" => j.groups,
@@ -479,24 +485,33 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
                                           sel.copy, progress)
         push!(warnings, copy_warnings)
         if !isempty(plan)
+            # The helper phase can be long; the mirror may have changed since the plan was checked.
+            again, changed = reconcile_local(p, plan)
+            isempty(changed) || error("the local mirror changed during the extraction; ",
+                                      "full copy or symlink now at: ", join(changed, ", "))
             pull_out, pull_warnings = rsync_listed(
                 path -> rsync_command(h, staging_production_dir(staging, p), p.local_root, path;
                                       dry_run = false),
-                [j.relative for j in plan], progress)
+                [j.relative for j in again], progress)
             pulled = parse_rsync_stats(pull_out, 0)
             push!(warnings, pull_warnings)
         end
+        in_mirror = true
+        moved = parse_rsync_stats(out, length(sel.link))
+        created, skipped = create_links!(h, p, sel)
+        config = write_local_config(p)
+        isempty(plan) || remove_staged!(h, staging, [j.destination for j in plan])
+        result = TransferResult(moved.bytes, moved.files, created, replaced, skipped,
+                                config, join(filter(!isempty, warnings), "\n"),
+                                length(plan), sum(j -> length(j.groups), plan; init = 0),
+                                pulled.bytes, conflicts)
     catch err
         isempty(plan) && rethrow()
-        throw(ErrorException(sprint(showerror, err) *
-                             "\nreduced files already staged were kept in $staging; running the same selection again resumes from them"))
+        throw(ErrorException(sprint(showerror, err) * (in_mirror ?
+            "\nthe reduced files are already in the local mirror; the staged copies were kept in $staging" :
+            "\nreduced files already staged were kept in $staging; running the same selection again resumes from them")))
     end
-    moved = parse_rsync_stats(out, length(sel.link))
-    created, skipped = create_links!(h, p, sel)
-    isempty(plan) || remove_staged!(h, staging, [j.destination for j in plan])
-    TransferResult(moved.bytes, moved.files, created, replaced, skipped,
-                   write_local_config(p), join(filter(!isempty, warnings), "\n"),
-                   length(plan), sum(j -> length(j.groups), plan; init = 0), pulled.bytes, conflicts)
+    result
 end
 
 """
@@ -514,7 +529,7 @@ function summary_text(r::TransferResult)
         push!(lines, "extracted $(r.extracted_files) files, $(r.extracted_groups) groups " *
                      "($(format_bytes(r.extracted_bytes)) transferred)")
     isempty(r.conflicts) ||
-        push!(lines, "kept existing full copies of $(length(r.conflicts)) files instead of extracting: " *
+        push!(lines, "kept $(length(r.conflicts)) existing files instead of extracting (full copies or symlinks): " *
                      join(r.conflicts, ", "))
     isempty(r.warnings) || push!(lines, "rsync warnings:\n$(r.warnings)")
     push!(lines, "export LEGEND_DATA_CONFIG=$(r.config)")

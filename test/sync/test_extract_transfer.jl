@@ -52,7 +52,7 @@
         @test result.extracted_files == 1
         @test groups_of(to_local(p, files[1])) == ["B00000C", "V01234A", "aux"]
         @test groups_of(to_local(p, files[2])) == ["B00000C"]
-        @test occursin("kept existing full copies of 1 files instead of extracting: $(relative(p, files[1]))",
+        @test occursin("kept 1 existing files instead of extracting (full copies or symlinks): $(relative(p, files[1]))",
                        summary_text(result))
 
         p2, _, stage2 = setup()
@@ -100,5 +100,30 @@
         @test result.extracted_files == 2
         @test groups_of(to_local(p, files[1])) == ["B00000C"]
         @test !isdir(joinpath(stage, "xprod"))
+    end
+
+    @testset "a failing cleanup names the staging directory" begin
+        p, helper, stage = setup()
+        err = try
+            apply!(h, p, selection(p, ["B00000C"]); helper, progress = _ ->
+                   islink(joinpath(stage, "xprod", "planted")) ||
+                       symlink("/nowhere", joinpath(stage, "xprod", "planted")))
+        catch e
+            e
+        end
+        @test err isa ErrorException
+        @test occursin("symlink", err.msg)
+        @test occursin("already in the local mirror", err.msg)
+        @test occursin("kept in $stage", err.msg)
+        @test groups_of(to_local(p, files[1])) == ["B00000C"]
+        @test isfile(joinpath(stage, "xprod", relative(p, files[1])))
+    end
+
+    @testset "an unreadable local file is an error naming the path" begin
+        p, helper, stage = setup()
+        mkpath(dirname(to_local(p, files[1])))
+        write(to_local(p, files[1]), "garbage")
+        @test_throws "remove the file before retrying" apply!(h, p, selection(p, ["B00000C"]); helper)
+        @test read(to_local(p, files[1]), String) == "garbage"
     end
 end
