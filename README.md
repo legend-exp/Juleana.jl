@@ -206,7 +206,9 @@ marked for copying or linking as a whole ("run is transferred whole"); unmark th
 run first. Filekey rows of the same run can still be marked for copying: a file that
 is copied whole is left out of the extraction. A run whose first file has a single
 group named after its tier, as `jlevt` files do, has no `detectors` row after the
-inspection.
+inspection. The detector list comes from the first file of a run; if a later file of
+the run lacks a chosen group, the extraction aborts with a message naming the group
+and the file.
 
 Extraction runs on the host. A helper script (`src/sync/remote/extract.jl`) is
 copied to the staging directory and run with the host's Julia. It copies the chosen
@@ -243,26 +245,27 @@ Per host, `config/sync/hosts.json` accepts these optional keys next to `remote_r
 |-----|---------|---------|
 | `julia` | `~/.juliaup/bin/julia` | Julia executable on the host |
 | `julia_project` | `~/.julia/environments/juleana-sync` | Environment with HDF5 and ParallelProcessingTools |
-| `staging` | `${TMPDIR:-/tmp}/juleana-sync-$USER` | Staging directory; set it to a scratch area (for example `/ptmp/<user>/juleana-sync`) when `/tmp` on the login node is small |
+| `staging` | `${TMPDIR:-/tmp}/juleana-sync-$(id -un)` | Staging directory (an absolute path or one starting with `~`); set it to a scratch area (for example `/ptmp/<user>/juleana-sync`) when `/tmp` on the login node is small |
 
 `hosts.json` is tracked in git; the selections saved under `config/sync/` are
 git-ignored. The free space of `/tmp` on `viper` has not been measured; if a run's
 selection does not fit there, set `staging` for `viper` to a directory below
 `/ptmp/<user>/`.
 
-When the environment directory does not exist, the interface shows the `Pkg.add`
-command and asks before running it (`Create` or `Cancel`). The tool only creates
-environments: when the directory already exists, with or without both packages, it
-refuses to modify it. Add the missing packages yourself or name another
-`julia_project`. A headless run reports the same command as an error. The estimate
-measures the free space on the nearest existing ancestor of the staging directory and
-creates only the helper script in the staging root.
+When the environment is missing or lacks a package, the interface shows the
+`Pkg.add` command and asks before running it (`Create` or `Cancel`). `Create` only
+works when the environment directory does not exist: the tool never modifies an
+existing environment and refuses it with an error. Add the missing packages yourself
+or name another `julia_project`. A headless run reports the same command as an error.
+The estimate measures the free space on the nearest existing ancestor of the staging
+directory and leaves only the helper script and an empty `jobs/` directory in the
+staging root.
 
 `--jobs N` allows at most N worker processes, capped by the file count (N of 2 or
 more uses workers whenever there are two or more files; a single file always runs in
 the main process). A negative or non-integer N is rejected. Without it the helper
 runs in the main process for fewer than four files and otherwise uses
-`min(8, files, cores ÷ 2)` workers. `--staging PATH` overrides the staging directory.
+`min(8, files, cores ÷ 2)` workers. `--staging PATH` overrides the staging directory; PATH is a path on the host, absolute or starting with `~`.
 
 ## Command line options
 
@@ -275,7 +278,7 @@ runs in the main process for fewer than four files and otherwise uses
 | `--production PATH` | Production to sync, relative to the remote root (default: choose in the interface) |
 | `--out FILE` | Where the interface saves the selection (default `config/sync/<production>.json`, with `/` in the production path replaced by `-`) |
 | `--jobs N` | Worker processes the remote extraction helper may use (default: the helper decides) |
-| `--staging PATH` | Staging directory on the host for extraction (default: the host's `staging` key, else `${TMPDIR:-/tmp}/juleana-sync-$USER`) |
+| `--staging PATH` | Staging directory on the host for extraction (default: the host's `staging` key, else `${TMPDIR:-/tmp}/juleana-sync-$(id -un)`) |
 | `--from FILE` | Apply a saved selection without starting the interface; the production is taken from the selection unless `--production` is given, in which case the two must agree |
 | `--dry-run` | With `--from`: ask rsync what would move and print it, then stop |
 | `--yes` | With `--from`: transfer without asking |
@@ -318,8 +321,8 @@ readable and keeps working as new runs appear under a chosen directory.
   has neither `--info=progress2` nor a readable `--stats`; install GNU rsync with
   `brew install rsync` and put it ahead of `/usr/bin` in `PATH`. The tool refuses
   to start otherwise rather than transferring without progress or totals.
-- `ssh` access to the host, and GNU `find` and `du` on it (both present on
-  `cslg4`).
+- `ssh` access to the host, and GNU `find`, `du` and `rmdir` on it (all present
+  on `cslg4`).
 - For extraction, Julia on the host (`~/.juliaup/bin/julia` by default) and an
   environment with HDF5.jl and ParallelProcessingTools.jl; neither host needs
   `h5ls`, `h5copy` or h5py.
@@ -342,6 +345,9 @@ It never writes to a remote data production, never deletes local data, and never
 rewrites the mirrored `config.json`. On the remote host it writes only below its own
 staging directory, and the only files it removes there are the ones it staged.
 Locally, the only things it removes are symlinks: one standing where a real copy is
-about to land, and one standing where a fresh link is about to replace it. A regular file or a directory is never removed. The local
+about to land, and one standing where a fresh link is about to replace it. A regular
+file or a directory is never removed. The one exception to never replacing a file is
+a reduced file written by the tool itself, which is rebuilt with the union of its
+old and new groups. The local
 config it writes is a sibling, `config_local.json`, so the mirror stays
 byte-identical to the remote.

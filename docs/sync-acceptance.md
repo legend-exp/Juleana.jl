@@ -123,9 +123,9 @@ top-level directory recursively.
       helper environment" dialog showing the `Pkg.add` command. `Cancel` leaves the
       host unchanged and starts nothing. `Create` shows "Creating the helper
       environment" (no key accepted; record the time) and continues to the estimate.
-- [ ] With an existing environment that lacks a package, `Create` fails with an
-      error naming the directory ("refusing to modify it") and the host is
-      unchanged. (Point `julia_project` at a scratch environment to test this
+- [ ] With an existing environment that lacks a package, the same dialog appears
+      and `Create` fails with an error naming the directory ("refusing to modify
+      it"); the host is unchanged. (Point `julia_project` at a scratch environment to test this
       without touching a real one.)
 - [ ] The same bootstrap on `viper`. Record whether `/tmp` on the login node has
       room for one run's selection (`df -h /tmp` there); if it does not, set
@@ -146,9 +146,9 @@ top-level directory recursively.
       needed: in Julia, `HDF5.h5open(file) do f; keys(f); end` lists only the
       chosen group, and a `LegendDataManagement` read of that detector's data from
       the mirror succeeds.
-- [ ] `ssh cslg4 'ls -R ${TMPDIR:-/tmp}/juleana-sync-$USER'` shows no staged data
-      files after the transfer; only `extract.jl` remains in the staging
-      directory.
+- [ ] `ssh cslg4 'ls -R ${TMPDIR:-/tmp}/juleana-sync-$(id -un)'` shows no data
+      files after the transfer; only `extract.jl` and an empty `jobs/` directory
+      remain in the staging directory.
 - [ ] Re-running `t` extracts again without error and the local file still holds
       exactly the chosen groups. Marking a second detector and running `t` leaves
       both groups in the file (union rebuild).
