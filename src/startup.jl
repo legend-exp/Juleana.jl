@@ -29,9 +29,8 @@ using ParallelProcessingTools: getlabel
     using TerminalLoggers: TerminalLogger
     using ArgParse
 
-    include(joinpath(@__DIR__, "markdown_logging.jl"))
+    using Juleana
     global_logger(UnderscoreSafeLogger(TerminalLogger()))
-    include(joinpath(@__DIR__,"log_texts.jl"))
 
     # free memory
     GC.gc()

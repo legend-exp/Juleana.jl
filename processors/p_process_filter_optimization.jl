@@ -19,7 +19,6 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
     
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
@@ -251,7 +250,7 @@ function p_process_filter_optimization(processing_config::PropDict, l200::Legend
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo_unfolded, det_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_flt = parallel(chinfo_unfolded, det_filter_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished filter optimization"
 
     @info "Write $period validity"

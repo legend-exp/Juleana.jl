@@ -19,7 +19,6 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
     
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
@@ -244,7 +243,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo_unfolded, det_sg_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sg = parallel(chinfo_unfolded, det_sg_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished SG filter optimization"
 

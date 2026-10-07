@@ -30,7 +30,6 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
     
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -220,7 +219,7 @@ function process_filter_optimization(processing_config::PropDict, l200::LegendDa
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo, det_filter_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_flt = parallel(chinfo, det_filter_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished filter optimization"
 

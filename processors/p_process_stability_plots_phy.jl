@@ -17,7 +17,6 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
     log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, :Plot, :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :phy; unfold_partitions=true)
     @info "Loaded channel info with $(length(chinfo_unfolded)) detector-partitions"
@@ -144,7 +143,7 @@ function p_process_stability_plots_phy(processing_config::PropDict, l200::Legend
     end
 
     # execute in parallel
-    result_stability = parallel(chinfo_unfolded, det_stability_plots, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_stability = parallel(chinfo_unfolded, det_stability_plots, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished stability plot generation"
 

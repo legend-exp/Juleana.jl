@@ -25,7 +25,6 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("FWHM Qbb"), Symbol("FWHM FEP"), Symbol("Cal. Constant"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -234,7 +233,7 @@ function process_energy_calibration(processing_config::PropDict, l200::LegendDat
     # get start time
     start_time = now()
 
-    result_energy = parallel(chinfo, det_energy_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = parallel(chinfo, det_energy_calibration, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished energy calibration"
 

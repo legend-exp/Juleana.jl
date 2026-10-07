@@ -17,7 +17,6 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
     log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
     
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :phy; unfold_partitions=true)
@@ -233,7 +232,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
     start_time = now()
 
     # execute in parallel
-    result_sipm_optimization = parallel(chinfo_unfolded, det_sipm_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_optimization = parallel(chinfo_unfolded, det_sipm_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished SiPM partition optimization"
 

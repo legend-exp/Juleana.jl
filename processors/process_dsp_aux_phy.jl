@@ -17,7 +17,6 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Number Events"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     function plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
         energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
@@ -107,7 +106,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     start_time = now()
 
     # execute in parallel
-    result_dsp_aux = parallel(chinfo_aux, det_dsp_aux, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp_aux = parallel(chinfo_aux, det_dsp_aux, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished auxiliary detector DSP"
 

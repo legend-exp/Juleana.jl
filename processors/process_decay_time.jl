@@ -27,7 +27,6 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -136,7 +135,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo, det_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_pz = parallel(chinfo, det_decay_time, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)

@@ -5,5 +5,10 @@ import ExplicitImports
 import Juleana
 
 Test.@testset "ExplicitImports" begin
-    ExplicitImports.test_explicit_imports(Juleana)
+    # The Logging interface methods are documented extension points but are not
+    # marked public in the Logging stdlib.
+    ExplicitImports.test_explicit_imports(
+        Juleana;
+        ignore = (:catch_exceptions, :handle_message, :min_enabled_level, :shouldlog)
+    )
 end # testset

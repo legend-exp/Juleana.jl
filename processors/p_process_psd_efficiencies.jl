@@ -17,7 +17,6 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
     log_nt_cut = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
@@ -305,7 +304,7 @@ function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendDat
     # get start time
     start_time = now()
 
-    result_psd = parallel(chinfo_unfolded, det_psd_sf, log_nt_cut, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_psd = parallel(chinfo_unfolded, det_psd_sf, log_nt_cut; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"

@@ -20,7 +20,6 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("SF of Events after PSD"), Symbol("SF of Events after LAr"), Symbol("SF of Events after LAr & PSD"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)    
@@ -95,7 +94,7 @@ function p_process_skm_phy(processing_config::PropDict, l200::LegendData, period
     # get start time
     start_time = now()
 
-    result_skm = parallel(rinfo.phy.startkey, skm_fk, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_skm = parallel(rinfo.phy.startkey, skm_fk, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished skimmed file processing"
 

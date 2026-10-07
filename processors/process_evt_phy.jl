@@ -14,7 +14,6 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Physical Trigger"), Symbol("Number of Forced Trigger"), Symbol("Number of Pulser Trigger"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -106,7 +105,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_evt = parallel(filekeys, filekey_evt, log_nt, wpool; timeout=timeout, retry=true, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_evt = parallel(filekeys, filekey_evt, log_nt; timeout=timeout, retry=true, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished Evt for period $period and run $run"
 

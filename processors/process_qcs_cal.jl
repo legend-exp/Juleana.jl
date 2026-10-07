@@ -23,7 +23,6 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Pulser SF"), Symbol("Tl-208 FEP SF"), Symbol("Number Pulser Events"), Symbol("Number Single-pulse Events"), Symbol("Single pulses with invalid energy"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -147,7 +146,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_qc = parallel(chinfo, det_qcs_cal, log_nt, wpool; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_qc = parallel(chinfo, det_qcs_cal, log_nt; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished QC detector processing"
 
