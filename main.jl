@@ -225,5 +225,6 @@ else
             end
         end
     end
+    refresh_master_reports(l200)
     @info "# Processing Done"
 end

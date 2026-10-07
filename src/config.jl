@@ -23,6 +23,10 @@ function get_argparse()
         "--reprocess"
             help = "reprocess all channels while deleting old data"
             action = :store_true
+        "--refresh-master-reports", "--refresh_master_reports"
+            help = "refresh all master reports and exit without processing"
+            dest_name = "refresh_master_reports"
+            action = :store_true
         "--only_runs", "--or"
             help = "process only period and runs ignoring partitions"
             dest_name = "only_runs"
@@ -106,6 +110,11 @@ function get_processingconfig()
     # load metadata
     @info "Loading Legend MetaData"
     l200 = LegendData(:l200)
+
+    if parsed_args["refresh_master_reports"]
+        refresh_master_reports(l200)
+        exit()
+    end
 
     # get log path
     if isempty(parsed_args["log_path"])
