@@ -47,7 +47,8 @@ default_selection_path(production::AbstractString) =
 The parsed command line. `mount_root` and `from` are `nothing` when the flag was
 not given. `production` and `out` are empty when no production was named: the
 interface then asks for one, and a headless run takes it from the selection file.
-Every other field always has a value.
+Every other field always has a value. `jobs` is the helper's worker count, 0
+meaning its own default; `helper` says how to run the remote helper on the host.
 """
 struct Options
     host::String
@@ -59,7 +60,13 @@ struct Options
     from::Union{Nothing,String}
     dry_run::Bool
     yes::Bool
+    jobs::Int
+    helper::HelperConfig
 end
+
+Options(host, remote_root, local_root, mount_root, production, out, from, dry_run, yes) =
+    Options(host, remote_root, local_root, mount_root, production, out, from, dry_run, yes,
+            0, HelperConfig())
 
 """
     parse_options(args::AbstractVector{<:AbstractString}; hosts_file = DEFAULT_HOSTS_FILE)::Options

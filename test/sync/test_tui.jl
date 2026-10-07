@@ -273,7 +273,7 @@
         update!(m, KeyEvent('1'))
         update!(m, KeyEvent(:enter))
         @test m.modal_kind == :none
-        @test [c.mode for c in run_node.children] == [:copy, :none]
+        @test [c.mode for c in filekey_groups(run_node)] == [:copy, :none]
         @test occursin(format_bytes(4096), row_text(draw(m), 30))
 
         # Escape leaves the selection alone.
@@ -281,7 +281,7 @@
         update!(m, KeyEvent('2'))
         update!(m, KeyEvent(:escape))
         @test m.modal_kind == :none
-        @test [c.mode for c in run_node.children] == [:copy, :none]
+        @test [c.mode for c in filekey_groups(run_node)] == [:copy, :none]
     end
 
     @testset "q asks to save when the selection changed" begin

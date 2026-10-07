@@ -13,6 +13,10 @@ flattened rows and mutating its nodes in place would leave that cache stale.
 
 Which nodes are open lives in `collapsed`, not in the `TreeNode`s, for the same
 reason. `pending` holds the remote paths of listings in flight.
+
+`extracting` is set while the remote helper reduces files, `environment` caches a
+ready helper environment, and `continuation` is what to do once an environment
+check or creation finishes.
 """
 mutable struct SyncModel <: Model
     host::RemoteHost
@@ -35,6 +39,10 @@ mutable struct SyncModel <: Model
     screen::Symbol
     productions::Union{Nothing,Vector{String}}
     picker::Union{Nothing,SelectableList}
+    extracting::Union{Nothing,ExtractProgress}
+    environment::Union{Nothing,EnvironmentStatus}
+    continuation::Union{Nothing,Function}
+    pending_env::Union{Nothing,EnvironmentStatus}
 end
 
 function SyncModel(host::RemoteHost, production::Production, options::Options)
@@ -44,7 +52,7 @@ function SyncModel(host::RemoteHost, production::Production, options::Options)
                   TreeView(TreeNode("")), TaskQueue(),
                   false, false, "", nothing,
                   nothing, :none, nothing, nothing, nothing,
-                  :tree, nothing, nothing)
+                  :tree, nothing, nothing, nothing, nothing, nothing, nothing)
     rebuild_tree!(m)
     m.tree.selected = 1
     m
@@ -56,7 +64,7 @@ function SyncModel(host::RemoteHost, options::Options)
                   TreeView(TreeNode("")), TaskQueue(),
                   false, false, "", nothing,
                   nothing, :none, nothing, nothing, nothing,
-                  :pick, nothing, nothing)
+                  :pick, nothing, nothing, nothing, nothing, nothing, nothing)
     request_productions!(m)
 end
 
@@ -78,13 +86,14 @@ end
 """
     checkbox(node::Node)::String
 
-The tri-state marker: `[x]` copied, `[~]` linked, `[ ]` untouched, `[-]` for a
+The tri-state marker: `[x]` copied, `[~]` linked, `[e]` extracted, `[ ]` untouched, `[-]` for a
 node that is untouched itself but has something chosen below it.
 """
 function checkbox(node::Node)
     mode = effective_mode(node)
     mode == :copy && return "[x]"
     mode == :link && return "[~]"
+    mode == :extract && return "[e]"
     marked_below(node) ? "[-]" : "[ ]"
 end
 
@@ -111,7 +120,7 @@ placeholder child so that `TreeView` draws an expand arrow for it.
 function build_tree(m::SyncModel, node::Node = m.root)
     children = if node.children !== nothing
         [build_tree(m, child) for child in node.children]
-    elseif node.kind in (:section, :dir)
+    elseif node.kind in (:section, :dir, :detectors)
         [TreeNode(node.remote_path in m.pending ? "…listing" : "…")]
     else
         TreeNode[]
@@ -167,7 +176,7 @@ function request_expand!(m::SyncModel, node::Node)
     production = m.production
     spawn_task!(m.tasks, Symbol("listing:", node.remote_path)) do
         scratch = Node(node.label, node.remote_path, node.kind)
-        expand!(host, production, scratch)
+        expand!(host, production, scratch; detectors = true)
         (node, scratch.children)
     end
     m.status = "listing $(node.label)…"
@@ -191,19 +200,125 @@ function attach_listing!(m::SyncModel, listing::Tuple{Node,Vector{Node}})
 end
 
 """
+    with_environment!(m::SyncModel, continue_with)::SyncModel
+
+Call `continue_with()` once the remote helper environment is ready. A ready
+environment is remembered; otherwise it is checked in the background, and a missing
+or incomplete one opens a dialog that shows the command that would create it.
+"""
+function with_environment!(m::SyncModel, continue_with)
+    if m.environment !== nothing
+        continue_with()
+        return m
+    end
+    host = m.host
+    helper = m.options.helper
+    m.continuation = continue_with
+    m.status = "checking the helper environment on $(m.options.host)…"
+    spawn_task!(() -> ensure_environment(host, helper), m.tasks, :environment)
+    m
+end
+
+"""
+    environment_ready!(m::SyncModel, status::EnvironmentStatus)::SyncModel
+
+Remember the ready environment, close any dialog, and run what was waiting for it.
+"""
+function environment_ready!(m::SyncModel, status::EnvironmentStatus)
+    m.environment = status
+    m.status = ""
+    m.modal = nothing
+    m.modal_kind = :none
+    continue_with = m.continuation
+    m.continuation = nothing
+    continue_with === nothing || continue_with()
+    m
+end
+
+"""
+    start_bootstrap!(m::SyncModel)::SyncModel
+
+Create the helper environment in the background. The dialog accepts no key until it
+finishes.
+"""
+function start_bootstrap!(m::SyncModel)
+    host = m.host
+    helper = m.options.helper
+    m.pending_env = nothing
+    m.modal = Modal(title = "Creating the helper environment",
+                    message = "running Pkg.add on $(m.options.host); this can take several minutes…",
+                    confirm_label = "", cancel_label = "")
+    m.modal_kind = :busy
+    spawn_task!(() -> bootstrap_environment!(host, helper), m.tasks, :bootstrap)
+    m
+end
+
+"""
+    request_detectors!(m::SyncModel, node::Node)::SyncModel
+
+Inspect the first file of the run below `node` (a `:detectors` row) in the
+background. The rows are built on detached nodes and linked in by the event handler,
+like a directory listing.
+"""
+function request_detectors!(m::SyncModel, node::Node)
+    (node.children !== nothing || node.remote_path in m.pending) && return m
+    push!(m.pending, node.remote_path)
+    host = m.host
+    helper = m.options.helper
+    jobs = m.options.jobs
+    run = node.parent
+    spawn_task!(m.tasks, Symbol("detectors:", node.remote_path)) do
+        (node, detector_nodes(host, helper, run; jobs))
+    end
+    m.status = "inspecting the files of $(run.label)…"
+    rebuild_tree!(m)
+end
+
+"""
+    toggle_extract!(m::SyncModel, node::Node)::SyncModel
+
+Mark the detector row `node` for extraction, or unmark it.
+"""
+function toggle_extract!(m::SyncModel, node::Node)
+    set_mode!(node, node.mode == :extract ? :none : :extract)
+    m.dirty = true
+    m.status = ""
+    rebuild_tree!(m)
+end
+
+"""
     open_estimate!(m::SyncModel; confirm::Bool)::SyncModel
 
-Ask rsync what the selection would actually move, in the background. `confirm`
-decides which button the modal opens on: `e` looks, `t` intends to sync.
+Ask what the selection would actually move, in the background. `confirm` decides
+which button the modal opens on: `e` looks, `t` intends to sync. A selection with
+extract entries first needs the helper environment.
 """
 function open_estimate!(m::SyncModel; confirm::Bool)
+    selection = Selection(m.production, m.options.host, m.root)
+    m.modal_kind = :estimating
+    m.status = "estimating…"
+    isempty(selection.extract) ? run_estimate!(m, selection, confirm) :
+        with_environment!(m, () -> run_estimate!(m, selection, confirm))
+end
+
+"""
+    run_estimate!(m::SyncModel, selection::Selection, confirm::Bool)::SyncModel
+
+The dry run behind [`open_estimate!`](@ref). With extract entries it also asks the
+host how much room the staging directory has.
+"""
+function run_estimate!(m::SyncModel, selection::Selection, confirm::Bool)
     host = m.host
     production = m.production
-    selection = Selection(production, m.options.host, m.root)
+    helper = m.options.helper
+    jobs = m.options.jobs
     m.modal_kind = :estimating
     m.status = "estimating…"
     spawn_task!(m.tasks, :estimate) do
-        (apply!(host, production, selection; dry_run = true), confirm)
+        estimate = apply!(host, production, selection; dry_run = true, helper, jobs)
+        staging = isempty(selection.extract) ? nothing : staging_dir(host, helper)
+        free = staging === nothing ? nothing : free_bytes(host, make_dir(host, staging))
+        (estimate, confirm, staging, free)
     end
     m
 end
@@ -211,21 +326,25 @@ end
 """
     start_transfer!(m::SyncModel)::SyncModel
 
-Run the transfer in the background. The progress callback runs on that task and
-never touches the model: it pushes a `TaskEvent` like every other result.
+Run the transfer in the background. The progress callbacks run on that task and
+never touch the model: they push a `TaskEvent` like every other result.
 """
 function start_transfer!(m::SyncModel)
     host = m.host
     production = m.production
+    helper = m.options.helper
+    jobs = m.options.jobs
     selection = Selection(production, m.options.host, m.root)
     queue = m.tasks
-    m.modal = Modal(title = "Transferring", message = "starting rsync…",
+    m.modal = Modal(title = "Transferring", message = "starting…",
                     confirm_label = "", cancel_label = "")
     m.modal_kind = :transfer
     m.progress = Progress(0, 0.0, "", "")
+    m.extracting = isempty(selection.extract) ? nothing : ExtractProgress(0, 0, 0)
     spawn_task!(queue, :transfer) do
-        apply!(host, production, selection;
-               progress = reading -> put!(queue.channel, TaskEvent(:progress, reading)))
+        apply!(host, production, selection; helper, jobs,
+               progress = reading -> put!(queue.channel, TaskEvent(:progress, reading)),
+               extract_progress = reading -> put!(queue.channel, TaskEvent(:extract_progress, reading)))
     end
     m
 end
@@ -343,19 +462,21 @@ The right-hand pane: what the cursor is on, and the keys.
 """
 function details(m::SyncModel)
     node = current_node(m)
-    lines = node === nothing ? String[] : [
-        node.label,
-        node.remote_path,
-        "local: $(node.local_state)",
-        "size: " * (node.size === nothing ? "…" : format_bytes(node.size)),
-        "",
-    ]
+    lines = node === nothing ? String[] :
+        node.kind == :detector ? [node.label,
+            "HDF5 group of the files in $(node.parent.parent.label)",
+            "size in the first file: " * (node.size === nothing ? "…" : format_bytes(node.size)),
+            "extract: " * (node.mode == :extract ? "yes" : "no"), ""] :
+        node.kind == :detectors ? [node.label,
+            "enter lists the top-level groups of the first file in $(node.parent.label)", ""] :
+        [node.label, node.remote_path, "local: $(node.local_state)",
+         "size: " * (node.size === nothing ? "…" : format_bytes(node.size)), ""]
     if node !== nothing && node.kind == :production
         overlays = m.production.overlays
         insert!(lines, lastindex(lines),
                 "overlays: " * (isempty(overlays) ? "none" : join(overlays, ", ")))
     end
-    append!(lines, ["space copy   l link   n first N",
+    append!(lines, ["space copy   l link   n first N   x extract",
                     "enter expand/collapse   s save",
                     "e estimate   t sync   q quit"])
     Paragraph(join(lines, "\n"); block = Block(title = "Details"), wrap = word_wrap)
@@ -430,9 +551,11 @@ function render_sync(m::SyncModel, area::Rect, buf::Buffer)
     if m.progress === nothing
         render(status_bar(m), rows[2], buf)
     else
-        render(Gauge(m.progress.fraction;
-                     label = string(format_bytes(m.progress.bytes), "  ",
-                                    m.progress.rate, "  ETA ", m.progress.eta)),
+        x = m.extracting
+        render(Gauge(x === nothing ? m.progress.fraction : (x.total == 0 ? 0.0 : x.done / x.total);
+                     label = x === nothing ?
+                         string(format_bytes(m.progress.bytes), "  ", m.progress.rate, "  ETA ", m.progress.eta) :
+                         string("extracting ", x.done, "/", x.total, " files  ", format_bytes(x.bytes))),
                rows[2], buf)
     end
     m.modal_kind == :firstn && return render_prompt(m, area, buf)
@@ -473,7 +596,7 @@ function update!(m::SyncModel, e::KeyEvent)
     # the modal carries; letting any key reach it would dismiss the dialog
     # while apply! keeps running underneath, opening the door to a second,
     # concurrent transfer.
-    m.modal_kind == :transfer && return m
+    m.modal_kind in (:transfer, :busy) && return m
 
     # The prompt owns the keyboard while it is up; TextInput handles neither
     # :enter nor :escape, so those two are decided here.
@@ -494,6 +617,11 @@ function update!(m::SyncModel, e::KeyEvent)
         answer == :none && return m
         if m.modal_kind == :estimate && answer == :confirm
             return start_transfer!(m)
+        end
+        if m.modal_kind == :bootstrap
+            answer == :confirm && return start_bootstrap!(m)
+            m.continuation = nothing
+            m.pending_env = nothing
         end
         if m.modal_kind == :quit
             answer == :confirm && save!(m)
@@ -525,7 +653,8 @@ function update!(m::SyncModel, e::KeyEvent)
     if e.key == :enter || e.key == :right
         node === nothing && return m
         if node.children === nothing
-            request_expand!(m, node)
+            node.kind == :detectors ? with_environment!(m, () -> request_detectors!(m, node)) :
+                request_expand!(m, node)
         elseif e.key == :enter && !(node.remote_path in m.collapsed)
             push!(m.collapsed, node.remote_path)
             rebuild_tree!(m)
@@ -545,15 +674,31 @@ function update!(m::SyncModel, e::KeyEvent)
     e.key == :char || return m
 
     if e.char == ' '
-        node === nothing || toggle_mode!(m, node, :copy)
+        if node !== nothing && node.kind in (:detectors, :detector)
+            m.status = "use x on detector rows"
+        elseif node !== nothing
+            toggle_mode!(m, node, :copy)
+        end
     elseif e.char == 'l'
         if m.production.mount_root === nothing
             m.status = "link mode needs a mount root; restart with --mount-root PATH"
+        elseif node !== nothing && node.kind in (:detectors, :detector)
+            m.status = "use x on detector rows"
         elseif node !== nothing
             toggle_mode!(m, node, :link)
         end
     elseif e.char == 'n'
         node === nothing || open_prompt!(m, node)
+    elseif e.char == 'x'
+        if node !== nothing && node.kind == :detector
+            if node.mode != :extract && effective_mode(node.parent.parent) in (:copy, :link)
+                m.status = "run is transferred whole; unmark it first"
+            else
+                toggle_extract!(m, node)
+            end
+        else
+            m.status = "x extracts a detector: open the detectors row of a run and move onto one"
+        end
     elseif e.char == 'e'
         open_estimate!(m; confirm = false)
     elseif e.char == 't'
@@ -588,8 +733,25 @@ function update!(m::SyncModel, e::TaskEvent)
         return attach_listing!(m, e.value)
     end
 
+    if startswith(id, "detectors:")
+        path = chopprefix(id, "detectors:")
+        delete!(m.pending, path)
+        e.value isa Exception && return show_error!(m, e.value)
+        node, children = e.value
+        attach_detectors!(node, children)
+        delete!(m.collapsed, path)
+        m.status = ""
+        if !has_detectors(node)
+            deleteat!(node.parent.children, findfirst(c -> c === node, node.parent.children))
+            m.status = "the files of $(node.parent.label) have no per-detector groups"
+        end
+        return rebuild_tree!(m)
+    end
+
     if e.value isa Exception
         m.progress = nothing
+        m.extracting = nothing
+        m.continuation = nothing
         if m.screen == :pick
             m.status = ""
             e.id == :productions && (m.productions = String[])
@@ -608,7 +770,7 @@ function update!(m::SyncModel, e::TaskEvent)
         name = m.production.name
         m.options = Options(o.host, o.remote_root, o.local_root, o.mount_root, name,
                             isempty(o.out) ? default_selection_path(name) : o.out,
-                            o.from, o.dry_run, o.yes)
+                            o.from, o.dry_run, o.yes, o.jobs, o.helper)
         m.screen = :tree
         m.status = ""
         rebuild_tree!(m)
@@ -616,23 +778,46 @@ function update!(m::SyncModel, e::TaskEvent)
         return m
     end
 
+    if e.id == :environment
+        status = e.value
+        environment_ready(status) && return environment_ready!(m, status)
+        m.pending_env = status
+        m.status = ""
+        m.modal = Modal(title = "Create the helper environment",
+                        message = string("Extraction needs HDF5 and ParallelProcessingTools in\n",
+                                         status.project, " on ", m.options.host, ".\nCreate it with:\n\n",
+                                         Base.shell_escape(bootstrap_command(m.host, m.options.helper))),
+                        confirm_label = "Create", cancel_label = "Cancel", selected = :confirm)
+        m.modal_kind = :bootstrap
+        return m
+    elseif e.id == :bootstrap
+        return environment_ready!(m, e.value)
+    end
+
     if e.id == :estimate
-        estimate, confirm = e.value
+        estimate, confirm, staging, free = e.value
         m.estimate = estimate
         m.modal = Modal(title = "Estimate",
                         message = string(format_estimate(estimate), "\n",
                                          "from ", m.options.host, ":", m.production.remote_root, "\n",
-                                         "into ", m.production.local_root),
+                                         "into ", m.production.local_root,
+                                         staging === nothing ? "" :
+                                             string("\nstaging ", staging, ": ", format_bytes(free), " free")),
                         confirm_label = "Sync", cancel_label = "Close",
                         selected = confirm ? :confirm : :cancel)
         m.modal_kind = :estimate
         m.status = ""
         return m
     elseif e.id == :progress
+        m.extracting = nothing
         m.progress = e.value
+        return m
+    elseif e.id == :extract_progress
+        m.extracting = e.value
         return m
     elseif e.id == :transfer
         m.progress = nothing
+        m.extracting = nothing
         refresh_local_state!(m)
         rebuild_tree!(m)
         return open_message!(m, "Transfer complete", summary_text(e.value))

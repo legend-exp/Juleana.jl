@@ -44,7 +44,8 @@ using .JuleanaSync: main,
     ExtractEntry, tier_name, ensure_detectors!, detector_nodes, attach_detectors!,
     expand_detectors!, has_detectors,
     ExtractJob, staging_production_dir, plan_extraction, plan_bytes, plan_group_bytes, prepare_extraction,
-    ExtractProgress, STAGING_MARGIN, check_staging_space, reduced_groups, reconcile_local, rsync_listed
+    ExtractProgress, STAGING_MARGIN, check_staging_space, reduced_groups, reconcile_local, rsync_listed,
+    with_environment!, start_bootstrap!, environment_ready!, request_detectors!, run_estimate!, toggle_extract!
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and
@@ -80,4 +81,5 @@ run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &
     run_file("test_transfer.jl")
     run_file("test_options.jl")
     run_file("test_tui.jl")
+    run_file("test_extract_tui.jl")
 end
