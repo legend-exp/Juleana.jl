@@ -88,4 +88,5 @@ run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &
     run_file("test_extract_options.jl")
     run_file("test_tui.jl")
     run_file("test_extract_tui.jl")
+    run_file("test_tierdet_tui.jl")
 end

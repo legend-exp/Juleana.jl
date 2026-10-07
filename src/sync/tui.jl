@@ -277,10 +277,18 @@ end
 """
     toggle_extract!(m::SyncModel, node::Node)::SyncModel
 
-Mark the detector row `node` for extraction, or unmark it.
+Mark the detector row `node` for extraction, or unmark it. A refused mark leaves the
+tree unchanged and puts the reason, which names both marks, into the status line.
 """
 function toggle_extract!(m::SyncModel, node::Node)
-    set_mode!(node, node.mode == :extract ? :none : :extract)
+    target = node.mode == :extract ? :none : :extract
+    try
+        set_mode!(node, target)
+    catch err
+        err isa ArgumentError || rethrow()
+        m.status = err.msg
+        return m
+    end
     m.dirty = true
     m.status = ""
     rebuild_tree!(m)
@@ -449,15 +457,17 @@ end
 Turn `mode` on or off for `node`. A node that carries `mode` itself loses it; one
 that only inherits it is excluded from the ancestor's choice by
 [`exclude!`](@ref); anything else takes `mode` on. Every branch changes a mode,
-which is why the selection is dirty afterwards.
+which is why the selection is dirty afterwards. A mark that would cover a run already
+marked for extraction, or the reverse, is refused with the reason in the status line.
 """
 function toggle_mode!(m::SyncModel, node::Node, mode::Symbol)
-    if node.mode == mode
-        set_mode!(node, :none)
-    elseif effective_mode(node) == mode
-        exclude!(node)
-    else
-        set_mode!(node, mode)
+    inherited = node.mode != mode && effective_mode(node) == mode
+    try
+        node.mode == mode ? set_mode!(node, :none) : inherited ? exclude!(node) : set_mode!(node, mode)
+    catch err
+        err isa ArgumentError || rethrow()
+        m.status = err.msg
+        return m
     end
     m.dirty = true
     m.status = ""
@@ -473,11 +483,17 @@ function details(m::SyncModel)
     node = current_node(m)
     lines = node === nothing ? String[] :
         node.kind == :detector ? [node.label,
-            "HDF5 group of the files in $(node.parent.parent.label)",
-            "size in the first file: " * (node.size === nothing ? "…" : format_bytes(node.size)),
-            "extract: " * (node.mode == :extract ? "yes" : "no"), ""] :
+            period_level(node.parent.parent) ?
+                "detector of the runs of $(node.parent.parent.label) ($(length(node.holders)) hold it)" :
+                "HDF5 group of the files in $(node.parent.parent.label)",
+            (period_level(node.parent.parent) ? "approximate size in the period: " : "size in the first file: ") *
+                (node.size === nothing ? "…" : format_bytes(node.size)),
+            "extract: " * (node.mode == :extract ? "yes" :
+                           effective_mode(node) == :extract ? "yes (whole period)" : "no"), ""] :
         node.kind == :detectors ? [node.label,
-            "enter lists the top-level groups of the first file in $(node.parent.label)", ""] :
+            period_level(node.parent) ?
+                "enter lists the detectors of the first file of every run in $(node.parent.label)" :
+                "enter lists the top-level groups of the first file in $(node.parent.label)", ""] :
         [node.label, node.remote_path, "local: $(node.local_state)",
          "size: " * (node.size === nothing ? "…" : format_bytes(node.size)), ""]
     if node !== nothing && node.kind == :production
@@ -703,13 +719,13 @@ function update!(m::SyncModel, e::KeyEvent)
         end
     elseif e.char == 'x'
         if node !== nothing && node.kind == :detector
-            if node.mode != :extract && effective_mode(node.parent.parent) in (:copy, :link)
-                m.status = "run is transferred whole; unmark it first"
+            if covering_extract(node) !== nothing && node.mode != :extract
+                m.status = "extracted for the whole period; unmark $(node.label) on the period's detectors row first"
             else
                 toggle_extract!(m, node)
             end
         else
-            m.status = "x extracts a detector: open the detectors row of a run and move onto one"
+            m.status = "x extracts a detector: open the detectors row of a run or period and move onto one"
         end
     elseif e.char == 'e'
         open_estimate!(m; confirm = false)
@@ -813,7 +829,9 @@ function update!(m::SyncModel, e::TaskEvent)
                                          "from ", m.options.host, ":", m.production.remote_root, "\n",
                                          "into ", m.production.local_root,
                                          staging === nothing ? "" :
-                                             string("\nstaging ", staging, ": ", format_bytes(free), " free")),
+                                             string("\nstaging ", staging, ": ", format_bytes(free), " free"),
+                                         isempty(estimate.not_in_run) ? "" :
+                                             string("\nnot in run: ", format_not_in_run(estimate.not_in_run))),
                         confirm_label = "Sync", cancel_label = "Close",
                         selected = confirm ? :confirm : :cancel)
         m.modal_kind = :estimate

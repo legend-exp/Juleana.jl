@@ -132,7 +132,7 @@
         set_mode!(run, :copy)
         update!(m, KeyEvent(:down))                     # B00000C
         update!(m, KeyEvent('x'))
-        @test occursin("run is transferred whole", m.status)
+        @test occursin("already transferred whole", m.status)
         @test current_node(m).mode == :none
     end
 
