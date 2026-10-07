@@ -25,7 +25,7 @@ using .JuleanaSync: main,
     node_local_state, filekey_groups,
     Selection, effective_mode, set_mode!, filekey_files, run_dirs, period_detector_nodes, covering_extract, exclude!, first_n_filekeys!, find_node!,
     selection_propdict, save_selection, load_selection, apply_selection!,
-    Estimate, format_bytes, running_estimate, format_estimate, parse_rsync_stats,
+    Estimate, format_bytes, running_estimate, format_estimate, format_not_in_run, parse_rsync_stats,
     Progress, TransferResult, check_rsync, check_mount, rsync_command,
     parse_progress, rsync_dry_run, remove_stale_links!, create_links!,
     apply!, summary_text,
@@ -81,6 +81,7 @@ run_file(name) = (isempty(SELECTED_TEST_FILES) || name in SELECTED_TEST_FILES) &
     run_file("test_extract_estimate.jl")
     run_file("test_extract_transfer.jl")
     run_file("test_tierdet_transfer.jl")
+    run_file("test_tierdet_estimate.jl")
     run_file("test_estimate.jl")
     run_file("test_transfer.jl")
     run_file("test_options.jl")

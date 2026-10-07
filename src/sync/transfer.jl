@@ -509,7 +509,7 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
         estimate = rsync_dry_run(h, p, sel)
         isempty(sel.extract) && return estimate
         return Estimate(estimate.bytes, estimate.files, estimate.links, true,
-                        plan_bytes(h, helper, plan; jobs), length(plan), true)
+                        plan_bytes(h, helper, plan; jobs), length(plan), true, not_in_run)
     end
 
     plan, conflicts = reconcile_local(p, plan)
@@ -588,7 +588,7 @@ function summary_text(r::TransferResult)
                      join(r.conflicts, ", "))
     isempty(r.not_in_run) ||
         push!(lines, "not in run, left out of the extraction: " *
-                     join(("$detector in $run" for (run, detector) in r.not_in_run), ", "))
+                     format_not_in_run(r.not_in_run))
     isempty(r.warnings) || push!(lines, "rsync warnings:\n$(r.warnings)")
     push!(lines, "export LEGEND_DATA_CONFIG=$(r.config)")
     join(lines, "\n")

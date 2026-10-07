@@ -186,8 +186,11 @@ function run_headless(options::Options, host::RemoteHost)
                             options.local_root; mount_root = options.mount_root)
     selection = load_selection(options.from, production)
 
-    println(format_estimate(apply!(host, production, selection; dry_run = true,
-                                   helper = options.helper, jobs = options.jobs)))
+    estimate = apply!(host, production, selection; dry_run = true,
+                      helper = options.helper, jobs = options.jobs)
+    println(format_estimate(estimate))
+    isempty(estimate.not_in_run) ||
+        println("not in run: ", format_not_in_run(estimate.not_in_run))
     if !isempty(selection.extract)
         staging = staging_dir(host, options.helper)
         # The estimate creates nothing: ask about the nearest existing ancestor.

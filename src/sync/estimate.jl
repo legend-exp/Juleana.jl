@@ -1,6 +1,7 @@
 """
     Estimate(bytes, files, links, complete)
     Estimate(bytes, files, links, complete, extract_bytes, extract_files, extract_exact)
+    Estimate(bytes, files, links, complete, extract_bytes, extract_files, extract_exact, not_in_run)
 
 How much a selection would move. `files` counts individually chosen files; a
 chosen directory contributes its bytes but no file count, because the tool has
@@ -12,7 +13,8 @@ file rsync would actually send.
 `extract_bytes` is the summed stored size of the HDF5 groups that extraction
 would copy, in `extract_files` source files. `extract_exact` is `false` when the
 numbers come from the first file of each run only; the exact estimate inspects
-every file.
+every file. `not_in_run` lists the `(run directory, detector)` pairs a period
+entry named that the run does not hold; they are left out of the extraction.
 """
 struct Estimate
     bytes::Int
@@ -22,9 +24,17 @@ struct Estimate
     extract_bytes::Int
     extract_files::Int
     extract_exact::Bool
+    not_in_run::Vector{Tuple{String,String}}
 end
 
+Estimate(bytes, files, links, complete, extract_bytes, extract_files, extract_exact) =
+    Estimate(bytes, files, links, complete, extract_bytes, extract_files, extract_exact,
+             Tuple{String,String}[])
+
 Estimate(bytes, files, links, complete) = Estimate(bytes, files, links, complete, 0, 0, true)
+
+Base.:(==)(a::Estimate, b::Estimate) = all(f -> getfield(a, f) == getfield(b, f), fieldnames(Estimate))
+Base.hash(e::Estimate, h::UInt) = foldr((f, acc) -> hash(getfield(e, f), acc), fieldnames(Estimate); init = h)
 
 """
     format_bytes(n::Integer)::String
@@ -44,9 +54,14 @@ end
 """
     running_estimate(root::Node)::Estimate
 
-The total for the current selection, from sizes already cached in the tree. The
-extract part multiplies a run's marked detector sizes in its first file by the
-number of its filekey files that are not copied whole, so it is approximate.
+The total for the current selection, from sizes already cached in the tree. A
+marked run-level detector row contributes its size in the run's first file times
+the run's filekey files that are not copied whole. A marked period-level row
+contributes its size, the first-file size times the file count summed over the runs
+that hold it, and counts every file of those runs. A run-level row that a period-level
+mark covers contributes nothing. Both are approximate, which `extract_exact` records.
+For a period row, files copied whole inside a covered run are not subtracted; the exact
+estimate (`apply!` with `dry_run`) is authoritative.
 """
 function running_estimate(root::Node)
     bytes = 0
@@ -54,14 +69,23 @@ function running_estimate(root::Node)
     links = 0
     extract_bytes = 0
     complete = true
-    runs = Dict{Node,Int}()     # run directory => its filekey files not copied whole
+    run_counts = Dict{Node,Int}()               # run directory => its filekey files not copied whole
+    period_counts = Dict{String,Int}()          # run directory path => its filekey files
     pending = Node[root]
     while !isempty(pending)
         node = pop!(pending)
         if node.kind == :detector && node.mode == :extract
-            run = node.parent.parent
-            nfiles = get!(() -> count(g -> effective_mode(g) != :copy, filekey_groups(run)), runs, run)
-            node.size === nothing ? (complete = false) : (extract_bytes += node.size * nfiles)
+            covering_extract(node) === nothing || continue
+            dir = node.parent.parent
+            if period_level(dir)
+                node.size === nothing ? (complete = false) : (extract_bytes += node.size)
+                for (path, n) in node.holders
+                    period_counts[path] = n
+                end
+            else
+                nfiles = get!(() -> count(g -> effective_mode(g) != :copy, filekey_groups(dir)), run_counts, dir)
+                node.size === nothing ? (complete = false) : (extract_bytes += node.size * nfiles)
+            end
             continue
         end
         mode = effective_mode(node)
@@ -76,22 +100,36 @@ function running_estimate(root::Node)
         node.children === nothing && continue
         append!(pending, node.children)
     end
-    extract_files = sum(values(runs); init = 0)
+    # Where both kinds of mark name a run, the run-level count (copied files removed) applies.
+    for (run, n) in run_counts
+        period_counts[run.remote_path] = n
+    end
+    extract_files = sum(values(period_counts); init = 0)
     Estimate(bytes, files, links, complete, extract_bytes, extract_files, extract_files == 0)
 end
+
+"""
+    format_not_in_run(pairs)::String
+
+`"<detector> in <run>, ..."` for the `(run directory, detector)` pairs of
+[`Estimate`](@ref) and [`TransferResult`](@ref).
+"""
+format_not_in_run(pairs) = join(("$detector in $run" for (run, detector) in pairs), ", ")
 
 """
     format_estimate(e::Estimate)::String
 
 The one-line form the status bar shows. The extract part appears only when
-something is extracted, with a `~` while it is approximate.
+something is extracted, with a `~` while it is approximate, followed by the number
+of pairs left out as not in run.
 """
 format_estimate(e::Estimate) = string(
     "selected: ", format_bytes(e.bytes), e.complete ? "" : "?",
     " copy (", e.files, " files), ", e.links, " links",
     e.extract_files == 0 ? "" : string(
         ", ", e.extract_exact ? "" : "~", format_bytes(e.extract_bytes),
-        " extract (", e.extract_files, " files)"))
+        " extract (", e.extract_files, " files)"),
+    isempty(e.not_in_run) ? "" : string(", ", length(e.not_in_run), " not in run"))
 
 """
     parse_rsync_stats(out::AbstractString, links::Integer)::Estimate
