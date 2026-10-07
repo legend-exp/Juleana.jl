@@ -70,6 +70,7 @@
         @test plan_bytes(h, helper, ExtractJob[]) == 0
         bad = [ExtractJob(files[1], "/x", "x", ["Z99999Z"])]
         @test_throws "group Z99999Z is not in" plan_bytes(h, helper, bad)
+        @test_throws "inspected 1 files for a plan of 2 jobs" plan_group_bytes(plan, [(["aux"], [1])])
     end
 
     @testset "apply! dry run adds the exact extract numbers" begin
@@ -79,6 +80,7 @@
         @test (est.extract_bytes, est.extract_files, est.extract_exact) == (4800, 2, true)
         @test est.files == 2                          # config.json and the metadata README
         @test !isdir(joinpath(local_root, "xprod", "generated"))
+        @test !isdir(staging_production_dir(helper.staging, p))   # nothing was extracted
 
         broken = HelperConfig(; julia_project = mktempdir(), staging = helper.staging)
         @test_throws "does not exist" apply!(h, p, sel; dry_run = true, helper = broken)

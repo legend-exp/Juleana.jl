@@ -43,7 +43,7 @@ using .JuleanaSync: main,
     DEFAULT_REMOTE_PROJECT, REMOTE_STAGING_SCRIPT,
     ExtractEntry, tier_name, ensure_detectors!, detector_nodes, attach_detectors!,
     expand_detectors!, has_detectors,
-    ExtractJob, staging_production_dir, plan_extraction, plan_bytes, prepare_extraction
+    ExtractJob, staging_production_dir, plan_extraction, plan_bytes, plan_group_bytes, prepare_extraction
 
 # A fresh copy of the fixture per run: tests write into the mirror and must never
 # touch the committed tree. The copy's absolute path is what `@REMOTE_ROOT@` and

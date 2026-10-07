@@ -197,12 +197,27 @@ error.
 """
 function plan_bytes(h::RemoteHost, helper::HelperConfig, plan::Vector{ExtractJob}; jobs::Integer = 0)
     isempty(plan) && return 0
+    plan_group_bytes(plan, inspect_files(h, helper, [j.source for j in plan]; jobs))
+end
+
+"""
+    plan_group_bytes(plan::Vector{ExtractJob}, inspected)::Int
+
+The summed stored size of the groups each job of `plan` takes, given the
+`inspect_files` result for the same files in the same order. A result of a different
+length, or a group that is not in its file, is an error.
+"""
+function plan_group_bytes(plan::Vector{ExtractJob}, inspected)
+    length(inspected) == length(plan) || throw(ErrorException(
+        "inspected $(length(inspected)) files for a plan of $(length(plan)) jobs"))
     total = 0
-    for (job, (names, bytes)) in zip(plan, inspect_files(h, helper, [j.source for j in plan]; jobs))
+    for i in eachindex(plan, inspected)
+        job = plan[i]
+        names, bytes = inspected[i]
         for group in job.groups
-            i = findfirst(==(group), names)
-            i === nothing && throw(ErrorException("group $group is not in $(job.source)"))
-            total += bytes[i]
+            k = findfirst(==(group), names)
+            k === nothing && throw(ErrorException("group $group is not in $(job.source)"))
+            total += bytes[k]
         end
     end
     total
