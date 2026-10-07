@@ -176,7 +176,7 @@ This opens a terminal interface:
 | `space` | Copy this row (`[x]`), or stop copying it |
 | `l` | Reach this row through the mount instead (`[~]`); needs `--mount-root` |
 | `n` | On a run directory: copy the first N filekeys |
-| `x` | On a detector row below a run's `detectors` row: extract this detector (`[e]`), or stop extracting it |
+| `x` | On a detector row below a `detectors` row (of a run or of a period): extract this detector (`[e]`), or stop extracting it |
 | `e` | Ask rsync exactly what the selection would move |
 | `t` | Estimate, confirm, and transfer |
 | `s` | Save the selection to `config/sync/<production>.json` |
@@ -190,25 +190,49 @@ A successful transfer's summary ends with any warnings rsync printed.
 ## Extracting detectors
 
 Per-filekey tiers such as `jldsp` and `raw` store all detectors of a time slice
-in one HDF5 file, one top-level group per detector, so copying one detector's data
-for a run means copying the whole run. Extract mode transfers only the chosen
-detectors' groups, in files that keep their original names and sit at their original
-paths in the mirror.
+in one HDF5 file, so copying one detector's data for a run means copying the whole
+run. Extract mode transfers only the chosen detectors' groups, in files that keep
+their original names and sit at their original paths in the mirror. Both group
+layouts of the productions are supported and need no setting: `<detector>/<tier>`
+(the top-level groups are the detectors, as in jl-v0.4.0) and `<tier>/<detector>` (one
+top-level group named after the tier whose children are the detectors, as in
+jl-v0.8.0). The tool decides per file: if a top-level group name is a detector name (a detector id such as B00000C or a channel id such as ch1110402),
+the top-level groups are the detectors; otherwise, if the file has exactly one
+top-level group and one of its children is a detector name, the children are the
+detectors; otherwise the file has no detector axis (`jlevt`, `jlskm`, `jlpmt`). A
+reduced file of the second layout contains the tier group with its attributes and the
+chosen children.
 
 Open a run directory of such a tier and press `enter` on its `detectors` row. The
-tool inspects the first file of the run on the host and lists its top-level groups
-with their sizes. Move onto a detector and press `x` to mark it `[e]`. The status
-bar shows the approximate extracted size (`~1.2 G extract (2 files)`: the sizes in
-the first file times the number of files); `e` inspects every file and shows the
-exact size and the free space of the staging directory. `space`, `l` and `n` on a
-detector row only point to `x`. `x` refuses to mark a detector while its run is
-marked for copying or linking as a whole ("run is transferred whole"); unmark the
-run first. Filekey rows of the same run can still be marked for copying: a file that
-is copied whole is left out of the extraction. A run whose first file has a single
-group named after its tier, as `jlevt` files do, has no `detectors` row after the
-inspection. The detector list comes from the first file of a run; if a later file of
-the run lacks a chosen group, the extraction aborts with a message naming the group
-and the file.
+tool inspects the first file of the run on the host and lists its detectors with
+their sizes. Move onto a detector and press `x` to mark it `[e]`. A period directory
+(a directory with run directories `r000`, ... of which at least one holds filekey
+files) has a `detectors` row too: it lists the union of the detectors of the first
+file of every run, sized by the first-file bytes times the run's file count summed
+over the runs that hold the detector, and `x` on one of its rows extracts that
+detector from every run of the period. The run-level row of a detector that the
+period extracts shows the inherited `[e]` and cannot be toggled; unmark the period
+row instead. A run-level and a period-level mark for the same detector may coexist;
+the plan merges them per run, so nothing is extracted twice. The status bar shows the
+approximate extracted size (`~1.2 G extract (2 files)`: the sizes in the first file
+times the number of files); `e` inspects every file and shows the exact size, the
+free space of the staging directory and the detectors left out (see below).
+`space`, `l` and `n` on a detector row only point to `x`. A copy or link mark and an
+extract mark never cover the same run: marking a run, a period or a directory above
+them with `space` or `l` while a detector below it is marked for extraction, and
+marking a detector while its run, its period or a directory above is copied or
+linked, are refused with a status line that names both marks. Filekey rows of the same
+run can still be marked for copying: a file that is copied whole is left out of the
+extraction. A directory whose first files have no detector axis has no `detectors`
+row after the inspection. The detector list of a run comes from its first file; if a
+later file of the run lacks a chosen detector, the extraction aborts with a message
+naming the detector and the file.
+
+When a detector is extracted for a period and a run does not hold it, that run is
+left out for that detector and the pair is reported as "not in run" (in the exact
+estimate, the headless estimate and the summary, as `<detector> in <run>`). A run
+that holds none of the chosen detectors gets no job. Nothing else is skipped
+silently.
 
 Extraction runs on the host. A helper script (`src/sync/remote/extract.jl`) is
 copied to the staging directory and run with the host's Julia. It copies the chosen
