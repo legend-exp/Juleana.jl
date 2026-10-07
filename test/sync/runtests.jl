@@ -4,6 +4,7 @@ using PropDicts
 using TOML
 using HDF5
 using LegendDataManagement: LegendDataConfig, data_path
+import LegendDataManagement
 using Tachikoma: TestBackend, Frame, Rect, KeyEvent, TaskEvent, GraphicsRegion, PixelSnapshot,
                  reset!, row_text, find_text, drain_tasks!, render_widget!,
                  view, update!, should_quit
@@ -41,7 +42,7 @@ using .JuleanaSync: main,
     bootstrap_environment!, parse_record, run_helper, inspect_files, host_helper_config,
     HELPER_SCRIPT, HELPER_PACKAGES, DATAFLOW_PROJECT, DEFAULT_REMOTE_JULIA,
     DEFAULT_REMOTE_PROJECT, REMOTE_STAGING_SCRIPT,
-    ExtractEntry, tier_name, ensure_detectors!, detector_nodes, attach_detectors!,
+    ExtractEntry, ensure_detectors!, detector_nodes, attach_detectors!,
     expand_detectors!, has_detectors,
     ExtractJob, staging_production_dir, plan_extraction, plan_bytes, plan_group_bytes, prepare_extraction,
     ExtractProgress, STAGING_MARGIN, check_staging_space, reduced_groups, reconcile_local, rsync_listed,
@@ -60,6 +61,7 @@ const FIXTURE_ROOT = let dest = joinpath(mktempdir(), "remote")
 end
 
 const EXTRACT_ROOT = make_extract_remote()
+const TIER_DET_ROOT = make_tier_det_remote()
 
 const LOCAL_ROOT = mktempdir()
 

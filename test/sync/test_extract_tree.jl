@@ -7,12 +7,6 @@
     dsp = joinpath(tier, "jldsp", "cal", "p18", "r000")
     evt = joinpath(tier, "jlevt", "phy", "p18", "r000")
 
-    @testset "tier_name" begin
-        @test tier_name("l200-p18-r000-cal-20251107T191821Z-tier_jldsp.lh5") == "jldsp"
-        @test tier_name("l200-p18-r000-cal-B00000C-tier_jlhit.lh5") == "jlhit"
-        @test tier_name("README.txt") === nothing
-    end
-
     @testset "expand! adds the detectors child only when asked" begin
         plain = Node("r000", dsp, :dir)
         expand!(h, p, plain)

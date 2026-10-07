@@ -169,17 +169,6 @@ filekey_groups(node::Node) = node.children === nothing ? Node[] :
      if c.kind == :group && LegendDataManagement._can_convert_to(Timestamp, c.label)]
 
 """
-    tier_name(file::AbstractString)::Union{Nothing,String}
-
-The tier of a LEGEND tier file name, `jldsp` for `...-tier_jldsp.lh5`, and
-`nothing` for any other name.
-"""
-function tier_name(file::AbstractString)
-    m = match(r"-tier_([a-z0-9]+)\.[a-z0-9]+$", file)
-    m === nothing ? nothing : String(m[1])
-end
-
-"""
     ensure_detectors!(run::Node)::Node
 
 The `:detectors` child of the listed run directory `run`, appended when it is not
@@ -203,16 +192,16 @@ end
 
 Inspect the first filekey file of `run` with the remote helper and return one
 detached `:detector` node per top-level group, sized by the group's stored bytes.
-A file whose only group is named after its tier (`jlevt` in a `jlevt` file) has no
-detector axis and gives an empty vector; whether a tier has per-detector groups is
-decided by looking, never by a list of tier names.
+A file without a detector axis (`jlevt`, `jlskm`, `jlpmt`) reports no detectors and
+gives an empty vector; whether a tier has per-detector groups is decided by looking,
+never by a list of tier names.
 """
 function detector_nodes(h::RemoteHost, helper::HelperConfig, run::Node; jobs::Integer = 0)
     groups = filekey_groups(run)
     isempty(groups) && throw(ArgumentError("$(run.label) holds no filekey files to inspect"))
     file = only(first(groups).children)
     names, bytes = only(inspect_files(h, helper, [file.remote_path]; jobs))
-    names == [tier_name(file.label)] && return Node[]
+    isempty(names) && return Node[]
     [Node(names[i], joinpath(run.remote_path, "detectors", names[i]), :detector; size = bytes[i])
      for i in eachindex(names, bytes)]
 end

@@ -1,6 +1,8 @@
-# Remote helper of the sync tool: lists and extracts the per-detector groups of
-# LEGEND HDF5 files. It needs only HDF5 and ParallelProcessingTools; jobs are
-# read from a TOML file and every result is one line of TOML on standard output.
+# Remote helper of the sync tool: lists and extracts the detector groups of LEGEND
+# HDF5 files, which store them either as top-level groups (`<detector>/<tier>`) or as
+# the children of a single top-level tier group (`<tier>/<detector>`). It needs only
+# HDF5 and ParallelProcessingTools; jobs are read from a TOML file and every result
+# is one line of TOML on standard output.
 #
 #     julia --project=ENV extract.jl inspect JOBFILE [--jobs N]
 #     julia --project=ENV extract.jl extract JOBFILE [--jobs N]
@@ -17,10 +19,34 @@ storage_bytes(dset::HDF5.Dataset) = Int(HDF5.API.h5d_get_storage_size(dset))
 storage_bytes(group::HDF5.Group) = sum(name -> storage_bytes(group[name]), keys(group); init = 0)
 storage_bytes(::Any) = 0
 
-function inspect_file(path::String)::Tuple{Vector{String},Vector{Int}}
+# Mirror the DetectorId and ChannelId name patterns of LegendDataManagement (src/filekey.jl): the
+# helper runs without that package.
+const DETECTOR_ID = r"^(?:[BCPV][0-9]{5}[A-P]|S[0-9]{3}|PMT[0-9]{3}|PULS[0-9]{2}(?:ANA)?|AUX[0-9]{2}|DUMMY[0-9]{1,2}|BSLN[0-9]{2}|MUON[0-9]{2}|C00ANG[0-9]|C000RG[0-9])$"
+const CHANNEL_ID = r"^ch(?:[0-9]{3}|(?:0[1-9]|[1-9][0-9])[0-9]{5})$"
+
+# Where the detector groups of the open file `f` live: "" when at least one top-level
+# group is a detector name (all top-level groups are then the detector rows, including
+# auxiliary ones), the name of the tier group when the file has exactly one top-level
+# group and at least one of its children is a detector name, and nothing when the file
+# has no detector axis.
+function detector_parent(f)
+    tops = collect(String, keys(f))
+    any(name -> occursin(DETECTOR_ID, name) || occursin(CHANNEL_ID, name), tops) && return ""
+    if length(tops) == 1 && f[only(tops)] isa HDF5.Group
+        any(name -> occursin(DETECTOR_ID, name) || occursin(CHANNEL_ID, name), keys(f[only(tops)])) && return only(tops)
+    end
+    nothing
+end
+
+# Detector names, their stored bytes and the enclosing group ("" for top-level
+# detectors). A file without a detector axis reports no detectors.
+function inspect_file(path::String)::Tuple{Vector{String},Vector{Int},String}
     h5open(path, "r") do f
-        names = collect(String, keys(f))
-        names, [storage_bytes(f[name]) for name in names]
+        layout = detector_parent(f)
+        layout === nothing && return (String[], Int[], "")
+        parent = layout == "" ? f : f[layout]
+        names = collect(String, keys(parent))
+        names, [storage_bytes(parent[name]) for name in names], layout
     end
 end
 
@@ -147,8 +173,8 @@ function main(args)
         if command == "inspect"
             files = String.(spec["files"])
             n = jobs > 0 ? min(jobs, length(files)) : default_workers(length(files))
-            run_items(inspect_file, [(f,) for f in files], n) do item, (names, sizes)
-                emit(event = "inspect", file = item[1], groups = names, bytes = sizes)
+            run_items(inspect_file, [(f,) for f in files], n) do item, (names, sizes, layout)
+                emit(event = "inspect", file = item[1], groups = names, bytes = sizes, layout = layout)
             end
         else
             list = [(String(j["source"]), String.(j["groups"]), String(j["destination"]))

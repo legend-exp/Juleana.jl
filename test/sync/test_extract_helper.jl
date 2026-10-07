@@ -34,6 +34,7 @@
         @test r.records[1]["groups"] == ["B00000C", "V01234A", "aux"]
         @test r.records[1]["bytes"] == [4 * 100, 4 * 200, 4 * 300]
         @test r.records[2]["bytes"] == [4 * 200, 4 * 400, 4 * 600]
+        @test [rec["layout"] for rec in r.records] == ["", ""]
     end
 
     @testset "extract copies the chosen groups in the main process" begin
@@ -203,5 +204,74 @@
         r = run_script("frobnicate", Dict("files" => String[]))
         @test r.code == 2
         @test occursin("usage:", r.stderr)
+    end
+
+    @testset "inspect classifies the group layouts" begin
+        both = write_lh5_tier_det(joinpath(work, "src", "n.lh5"))
+        one_detector = write_lh5(joinpath(work, "src", "one.lh5"); groups = ["B00000C"])
+        only_aux = write_lh5_tier_det(joinpath(work, "src", "aux.lh5"); groups = ["aux"])
+        events = write_lh5(joinpath(work, "src", "evt.lh5"); groups = ["jlevt"], inner = "tables")
+        plain = write_lh5(joinpath(work, "src", "plain.lh5"); groups = ["x", "y"])
+        two_tiers = joinpath(work, "src", "two.lh5")
+        h5open(two_tiers, "w") do f
+            for tier in ("jldsp", "jlhit")
+                create_group(create_group(f, tier), "B00000C")
+            end
+        end
+        channels = write_lh5(joinpath(work, "src", "ch.lh5"); groups = ["ch1104000", "ch1110402"])
+        files = [both, one_detector, only_aux, events, plain, two_tiers, channels]
+        r = run_script("inspect", Dict("files" => files); jobs = 1)
+        @test r.code == 0
+        got = Dict(rec["file"] => (rec["groups"], rec["layout"]) for rec in r.records)
+        @test got[both] == (["B00000C", "V01234A", "aux"], "jldsp")
+        @test only(filter(rec -> rec["file"] == both, r.records))["bytes"] == [400, 800, 1200]
+        # A single top-level detector group is the older layout, not a tier group.
+        @test got[one_detector] == (["B00000C"], "")
+        # No detector id anywhere: no detector axis, and no group is reported.
+        @test got[only_aux] == ([], "")
+        @test got[events] == ([], "")
+        @test got[plain] == ([], "")
+        # Channel-id groups (jl-v0.4 form) are detectors of the older layout.
+        @test got[channels] == (["ch1104000", "ch1110402"], "")
+        # The new layout needs exactly one top-level group.
+        @test got[two_tiers] == ([], "")
+    end
+
+    @testset "the helper recognizes the detector names" begin
+        names = ["B00000C", "P00664B", "V01234A", "C000RG1", "C00ANG3", "S001", "PMT001",
+                 "PULS01", "PULS01ANA", "AUX01", "DUMMY1", "DUMMY12", "BSLN01", "MUON01",
+                 "ch1110402", "ch1104000", "ch123",
+                 "b00000c", "B0000C", "B00000Q", "ch0010402", "ch12", "aux", "jlevt", "S01", "PMT1"]
+        files = [write_lh5_tier_det(joinpath(work, "ids", "$i.lh5"); groups = [name])
+                 for (i, name) in pairs(names)]
+        r = run_script("inspect", Dict("files" => files); jobs = 1)
+        layout_of = Dict(rec["file"] => rec["layout"] for rec in r.records)
+        # The helper follows the strict detector id forms, one pattern per detector
+        # family, so these names are not detectors even where the installed
+        # LegendDataManagement accepts them.
+        loose = ["B0000C", "B00000Q", "S01", "PMT1"]
+        for (file, name) in zip(files, names)
+            if name in loose
+                @test layout_of[file] == ""
+            else
+                expected = LegendDataManagement._can_convert_to(LegendDataManagement.DetectorId, name) ||
+                           LegendDataManagement._can_convert_to(LegendDataManagement.ChannelId, name)
+                @test (layout_of[file] == "jldsp") == expected
+            end
+        end
+        @test count(f -> layout_of[f] == "jldsp", files) == 17
+    end
+
+    @testset "the tier/detector fixture run" begin
+        dir = joinpath(TIER_DET_ROOT, "tprod", "generated", "tier", "jlpks", "cal", "p18")
+        files = [joinpath(dir, "r000", "l200-p18-r000-cal-20251107T191821Z-tier_jlpks.lh5"),
+                 joinpath(dir, "r000", "l200-p18-r000-cal-20251107T192416Z-tier_jlpks.lh5"),
+                 joinpath(dir, "r001", "l200-p18-r001-cal-20251108T101010Z-tier_jlpks.lh5")]
+        r = run_script("inspect", Dict("files" => files); jobs = 1)
+        @test [rec["layout"] for rec in r.records] == ["jlpks", "jlpks", "jlpks"]
+        @test [rec["groups"] for rec in r.records] ==
+              [["B00000C", "V01234A", "aux"], ["B00000C", "V01234A", "aux"], ["B00000C", "V01234A"]]
+        @test [rec["bytes"] for rec in r.records] ==
+              [[400, 800, 1200], [800, 1600, 2400], [400, 800]]
     end
 end

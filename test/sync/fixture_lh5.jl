@@ -42,3 +42,30 @@ function write_stub_julia(path::AbstractString)
     chmod(path, 0o755)
     path
 end
+
+"""
+    write_lh5_tier_det(path; groups = ["B00000C", "V01234A", "aux"], scale = 1,
+                       tier = "jldsp", tier_attributes = Dict("origin" => "fixture", "revision" => 7))
+
+Write a small HDF5 file in the `<tier>/<detector>` layout: one top-level group
+`tier` carrying `tier_attributes`, and below it one group per name holding a
+`waveform` dataset (an `Int32` vector of length `100 * k * scale` for the k-th
+group) and a `unit` attribute. Returns `path`.
+"""
+function write_lh5_tier_det(path::AbstractString; groups = ["B00000C", "V01234A", "aux"],
+                            scale::Integer = 1, tier::AbstractString = "jldsp",
+                            tier_attributes = Dict("origin" => "fixture", "revision" => 7))
+    mkpath(dirname(path))
+    h5open(path, "w") do f
+        t = create_group(f, tier)
+        for (name, value) in tier_attributes
+            attrs(t)[name] = value
+        end
+        for (k, name) in enumerate(groups)
+            g = create_group(t, name)
+            attrs(g)["unit"] = "keV"
+            g["waveform"] = collect(Int32, 1:(100 * k * scale))
+        end
+    end
+    path
+end
