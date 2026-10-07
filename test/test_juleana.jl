@@ -5,6 +5,9 @@ using Test
 using Markdown
 using Logging
 using TerminalLoggers
+# ParallelProcessingTools initializes a process by importing itself into Main; load it
+# here so that initialization never has to resolve the package on its own.
+import ParallelProcessingTools
 using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
     process_succeeded, process_warning, process_failed
 

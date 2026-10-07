@@ -2,7 +2,6 @@
     "config": {
         "runmode": "local",
         "submit_jobs": false,
-        "remote_workers": [],
         "runmode_settings": {
             "slurm": {
                 "flags": [
@@ -39,7 +38,6 @@
     {
         "process_peak_split": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 1,
             "kwargs": {
@@ -50,7 +48,6 @@
         },
         "process_decay_time": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 2,
             "kwargs": {
@@ -61,7 +58,6 @@
         },
         "process_filter_optimization": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 3,
             "kwargs": {
@@ -72,7 +68,6 @@
         },
         "process_aoe_optimization": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 4,
             "kwargs": {
@@ -83,7 +78,6 @@
         },
         "process_dsp_cal": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 5,
             "kwargs": {
@@ -96,7 +90,6 @@
         },
         "process_hit_cal": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 6,
             "kwargs": {
@@ -107,7 +100,6 @@
         },
         "process_ct_correction": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 7,
             "kwargs": {
@@ -118,7 +110,6 @@
         },
         "process_energy_calibration": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 8,
             "kwargs": {
@@ -129,7 +120,6 @@
         },
         "process_aoe_calibration_cut": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 9,
             "kwargs": {
@@ -140,7 +130,6 @@
         },
         "process_lq_calibration_cut": {
             "enabled": false,
-            "n_workers": "all",
             "category": "cal",
             "rank": 10,
             "kwargs": {
@@ -151,7 +140,6 @@
         },
         "process_psd_efficiencies": {
             "enabled": true,
-            "n_workers": "all",
             "category": "cal",
             "rank": 11,
             "kwargs": {
@@ -163,7 +151,6 @@
         },
         "process_sipm_optimization_phy": {
             "enabled": false,
-            "n_workers": "all",
             "category": "phy",
             "rank": 12,
             "kwargs": {
@@ -175,7 +162,6 @@
         },
         "process_dsp_phy": {
             "enabled": false,
-            "n_workers": "all",
             "category": "phy",
             "rank": 13,
             "kwargs": {
@@ -188,7 +174,6 @@
         },
         "process_sipm_calibration_phy": {
             "enabled": true,
-            "n_workers": "all",
             "category": "phy",
             "rank": 14,
             "kwargs": {
@@ -199,7 +184,6 @@
         },
         "process_evt_phy": {
             "enabled": true,
-            "n_workers": "all",
             "category": "phy",
             "rank": 15,
             "kwargs": {
@@ -213,7 +197,7 @@
     {
         "p_process_decay_time": {
             "enabled": false,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 1,
             "kwargs": {
                 "reprocess": true,
@@ -223,7 +207,7 @@
         },
         "p_process_filter_optimization": {
             "enabled": false,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 2,
             "kwargs": {
                 "reprocess": true,
@@ -233,7 +217,7 @@
         },
         "p_process_aoe_optimization": {
             "enabled": false,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 3,
             "kwargs": {
                 "reprocess": true,
@@ -244,7 +228,7 @@
         },
         "p_process_energy": {
             "enabled": false,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 4,
             "kwargs": {
                 "reprocess": true,
@@ -254,7 +238,7 @@
         },
         "p_process_aoe_calibration_cut": {
             "enabled": false,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 5,
             "kwargs": {
                 "reprocess": true,
@@ -264,7 +248,7 @@
         },
         "p_process_aoe_cut": {
             "enabled": false,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 6,
             "kwargs": {
                 "reprocess": true,
@@ -274,7 +258,7 @@
         },
         "p_process_lq_calibration_cut": {
             "enabled": true,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 7,
             "kwargs": {
                 "reprocess": true,
@@ -284,7 +268,7 @@
         },
         "p_process_psd_efficiencies": {
             "enabled": true,
-            "n_workers": "all",
+            "category": "cal",
             "rank": 8,
             "kwargs": {
                 "reprocess": true,
@@ -294,7 +278,6 @@
         },
         "p_process_sipm_optimization_phy": {
             "enabled": false,
-            "n_workers": "all",
             "category": "phy",
             "rank": 9,
             "kwargs": {
@@ -305,7 +288,6 @@
         },
         "p_process_sipm_calibration_phy": {
             "enabled": true,
-            "n_workers": "all",
             "category": "phy",
             "rank": 10,
             "kwargs": {
@@ -316,7 +298,6 @@
         },
         "p_process_skm_phy": {
             "enabled": true,
-            "n_workers": "all",
             "category": "phy",
             "rank": 11,
             "kwargs": {

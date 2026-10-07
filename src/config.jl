@@ -1,13 +1,3 @@
-function getboolkwarg(processing_config::PropDict, parsed_args::Dict, key::String; section::Symbol=:processing)
-    if parsed_args["ignore_config"]
-        parsed_args[key]
-    elseif parsed_args[key]
-        true
-    else
-        get(processing_config[section], Symbol(key), true)
-    end
-end
-
 # process parsed arguments for the main function
 function get_argparse()
     settings = ArgParseSettings(prog="LEGEND Julia main data processing",
@@ -62,160 +52,53 @@ function get_argparse()
     parse_args(settings)
 end
 
-"""
-    convert_processor_kwargs!(processing_config::PropDict)
-
-Convert string vectors in the `kwargs` of `processors` and `p_processors`
-to `Vector{Symbol}`. Untyped empty vectors from YAML/JSON become `Symbol[]`.
-Other keyword values and settings outside `kwargs` are left unchanged.
-"""
-function convert_processor_kwargs!(processing_config::PropDict)
-    for section in (:processors, :p_processors)
-        for processor in values(get(processing_config, section, PropDict()))
-            kwargs = get(processor, :kwargs, PropDict())
-            for (key, value) in pairs(kwargs)
-                # YAML/JSON readers may also return string lists as Vector{Any}.
-                if value isa AbstractVector{<:AbstractString} ||
-                    (value isa AbstractVector{Any} && all(v -> v isa AbstractString, value))
-                    kwargs[key] = Symbol[Symbol(v) for v in value]
-                end
-            end
-        end
-    end
-    return processing_config
-end
-
 function get_processingconfig()
-    # read parsed arguments
     parsed_args = get_argparse()
-    # read config
-    processing_config = readlprops(parsed_args["config"])
-    convert_processor_kwargs!(processing_config)
-    # save parsed args for later
-    processing_config.parsed_args = parsed_args
-    # get environoment variables
-    env_args_worker = Dict{String, String}(string.(keys(processing_config.config.env_variables)) .=> string.(values(processing_config.config.env_variables)))
-    for key in keys(processing_config.config.env_variables)
-        ENV[String(key)] = processing_config.config.env_variables[key]
+    config_dict = readlprops(parsed_args["config"])
+    # command line overrides; repeated `--periods`/`--runs` options are concatenated
+    cli = (;
+        runmode = parsed_args["runmode"],
+        submit_jobs = parsed_args["submit_jobs"],
+        analysis_runs_only = parsed_args["analysis_runs_only"],
+        only_partitions = parsed_args["only_partitions"],
+        only_runs = parsed_args["only_runs"],
+        ignore_config = parsed_args["ignore_config"],
+        reprocess = parsed_args["reprocess"],
+        periods = isempty(parsed_args["periods"]) ? nothing : reduce(vcat, parsed_args["periods"]),
+        runs = isempty(parsed_args["runs"]) ? nothing : reduce(vcat, parsed_args["runs"])
+    )
+    processing_config = ProcessingConfig(config_dict; cli...)
+    # the environment variables must be set before the metadata is loaded
+    for (key, value) in processing_config.env_variables
+        ENV[key] = value
     end
-    processing_config.env_args_worker = (env_args_worker, )
-    
-    # get remote workers
-    processing_config.config.remote_workers = [Tuple(p) for p in get(processing_config.processing, :remote_workers, [])]
 
-    # load metadata
     @info "Loading Legend MetaData"
     l200 = LegendData(:l200)
 
-    # get log path
-    if isempty(parsed_args["log_path"])
-        processing_config.processing.log_path = mkpath(joinpath(l200.tier[:jllog], string(Dates.now())))
-    else
-        processing_config.processing.log_path = mkpath(parsed_args["log_path"])
-    end
-    @info "Log path: $(processing_config.processing.log_path)"
+    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], string(Dates.now())) : parsed_args["log_path"])
+    processing_config = ProcessingConfig(config_dict; cli..., log_path)
+    @info "Log path: $log_path"
 
-    # check flags if only partitions or only runs should be processed, if slurm jobs should be submitted or only analysis runs should be processed
-    processing_config.analysis_runs_only = getboolkwarg(processing_config, parsed_args, "analysis_runs_only")
-    if processing_config.analysis_runs_only @info "Process only analysis runs" end
-    processing_config.only_partitions    = getboolkwarg(processing_config, parsed_args, "only_partitions")
-    if processing_config.only_partitions @info "Process only partitions" end
-    processing_config.only_runs          = getboolkwarg(processing_config, parsed_args, "only_runs")
-    if processing_config.only_runs @info "Process only runs" end
-
-    if processing_config.only_partitions && processing_config.only_runs
-        throw(ArgumentError("Only one of `only_partitions` or `only_runs` can be set"))
-    end
-
-    # get runmode and runmode flags
-    processing_config.runmode = parsed_args["runmode"]
-    if isnothing(processing_config.runmode)
-        processing_config.runmode = get(processing_config.config, :runmode, "")
-    end
-    if !(processing_config.runmode in ["local", "slurm"])
-        @error "Runmode $(processing_config.runmode) not supported"
-        throw(ArgumentError("Runmode $(processing_config.runmode) not supported"))
-    end
+    processing_config.analysis_runs_only && @info "Process only analysis runs"
+    processing_config.only_partitions && @info "Process only partitions"
+    processing_config.only_runs && @info "Process only runs"
     @info "Runmode: $(processing_config.runmode)"
-    processing_config.submit_jobs       = getboolkwarg(processing_config, parsed_args, "submit_jobs"; section=:config)
-    if processing_config.submit_jobs @info "Will submit $(processing_config.runmode) jobs" end
-    
-    # get processing steps from config and sort by rank
-    possible_process_steps = Symbol.(keys(processing_config.processors))
-    possible_process_steps = possible_process_steps[possible_process_steps .!= :default]
-    possible_process_steps = sort(possible_process_steps, by = s -> processing_config.processors[s].rank)
+    processing_config.submit_jobs && @info "Will submit $(processing_config.runmode) jobs"
+    parsed_args["reprocess"] && @info "Reprocess all processors"
 
-    # if reprocess passed as global argument set reprocess flag for all processors
-    if parsed_args["reprocess"]
-        @info "Reprocess all processors"
-        for process in possible_process_steps
-            processing_config.processors[process].reprocess = true
-        end
+    # restrict the selected periods to those available on disk
+    available_periods = get_available_periods(l200)
+    periods = if isnothing(processing_config.periods)
+        available_periods
+    else
+        filter(in(available_periods), processing_config.periods)
     end
-    processing_config.possible_process_steps = possible_process_steps
-    processing_config.process_steps = possible_process_steps[[processing_config.processors[step].enabled for step in possible_process_steps]]
-
-    # get processing steps for partition and sort by rank
-    p_possible_process_steps = Symbol.(keys(processing_config.p_processors))
-    p_possible_process_steps = p_possible_process_steps[p_possible_process_steps .!= :default]
-    p_possible_process_steps = sort(p_possible_process_steps, by = s -> processing_config.p_processors[s].rank)
-
-    # if reprocess passed as global argument set reprocess flag for all processors
-    if parsed_args["reprocess"]
-        for process in p_possible_process_steps
-            processing_config.p_processors[process].reprocess = true
-        end
-    end
-    processing_config.p_possible_process_steps = p_possible_process_steps
-    processing_config.p_process_steps = p_possible_process_steps[[processing_config.p_processors[step].enabled for step in p_possible_process_steps]]
-
-    if isempty(processing_config.process_steps) && isempty(processing_config.p_process_steps) 
-        throw(ArgumentError("No processing steps enabled"))
-    end
-
-    # get runs and periods
-    runs, periods = nothing, nothing
-    runs, periods = get_runsandperiods(parsed_args, processing_config, l200)
+    @info "Process periods: $(string.(periods))"
+    runs = processing_config.runs
+    @info isnothing(runs) ? "Process all runs on disk for each period" : "Process runs: $(string.(runs))"
 
     return l200, processing_config, runs, periods
-end
-
-function get_runsandperiods(parsed_args::Dict, processing_config::PropDict, l200::LegendData)
-    # parse periods and runs from arguments, if not supported use config
-    runs, periods = missing, DataPeriod[]
-    if !isempty(parsed_args["runs"]) && isempty(parsed_args["periods"])
-        @error "ArgumentError: Runs without periods are not supported"
-        throw(ArgParseError("Runs without periods are not supported"))
-    elseif !isempty(parsed_args["periods"]) && isempty(parsed_args["runs"])
-        periods = DataPeriod.(parsed_args["periods"][1])
-        @info "Process all runs in periods $(parsed_args["periods"][1])"
-        runs = "all"
-    elseif !isempty(parsed_args["periods"])
-        periods = DataPeriod.(parsed_args["periods"][1])
-        runs = DataRun.(parsed_args["runs"][1])
-        @info "Process runs: $(parsed_args["runs"][1]) in periods: $(parsed_args["periods"][1])"
-    end
-
-
-    if processing_config.processing.periods == "all" && isempty(periods)
-        periods = search_disk(DataPeriod, l200.tier[:raw, :cal])
-        @info "Process all periods on disk: $(string.(periods))"
-    elseif isempty(periods)
-        periods = DataPeriod.(processing_config.processing.periods)
-        @info "Process periods: $(string.(periods))"
-    end
-    if processing_config.processing.runs == "all" && ismissing(runs)
-        runs = "all"
-        @info "Process all runs on disk for each period"
-    elseif ismissing(runs)
-        runs = DataRun.(processing_config.processing.runs)
-        @info "Process runs: $(string.(runs))"
-    end
-
-    # filter out periods that are not available on disk
-    filter!(in(get_available_periods(l200)), periods)
-    
-    return runs, periods
 end
 
 """
@@ -255,9 +138,10 @@ function get_available_runs(l200::LegendData, period::DataPeriod)
     search_disk(DataRun, l200.tier[tc..., period])
 end
 
-function get_processable_runs(l200::LegendData, period::DataPeriod, runs::Union{Vector{DataRun}, String})
+# `runs === nothing` selects all runs of `period` available on disk
+function get_processable_runs(l200::LegendData, period::DataPeriod, runs::Union{Vector{DataRun}, Nothing})
     available_runs = get_available_runs(l200, period)
-    runs == "all" && return available_runs
+    isnothing(runs) && return available_runs
     for run in runs
         run in available_runs || @warn "Run $run not found in period $period"
     end
@@ -265,9 +149,12 @@ function get_processable_runs(l200::LegendData, period::DataPeriod, runs::Union{
 end
 
 
-function setup_dependency_graph(l200::LegendData, processing_config::PropDict, periods::Vector{DataPeriod}, runs::Union{Vector{DataRun}, String})
+# The status of a step starts as finished unless the step is in `process_steps` or
+# `p_process_steps`, so only the selected steps are waited for.
+function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::Vector{DataPeriod}, runs::Union{Vector{DataRun}, Nothing},
+        process_steps::Vector{Symbol}, p_process_steps::Vector{Symbol})
     # get all possible steps
-    possible_steps = filter!(x -> x != :default, Symbol.(keys(processing_config.processors)))
+    possible_steps = run_steps(processing_config; enabled_only = false)
     # generate process status with all possible steps for all possible runs in all periods
     process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}}()
 
@@ -279,15 +166,15 @@ function setup_dependency_graph(l200::LegendData, processing_config::PropDict, p
     for period in periods
         # get all processable runs
         processable_runs = processable_runs_dict[period]
-        process_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}(possible_steps .=> [ConcurrentDict{DataRun, Bool}(processable_runs .=> Ref(p)) for p in .!getproperty.(getproperty.(Ref(processing_config.processors), possible_steps), Ref(:enabled))])
+        process_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}([step => ConcurrentDict{DataRun, Bool}(processable_runs .=> !(step in process_steps)) for step in possible_steps])
     end
 
     # get all possible steps for partition processing
-    possible_p_steps = filter!(x -> x != :default, Symbol.(keys(processing_config.p_processors)))
+    possible_p_steps = partition_steps(processing_config; enabled_only = false)
     # generate process status with all possible steps for all possible runs in all periods
     p_process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, Bool}}()
     for period in periods
-        p_process_status[period] = ConcurrentDict{Symbol, Bool}(possible_p_steps .=> .!getproperty.(getproperty.(Ref(processing_config.p_processors), possible_p_steps), Ref(:enabled)))
+        p_process_status[period] = ConcurrentDict{Symbol, Bool}([step => !(step in p_process_steps) for step in possible_p_steps])
     end
 
     return process_status, p_process_status

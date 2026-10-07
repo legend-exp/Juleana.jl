@@ -1,7 +1,6 @@
 config:
   runmode: slurm
   submit_jobs: false
-  remote_workers: []
   runmode_settings:
     slurm:
       flags:
@@ -32,7 +31,6 @@ processing:
 processors:
   process_peak_split:
     enabled: true
-    n_workers: all
     category: cal
     rank: 1
     kwargs:
@@ -42,7 +40,6 @@ processors:
 
   process_decay_time:
     enabled: true
-    n_workers: all
     category: cal
     rank: 2
     kwargs:
@@ -52,7 +49,6 @@ processors:
 
   process_filter_optimization:
     enabled: true
-    n_workers: all
     category: cal
     rank: 3
     kwargs:
@@ -62,7 +58,6 @@ processors:
 
   process_aoe_optimization:
     enabled: true
-    n_workers: all
     category: cal
     rank: 4
     kwargs:
@@ -72,7 +67,6 @@ processors:
 
   process_dsp_cal:
     enabled: true
-    n_workers: all
     category: cal
     rank: 5
     kwargs:
@@ -87,7 +81,6 @@ processors:
 
   process_qcs_cal:
     enabled: true
-    n_workers: all
     category: cal
     rank: 6
     kwargs:
@@ -97,7 +90,6 @@ processors:
 
   process_ct_correction:
     enabled: true
-    n_workers: all
     category: cal
     rank: 7
     kwargs:
@@ -107,7 +99,6 @@ processors:
 
   process_energy_calibration:
     enabled: true
-    n_workers: all
     category: cal
     rank: 8
     kwargs:
@@ -117,7 +108,6 @@ processors:
 
   process_aoe_calibration_cut:
     enabled: true
-    n_workers: all
     category: cal
     rank: 9
     kwargs:
@@ -127,7 +117,6 @@ processors:
 
   process_lq_calibration_cut:
     enabled: true
-    n_workers: all
     category: cal
     rank: 10
     kwargs:
@@ -137,7 +126,6 @@ processors:
 
   process_psd_efficiencies:
     enabled: true
-    n_workers: all
     category: cal
     rank: 11
     kwargs:
@@ -150,7 +138,6 @@ processors:
 
   process_dsp_aux_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 12
     kwargs:
@@ -160,7 +147,6 @@ processors:
 
   process_sipm_optimization_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 13
     kwargs:
@@ -171,7 +157,6 @@ processors:
 
   process_dsp_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 13
     kwargs:
@@ -184,7 +169,6 @@ processors:
 
   process_qcs_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 15
     kwargs:
@@ -194,7 +178,6 @@ processors:
 
   process_sipm_calibration_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 16
     kwargs:
@@ -205,7 +188,6 @@ processors:
 
   process_evt_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 16
     kwargs:
@@ -216,7 +198,6 @@ processors:
 
   process_stability_plots_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 12
     kwargs:
@@ -227,7 +208,7 @@ processors:
 p_processors:
   p_process_decay_time:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 1
     kwargs:
       reprocess: false
@@ -237,7 +218,7 @@ p_processors:
 
   p_process_filter_optimization:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 2
     kwargs:
       reprocess: false
@@ -247,7 +228,7 @@ p_processors:
 
   p_process_aoe_optimization:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 3
     kwargs:
       reprocess: false
@@ -258,7 +239,7 @@ p_processors:
 
   p_process_energy:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 4
     kwargs:
       reprocess: false
@@ -268,7 +249,7 @@ p_processors:
 
   p_process_aoe_calibration_cut:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 5
     kwargs:
       reprocess: false
@@ -277,7 +258,7 @@ p_processors:
 
   p_process_aoe_cut:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 6
     kwargs:
       reprocess: false
@@ -287,7 +268,7 @@ p_processors:
 
   p_process_lq_calibration_cut:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 7
     kwargs:
       reprocess: false
@@ -296,7 +277,7 @@ p_processors:
 
   p_process_psd_efficiencies:
     enabled: true
-    n_workers: all
+    category: cal
     rank: 8
     kwargs:
       reprocess: false
@@ -305,7 +286,6 @@ p_processors:
 
   p_process_sipm_optimization_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 9
     kwargs:
@@ -316,7 +296,6 @@ p_processors:
 
   p_process_sipm_calibration_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 10
     kwargs:
@@ -328,7 +307,6 @@ p_processors:
 
   p_process_skm_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 11
     kwargs:
@@ -339,7 +317,6 @@ p_processors:
 
   p_process_stability_plots_phy:
     enabled: true
-    n_workers: all
     category: phy
     rank: 12
     kwargs:

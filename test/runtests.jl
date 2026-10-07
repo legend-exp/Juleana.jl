@@ -6,5 +6,6 @@ Test.@testset "Package Juleana" begin
     include("test_aqua.jl")
     include("test_explicit_imports.jl")
     include("test_juleana.jl")
+    include("test_processing_config.jl")
     include("test_docs.jl")
 end # testset

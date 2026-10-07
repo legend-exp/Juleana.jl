@@ -50,20 +50,21 @@ l200, processing_config, runs, periods = get_processingconfig()
 
 # load all available processors
 include.(filter(contains(r"\.jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
+check_processor_kwargs(processing_config, Main)
 
-if processing_config.runmode == "local"
+if processing_config.runmode == :local
     runmode = OnLocalhost(
-        n = processing_config.config.runmode_settings.local.n,
-        env = first(processing_config.env_args_worker)
+        n = processing_config.local_n,
+        env = processing_config.env_variables
         )
     @async runworkers(runmode)
-elseif processing_config.runmode == "slurm"
+elseif processing_config.runmode == :slurm
     # create workers
     runmode = SlurmRun(
-        slurm_flags = Cmd(Vector{String}(string.(processing_config.config.runmode_settings.slurm.flags))),
-        julia_flags = Cmd(Vector{String}(string.(processing_config.config.runmode_settings.slurm.julia_settings))),
+        slurm_flags = Cmd(processing_config.slurm_flags),
+        julia_flags = Cmd(processing_config.slurm_julia_settings),
         redirect_output = false,
-        env = first(processing_config.env_args_worker)
+        env = processing_config.env_variables
     )
     @info "Write worker start script to $(joinpath(@__DIR__, "startjlworkers.sh"))"
     write_worker_start_script(joinpath(@__DIR__, "startjlworkers.sh"), runmode)
@@ -78,8 +79,11 @@ wpool = FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1)
 ppt_worker_pool!(wpool)
     
 
+# enabled processing steps sorted by rank
+process_steps, p_process_steps = run_steps(processing_config), partition_steps(processing_config)
+
 # set up dependency graph
-process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
+process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
 
 flush(stdout)
 
@@ -98,9 +102,6 @@ else
         ####################
         if !processing_config.only_runs
 
-            # get processing steps from config for partitions
-            p_process_steps =  processing_config.p_process_steps
-
             # process partitions 
             Threads.@spawn begin
                 for period in periods
@@ -114,11 +115,12 @@ else
 
                             if !processing_config.only_partitions
                                 # check if p process has dependencies
-                                dependencies = Symbol.(processing_config.p_processors[process].dependencies)
+                                dependencies = processing_config.p_processors[process].dependencies
                                 # combined periods and actual period to check for dependency globally
                                 combined_periods = unique(push!(get_partition_combined_periods(l200, period), period))
                                 # add all smaller ranks to list of dependencies and remove duplicates
-                                dependencies = unique(vcat([processing_config.possible_process_steps[1:findfirst(processing_config.possible_process_steps .== dep)] for dep in dependencies]...))
+                                possible_steps = run_steps(processing_config; enabled_only = false)
+                                dependencies = unique(vcat([possible_steps[1:findfirst(possible_steps .== dep)] for dep in dependencies]...))
                                 if !all([all(values(process_status[period][dep])) for dep in dependencies for period in combined_periods])
                                     @warn "Dependencies not yet met for $(string(process))"
                                 end
@@ -128,7 +130,7 @@ else
                             end
 
                             # get kwargs
-                            kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process].kwargs)])
+                            kwargs = NamedTuple(processing_config.p_processors[process].kwargs)
                             # make sure that only the first period in each partitions are processed
                             kwargs = merge(kwargs, (only_first_period = DataPeriod(period.no - 1) in periods, ))
                             # run process
@@ -158,9 +160,6 @@ else
         ####################
         if !processing_config.only_partitions
             
-            # get processing steps from config and sort by rank
-            process_steps =  processing_config.process_steps
-
             # process periods
             Threads.@spawn begin
                 for period in periods
@@ -192,9 +191,10 @@ else
                                     # check if process has dependencies
                                     if !processing_config.only_runs
                                         # get all dependencies of process from config
-                                        dependencies = Symbol.(processing_config.processors[process].dependencies)
+                                        dependencies = processing_config.processors[process].dependencies
                                         # add all smaller ranks to list of dependencies and remove duplicates
-                                        dependencies = unique(vcat([processing_config.p_possible_process_steps[1:findfirst(processing_config.p_possible_process_steps .== dep)] for dep in dependencies]...))
+                                        possible_p_steps = partition_steps(processing_config; enabled_only = false)
+                                        dependencies = unique(vcat([possible_p_steps[1:findfirst(possible_p_steps .== dep)] for dep in dependencies]...))
                                         # check if dependencies are met
                                         if !all([p_process_status[period][dep] for dep in dependencies])
                                             @warn "Dependencies not yet met for $(string(process))"
@@ -206,7 +206,7 @@ else
                                     end
 
                                     # get kwargs
-                                    kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process].kwargs)])
+                                    kwargs = NamedTuple(processing_config.processors[process].kwargs)
                                     # run process
                                     getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
 

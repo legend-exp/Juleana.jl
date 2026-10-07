@@ -17,9 +17,12 @@ function menu()
     if choice == 5
         global l200, processing_config, runs, periods
         l200, processing_config, runs, periods = get_processingconfig()
+        check_processor_kwargs(processing_config, Main)
         @info "Reloaded processing config"
+        global process_steps, p_process_steps
+        process_steps, p_process_steps = run_steps(processing_config), partition_steps(processing_config)
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
         @info "Necessary reload of dependency graph"
     # redefine periods per user choice
     elseif choice == 3
@@ -36,7 +39,7 @@ function menu()
         end
         @info "Selected periods: $periods"
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
         @info "Reloaded dependency graph"
     elseif choice == 4
         global runs
@@ -50,11 +53,11 @@ function menu()
                 end
                 get_available_runs(l200, first(periods))
             end
-            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> x in runs, possible_runs)], ctrl_c_interrupt = true)
+            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> isnothing(runs) || x in runs, possible_runs)], ctrl_c_interrupt = true)
             selected_runs = collect(request("Select runs to be executed:", runs_menu))
             runs = possible_runs[selected_runs]
             if length(runs) == length(possible_runs)
-                runs = "all"
+                runs = nothing
                 @info "All runs selected."
             end
         catch e
@@ -64,7 +67,7 @@ function menu()
         end
         @info "Selected periods: $periods"
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
         @info "Reloaded dependency graph"
     # reload processors from all processor files
     elseif choice == 2
@@ -73,7 +76,7 @@ function menu()
     # reload dependency graph
     elseif choice == 6
         global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
+        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
         @info "Reloaded dependency graph"
     # add workers according to slurm settings
     elseif choice == 7
@@ -97,19 +100,20 @@ end
 
 function execute_processors()
     # create menus for processing steps
+    possible_steps = run_steps(processing_config; enabled_only = false)
+    possible_p_steps = partition_steps(processing_config; enabled_only = false)
     process_steps, p_process_steps, additional_args = try
-        steps_menu = MultiSelectMenu(String.(processing_config.possible_process_steps), ctrl_c_interrupt = true)
-        p_steps_menu = MultiSelectMenu(String.(processing_config.p_possible_process_steps), ctrl_c_interrupt = true)
+        steps_menu = MultiSelectMenu(String.(possible_steps), ctrl_c_interrupt = true)
+        p_steps_menu = MultiSelectMenu(String.(possible_p_steps), ctrl_c_interrupt = true)
         additional_args = ["reprocess", "no-reprocess", "check_dependencies", "check_report"]
         additional_args_menu = MultiSelectMenu(additional_args, ctrl_c_interrupt = true)
     
         # processing steps menu to select and deselect
-        process_steps = processing_config.possible_process_steps[collect(request("Select processing steps to be executed:", steps_menu))]
-        process_steps = sort(process_steps, by = s -> processing_config.processors[s].rank)
+        # `possible_steps` is sorted by rank, so sorted indices keep the rank order
+        process_steps = possible_steps[sort!(collect(request("Select processing steps to be executed:", steps_menu)))]
         println()
         println()
-        p_process_steps = processing_config.p_possible_process_steps[collect(request("Select partition processing steps to be executed:", p_steps_menu))]
-        p_process_steps = sort(p_process_steps, by = s -> processing_config.p_processors[s].rank)
+        p_process_steps = possible_p_steps[sort!(collect(request("Select partition processing steps to be executed:", p_steps_menu)))]
         println()
         println()
         additional_args = additional_args[collect(request("Select additional args:", additional_args_menu))]
@@ -134,25 +138,9 @@ function execute_processors()
         end
 
         if "check_dependencies" in additional_args
-            # set all process steps to true in case selection, false otherwise
-            for p in processing_config.possible_process_steps
-                if p in process_steps
-                    processing_config.processors[p].enabled = true
-                else
-                    processing_config.processors[p].enabled = false
-                end
-            end
-            # set all p process steps to true in case selection, false otherwise
-            for p in processing_config.p_possible_process_steps
-                if p in p_process_steps
-                    processing_config.p_processors[p].enabled = true
-                else
-                    processing_config.p_processors[p].enabled = false
-                end
-            end
-            # setup dependency graph
+            # only the selected steps start as unfinished in the dependency graph
             global process_status, p_process_status
-            process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs)
+            process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
         end
 
         @sync begin
@@ -189,9 +177,9 @@ function execute_processors()
                                         # check if process has dependencies
                                         if "check_dependencies" in additional_args
                                             # get all dependencies of process from config
-                                            dependencies = Symbol.(processing_config.processors[process].dependencies)
+                                            dependencies = processing_config.processors[process].dependencies
                                             # add all smaller ranks to list of dependencies and remove duplicates
-                                            dependencies = unique(vcat([processing_config.p_possible_process_steps[1:findfirst(processing_config.p_possible_process_steps .== dep)] for dep in dependencies]...))
+                                            dependencies = unique(vcat([possible_p_steps[1:findfirst(possible_p_steps .== dep)] for dep in dependencies]...))
                                             # check if dependencies are met
                                             if !all([p_process_status[period][dep] for dep in dependencies])
                                                 @warn "Dependencies not yet met for $(string(process))"
@@ -203,7 +191,7 @@ function execute_processors()
                                         end
 
                                         # run process
-                                        kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process].kwargs)])
+                                        kwargs = NamedTuple(processing_config.processors[process].kwargs)
                                         if "reprocess" in additional_args
                                             kwargs = merge(kwargs, (reprocess = true, ))
                                         end
@@ -239,11 +227,11 @@ function execute_processors()
 
                                 if "check_dependencies" in additional_args
                                     # check if p process has dependencies
-                                    dependencies = Symbol.(processing_config.p_processors[process].dependencies)
+                                    dependencies = processing_config.p_processors[process].dependencies
                                     # combined periods and actual period to check for dependency globally
                                     combined_periods = unique(push!(get_partition_combined_periods(l200, period), period))
                                     # add all smaller ranks to list of dependencies and remove duplicates
-                                    dependencies = unique(vcat([processing_config.possible_process_steps[1:findfirst(processing_config.possible_process_steps .== dep)] for dep in dependencies]...))
+                                    dependencies = unique(vcat([possible_steps[1:findfirst(possible_steps .== dep)] for dep in dependencies]...))
                                     if !all([all(values(process_status[period][dep])) for dep in dependencies for period in combined_periods])
                                         @warn "Dependencies not yet met for $(string(process))"
                                     end
@@ -253,7 +241,7 @@ function execute_processors()
                                 end
                                 
                                 # get kwargs
-                                kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.p_processors[process].kwargs)])
+                                kwargs = NamedTuple(processing_config.p_processors[process].kwargs)
                                 # make sure that only the first period in each partitions are processed
                                 kwargs = merge(kwargs, (only_first_period = DataPeriod(period.no - 1) in periods, ))
                                 if "reprocess" in additional_args
@@ -398,10 +386,7 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
     # reports written per partition, i.e. one per period
     for process in p_process_steps
         report = Symbol("$(last(split(string(process), "process_")))")
-        # the cal-side partition processors carry no category key in the config (they
-        # hardcode :cal internally); only the phy ones declare it. A plain property access
-        # would yield a PropDicts.MissingProperty, which silently matches no filekey.
-        category = get(processing_config.p_processors[process], :category, "cal")
+        category = processing_config.p_processors[process].category
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
