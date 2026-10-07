@@ -71,7 +71,9 @@ Options(host, remote_root, local_root, mount_root, production, out, from, dry_ru
 """
     parse_options(args::AbstractVector{<:AbstractString}; hosts_file = DEFAULT_HOSTS_FILE)::Options
 
-Without `--remote-root`, the root of `--host` is read from `hosts_file`.
+Without `--remote-root`, the root of `--host` is read from `hosts_file`. The helper
+settings come from the host's entry in `hosts_file`; `--staging` replaces its staging
+directory.
 """
 function parse_options(args::AbstractVector{<:AbstractString}; hosts_file::AbstractString = DEFAULT_HOSTS_FILE)
     settings = ArgParseSettings(
@@ -96,6 +98,14 @@ function parse_options(args::AbstractVector{<:AbstractString}; hosts_file::Abstr
         "--mount-root"
             help = "where the remote root is mounted; enables link mode"
             dest_name = "mount_root"
+            arg_type = String
+            default = ""
+        "--jobs"
+            help = "at most this many worker processes for the remote extraction helper, capped by the file count (2 or more uses workers for two or more files; a single file runs in-process; default: the helper decides)"
+            arg_type = String
+            default = "0"
+        "--staging"
+            help = "directory on the host where extracted files are staged (default: the host's entry in config/sync/hosts.json, else \$TMPDIR/juleana-sync-\$USER)"
             arg_type = String
             default = ""
         "--production"
@@ -129,11 +139,19 @@ function parse_options(args::AbstractVector{<:AbstractString}; hosts_file::Abstr
     remote_root = isempty(parsed["remote_root"]) ?
                   host_remote_root(hosts_file, parsed["host"]) : parsed["remote_root"]
 
+    jobs = tryparse(Int, parsed["jobs"])
+    jobs === nothing && throw(ArgumentError("--jobs must be an integer, got $(parsed["jobs"])"))
+    jobs >= 0 || throw(ArgumentError("--jobs must not be negative, got $jobs"))
+    helper = isfile(hosts_file) ? host_helper_config(hosts_file, parsed["host"]) : HelperConfig()
+    isempty(parsed["staging"]) ||
+        (helper = HelperConfig(helper.julia, helper.julia_project, abspath(parsed["staging"])))
+
     # check_mount compares a path's device with its parent's, which only works
     # for an absolute path; --remote-root feeds path arithmetic that assumes
     # the same.
     Options(parsed["host"], abspath(remote_root), abspath(parsed["local_root"]),
-            mount, parsed["production"], out, from, parsed["dry_run"], parsed["yes"])
+            mount, parsed["production"], out, from, parsed["dry_run"], parsed["yes"],
+            jobs, helper)
 end
 
 """
@@ -154,7 +172,9 @@ main(options::Options, host::RemoteHost = SSHHost(options.host)) =
 Apply a saved selection without starting the interface. The production is the one
 named by `--production`, or else the one the selection records. The estimate is always
 shown first; `--yes` skips the question that follows it, `--dry-run` stops there.
-Returns 1 when the user answers no.
+Returns 1 when the user answers no. Extract entries need the remote helper environment;
+an environment that is missing is an error that names the command that creates it,
+because there is no one to ask.
 """
 function run_headless(options::Options, host::RemoteHost)
     name = isempty(options.production) ?
@@ -164,7 +184,17 @@ function run_headless(options::Options, host::RemoteHost)
                             options.local_root; mount_root = options.mount_root)
     selection = load_selection(options.from, production)
 
-    println(format_estimate(apply!(host, production, selection; dry_run = true)))
+    println(format_estimate(apply!(host, production, selection; dry_run = true,
+                                   helper = options.helper, jobs = options.jobs)))
+    if !isempty(selection.extract)
+        staging = staging_dir(host, options.helper)
+        # The estimate creates nothing: ask about the nearest existing ancestor.
+        existing = staging
+        while !dir_exists(host, existing)
+            existing = dirname(existing)
+        end
+        println("staging ", staging, ": ", format_bytes(free_bytes(host, existing)), " free")
+    end
     options.dry_run && return 0
 
     if !options.yes
@@ -172,7 +202,10 @@ function run_headless(options::Options, host::RemoteHost)
         startswith(lowercase(readline()), "y") || return 1
     end
 
-    result = apply!(host, production, selection; progress = function (p)
+    result = apply!(host, production, selection; helper = options.helper, jobs = options.jobs,
+                    extract_progress = e -> print("\rextracting ", e.done, "/", e.total, " files  ",
+                                                  format_bytes(e.bytes), "   "),
+                    progress = function (p)
         print("\r", format_bytes(p.bytes), "  ", round(Int, 100 * p.fraction), "%  ",
               p.rate, "  ETA ", p.eta, "   ")
     end)
