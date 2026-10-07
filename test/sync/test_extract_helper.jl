@@ -274,4 +274,108 @@
         @test [rec["bytes"] for rec in r.records] ==
               [[400, 800, 1200], [800, 1600, 2400], [400, 800]]
     end
+
+    @testset "extract copies detectors of the tier/detector layout" begin
+        src = write_lh5_tier_det(joinpath(work, "src", "t.lh5"))
+        dest = joinpath(work, "out-tier")
+        spec = Dict("job" => [Dict("source" => src, "groups" => ["B00000C", "aux"],
+                                   "destination" => joinpath(dest, "t.lh5"))])
+        r = run_script("extract", spec)
+        @test r.code == 0
+        h5open(joinpath(dest, "t.lh5"), "r") do out
+            h5open(src, "r") do s
+                @test collect(keys(out)) == ["jldsp"]
+                @test collect(keys(out["jldsp"])) == ["B00000C", "aux"]
+                for name in ("B00000C", "aux")
+                    @test read(out["jldsp"][name]["waveform"]) == read(s["jldsp"][name]["waveform"])
+                    @test read_attribute(out["jldsp"][name], "unit") == "keV"
+                end
+                @test read_attribute(out["jldsp"], "origin") == "fixture"
+                @test read_attribute(out["jldsp"], "revision") == 7
+                @test read_attribute(out, "juleana_sync_groups") == ["B00000C", "aux"]
+                @test read_attribute(out, "juleana_sync_source") == src
+            end
+        end
+        @test !isfile(joinpath(dest, "t.lh5.partial"))
+
+        # A tier group without attributes is copied as an empty group.
+        bare = write_lh5_tier_det(joinpath(work, "src", "bare.lh5"); tier_attributes = Dict{String,Any}())
+        spec = Dict("job" => [Dict("source" => bare, "groups" => ["V01234A"],
+                                   "destination" => joinpath(dest, "bare.lh5"))])
+        @test run_script("extract", spec).code == 0
+        h5open(joinpath(dest, "bare.lh5"), "r") do out
+            @test collect(keys(out["jldsp"])) == ["V01234A"]
+            @test isempty(keys(attrs(out["jldsp"])))
+        end
+
+        # The other layouts still extract, and the two-worker path handles both.
+        old = write_lh5(joinpath(work, "src", "old.lh5"))
+        both = Dict("job" => [
+            Dict("source" => src, "groups" => ["V01234A"], "destination" => joinpath(dest, "w1.lh5")),
+            Dict("source" => old, "groups" => ["V01234A"], "destination" => joinpath(dest, "w2.lh5"))])
+        r2 = run_script("extract", both; jobs = 2)
+        @test r2.code == 0
+        @test h5open(f -> collect(keys(f["jldsp"])), joinpath(dest, "w1.lh5"), "r") == ["V01234A"]
+        @test h5open(f -> collect(keys(f)), joinpath(dest, "w2.lh5"), "r") == ["V01234A"]
+    end
+
+    @testset "tier/detector files: skip rule and union rebuild" begin
+        src = write_lh5_tier_det(joinpath(work, "src", "u.lh5"))
+        dest = joinpath(work, "out-union", "u.lh5")
+        job(groups) = Dict("job" => [Dict("source" => src, "groups" => groups, "destination" => dest)])
+        status(r) = only(rec["status"] for rec in r.records if rec["event"] == "file")
+
+        @test status(run_script("extract", job(["B00000C"]))) == "extracted"
+        @test status(run_script("extract", job(["B00000C"]))) == "skipped"
+        # The union the client sends after reading the old group list rebuilds the file.
+        @test status(run_script("extract", job(["B00000C", "V01234A"]))) == "extracted"
+        h5open(dest, "r") do out
+            @test collect(keys(out["jldsp"])) == ["B00000C", "V01234A"]
+            @test read_attribute(out["jldsp"], "origin") == "fixture"
+            @test read_attribute(out, "juleana_sync_groups") == ["B00000C", "V01234A"]
+        end
+        @test status(run_script("extract", job(["B00000C", "V01234A"]))) == "skipped"
+        sleep(1.1)
+        touch(src)
+        @test status(run_script("extract", job(["B00000C", "V01234A"]))) == "extracted"
+        # A file that is not a reduced file is never overwritten.
+        foreign = write_lh5_tier_det(joinpath(work, "out-union", "foreign.lh5"))
+        spec = Dict("job" => [Dict("source" => src, "groups" => ["B00000C"], "destination" => foreign)])
+        r = run_script("extract", spec)
+        @test r.code == 1
+        @test occursin("is not a reduced file written by this tool", r.stderr)
+    end
+
+    @testset "an old-layout reduced file is rebuilt with the union" begin
+        src = write_lh5(joinpath(work, "src", "oldu.lh5"))
+        dest = joinpath(work, "out-oldunion", "o.lh5")
+        job(groups) = Dict("job" => [Dict("source" => src, "groups" => groups, "destination" => dest)])
+        status(r) = only(rec["status"] for rec in r.records if rec["event"] == "file")
+        @test status(run_script("extract", job(["B00000C"]))) == "extracted"
+        @test status(run_script("extract", job(["B00000C", "V01234A"]))) == "extracted"
+        h5open(dest, "r") do out
+            @test collect(keys(out)) == ["B00000C", "V01234A"]
+            @test read_attribute(out, "juleana_sync_groups") == ["B00000C", "V01234A"]
+        end
+        r = run_script("inspect", Dict("files" => [dest]); jobs = 1)
+        @test only(r.records)["groups"] == ["B00000C", "V01234A"]
+        @test only(r.records)["layout"] == ""
+    end
+
+    @testset "extract names the file and the detector it cannot use" begin
+        src = write_lh5_tier_det(joinpath(work, "src", "m.lh5"))
+        dest = joinpath(work, "out-miss", "m.lh5")
+        spec = Dict("job" => [Dict("source" => src, "groups" => ["Z99999Z"], "destination" => dest)])
+        r = run_script("extract", spec)
+        @test r.code == 1
+        @test occursin("$src: group Z99999Z not found in $src", r.stderr)
+        @test !isfile(dest) && !isfile(dest * ".partial")
+
+        events = write_lh5(joinpath(work, "src", "evt2.lh5"); groups = ["jlevt"], inner = "tables")
+        spec = Dict("job" => [Dict("source" => events, "groups" => ["jlevt"],
+                                   "destination" => joinpath(work, "out-miss", "e.lh5"))])
+        r2 = run_script("extract", spec)
+        @test r2.code == 1
+        @test occursin("$events: no detector axis, cannot extract jlevt", r2.stderr)
+    end
 end

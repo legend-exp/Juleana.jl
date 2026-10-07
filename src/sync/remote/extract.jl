@@ -55,6 +55,8 @@ end
 # The destination is never the source. An existing destination that cannot be read
 # as HDF5, or that is not a reduced file written by this tool, stops the job; it is
 # never overwritten silently. The result also carries the id of the process that ran it.
+# `groups` are detector names; for a file in the tier/detector layout they are copied
+# below a `<tier>` group that carries the source group's attributes.
 function extract_file(source::String, groups::Vector{String}, destination::String)::Tuple{Symbol,Int,Int}
     destination == source && error(source, ": destination ", destination, " is the source ", source)
     if isfile(destination)
@@ -76,10 +78,21 @@ function extract_file(source::String, groups::Vector{String}, destination::Strin
     partial = destination * ".partial"
     try
         h5open(source, "r") do src
+            layout = detector_parent(src)
+            layout === nothing && error("no detector axis, cannot extract ", join(groups, ", "))
+            parent = layout == "" ? src : src[layout]
             h5open(partial, "w") do dst
+                target = dst
+                if layout != ""
+                    # The reduced file keeps the tier group, with the attributes of the source's.
+                    target = create_group(dst, layout)
+                    for name in keys(attrs(parent))
+                        attrs(target)[name] = attrs(parent)[name]
+                    end
+                end
                 for group in groups
-                    haskey(src, group) || error("group $group not found in $source")
-                    HDF5.copy_object(src, group, dst, group)
+                    haskey(parent, group) || error("group $group not found in $source")
+                    HDF5.copy_object(parent, group, target, group)
                 end
                 attrs(dst)["juleana_sync_groups"] = groups
                 attrs(dst)["juleana_sync_source"] = source
