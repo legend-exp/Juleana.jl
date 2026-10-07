@@ -107,3 +107,69 @@ Do not paste per-detector numbers or plots: sizes, file counts and timings only.
 - [ ] `<local-root>/juleana/config_viper.yaml` is mirrored, and
       `<local-root>/juleana/tmp/jl-v0.7.0dev1/config_local.json` holds absolute
       local paths for every key, including `tier/raw`.
+
+## Detector extraction
+
+Run on `cslg4` with a `jldsp` production, then repeat the environment and staging
+steps on `viper`. Record sizes, file counts and timings only. List only known
+directories (for example the staging directory below); never list a shared
+top-level directory recursively.
+
+- [ ] `ssh cslg4 '~/.juliaup/bin/julia --version'` prints a version; note it. The
+      same on `viper`.
+- [ ] Environment bootstrap on `cslg4`: with `~/.julia/environments/juleana-sync`
+      absent, `e` on a selection with a marked detector shows "checking the helper
+      environment" (no key is accepted meanwhile), then opens the "Create the
+      helper environment" dialog showing the `Pkg.add` command. `Cancel` leaves the
+      host unchanged and starts nothing. `Create` shows "Creating the helper
+      environment" (no key accepted; record the time) and continues to the estimate.
+- [ ] With an existing environment that lacks a package, `Create` fails with an
+      error naming the directory ("refusing to modify it") and the host is
+      unchanged. (Point `julia_project` at a scratch environment to test this
+      without touching a real one.)
+- [ ] The same bootstrap on `viper`. Record whether `/tmp` on the login node has
+      room for one run's selection (`df -h /tmp` there); if it does not, set
+      `staging` for `viper` in `config/sync/hosts.json` to `/ptmp/<user>/juleana-sync`.
+- [ ] Walk to `tier/jldsp` -> `cal` -> `p18` -> `r000` and press `enter` on the
+      `detectors` row: one row per group of the first file, sized, within a few
+      seconds. On a `jlevt` run the `detectors` row disappears with the status
+      "have no per-detector groups".
+- [ ] On a detector row, `space`, `l` and `n` only report "use x" or "n applies to
+      run directories". `x` on a detector of a run marked `space` reports "run is
+      transferred whole".
+- [ ] Mark one detector with `x`; the status bar shows `~... extract (N files)`.
+      `e` shows the exact size (within a few percent of N times the row's size)
+      and the line `staging <dir>: ... free`.
+- [ ] `t` extracts: the gauge reads `extracting k/N files`, then the rsync
+      progress. The summary reads `extracted N files, N groups`.
+- [ ] The files are at the mirrored paths with the original names. `h5ls` is not
+      needed: in Julia, `HDF5.h5open(file) do f; keys(f); end` lists only the
+      chosen group, and a `LegendDataManagement` read of that detector's data from
+      the mirror succeeds.
+- [ ] `ssh cslg4 'ls -R ${TMPDIR:-/tmp}/juleana-sync-$USER'` shows no staged data
+      files after the transfer; only `extract.jl` remains in the staging
+      directory.
+- [ ] Re-running `t` extracts again without error and the local file still holds
+      exactly the chosen groups. Marking a second detector and running `t` leaves
+      both groups in the file (union rebuild).
+- [ ] Put a full copy of one file of the run in the mirror (`n`, `1` on the same
+      run with `space` copy), then extract: the summary reports "kept 1 existing
+      files instead of extracting" and the file is unchanged.
+- [ ] Replace one mirrored file's directory or the file itself with a symlink,
+      then extract: the same line appears and nothing is written through the link.
+- [ ] Timing: extract one detector of one `jldsp` run (about 29 GB per run) with
+      `--jobs 1` and again with `--jobs 8` after deleting the local files and the
+      staging directory; record both times and the number of files. Compare with
+      the whole-run copy time. `--jobs -1` and `--jobs abc` are rejected at startup.
+- [ ] Interrupt an extraction (`kill` the helper on the host): the next `t`
+      reports the failure and names the staging directory, and the rerun skips the
+      finished files. Interrupt an rsync pull and confirm `.juleana-partial`
+      directories remain in the mirror and the rerun completes.
+- [ ] Headless: `julia --project=. sync.jl --from config/sync/<production>.json --dry-run`
+      prints the estimate with the extract part, then the staging directory and
+      its free space. With the helper environment absent it stops with an error
+      that names the `Pkg.add` command.
+- [ ] A missing Julia executable (set `julia` for the host to a wrong path) stops
+      with the remote error message attached.
+- [ ] `git status` in the checkout shows `config/sync/hosts.json` as tracked and
+      any saved `config/sync/<production>.json` as ignored.

@@ -176,6 +176,7 @@ This opens a terminal interface:
 | `space` | Copy this row (`[x]`), or stop copying it |
 | `l` | Reach this row through the mount instead (`[~]`); needs `--mount-root` |
 | `n` | On a run directory: copy the first N filekeys |
+| `x` | On a detector row below a run's `detectors` row: extract this detector (`[e]`), or stop extracting it |
 | `e` | Ask rsync exactly what the selection would move |
 | `t` | Estimate, confirm, and transfer |
 | `s` | Save the selection to `config/sync/<production>.json` |
@@ -185,6 +186,83 @@ This opens a terminal interface:
 A `[-]` marker means the row itself is not selected but something below it is.
 While a transfer is running, the interface accepts no key until it finishes.
 A successful transfer's summary ends with any warnings rsync printed.
+
+## Extracting detectors
+
+Per-filekey tiers such as `jldsp` and `raw` store all detectors of a time slice
+in one HDF5 file, one top-level group per detector, so copying one detector's data
+for a run means copying the whole run. Extract mode transfers only the chosen
+detectors' groups, in files that keep their original names and sit at their original
+paths in the mirror.
+
+Open a run directory of such a tier and press `enter` on its `detectors` row. The
+tool inspects the first file of the run on the host and lists its top-level groups
+with their sizes. Move onto a detector and press `x` to mark it `[e]`. The status
+bar shows the approximate extracted size (`~1.2 G extract (2 files)`: the sizes in
+the first file times the number of files); `e` inspects every file and shows the
+exact size and the free space of the staging directory. `space`, `l` and `n` on a
+detector row only point to `x`. `x` refuses to mark a detector while its run is
+marked for copying or linking as a whole ("run is transferred whole"); unmark the
+run first. Filekey rows of the same run can still be marked for copying: a file that
+is copied whole is left out of the extraction. A run whose first file has a single
+group named after its tier, as `jlevt` files do, has no `detectors` row after the
+inspection.
+
+Extraction runs on the host. A helper script (`src/sync/remote/extract.jl`) is
+copied to the staging directory and run with the host's Julia. It copies the chosen
+groups with `HDF5.copy_object` into a reduced file of the same name in the staging
+directory (no decoding, attributes preserved), using worker processes for runs with
+many files. rsync then pulls the staging directory into the mirror with the same
+flags as every other transfer, and the tool removes the files it staged. Reduced
+files carry the root attributes `juleana_sync_groups` and `juleana_sync_source`. A
+staged file that already holds the same groups and is not older than its source is
+not extracted again, so an interrupted extraction can be run again.
+
+An interrupted transfer leaves `.juleana-partial` directories in the mirror (the
+`--partial-dir` of every transfer); running the same selection again resumes from
+them. After a failed transfer the staged files stay on the host, and the error names
+the staging directory.
+
+A reduced file never replaces a full local copy and is never written through a
+symlink. When the local file is a full copy, or the file or any directory above it in
+the mirror is a symlink, the tool reports the path in the summary ("kept N existing
+files instead of extracting") and skips it. A reduced file from an earlier extraction
+is rebuilt with the union of the old and the new groups, so a later extraction never
+loses groups. The summary of an extraction reads `extracted N files, N groups`,
+followed by the bytes rsync moved for them.
+
+The interface accepts no key while it checks the helper environment, creates it, or
+transfers. During a transfer the gauge reads `extracting k/N files` while the helper
+runs and shows the rsync progress afterward.
+
+### Remote setup
+
+Per host, `config/sync/hosts.json` accepts these optional keys next to `remote_root`:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `julia` | `~/.juliaup/bin/julia` | Julia executable on the host |
+| `julia_project` | `~/.julia/environments/juleana-sync` | Environment with HDF5 and ParallelProcessingTools |
+| `staging` | `${TMPDIR:-/tmp}/juleana-sync-$USER` | Staging directory; set it to a scratch area (for example `/ptmp/<user>/juleana-sync`) when `/tmp` on the login node is small |
+
+`hosts.json` is tracked in git; the selections saved under `config/sync/` are
+git-ignored. The free space of `/tmp` on `viper` has not been measured; if a run's
+selection does not fit there, set `staging` for `viper` to a directory below
+`/ptmp/<user>/`.
+
+When the environment directory does not exist, the interface shows the `Pkg.add`
+command and asks before running it (`Create` or `Cancel`). The tool only creates
+environments: when the directory already exists, with or without both packages, it
+refuses to modify it. Add the missing packages yourself or name another
+`julia_project`. A headless run reports the same command as an error. The estimate
+measures the free space on the nearest existing ancestor of the staging directory and
+creates only the helper script in the staging root.
+
+`--jobs N` allows at most N worker processes, capped by the file count (N of 2 or
+more uses workers whenever there are two or more files; a single file always runs in
+the main process). A negative or non-integer N is rejected. Without it the helper
+runs in the main process for fewer than four files and otherwise uses
+`min(8, files, cores ÷ 2)` workers. `--staging PATH` overrides the staging directory.
 
 ## Command line options
 
@@ -196,6 +274,8 @@ A successful transfer's summary ends with any warnings rsync printed.
 | `--mount-root PATH` | Where the remote root is mounted; enables link mode |
 | `--production PATH` | Production to sync, relative to the remote root (default: choose in the interface) |
 | `--out FILE` | Where the interface saves the selection (default `config/sync/<production>.json`, with `/` in the production path replaced by `-`) |
+| `--jobs N` | Worker processes the remote extraction helper may use (default: the helper decides) |
+| `--staging PATH` | Staging directory on the host for extraction (default: the host's `staging` key, else `${TMPDIR:-/tmp}/juleana-sync-$USER`) |
 | `--from FILE` | Apply a saved selection without starting the interface; the production is taken from the selection unless `--production` is given, in which case the two must agree |
 | `--dry-run` | With `--from`: ask rsync what would move and print it, then stop |
 | `--yes` | With `--from`: transfer without asking |
@@ -240,6 +320,9 @@ readable and keeps working as new runs appear under a chosen directory.
   to start otherwise rather than transferring without progress or totals.
 - `ssh` access to the host, and GNU `find` and `du` on it (both present on
   `cslg4`).
+- For extraction, Julia on the host (`~/.juliaup/bin/julia` by default) and an
+  environment with HDF5.jl and ParallelProcessingTools.jl; neither host needs
+  `h5ls`, `h5copy` or h5py.
 - A copied directory's remote symlinks, such as a `current` pointer, are
   mirrored as symlinks rather than resolved.
 
@@ -255,9 +338,10 @@ through the mount. With the mount absent, opening a linked file fails with
 
 ## What the tool never does
 
-It never writes to the remote, never deletes local data, and never rewrites the
-mirrored `config.json`. The only things it removes are symlinks: one standing
-where a real copy is about to land, and one standing where a fresh link is
-about to replace it. A regular file or a directory is never removed. The local
+It never writes to a remote data production, never deletes local data, and never
+rewrites the mirrored `config.json`. On the remote host it writes only below its own
+staging directory, and the only files it removes there are the ones it staged.
+Locally, the only things it removes are symlinks: one standing where a real copy is
+about to land, and one standing where a fresh link is about to replace it. A regular file or a directory is never removed. The local
 config it writes is a sibling, `config_local.json`, so the mirror stays
 byte-identical to the remote.
