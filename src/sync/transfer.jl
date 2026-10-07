@@ -22,7 +22,8 @@ exiting 0. It is `""` when nothing was printed.
 `extracted_files` and `extracted_groups` count the reduced files pulled from the
 staging directory and the HDF5 groups in them, `extracted_bytes` the bytes rsync
 moved for them, and `conflicts` the relative paths that were not extracted because
-a full local copy or a link stands there.
+a full local copy or a link stands there. `not_in_run` lists the
+`(run directory, detector)` pairs a period entry named but the run does not hold.
 """
 struct TransferResult
     bytes::Int
@@ -36,11 +37,12 @@ struct TransferResult
     extracted_groups::Int
     extracted_bytes::Int
     conflicts::Vector{String}
+    not_in_run::Vector{Tuple{String,String}}
 end
 
 TransferResult(bytes, files, links, replaced_links, skipped, config, warnings) =
     TransferResult(bytes, files, links, replaced_links, skipped, config, warnings,
-                   0, 0, 0, String[])
+                   0, 0, 0, String[], Tuple{String,String}[])
 
 """
     check_rsync()::VersionNumber
@@ -190,30 +192,76 @@ staging_production_dir(staging::AbstractString, p::Production) =
     joinpath(staging, replace(p.name, '/' => '-'))
 
 """
-    plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging)::Vector{ExtractJob}
+    plan_extraction(h, p, sel, staging; helper = HelperConfig(), jobs = 0)
 
-One job per filekey file in each extract entry's run directory, in name order. A
-file that `sel.copy` already covers, as itself or through a directory above it, is
-copied whole and left out.
+The extraction jobs for `sel` and the `(run directory, detector)` pairs left out,
+both ordered. An entry whose directory holds filekey files is a run entry and is
+taken as it is. Any other entry is a period entry: it expands to its run
+directories that hold filekey files, the first filekey file of each is inspected
+(one helper call for all period entries), a requested detector that file lacks is
+recorded and left out of that run's job, and a run that holds none of the requested
+detectors gets no job. Entries are merged per run by union of their detectors, and
+there is one job per filekey file in name order. A file that `sel.copy` already
+covers, as itself or through a directory above it, is copied whole and left out.
 """
-function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::AbstractString)
+function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::AbstractString;
+                         helper::HelperConfig = HelperConfig(), jobs::Integer = 0)
     covered(rel) = any(c -> rel == c || startswith(rel, c * "/"), sel.copy)
     stage = staging_production_dir(staging, p)
-    plan = ExtractJob[]
+    files_of = Dict{String,Vector{String}}()      # run directory (relative) => its filekey files
+    wanted = Dict{String,Set{String}}()           # run directory (relative) => detectors to take
+    periods = Tuple{ExtractEntry,Vector{String}}[]
     for entry in sel.extract
         dir = joinpath(p.remote_root, entry.dir)
-        for file in sort!(list_dir(h, dir); by = e -> e.name)
-            id = tier_file_id(file.name)
-            (file.kind == :file && id !== nothing && first(id) == :filekey) || continue
-            rel = joinpath(entry.dir, file.name)
+        files = filekey_files(h, dir)
+        if !isempty(files)
+            files_of[entry.dir] = files
+            union!(get!(Set{String}, wanted, entry.dir), entry.groups)
+            continue
+        end
+        runs = String[]
+        for e in sort!(list_dir(h, dir); by = e -> e.name)
+            (e.kind == :dir && occursin(RUN_DIR_EXPR, e.name)) || continue
+            run_files = filekey_files(h, joinpath(dir, e.name))
+            isempty(run_files) && continue
+            files_of[joinpath(entry.dir, e.name)] = run_files
+            push!(runs, joinpath(entry.dir, e.name))
+        end
+        isempty(runs) && throw(ErrorException(
+            "extract entry $(entry.dir) holds no filekey files and no run directory with filekey files"))
+        push!(periods, (entry, runs))
+    end
+    firsts = unique([first(files_of[run]) for (_, runs) in periods for run in runs])
+    inspected = isempty(firsts) ? Tuple{Vector{String},Vector{Int},String}[] :
+                inspect_files(h, helper, firsts; jobs)
+    present_in = Dict(file => first(found) for (file, found) in zip(firsts, inspected))
+    for (entry, runs) in periods
+        all(run -> isempty(present_in[first(files_of[run])]), runs) && throw(ArgumentError(
+            "extract entry $(entry.dir): the tier has no per-detector groups"))
+    end
+    not_in_run = Tuple{String,String}[]
+    for (entry, runs) in periods, run in runs
+        present = present_in[first(files_of[run])]
+        for group in entry.groups
+            if group in present
+                push!(get!(Set{String}, wanted, run), group)
+            else
+                push!(not_in_run, (run, group))
+            end
+        end
+    end
+    plan = ExtractJob[]
+    for run in sort!(collect(keys(wanted)))
+        groups = sort!(collect(wanted[run]))
+        for file in files_of[run]
+            rel = joinpath(run, basename(file))
             destination = joinpath(stage, rel)
             startswith(destination, stage * "/") || throw(ErrorException(
                 "extraction destination $destination is not below the staging directory $stage"))
-            covered(rel) || push!(plan, ExtractJob(joinpath(dir, file.name),
-                                                   destination, rel, entry.groups))
+            covered(rel) || push!(plan, ExtractJob(file, destination, rel, groups))
         end
     end
-    plan
+    plan, sort!(unique!(not_in_run))
 end
 
 """
@@ -252,16 +300,19 @@ function plan_group_bytes(plan::Vector{ExtractJob}, inspected)
 end
 
 """
-    prepare_extraction(h::RemoteHost, p::Production, sel::Selection, helper::HelperConfig)
+    prepare_extraction(h, p, sel, helper; jobs = 0)
 
-The staging directory and the extraction plan for `sel`, once the helper
-environment on `h` is known to be ready.
+The staging directory, the extraction plan for `sel` and the pairs left out of it
+(see [`plan_extraction`](@ref)), once the helper environment on `h` is known to be
+ready.
 """
-function prepare_extraction(h::RemoteHost, p::Production, sel::Selection, helper::HelperConfig)
+function prepare_extraction(h::RemoteHost, p::Production, sel::Selection, helper::HelperConfig;
+                            jobs::Integer = 0)
     status = ensure_environment(h, helper)
     environment_ready(status) || throw(ErrorException(environment_problem(status, h, helper)))
     staging = staging_dir(h, helper)
-    staging, plan_extraction(h, p, sel, staging)
+    plan, not_in_run = plan_extraction(h, p, sel, staging; helper, jobs)
+    staging, plan, not_in_run
 end
 
 """
@@ -452,8 +503,8 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
     close(io)
     rm(probe)
     isempty(sel.link) || check_mount(p)
-    staging, plan = isempty(sel.extract) ? ("", ExtractJob[]) :
-                    prepare_extraction(h, p, sel, helper)
+    staging, plan, not_in_run = isempty(sel.extract) ?
+        ("", ExtractJob[], Tuple{String,String}[]) : prepare_extraction(h, p, sel, helper; jobs)
     if dry_run
         estimate = rsync_dry_run(h, p, sel)
         isempty(sel.extract) && return estimate
@@ -508,7 +559,7 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
         result = TransferResult(moved.bytes, moved.files, created, replaced, skipped,
                                 config, join(filter(!isempty, warnings), "\n"),
                                 length(plan), sum(j -> length(j.groups), plan; init = 0),
-                                pulled.bytes, conflicts)
+                                pulled.bytes, conflicts, not_in_run)
     catch err
         (isempty(plan) || err isa InterruptException) && rethrow()
         throw(ErrorException(sprint(showerror, err) * (in_mirror ?
@@ -535,6 +586,9 @@ function summary_text(r::TransferResult)
     isempty(r.conflicts) ||
         push!(lines, "kept $(length(r.conflicts)) existing files instead of extracting (full copies or symlinks): " *
                      join(r.conflicts, ", "))
+    isempty(r.not_in_run) ||
+        push!(lines, "not in run, left out of the extraction: " *
+                     join(("$detector in $run" for (run, detector) in r.not_in_run), ", "))
     isempty(r.warnings) || push!(lines, "rsync warnings:\n$(r.warnings)")
     push!(lines, "export LEGEND_DATA_CONFIG=$(r.config)")
     join(lines, "\n")

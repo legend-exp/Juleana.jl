@@ -58,7 +58,7 @@
         p2, _, stage2 = setup()
         mkpath(dirname(to_local(p2, files[1])))
         symlink("/nowhere", to_local(p2, files[1]))
-        plan = plan_extraction(h, p2, selection(p2, ["B00000C"]), stage2)
+        plan, _ = plan_extraction(h, p2, selection(p2, ["B00000C"]), stage2)
         runnable, conflicts = reconcile_local(p2, plan)
         @test conflicts == [relative(p2, files[1])]
         @test [j.source for j in runnable] == files[2:2]
@@ -71,7 +71,7 @@
         p3, _, stage3 = setup()
         mkpath(dirname(dirname(to_local(p3, files[1]))))
         symlink("/nowhere", dirname(to_local(p3, files[1])))
-        plan3 = plan_extraction(h, p3, selection(p3, ["B00000C"]), stage3)
+        plan3, _ = plan_extraction(h, p3, selection(p3, ["B00000C"]), stage3)
         runnable3, conflicts3 = reconcile_local(p3, plan3)
         @test conflicts3 == [relative(p3, f) for f in files]
         @test isempty(runnable3)

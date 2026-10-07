@@ -51,7 +51,7 @@
         @test staging_production_dir(staging, Production(h, "temp/jl-dev", FIXTURE_ROOT, local_root)) ==
               joinpath(staging, "temp-jl-dev")
 
-        plan = plan_extraction(h, p, sel, staging)
+        plan, _ = plan_extraction(h, p, sel, staging)
         @test [j.source for j in plan] == files
         @test [j.relative for j in plan] == [relative(p, f) for f in files]
         @test [j.destination for j in plan] == [joinpath(staging, "xprod", relative(p, f)) for f in files]
@@ -59,15 +59,15 @@
 
         copied = Selection("local", "xprod", sel.remote_root, sel.local_root, nothing,
                            [relative(p, files[2])], String[], now(), sel.extract)
-        @test [j.source for j in plan_extraction(h, p, copied, staging)] == files[1:1]
+        @test [j.source for j in first(plan_extraction(h, p, copied, staging))] == files[1:1]
         above = Selection("local", "xprod", sel.remote_root, sel.local_root, nothing,
                           [relative(p, dsp)], String[], now(), sel.extract)
-        @test isempty(plan_extraction(h, p, above, staging))
+        @test isempty(first(plan_extraction(h, p, above, staging)))
     end
 
     @testset "plan_bytes inspects every source file" begin
         root, _ = marked_tree()
-        plan = plan_extraction(h, p, Selection(p, "local", root), joinpath(tempdir(), "stage"))
+        plan, _ = plan_extraction(h, p, Selection(p, "local", root), joinpath(tempdir(), "stage"))
         @test plan_bytes(h, helper, plan) == (400 + 1200) + (800 + 2400)
         @test plan_bytes(h, helper, ExtractJob[]) == 0
         bad = [ExtractJob(files[1], "/x", "x", ["Z99999Z"])]
