@@ -16,7 +16,7 @@ function p_process_aoe_optimization(processing_config::PropDict, l200::LegendDat
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -254,6 +254,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_sg)]))
     lreport!(report, "Time of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, sg_flt_optimization_log_text)

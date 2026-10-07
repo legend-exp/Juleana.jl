@@ -14,7 +14,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     @info "Loaded auxiliary detectors: $(join(string.(chinfo_aux.detector), ", "))"
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Number Events"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Number Events"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -113,6 +113,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_dsp_aux)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, "# Metadata")

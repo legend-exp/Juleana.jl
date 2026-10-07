@@ -19,7 +19,7 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Pulser single-pulse SF"), Symbol("Forced-trigger empty-trace SF"), Symbol("Number Pulser Events"), Symbol("Number Forced-trigger Events"), Symbol("Number Physics Events"), Symbol("Single pulses with invalid DSP properties"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Pulser single-pulse SF"), Symbol("Forced-trigger empty-trace SF"), Symbol("Number Pulser Events"), Symbol("Number Forced-trigger Events"), Symbol("Number Physics Events"), Symbol("Single pulses with invalid DSP properties"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -149,6 +149,7 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_qc)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total processing time: $(canonicalize(now() - start_time))")
     lreport!(report, qcs_phy_log_text)

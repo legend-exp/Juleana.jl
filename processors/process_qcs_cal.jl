@@ -20,7 +20,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Pulser SF"), Symbol("Tl-208 FEP SF"), Symbol("Number Pulser Events"), Symbol("Number Single-pulse Events"), Symbol("Single pulses with invalid energy"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Pulser SF"), Symbol("Tl-208 FEP SF"), Symbol("Number Pulser Events"), Symbol("Number Single-pulse Events"), Symbol("Single pulses with invalid energy"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -167,6 +167,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_qc)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total processing time: $(canonicalize(now() - start_time))")
     lreport!(report, qcs_cal_log_text)

@@ -22,7 +22,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
 
     if reprocess @info "Reprocess all detectors" end
 
-    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, :Plot, :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, :Plot, :Error)}
 
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
@@ -127,6 +127,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_stability)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, "# Metadata")

@@ -15,7 +15,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     # create log line Tuple
     log_fkcheck = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
-    log_peaksplit = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Number of FEP Events"), Symbol("Number of SEP Events"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+    log_peaksplit = NamedTuple{(:Detector, :usability, :Status, Symbol("Number of FEP Events"), Symbol("Number of SEP Events"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -81,7 +81,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             total_allocated = Base.format_bytes(TimerOutputs.totallocated(fk_timer))
 
             # create log
-            log_fk = log_fkcheck((fk, ProcessStatus(1), "$(length(detectors))", string.(failed_detectors), total_time, total_allocated, ""))
+            log_fk = log_fkcheck((fk, ProcessStatus(is_ok), "$(length(detectors))", string.(failed_detectors), total_time, total_allocated, ""))
             return (result = is_ok, timer = fk_timer, log = log_fk, processed = true)
         end
 
@@ -200,6 +200,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_fkcheck, result_peaksplit)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, peak_splitting_log_text)

@@ -19,7 +19,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, Symbol("Detector Status"), :Status, Symbol("Filter Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -153,6 +153,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_ctc)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, energy_ctc_log_text)
