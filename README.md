@@ -38,12 +38,17 @@ The script also offers command line options to have a handy way of processing th
 | `--config`, `-c`  | Path to config file |
 | `--periods`, `-p` | Periods to process |
 | `--runs`, `-r`    | Runs to process |
-| `--partitions` | Partitions to process |
 |`--reprocess`      | Reprocess all channels while deleting old data, overwrite all `reprocess` flags |
 | `--only_runs`     | Process only runs ignoring periods and partitions |
 | `--only_partitions` | Process only partitions ignoring periods and runs |
 | `--analysis_runs_only` | Process only runs which are marked as analysis runs |
-| `--submit_slurm` | Automatically add a SLURM process to the session |
+| `--submit_jobs` | Start the workers of the selected run mode automatically |
+| `--runmode`, `--rm` | Run mode, `local` or `slurm`, overriding `config.runmode` |
+| `--ignore_config` | Use only the command line values of the flags above instead of the config |
+| `--log_path`, `-o` | Directory for log files |
+
+Flags given on the command line override the corresponding config value only when set;
+with `--ignore_config` an absent flag means `false`. `--runs` requires `--periods`.
 
 # Debug mode
 To enable the `debug` mode for fast and interactive dataflow debugging and testing, the `-i` flag for `interactive` has to be passed as argument upfront the `main.jl` script.
@@ -96,32 +101,38 @@ bash startjlworkers.sh
 ```
 Feel free to edit the settings in the script e.g. the number of nodes etc. It is also possible to run the script multiple times to add more workers to the running julia session. This is why the SLURM tab in the tmux session has multiple panes.
 
-**Info** If you activate the `submit_slurm` option, the script will automatically add a new SLURM process to the running julia session. This can be useful to automate the process of adding new workers to the session.
+**Info** If you activate the `submit_jobs` option, the script will automatically add a new SLURM process to the running julia session. This can be useful to automate the process of adding new workers to the session.
 
 # Configuration File
 To comunicate with the dataflow, you need to set up a configuration file. An example can be found in the `config/` folder.
 The `processing_config.json` file can be used to set up your own specific analysis chain in a simple JSON format. The file contains the following fields:
 ## `config`
-In the config section, you can pass `ENV` environemnt variables, slurm settings and julia settings. 
-1. **`env_variables`**: field can be used to pass environment variables to the analysis. This can be useful to set up the analysis for different data sets. For a stable analysis, you should always set the `JULIA_WORKER_TIMEOUT` variable for `ParallelProcessingTools` and the `GKWSwstype` variable for the `GR` plotting backend. In addition, it can be useful to set the `JULIA_DEBUG` variable to enable debugging information for different packages.
-2. **`slurm_settings`**: field can be used to pass options to the slurm processors. All available options can found in the [SLURM documentation](https://slurm.schedmd.com). Please also refer to the documentation of the specific cluster you are using and adapt the settings appropriately.
-3. **`julia_settings`**: field can be used to pass options to the julia interpreter. This can be useful to set additional settings for the julia interpreter such as `--heap-size-hint` etc. Please refer to the [`julia` documentation](https://docs.julialang.org/en/v1/manual/command-line-interface/) for all available options.
+In the config section, you set the run mode, the worker settings and `ENV` environment variables.
+1. **`runmode`**: `"local"` or `"slurm"`.
+2. **`submit_jobs`**: flag to start the workers of the selected run mode automatically.
+3. **`runmode_settings`**: `local.n` (number of local workers) and `local.julia_settings`, `slurm.flags` and `slurm.julia_settings`.
+4. **`env_variables`**: field can be used to pass environment variables to the analysis. This can be useful to set up the analysis for different data sets. For a stable analysis, you should always set the `JULIA_WORKER_TIMEOUT` variable for `ParallelProcessingTools` and the `GKWSwstype` variable for the `GR` plotting backend. In addition, it can be useful to set the `JULIA_DEBUG` variable to enable debugging information for different packages.
+5. **`slurm.flags`**: field can be used to pass options to the slurm processors. All available options can found in the [SLURM documentation](https://slurm.schedmd.com). Please also refer to the documentation of the specific cluster you are using and adapt the settings appropriately.
+6. **`julia_settings`**: field can be used to pass options to the julia interpreter. This can be useful to set additional settings for the julia interpreter such as `--heap-size-hint` etc. Please refer to the [`julia` documentation](https://docs.julialang.org/en/v1/manual/command-line-interface/) for all available options.
 
 ## `processing`
 In the processing section, you can set which `periods` and `runs` you wanna process in your chain as well as different general settings. You can either pass an array with the corresponding run, period and partition numbers in any combination or just use the `"all"` keyword to process all available data such as e.g.
 ``` json
 "processing": {
     "periods": [3],
-    "runs": ["all"],
+    "runs": "all",
+    ...
 }
 ```
-which will process all available runs in period 3 and only partition 1. You can also use the `"all"` keyword for all fields to process all available data.
+which will process all available runs in period 3. Setting `"periods"` to `"all"` processes all periods available on disk.
 
 Other options are:
-1. **`analysis_run_only`**: flag can be used to only process runs which are set as `analysis_run` in the `legend-metadata`. This can be useful to only process runs which have passed quality criteria and are accepted as to be used in the final analysis.
+1. **`analysis_runs_only`**: flag can be used to only process runs which are set as `analysis_run` in the `legend-metadata`. This can be useful to only process runs which have passed quality criteria and are accepted as to be used in the final analysis.
 2. **`only_runs`**: flag can be used to only process runs ignoring partitions processors.
 3. **`only_partitions`**: flag can be used to only process partitions ignoring runs processors.
-4. **`submit_slurm`**: flag can be used to automatically add a new SLURM process to the running julia session. This can be useful to automate the process of adding new workers to the session.
+
+All keys of the `config` and `processing` sections are required; missing or unknown keys
+stop the dataflow with an error naming the key.
 
 ## `processors` and `p_processors`
 In the processors section, you can set which processors should be used in the analysis chain.
@@ -132,7 +143,6 @@ You can configure the `processors` section with the following layout
 ``` json
 "process_dsp_cal": {
             "enabled": true,
-            "n_workers": "all",
             "category": "cal",
             "rank": 5,
             "kwargs": {
@@ -148,13 +158,12 @@ which will result in adding the `process_dsp_cal` processor to the list and proc
 
 **Info**: The `p_processors` work in a similar manner as the `processor` with the one difference that they act on partitions rather then runs.
 
-The following fields are available:
+The following fields are required:
 1. **`enabled`**: flag can be used to enable or disable the processor in the chain.
-2. **`n_workers`**: field can be used to set the number of workers for the processor. This can be set to `"all"` to use all available workers which will result in a worker pool with the size of the number of channels/filekeys.
-3. **`rank`**: field can be used to set the rank of the processor in the chain. This can be useful if the order of the processing matters. The processors will be sorted by the rank and then processed in this order.
-4. **`category`**: field can be used to set the category of the processor. This is important to tell the dataflow if the processor is acting on `cal` or `phy` data.
-5. **`kwargs`**: field can be used to pass additional keyword arguments to the processor. This can be useful to set specific settings for the processor. Please refer to the processor documentation for all available options.
-6. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully.
+2. **`rank`**: field can be used to set the rank of the processor in the chain. This can be useful if the order of the processing matters. The processors will be sorted by the rank and then processed in this order.
+3. **`category`**: `"cal"` or `"phy"`, tells the dataflow if the processor is acting on `cal` or `phy` data.
+4. **`kwargs`**: keyword arguments passed to the processor. Every enabled processor must accept all of its configured keywords; this is checked when the processors are loaded. The `--reprocess` command line flag sets `reprocess` to `true` for every processor.
+5. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully. Every dependency must name a configured processor, and processor names must be unique across `processors` and `p_processors`.
 
 String lists in `processors.*.kwargs` and `p_processors.*.kwargs` are converted to
 Julia symbol vectors when the processing config is loaded. For example, YAML

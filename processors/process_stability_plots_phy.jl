@@ -1,4 +1,4 @@
-function process_stability_plots_phy(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+function process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
 
     @info "Process detector stability plots for period $period and run $run"
 

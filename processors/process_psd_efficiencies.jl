@@ -1,4 +1,4 @@
-function process_psd_efficiencies(processing_config::PropDict, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, use_partition_pars::Bool=true)
+function process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0, use_partition_pars::Bool=true)
 
     @info "Generate PSD efficiencies for period $period and run $run"
 

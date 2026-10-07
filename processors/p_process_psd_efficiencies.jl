@@ -1,4 +1,4 @@
-function p_process_psd_efficiencies(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
+function p_process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     
     @info "Generate PSD efficiencies for all partitions containing period $period"
 

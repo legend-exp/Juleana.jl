@@ -1,4 +1,4 @@
-function p_process_energy(processing_config::PropDict, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
+function p_process_energy(processing_config, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
     
     @info "Energy calibration for for all partitions containing period $period"
 
