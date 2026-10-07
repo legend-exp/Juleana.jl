@@ -49,7 +49,7 @@ l200, processing_config, runs, periods = get_processingconfig()
 @info "Start Data processing"
 
 # load all available processors
-include.(filter(contains(r".jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
+include.(filter(contains(r"\.jl$"), readdir(joinpath(@__DIR__, "processors/"); join=true)))
 
 if processing_config.runmode == "local"
     runmode = OnLocalhost(

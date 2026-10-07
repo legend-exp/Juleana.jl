@@ -41,34 +41,14 @@ function menu()
     elseif choice == 4
         global runs
         try
-            tiers = [:raw, :jldsp, :jlevt]
-            categories = [:cal, :phy]
-            tier, cat = nothing, nothing
-            for t in tiers
-                for c in categories
-                    if ispath(l200.tier[t, c])
-                        tier = t
-                        cat = c
-                        break
-                    end
-                end
-                if !isnothing(tier)
-                    break
-                end
-            end
-            possible_runs = if isnothing(tier) || isnothing(cat)
-                @warn "No `DataRun` found for in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
-                []
+            possible_runs = if isempty(periods)
+                @warn "No periods selected"
+                DataRun[]
             else
-                if length(periods) == 0
-                    @warn "No periods selected"
-                    []
-                else
-                    if length(periods) > 1
-                        @warn "More than one period selected, choosing first to get runs"
-                    end
-                    search_disk(DataRun, l200.tier[tier, cat, first(periods)])
+                if length(periods) > 1
+                    @warn "More than one period selected, choosing first to get runs"
                 end
+                get_available_runs(l200, first(periods))
             end
             runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> x in runs, possible_runs)], ctrl_c_interrupt = true)
             selected_runs = collect(request("Select runs to be executed:", runs_menu))
@@ -88,7 +68,7 @@ function menu()
         @info "Reloaded dependency graph"
     # reload processors from all processor files
     elseif choice == 2
-        r = include.(filter(contains(r".jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
+        r = include.(filter(contains(r"\.jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
         @info "Reloaded processors: $r"
     # reload dependency graph
     elseif choice == 6
@@ -402,7 +382,7 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
-            for run in get_proccessable_runs(l200, period, runs)
+            for run in get_processable_runs(l200, period, runs)
                 filename = try
                     get_rreportfilename(l200, start_filekey(l200, (period, run, category)), report)
                 catch e
@@ -427,7 +407,7 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
             filename = try
-                get_preportfilename(l200, start_filekey(l200, (period, first(get_proccessable_runs(l200, period, runs)), category)), report)
+                get_preportfilename(l200, start_filekey(l200, (period, first(get_processable_runs(l200, period, runs)), category)), report)
             catch e
                 @warn "No start filekey for $period-$category, skip"
                 continue

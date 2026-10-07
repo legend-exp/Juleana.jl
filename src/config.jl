@@ -218,27 +218,27 @@ function get_runsandperiods(parsed_args::Dict, processing_config::PropDict, l200
     return runs, periods
 end
 
-function get_available_periods(l200::LegendData)
-    tiers = [:raw, :jldsp, :jlevt]
-    categories = [:cal, :phy]
-    tier, cat = nothing, nothing
-    for t in tiers
-        for c in categories
-            if ispath(l200.tier[t, c])
-                tier = t
-                cat = c
-                break
-            end
-        end
-        if !isnothing(tier)
-            break
-        end
+"""
+    find_data_tier(l200::LegendData, keys...)
+
+Return the first `(tier, category)` among the `raw`, `jldsp` and `jlevt` tiers and the
+`cal` and `phy` categories whose directory `l200.tier[tier, category, keys...]` exists,
+or `nothing` if none does.
+"""
+function find_data_tier(l200::LegendData, keys...)
+    for t in (:raw, :jldsp, :jlevt), c in (:cal, :phy)
+        ispath(l200.tier[t, c, keys...]) && return (t, c)
     end
-    possible_periods = if isnothing(tier) || isnothing(cat)
-        @warn "No `DataPeriod` found for in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
+    return nothing
+end
+
+function get_available_periods(l200::LegendData)
+    tc = find_data_tier(l200)
+    possible_periods = if isnothing(tc)
+        @warn "No `DataPeriod` found in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
         DataPeriod[]
     else
-        search_disk(DataPeriod, l200.tier[tier, cat])
+        search_disk(DataPeriod, l200.tier[tc...])
     end
     # filter out periods that are not available on disk
     available_runs_dict = Dict{DataPeriod, Vector{DataRun}}(possible_periods .=> get_available_runs.(Ref(l200), possible_periods))
@@ -247,47 +247,21 @@ function get_available_periods(l200::LegendData)
 end
 
 function get_available_runs(l200::LegendData, period::DataPeriod)
-    # select runs to process
-    tiers = [:raw, :jldsp, :jlevt]
-    categories = [:cal, :phy]
-    tier, cat = nothing, nothing
-    for t in tiers
-        for c in categories
-            if ispath(l200.tier[t, c, period])
-                tier = t
-                cat = c
-                break
-            end
-        end
-        if !isnothing(tier)
-            break
-        end
+    tc = find_data_tier(l200, period)
+    if isnothing(tc)
+        @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
+        return DataRun[]
     end
-    available_runs = if isnothing(tier) || isnothing(cat)
-        @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` neither for `cal` nor `phy`"
-        DataRun[]
-    else
-        search_disk(DataRun, l200.tier[tier, cat, period])
-    end
-    available_runs
+    search_disk(DataRun, l200.tier[tc..., period])
 end
 
-function get_proccessable_runs(l200::LegendData, period::DataPeriod, runs::Union{Vector{DataRun}, String})
+function get_processable_runs(l200::LegendData, period::DataPeriod, runs::Union{Vector{DataRun}, String})
     available_runs = get_available_runs(l200, period)
-    processable_runs = runs
-    if runs == "all"
-        processable_runs = available_runs
+    runs == "all" && return available_runs
+    for run in runs
+        run in available_runs || @warn "Run $run not found in period $period"
     end
-
-    # if runs has no data available skip
-    for run in processable_runs
-        if !(run in available_runs)
-            @warn "Run $run not found in period $period"
-            continue
-        end
-    end
-
-    return DataRun.([r for r in processable_runs if r in available_runs])
+    return DataRun.([r for r in runs if r in available_runs])
 end
 
 
@@ -298,7 +272,7 @@ function setup_dependency_graph(l200::LegendData, processing_config::PropDict, p
     process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}}()
 
     # check if each period contains any runs at all
-    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> get_proccessable_runs.(Ref(l200), periods, Ref(runs)))
+    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> get_processable_runs.(Ref(l200), periods, Ref(runs)))
     filter!(p -> !isempty(processable_runs_dict[p]), periods)
     
     # fill

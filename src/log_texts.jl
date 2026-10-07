@@ -40,24 +40,15 @@ function master_status(results...)
     return has_entries ? status : process_failed
 end
 
-function truncate_string(s::String, max_length::Int=1000)
-    if length(s) > max_length
-        return s[1:max_length] * "..."
-    else
-        return s
-    end
+function truncate_string(s::AbstractString, max_length::Int=1000)
+    length(s) > max_length ? first(s, max_length) * "..." : s
 end
 
 function truncate_error(e::Exception, max_length::Int=1000)
     if e isa CompositeException
         e = e.exceptions[1]
     end
-    s = string(@userfriendly_exceptions e)
-    if length(s) > max_length
-        return s[1:max_length] * "..."
-    else
-        return s
-    end
+    truncate_string(string(@userfriendly_exceptions e), max_length)
 end
 
 # log texts that are static in each log report
