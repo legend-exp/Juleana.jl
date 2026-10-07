@@ -236,8 +236,11 @@ naming the detector and the file.
 When a detector is extracted for a period and a run does not hold it, that run is
 left out for that detector and the pair is reported as "not in run" (in the exact
 estimate, the headless estimate and the summary, as `<detector> in <run>`). A run
-that holds none of the chosen detectors gets no job. Nothing else is left out of the
-extraction without a message, except files that a copy mark already covers.
+that holds none of the chosen detectors gets no job. A run directory of the period
+without tier files, and a run whose first file has no per-detector groups, are reported
+the same way, as "not in run" for every chosen detector, so a processing gap shows up
+there as well. Nothing else is left out of the extraction without a message, except
+files that a copy mark already covers.
 
 Extraction runs on the host. A helper script (`src/sync/remote/extract.jl`) is
 copied to the staging directory and run with the host's Julia. It copies the chosen

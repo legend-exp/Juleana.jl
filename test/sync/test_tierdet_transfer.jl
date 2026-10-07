@@ -69,6 +69,50 @@
             h, p, selection(p, [empty_period]), stage; helper)
     end
 
+    @testset "run directories without tier files and without a detector axis are reported" begin
+        root = mktempdir()
+        ptier = joinpath(root, "tprod", "generated", "tier")
+        mkpath(ptier)
+        write(joinpath(root, "tprod", "config.json"), raw"""
+        {"setups": {"l200": {"paths": {"tier": "$_/generated/tier/"}}}}
+        """)
+        p = Production(h, "tprod", root, mktempdir())
+        stage = joinpath(mktempdir(), "stage")
+        helper = HelperConfig(; staging = stage)
+        run_file(period, run, ts) = joinpath(ptier, "jlpks", "cal", period, run,
+                                             "l200-$period-$run-cal-$ts-tier_jlpks.lh5")
+        p21 = joinpath(ptier, "jlpks", "cal", "p21")
+        p21files = [run_file("p21", "r000", "20251201T000000Z"), run_file("p21", "r000", "20251201T000500Z")]
+        for f in p21files
+            write_lh5_tier_det(f; groups = ["B00000C"], tier = "jlpks")
+        end
+        mkpath(joinpath(p21, "r001"))
+        write(joinpath(p21, "r001", "README.txt"), "no tier files\n")
+        entry = ExtractEntry(relative(p, p21), ["B00000C"])
+        plan, absent = plan_extraction(h, p, selection(p, [entry]), stage; helper)
+        @test [j.source for j in plan] == p21files
+        @test [j.groups for j in plan] == [["B00000C"], ["B00000C"]]
+        @test absent == [(relative(p, joinpath(p21, "r001")), "B00000C")]
+
+        # One run has a detector axis, the other one tier group without detectors.
+        p22 = joinpath(ptier, "jlpks", "cal", "p22")
+        axis = run_file("p22", "r000", "20251201T000000Z")
+        write_lh5_tier_det(axis; groups = ["B00000C", "V01234A"], tier = "jlpks")
+        write_lh5(run_file("p22", "r001", "20251201T001000Z"); groups = ["jlpks"], inner = "tables")
+        entry = ExtractEntry(relative(p, p22), ["B00000C", "V01234A"])
+        plan, absent = plan_extraction(h, p, selection(p, [entry]), stage; helper)
+        @test [j.source for j in plan] == [axis]
+        @test [j.groups for j in plan] == [["B00000C", "V01234A"]]
+        @test absent == [(relative(p, joinpath(p22, "r001")), "B00000C"),
+                         (relative(p, joinpath(p22, "r001")), "V01234A")]
+
+        pnode = Node("p22", p22, :dir)
+        expand!(h, p, pnode; detectors = true)
+        rows = period_detector_nodes(h, helper, pnode)
+        @test [r.label for r in rows] == ["B00000C", "V01234A"]
+        @test all(r -> r.holders == [joinpath(p22, "r000") => 1], rows)
+    end
+
     @testset "a later file that lacks a detector fails loudly" begin
         p, helper, stage = setup()
         p20 = joinpath(tier, "jlpks", "cal", "p20")

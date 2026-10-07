@@ -256,8 +256,9 @@ end
 """
     request_detectors!(m::SyncModel, node::Node)::SyncModel
 
-Inspect the first file of the run below `node` (a `:detectors` row) in the
-background. The rows are built on detached nodes and linked in by the event handler,
+Inspect, in the background, the first file of the run below `node` (a `:detectors`
+row of a run) or the first file of each run of the period below it (a `:detectors`
+row of a period). The rows are built on detached nodes and linked in by the event handler,
 like a directory listing.
 """
 function request_detectors!(m::SyncModel, node::Node)

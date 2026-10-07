@@ -197,7 +197,8 @@ staging_production_dir(staging::AbstractString, p::Production) =
 The extraction jobs for `sel` and the `(run directory, detector)` pairs left out,
 both ordered. An entry whose directory holds filekey files is a run entry and is
 taken as it is. Any other entry is a period entry: it expands to its run
-directories that hold filekey files, the first filekey file of each is inspected
+directories that hold filekey files (a run directory without any is recorded as
+holding none of the requested detectors), the first filekey file of each is inspected
 (one helper call for all period entries), a requested detector that file lacks is
 recorded and left out of that run's job, and a run that holds none of the requested
 detectors gets no job. Entries are merged per run by union of their detectors, and
@@ -210,7 +211,7 @@ function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::
     stage = staging_production_dir(staging, p)
     files_of = Dict{String,Vector{String}}()      # run directory (relative) => its filekey files
     wanted = Dict{String,Set{String}}()           # run directory (relative) => detectors to take
-    periods = Tuple{ExtractEntry,Vector{String}}[]
+    periods = Tuple{ExtractEntry,Vector{String},Vector{String}}[]   # entry, runs with files, runs without
     for entry in sel.extract
         dir = joinpath(p.remote_root, entry.dir)
         files = filekey_files(h, dir)
@@ -220,27 +221,34 @@ function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::
             continue
         end
         runs = String[]
+        empty_runs = String[]
         for e in sort!(list_dir(h, dir); by = e -> e.name)
             (e.kind == :dir && occursin(RUN_DIR_EXPR, e.name)) || continue
             run_files = filekey_files(h, joinpath(dir, e.name))
-            isempty(run_files) && continue
+            if isempty(run_files)
+                push!(empty_runs, joinpath(entry.dir, e.name))
+                continue
+            end
             files_of[joinpath(entry.dir, e.name)] = run_files
             push!(runs, joinpath(entry.dir, e.name))
         end
         isempty(runs) && throw(ErrorException(
             "extract entry $(entry.dir) holds no filekey files and no run directory with filekey files"))
-        push!(periods, (entry, runs))
+        push!(periods, (entry, runs, empty_runs))
     end
-    firsts = unique([first(files_of[run]) for (_, runs) in periods for run in runs])
+    firsts = unique([first(files_of[run]) for (_, runs, _) in periods for run in runs])
     inspected = isempty(firsts) ? Tuple{Vector{String},Vector{Int},String}[] :
                 inspect_files(h, helper, firsts; jobs)
     present_in = Dict(file => first(found) for (file, found) in zip(firsts, inspected))
-    for (entry, runs) in periods
+    for (entry, runs, _) in periods
         all(run -> isempty(present_in[first(files_of[run])]), runs) && throw(ArgumentError(
             "extract entry $(entry.dir): the tier has no per-detector groups"))
     end
     not_in_run = Tuple{String,String}[]
-    for (entry, runs) in periods, run in runs
+    for (entry, _, empty_runs) in periods, run in empty_runs, group in entry.groups
+        push!(not_in_run, (run, group))
+    end
+    for (entry, runs, _) in periods, run in runs
         present = present_in[first(files_of[run])]
         for group in entry.groups
             if group in present
