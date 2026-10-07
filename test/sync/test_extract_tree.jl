@@ -127,6 +127,18 @@
         @test hash(e) == hash(ExtractEntry("run", ["a", "b"]))
     end
 
+    @testset "ExtractEntry rejects paths that leave the remote root and empty groups" begin
+        @test_throws "run_dir must be relative, got /abs/run" ExtractEntry("/abs/run", ["a"])
+        @test_throws "run_dir must not contain .., got a/../b" ExtractEntry("a/../b", ["a"])
+        @test_throws "run_dir must not contain .., got .." ExtractEntry("..", ["a"])
+        @test_throws "no groups for run_dir run" ExtractEntry("run", String[])
+        good = Selection("local", "xprod", EXTRACT_ROOT, local_root, nothing, String[], String[], now(),
+                         [ExtractEntry("good/run", ["a"])])
+        path = save_selection(joinpath(mktempdir(), "bad.json"), good)
+        write(path, replace(read(path, String), "good/run" => "/etc"))
+        @test_throws "run_dir must be relative, got /etc" load_selection(path, p)
+    end
+
     @testset "extract entries round trip through a file" begin
         none = Selection("local", "xprod", EXTRACT_ROOT, local_root, nothing,
                          String[], String[], now())

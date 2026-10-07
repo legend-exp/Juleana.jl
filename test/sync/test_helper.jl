@@ -136,11 +136,12 @@
 
         @test DEFAULT_REMOTE_JULIA == "~/.juliaup/bin/julia"
         @test DEFAULT_REMOTE_PROJECT == "~/.julia/environments/juleana-sync"
-        withenv("TMPDIR" => nothing, "USER" => "alice") do
-            @test read(`sh -c $REMOTE_STAGING_SCRIPT`, String) == "/tmp/juleana-sync-alice"
+        user = readchomp(`id -un`)
+        withenv("TMPDIR" => nothing, "USER" => nothing) do
+            @test read(`sh -c $REMOTE_STAGING_SCRIPT`, String) == "/tmp/juleana-sync-$user"
         end
         withenv("TMPDIR" => "/scratch", "USER" => "alice") do
-            @test read(`sh -c $REMOTE_STAGING_SCRIPT`, String) == "/scratch/juleana-sync-alice"
+            @test read(`sh -c $REMOTE_STAGING_SCRIPT`, String) == "/scratch/juleana-sync-$user"
         end
     end
 

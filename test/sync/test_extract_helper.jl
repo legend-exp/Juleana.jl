@@ -146,8 +146,7 @@
                                    "destination" => joinpath(dest, "o$i.lh5")) for i in 1:6])
         r = run_script("extract", spec; jobs = 2)
         @test r.code == 1
-        written = count(i -> isfile(joinpath(dest, "o$i.lh5")), 2:6)
-        @test written < 5
+        @test occursin("group missing not found in $(many[1])", r.stderr)
     end
 
     @testset "a corrupt destination stops the job and names both files" begin
@@ -161,6 +160,31 @@
         @test occursin(sources[1], r.stderr)
         @test occursin(dest, r.stderr)
         @test read(dest, String) == "garbage bytes"
+    end
+
+    @testset "a destination that is not a reduced file is never overwritten" begin
+        dest = joinpath(work, "out-plain", "o1.lh5")
+        mkpath(dirname(dest))
+        h5open(f -> f["x"] = [1, 2, 3], dest, "w")
+        before = read(dest)
+        spec = Dict("job" => [Dict("source" => sources[1], "groups" => ["aux"],
+                                   "destination" => dest)])
+        r = run_script("extract", spec)
+        @test r.code == 1
+        @test occursin("existing destination $dest is not a reduced file written by this tool", r.stderr)
+        @test read(dest) == before
+    end
+
+    @testset "the destination may not be the source" begin
+        copy = joinpath(work, "src", "copy.lh5")
+        cp(sources[1], copy; force = true)
+        before = read(copy)
+        spec = Dict("job" => [Dict("source" => copy, "groups" => ["aux"], "destination" => copy)])
+        r = run_script("extract", spec)
+        @test r.code == 1
+        @test occursin("destination $copy is the source $copy", r.stderr)
+        @test read(copy) == before
+        @test !isfile(copy * ".partial")
     end
 
     @testset "a missing job file fails with a message" begin

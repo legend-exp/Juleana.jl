@@ -206,8 +206,11 @@ function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::
             id = tier_file_id(file.name)
             (file.kind == :file && id !== nothing && first(id) == :filekey) || continue
             rel = joinpath(entry.run_dir, file.name)
+            destination = joinpath(stage, rel)
+            startswith(destination, stage * "/") || throw(ErrorException(
+                "extraction destination $destination is not below the staging directory $stage"))
             covered(rel) || push!(plan, ExtractJob(joinpath(dir, file.name),
-                                                   joinpath(stage, rel), rel, entry.groups))
+                                                   destination, rel, entry.groups))
         end
     end
     plan
@@ -302,6 +305,7 @@ function reduced_groups(path::AbstractString)
             haskey(a, "juleana_sync_groups") ? String.(a["juleana_sync_groups"]) : nothing
         end
     catch err
+        err isa InterruptException && rethrow()
         throw(ErrorException("cannot read $path as HDF5 ($(sprint(showerror, err))); " *
                              "remove the file before retrying"))
     end
@@ -506,7 +510,7 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
                                 length(plan), sum(j -> length(j.groups), plan; init = 0),
                                 pulled.bytes, conflicts)
     catch err
-        isempty(plan) && rethrow()
+        (isempty(plan) || err isa InterruptException) && rethrow()
         throw(ErrorException(sprint(showerror, err) * (in_mirror ?
             "\nthe reduced files are already in the local mirror; the staged copies were kept in $staging" :
             "\nreduced files already staged were kept in $staging; running the same selection again resumes from them")))

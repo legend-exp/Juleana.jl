@@ -73,7 +73,7 @@ Options(host, remote_root, local_root, mount_root, production, out, from, dry_ru
 
 Without `--remote-root`, the root of `--host` is read from `hosts_file`. The helper
 settings come from the host's entry in `hosts_file`; `--staging` replaces its staging
-directory.
+directory and is a path on the host: absolute or starting with `~`.
 """
 function parse_options(args::AbstractVector{<:AbstractString}; hosts_file::AbstractString = DEFAULT_HOSTS_FILE)
     settings = ArgParseSettings(
@@ -143,8 +143,10 @@ function parse_options(args::AbstractVector{<:AbstractString}; hosts_file::Abstr
     jobs === nothing && throw(ArgumentError("--jobs must be an integer, got $(parsed["jobs"])"))
     jobs >= 0 || throw(ArgumentError("--jobs must not be negative, got $jobs"))
     helper = isfile(hosts_file) ? host_helper_config(hosts_file, parsed["host"]) : HelperConfig()
-    isempty(parsed["staging"]) ||
-        (helper = HelperConfig(helper.julia, helper.julia_project, abspath(parsed["staging"])))
+    staging = parsed["staging"]
+    isempty(staging) || isabspath(staging) || startswith(staging, "~") || throw(ArgumentError(
+        "--staging must be an absolute path or start with ~, got $staging"))
+    isempty(staging) || (helper = HelperConfig(helper.julia, helper.julia_project, staging))
 
     # check_mount compares a path's device with its parent's, which only works
     # for an absolute path; --remote-root feeds path arithmetic that assumes

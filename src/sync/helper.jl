@@ -13,7 +13,7 @@ const DEFAULT_REMOTE_PROJECT = "~/.julia/environments/juleana-sync"
 
 # Run by `sh -c` on the remote: the home directory is quota-limited on the
 # clusters, so staging defaults to the temporary directory.
-const REMOTE_STAGING_SCRIPT = "printf %s \"\${TMPDIR:-/tmp}/juleana-sync-\$USER\""
+const REMOTE_STAGING_SCRIPT = "printf %s \"\${TMPDIR:-/tmp}/juleana-sync-\$(id -un)\""
 
 """
     HelperConfig(; julia = nothing, julia_project = nothing, staging = nothing)
@@ -21,7 +21,7 @@ const REMOTE_STAGING_SCRIPT = "printf %s \"\${TMPDIR:-/tmp}/juleana-sync-\$USER\
 How to run the remote helper on one host: the Julia executable, the environment
 that holds HDF5 and ParallelProcessingTools, and the staging directory. `nothing`
 selects the default ([`DEFAULT_REMOTE_JULIA`](@ref), [`DEFAULT_REMOTE_PROJECT`](@ref)
-and `\${TMPDIR:-/tmp}/juleana-sync-\$USER`). A leading `~` is expanded on the host.
+and `\${TMPDIR:-/tmp}/juleana-sync-<user>`). A leading `~` is expanded on the host.
 """
 struct HelperConfig
     julia::Union{Nothing,String}

@@ -26,17 +26,21 @@ end
 
 # The return type is concrete because `onworker` converts the remote result to
 # the inferred return type.
-# An existing destination that cannot be read as HDF5 stops the job; it is never
-# overwritten silently. The result also carries the id of the process that ran it.
+# The destination is never the source. An existing destination that cannot be read
+# as HDF5, or that is not a reduced file written by this tool, stops the job; it is
+# never overwritten silently. The result also carries the id of the process that ran it.
 function extract_file(source::String, groups::Vector{String}, destination::String)::Tuple{Symbol,Int,Int}
+    destination == source && error(source, ": destination ", destination, " is the source ", source)
     if isfile(destination)
         held = try
             h5open(destination, "r") do f
-                haskey(attrs(f), "juleana_sync_groups") ? String.(attrs(f)["juleana_sync_groups"]) : String[]
+                haskey(attrs(f), "juleana_sync_groups") ? String.(attrs(f)["juleana_sync_groups"]) : nothing
             end
         catch err
             error(source, ": cannot read existing destination ", destination, ": ", sprint(showerror, err))
         end
+        held === nothing && error(source, ": existing destination ", destination,
+                                  " is not a reduced file written by this tool")
         held == groups && mtime(source) <= mtime(destination) &&
             return (:skipped, Int(filesize(destination)), myid())
     end

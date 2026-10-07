@@ -3,12 +3,19 @@
 
 The detectors to take out of every filekey file of one run directory: `run_dir`
 relative to the remote root, `groups` the top-level HDF5 group names, sorted and
-without duplicates.
+without duplicates. A `run_dir` that is absolute or has a `..` component, and an
+empty `groups`, are an `ArgumentError`: extraction writes below the staging
+directory at `run_dir`, so it must stay below the remote root.
 """
 struct ExtractEntry
     run_dir::String
     groups::Vector{String}
-    ExtractEntry(run_dir, groups) = new(run_dir, sort!(unique(String.(groups))))
+    function ExtractEntry(run_dir, groups)
+        isabspath(run_dir) && throw(ArgumentError("run_dir must be relative, got $run_dir"))
+        ".." in splitpath(run_dir) && throw(ArgumentError("run_dir must not contain .., got $run_dir"))
+        isempty(groups) && throw(ArgumentError("no groups for run_dir $run_dir"))
+        new(run_dir, sort!(unique(String.(groups))))
+    end
 end
 
 Base.:(==)(a::ExtractEntry, b::ExtractEntry) = a.run_dir == b.run_dir && a.groups == b.groups

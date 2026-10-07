@@ -104,15 +104,17 @@
 
     @testset "a failing cleanup names the staging directory" begin
         p, helper, stage = setup()
+        staged_dir = dirname(joinpath(stage, "xprod", relative(p, files[1])))
+        # Once the last file is staged, removing the staged files is not permitted.
+        lock_staged(e) = e.done == e.total && chmod(staged_dir, 0o555)
         err = try
-            apply!(h, p, selection(p, ["B00000C"]); helper, progress = _ ->
-                   islink(joinpath(stage, "xprod", "planted")) ||
-                       symlink("/nowhere", joinpath(stage, "xprod", "planted")))
+            apply!(h, p, selection(p, ["B00000C"]); helper, extract_progress = lock_staged)
         catch e
             e
+        finally
+            chmod(staged_dir, 0o755)
         end
         @test err isa ErrorException
-        @test occursin("symlink", err.msg)
         @test occursin("already in the local mirror", err.msg)
         @test occursin("kept in $stage", err.msg)
         @test groups_of(to_local(p, files[1])) == ["B00000C"]
