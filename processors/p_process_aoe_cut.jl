@@ -14,7 +14,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -67,7 +67,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for aoe_classifier in aoe_classifiers
-                log_info = log_nt((det, ch, part, ProcessStatus(1), aoe_classifier, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info
                 processed_dict[aoe_classifier] = false
@@ -79,7 +79,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
             @debug "Detector $(det) already processed, check missing filters"
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db_det[det], aoe_classifier)
-                    log_info = log_nt((det, ch, part, ProcessStatus(1), aoe_classifier, pars_db_det[det][aoe_classifier].lowcut, pars_db_det[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db_det[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_classifier, pars_db_det[det][aoe_classifier].lowcut, pars_db_det[det][aoe_classifier].peaks.ds[:Tl208SEP].sf, pars_db_det[det][aoe_classifier].peaks.ds[:Tl208FEP].sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[aoe_classifier] = log_info
                     processed_dict[aoe_classifier] = false
@@ -202,7 +202,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))
 
-                log_info = log_nt((det, ch, part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_classifier, result_cut.lowcut, result.peaks.ds[:Tl208SEP].sf, result.peaks.ds[:Tl208FEP].sf, "-"))
 
                 # add results to dict
                 result_dict[aoe_classifier]   = result
@@ -212,7 +212,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
                 GC.gc()
             catch e
                 @error "Error in $aoe_classifier cut generation: $(truncate_error(e))"
-                log_info = log_nt((det, ch, part, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), aoe_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info
@@ -242,6 +242,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_aoe)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, aoe_part_log_text)

@@ -20,7 +20,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Pulser SF"), Symbol("Tl-208 FEP SF"), Symbol("Number Pulser Events"), Symbol("Number Single-pulse Events"), Symbol("Single pulses with invalid energy"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Pulser SF"), Symbol("Tl-208 FEP SF"), Symbol("Number Pulser Events"), Symbol("Number Single-pulse Events"), Symbol("Single pulses with invalid energy"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -46,7 +46,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
 
         if !reprocess && haskey(pars_db, det) && haskey(pars_db[det], :n_single_pulse) && haskey(pars_db[det], :n_invalid_e_single_pulse) && isfile(qcsfilename)
             sf = pars_db[det].survival_fractions
-            log_det = log_nt((det, ch, ProcessStatus(1), sf.pulser.is_single_pulse, sf.Tl208FEP.is_single_pulse, pars_db[det].n_pulser, pars_db[det].n_single_pulse, pars_db[det].n_invalid_e_single_pulse, "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), sf.pulser.is_single_pulse, sf.Tl208FEP.is_single_pulse, pars_db[det].n_pulser, pars_db[det].n_single_pulse, pars_db[det].n_invalid_e_single_pulse, "Already processed --> skipped."))
             @debug "Detector $det already processed"
             return (processed = false, log = log_det)
         end
@@ -139,7 +139,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
             end
         end
 
-        log_det = log_nt((det, ch, ProcessStatus(1), pulser_sf.is_single_pulse, fep_sf.is_single_pulse, n_pulser, n_single_pulse, n_invalid_e_single_pulse, "-"))
+        log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pulser_sf.is_single_pulse, fep_sf.is_single_pulse, n_pulser, n_single_pulse, n_invalid_e_single_pulse, "-"))
         return (result = (func = qc_propfunc, survival_fractions = survival_fractions, n_pulser = n_pulser, n_single_pulse = n_single_pulse, n_invalid_e_single_pulse = n_invalid_e_single_pulse), log = log_det, processed = true)
     end
 
@@ -167,6 +167,7 @@ function process_qcs_cal(processing_config::PropDict, l200::LegendData, period::
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_qc)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total processing time: $(canonicalize(now() - start_time))")
     lreport!(report, qcs_cal_log_text)

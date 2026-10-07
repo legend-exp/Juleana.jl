@@ -27,7 +27,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     if reprocess @info "Reprocess all detectors" end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
@@ -65,7 +65,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((det, ch, ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].gain, pars_db[det][filter_type].res_1pe, pars_db[det][filter_type].trig_threshold.bsl_deriv.σ, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].gain, pars_db[det][filter_type].res_1pe, pars_db[det][filter_type].trig_threshold.bsl_deriv.σ, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -180,7 +180,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end
                 
-                log_info = log_nt((det, ch, ProcessStatus(1), filter_type, result_wl.wl, result_wl.gain, result_wl.res_1pe, result_trig.bsl_deriv.σ, "-"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), filter_type, result_wl.wl, result_wl.gain, result_wl.res_1pe, result_trig.bsl_deriv.σ, "-"))
 
                 # add results to dict
                 result_wl_dict[filter_type] = merge(result_wl, (trig_threshold = result_trig, ))
@@ -192,7 +192,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
                 yield()
             catch e
                 @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((det, ch, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
+                log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -216,6 +216,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_sipm_optimization)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, sipm_opt_log_text)

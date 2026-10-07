@@ -24,7 +24,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -40,7 +40,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         if !reprocess && haskey(pars_db, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, ch, ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
             return (processed = false, log = log_det)
         end
 
@@ -122,7 +122,13 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for detector $det ($ch)"
 
-        log_det = log_nt((det, ch, ProcessStatus(1), result.μ, result.σ, "-"))
+        status, message = if 350u"µs" <= mvalue(result.μ) <= 700u"µs"
+            (process_succeeded, "-")
+        else
+            (process_warning, "Decay time $(result.μ) is outside the expected 350–700 µs window.")
+        end
+        status == process_warning && @warn "$det ($ch): $message"
+        log_det = log_nt((det, detector_status(chinfo_det.usability), status, result.μ, result.σ, message))
         return (result = (τ = result.μ, fit = result), processed = true, log = log_det)
     end
 
@@ -140,6 +146,7 @@ function process_decay_time(processing_config::PropDict, l200::LegendData, perio
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_pz)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, decay_time_log_text)

@@ -112,6 +112,7 @@ function process_evt_phy(processing_config::PropDict, l200::LegendData, period::
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_evt)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, evt_log_text)

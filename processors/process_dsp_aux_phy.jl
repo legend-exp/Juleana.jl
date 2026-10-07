@@ -14,7 +14,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     @info "Loaded auxiliary detectors: $(join(string.(chinfo_aux.detector), ", "))"
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Status, Symbol("Number Events"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Number Events"), :Error)}
 
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
@@ -55,7 +55,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
                 n_evts = length(read_ldata(:timestamp, l200, DataTier(:jlaux), filekey, det))
                 @info "DSP for auxiliary detector $det ($ch) already exists, skip"
                 return (result = (n_evts = n_evts,), processed = false,
-                    log = log_nt((det, ch, ProcessStatus(1), "$n_evts", "Already processed --> skipped.")))
+                    log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$n_evts", "Already processed --> skipped.")))
             catch e
                 @warn "Error reading existing DSP file for auxiliary detector $det ($ch): $(truncate_error(e))"
                 @info "Reprocess auxiliary detector $det ($ch)"
@@ -93,13 +93,13 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
                 end
             end
 
-            log_det = log_nt((det, ch, ProcessStatus(1), "$(length(dsp_data))", ""))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$(length(dsp_data))", ""))
             @info "Finished DSP for auxiliary detector $det ($ch): $(length(dsp_data)) events"
 
             return (result = (n_evts = length(dsp_data),), processed = true, log = log_det)
         catch e
             @error "Error while running DSP for auxiliary detector $det: $(e)"
-            return (processed = false, log = log_nt((det, ch, ProcessStatus(0), "0", "$e")))
+            return (processed = false, log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "0", "$e")))
         end
     end
 
@@ -113,6 +113,7 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_dsp_aux)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, "# Metadata")

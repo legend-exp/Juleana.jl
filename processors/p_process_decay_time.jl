@@ -13,7 +13,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :Channel, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
     
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
@@ -51,13 +51,13 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         if only_first_period && period != first(partinfo_det.period)
             @info "Only first period in partition $part for $period in $det ($ch)"
-            log_det = log_nt((det, ch, part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
             return (processed = false, log = log_det, validity = validity_det, skipped = true)
         end 
 
         if !reprocess && haskey(pars_db_det, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, ch, part, ProcessStatus(1), pars_db_det[det].τ, pars_db_det[det].fit.σ, "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), pars_db_det[det].τ, pars_db_det[det].fit.σ, "Already processed --> skipped."))
             return (processed = false, log = log_det, validity = validity_det)
         end
 
@@ -136,7 +136,13 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for detector $det ($ch)"
 
-        log_det = log_nt((det, ch, part, ProcessStatus(1), result.μ, result.σ, "-"))
+        status, message = if 350u"µs" <= mvalue(result.μ) <= 700u"µs"
+            (process_succeeded, "-")
+        else
+            (process_warning, "Decay time $(result.μ) is outside the expected 350–700 µs window.")
+        end
+        status == process_warning && @warn "$det ($ch) in partition $part: $message"
+        log_det = log_nt((det, detector_status(chinfo_det.usability), part, status, result.μ, result.σ, message))
 
         # generate detector result
         result_det = (result = (τ = result.μ, fit = result), processed = true, log = log_det, validity = validity_det)
@@ -165,6 +171,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     # create log report
     report = lreport()
     lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_pz)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, decay_time_log_text)

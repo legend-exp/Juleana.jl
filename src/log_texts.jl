@@ -1,4 +1,45 @@
 # helper functions for logging
+"""
+    detector_status(usability::Symbol)
+
+Format detector usability for Markdown reports: green `on`, yellow `ac`, red `off`.
+"""
+function detector_status(usability::Symbol)
+    color = get((on="green", ac="yellow", off="red"), usability, "gray")
+    return """<span style="color:$color">$usability</span>"""
+end
+
+"""
+    master_status(results...)
+
+Combine processor log statuses using detector usability from the result iterators.
+An `on` warning/failure or `ac` failure fails the processor; an `ac` warning or
+`off` failure warns. An `off` warning is acceptable. Rows without usability
+must succeed. Reports without log entries fail; optional `nothing` results are ignored.
+"""
+function master_status(results...)
+    status = process_succeeded
+    has_entries = false
+    for result in results
+        isnothing(result) && continue
+        for (itr, res) in result
+            logs = res.log isa Dict ? values(res.log) : (res.log,)
+            for log in logs
+                has_entries = true
+                usability = haskey(log, :usability) ? itr.usability : :on
+                if log.Status == process_succeeded || (usability == :off && log.Status == process_warning)
+                    continue
+                elseif (usability == :ac && log.Status == process_warning) || (usability == :off && log.Status == process_failed)
+                    status = process_warning
+                else
+                    return process_failed
+                end
+            end
+        end
+    end
+    return has_entries ? status : process_failed
+end
+
 function truncate_string(s::String, max_length::Int=1000)
     if length(s) > max_length
         return s[1:max_length] * "..."
