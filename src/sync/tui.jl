@@ -42,7 +42,6 @@ mutable struct SyncModel <: Model
     extracting::Union{Nothing,ExtractProgress}
     environment::Union{Nothing,EnvironmentStatus}
     continuation::Union{Nothing,Function}
-    pending_env::Union{Nothing,EnvironmentStatus}
 end
 
 function SyncModel(host::RemoteHost, production::Production, options::Options)
@@ -52,7 +51,7 @@ function SyncModel(host::RemoteHost, production::Production, options::Options)
                   TreeView(TreeNode("")), TaskQueue(),
                   false, false, "", nothing,
                   nothing, :none, nothing, nothing, nothing,
-                  :tree, nothing, nothing, nothing, nothing, nothing, nothing)
+                  :tree, nothing, nothing, nothing, nothing, nothing)
     rebuild_tree!(m)
     m.tree.selected = 1
     m
@@ -64,7 +63,7 @@ function SyncModel(host::RemoteHost, options::Options)
                   TreeView(TreeNode("")), TaskQueue(),
                   false, false, "", nothing,
                   nothing, :none, nothing, nothing, nothing,
-                  :pick, nothing, nothing, nothing, nothing, nothing, nothing)
+                  :pick, nothing, nothing, nothing, nothing, nothing)
     request_productions!(m)
 end
 
@@ -204,7 +203,8 @@ end
 
 Call `continue_with()` once the remote helper environment is ready. A ready
 environment is remembered; otherwise it is checked in the background, and a missing
-or incomplete one opens a dialog that shows the command that would create it.
+or incomplete one opens a dialog that shows the command that would create it. While
+the check runs the model is in the `:checking` state and accepts no key.
 """
 function with_environment!(m::SyncModel, continue_with)
     if m.environment !== nothing
@@ -214,6 +214,7 @@ function with_environment!(m::SyncModel, continue_with)
     host = m.host
     helper = m.options.helper
     m.continuation = continue_with
+    m.modal_kind = :checking
     m.status = "checking the helper environment on $(m.options.host)…"
     spawn_task!(() -> ensure_environment(host, helper), m.tasks, :environment)
     m
@@ -244,7 +245,6 @@ finishes.
 function start_bootstrap!(m::SyncModel)
     host = m.host
     helper = m.options.helper
-    m.pending_env = nothing
     m.modal = Modal(title = "Creating the helper environment",
                     message = "running Pkg.add on $(m.options.host); this can take several minutes…",
                     confirm_label = "", cancel_label = "")
@@ -317,7 +317,16 @@ function run_estimate!(m::SyncModel, selection::Selection, confirm::Bool)
     spawn_task!(m.tasks, :estimate) do
         estimate = apply!(host, production, selection; dry_run = true, helper, jobs)
         staging = isempty(selection.extract) ? nothing : staging_dir(host, helper)
-        free = staging === nothing ? nothing : free_bytes(host, make_dir(host, staging))
+        # The staging directory may not exist yet; the estimate creates nothing and
+        # asks about the file system of its nearest existing ancestor.
+        free = nothing
+        if staging !== nothing
+            existing = staging
+            while !dir_exists(host, existing)
+                existing = dirname(existing)
+            end
+            free = free_bytes(host, existing)
+        end
         (estimate, confirm, staging, free)
     end
     m
@@ -596,7 +605,7 @@ function update!(m::SyncModel, e::KeyEvent)
     # the modal carries; letting any key reach it would dismiss the dialog
     # while apply! keeps running underneath, opening the door to a second,
     # concurrent transfer.
-    m.modal_kind in (:transfer, :busy) && return m
+    m.modal_kind in (:transfer, :busy, :checking) && return m
 
     # The prompt owns the keyboard while it is up; TextInput handles neither
     # :enter nor :escape, so those two are decided here.
@@ -621,7 +630,6 @@ function update!(m::SyncModel, e::KeyEvent)
         if m.modal_kind == :bootstrap
             answer == :confirm && return start_bootstrap!(m)
             m.continuation = nothing
-            m.pending_env = nothing
         end
         if m.modal_kind == :quit
             answer == :confirm && save!(m)
@@ -688,7 +696,11 @@ function update!(m::SyncModel, e::KeyEvent)
             toggle_mode!(m, node, :link)
         end
     elseif e.char == 'n'
-        node === nothing || open_prompt!(m, node)
+        if node !== nothing && node.kind in (:detectors, :detector)
+            m.status = "n applies to run directories, not detector rows"
+        elseif node !== nothing
+            open_prompt!(m, node)
+        end
     elseif e.char == 'x'
         if node !== nothing && node.kind == :detector
             if node.mode != :extract && effective_mode(node.parent.parent) in (:copy, :link)
@@ -781,7 +793,6 @@ function update!(m::SyncModel, e::TaskEvent)
     if e.id == :environment
         status = e.value
         environment_ready(status) && return environment_ready!(m, status)
-        m.pending_env = status
         m.status = ""
         m.modal = Modal(title = "Create the helper environment",
                         message = string("Extraction needs HDF5 and ParallelProcessingTools in\n",

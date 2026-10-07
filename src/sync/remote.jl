@@ -319,6 +319,21 @@ end
 file_exists(::LocalHost, path::AbstractString) = isfile(path)
 
 """
+    dir_exists(h::RemoteHost, path::AbstractString)::Bool
+
+Whether the directory `path` exists on `h`, with the same error handling as
+[`file_exists`](@ref).
+"""
+function dir_exists(h::SSHHost, path::AbstractString)
+    err = IOBuffer()
+    proc = run(pipeline(ignorestatus(remote_command(h, `test -d $path`)); stderr = err))
+    proc.exitcode in (0, 1) || throw(ErrorException(
+        "test -d $path on $(h.alias) failed with exit code $(proc.exitcode)\n$(String(take!(err)))"))
+    proc.exitcode == 0
+end
+dir_exists(::LocalHost, path::AbstractString) = isdir(path)
+
+"""
     make_dir(h::RemoteHost, dir::AbstractString)::String
 
 Create `dir` and its parents on `h` (`mkdir -p`) and return `dir`.

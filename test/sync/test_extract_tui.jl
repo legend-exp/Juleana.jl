@@ -136,6 +136,57 @@
         @test current_node(m).mode == :none
     end
 
+    @testset "n does not apply to detector rows" begin
+        m = model()
+        to_run!(m, "jldsp", "cal")
+        open!(m, "detectors")
+        for _ in 1:2                                    # detectors row, then B00000C
+            m.status = ""
+            update!(m, KeyEvent('n'))
+            @test occursin("n applies to run directories", m.status)
+            @test m.modal_kind == :none && m.input === nothing
+            update!(m, KeyEvent(:down))
+        end
+    end
+
+    @testset "keys are ignored while the environment is checked" begin
+        m = model()
+        to_run!(m, "jldsp", "cal")
+        while current_node(m).label != "detectors"
+            update!(m, KeyEvent(:down))
+        end
+        update!(m, KeyEvent(:enter))
+        @test m.modal_kind == :checking
+        pending = m.continuation
+        @test pending !== nothing
+        for key in (KeyEvent('e'), KeyEvent('q'), KeyEvent('n'), KeyEvent(:enter), KeyEvent(:escape))
+            update!(m, key)
+        end
+        @test m.modal_kind == :checking && m.modal === nothing && m.input === nothing
+        @test m.continuation === pending && !m.quit
+        events = TaskEvent[]
+        timedwait(() -> m.tasks.active[] == 0 && isready(m.tasks.channel), 60.0) == :ok ||
+            error("the environment check did not finish within 60 s")
+        drain_tasks!(e -> (push!(events, e); update!(m, e)), m.tasks)
+        @test [e.id for e in events] == [:environment]
+        (m.tasks.active[] > 0 || isready(m.tasks.channel)) && settle!(m)
+        @test m.modal_kind == :none && isempty(m.status)
+        @test any(c -> c.label == "B00000C", current_node(m).children)
+    end
+
+    @testset "an estimate creates nothing on the host" begin
+        m = model()
+        to_run!(m, "jldsp", "cal")
+        open!(m, "detectors")
+        update!(m, KeyEvent(:down)); update!(m, KeyEvent('x'))
+        staging = m.options.helper.staging
+        update!(m, KeyEvent('e')); settle!(m)
+        @test m.modal_kind == :estimate
+        @test occursin("free", m.modal.message)
+        # Inspecting the files pushes the helper into the staging root; the estimate adds nothing.
+        @test !ispath(staging_production_dir(staging, m.production))
+    end
+
     @testset "the environment dialog asks before creating anything" begin
         m = model()
         to_run!(m, "jldsp", "cal")
