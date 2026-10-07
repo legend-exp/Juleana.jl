@@ -14,10 +14,15 @@ end
     TransferResult
 
 What an [`apply!`](@ref) did. `skipped` lists the link targets that were left
-alone because real data already stood there. `warnings` holds rsync's standard
-error text from the transfer, which is never discarded: GNU rsync can print a
-warning (for example about a file that vanished mid-transfer) while still
-exiting 0. It is `""` when rsync printed nothing.
+alone because real data already stood there. `warnings` holds rsync's and the
+remote helper's standard error text, which is never discarded: GNU rsync can print
+a warning (for example about a file that vanished mid-transfer) while still
+exiting 0. It is `""` when nothing was printed.
+
+`extracted_files` and `extracted_groups` count the reduced files pulled from the
+staging directory and the HDF5 groups in them, `extracted_bytes` the bytes rsync
+moved for them, and `conflicts` the relative paths that were not extracted because
+a full local copy or a link stands there.
 """
 struct TransferResult
     bytes::Int
@@ -27,7 +32,15 @@ struct TransferResult
     skipped::Vector{String}
     config::String
     warnings::String
+    extracted_files::Int
+    extracted_groups::Int
+    extracted_bytes::Int
+    conflicts::Vector{String}
 end
+
+TransferResult(bytes, files, links, replaced_links, skipped, config, warnings) =
+    TransferResult(bytes, files, links, replaced_links, skipped, config, warnings,
+                   0, 0, 0, String[])
 
 """
     check_rsync()::VersionNumber
@@ -75,22 +88,34 @@ function check_mount(p::Production)
 end
 
 """
-    rsync_command(h::RemoteHost, p::Production, files_from; dry_run::Bool)::Cmd
+    rsync_command(h::RemoteHost, source_root, local_root, files_from; dry_run::Bool)::Cmd
 
-The one rsync invocation the tool makes. `-r` is explicit because `--files-from`
+The one rsync invocation the tool makes, from `source_root` on `h` into `local_root`; the form that takes a `Production` uses its roots. `-r` is explicit because `--files-from`
 switches off the recursion `-a` would imply, and without it a selected directory
 arrives empty. `-l` copies a remote symlink (such as a `current` pointer) as a
 symlink; without it rsync silently omits symlinks from the transfer. `--stats`
 is on in both modes: it is the only place rsync reports how many files it sent.
 """
-function rsync_command(h::RemoteHost, p::Production, files_from::AbstractString;
-                       dry_run::Bool)
+function rsync_command(h::RemoteHost, source_root::AbstractString, local_root::AbstractString,
+                       files_from::AbstractString; dry_run::Bool)
     args = String["-r", "-l", "-t", "-p", "--partial", "--stats",
                   "--files-from=$files_from"]
     push!(args, dry_run ? "--dry-run" : "--info=progress2")
-    push!(args, rsync_source(h, p.remote_root), rstrip(p.local_root, '/') * "/")
+    push!(args, rsync_source(h, source_root), rstrip(local_root, '/') * "/")
     # LC_ALL fixes the digit grouping in --stats, which parse_rsync_stats strips.
     addenv(`rsync $args`, "LC_ALL" => "C")
+end
+
+rsync_command(h::RemoteHost, p::Production, files_from::AbstractString; dry_run::Bool) =
+    rsync_command(h, p.remote_root, p.local_root, files_from; dry_run)
+
+# Run `command(list_file)` where `list_file` holds the relative paths `rels`.
+function rsync_listed(command, rels::AbstractVector{<:AbstractString}, progress)
+    mktempdir() do dir
+        path = joinpath(dir, "files.txt")
+        write(path, join(rels, "\n") * "\n")
+        run_rsync(command(path), progress)
+    end
 end
 
 const _progress_expr = r"([0-9,]+)\s+([0-9]+)%\s+(\S+)\s+([0-9]+:[0-9]{2}:[0-9]{2})"
@@ -237,16 +262,89 @@ function prepare_extraction(h::RemoteHost, p::Production, sel::Selection, helper
 end
 
 """
+    ExtractProgress(done, total, bytes)
+
+Reduced files finished, of `total`, and the bytes written to the staging directory
+so far.
+"""
+struct ExtractProgress
+    done::Int
+    total::Int
+    bytes::Int
+end
+
+# Reduced files carry HDF5 metadata beyond the stored dataset sizes.
+const STAGING_MARGIN = 1.05
+
+"""
+    check_staging_space(staging, free, needed)::Nothing
+
+Throw when `needed` bytes of reduced files, with [`STAGING_MARGIN`](@ref), do not
+fit into `free` bytes.
+"""
+function check_staging_space(staging::AbstractString, free::Integer, needed::Integer)
+    ceil(Int, STAGING_MARGIN * needed) <= free && return nothing
+    throw(ErrorException(
+        "staging directory $staging has $(format_bytes(free)) free but the extraction needs about " *
+        "$(format_bytes(needed)); set \"staging\" for this host in config/sync/hosts.json or pass --staging"))
+end
+
+"""
+    reduced_groups(path::AbstractString)::Union{Nothing,Vector{String}}
+
+The groups a reduced file holds, from its `juleana_sync_groups` root attribute, or
+`nothing` for an HDF5 file that has none, which is a full copy.
+"""
+function reduced_groups(path::AbstractString)
+    HDF5.h5open(path, "r") do f
+        a = HDF5.attrs(f)
+        haskey(a, "juleana_sync_groups") ? String.(a["juleana_sync_groups"]) : nothing
+    end
+end
+
+"""
+    reconcile_local(p::Production, plan::Vector{ExtractJob})::Tuple{Vector{ExtractJob},Vector{String}}
+
+Split `plan` into the jobs that may run and the relative paths that conflict with
+what is in the mirror. Nothing at the path: the job runs. A reduced file from an
+earlier extraction: the job runs with the union of both group lists, so a later
+extraction never loses groups. A full copy, or a symlink at the path or at any
+directory above it: a conflict, because a reduced file must never replace more
+data and rsync would write through the link.
+"""
+function reconcile_local(p::Production, plan::Vector{ExtractJob})
+    runnable = ExtractJob[]
+    conflicts = String[]
+    for job in plan
+        path = to_local(p, job.source)
+        walk = p.local_root
+        linked = false
+        for part in splitpath(job.relative)
+            walk = joinpath(walk, part)
+            linked |= islink(walk)
+        end
+        if !linked && !ispath(path)
+            push!(runnable, job)
+            continue
+        end
+        held = linked ? nothing : reduced_groups(path)
+        if held === nothing
+            push!(conflicts, job.relative)
+        else
+            push!(runnable, ExtractJob(job.source, job.destination, job.relative,
+                                       sort!(union(job.groups, held))))
+        end
+    end
+    runnable, conflicts
+end
+
+"""
     rsync_dry_run(h::RemoteHost, p::Production, sel::Selection)::Estimate
 
 What the transfer would actually move, given what is already in the mirror.
 """
 function rsync_dry_run(h::RemoteHost, p::Production, sel::Selection)
-    out, _ = mktempdir() do dir
-        path = joinpath(dir, "files.txt")
-        write(path, join(sel.copy, "\n") * "\n")
-        run_rsync(rsync_command(h, p, path; dry_run = true), nothing)
-    end
+    out, _ = rsync_listed(path -> rsync_command(h, p, path; dry_run = true), sel.copy, nothing)
     parse_rsync_stats(out, length(sel.link))
 end
 
@@ -319,19 +417,25 @@ function create_links!(h::RemoteHost, p::Production, sel::Selection)
 end
 
 """
-    apply!(h::RemoteHost, p::Production, sel::Selection; dry_run = false, progress = nothing,
-           helper = HelperConfig(), jobs = 0)
+    apply!(h, p, sel; dry_run = false, progress = nothing,
+           helper = HelperConfig(), jobs = 0, extract_progress = nothing)
 
 Bring the mirror in line with `sel`. With `dry_run` it only asks rsync what would
-move and returns an [`Estimate`](@ref); otherwise it transfers, creates the links
-and writes `config_local.json`, and returns a [`TransferResult`](@ref).
+move, inspects the files to extract with the remote helper, and returns an
+[`Estimate`](@ref); otherwise it transfers, creates the links and writes
+`config_local.json`, and returns a [`TransferResult`](@ref).
 
 `progress` is called with a [`Progress`](@ref) for each reading rsync prints.
-`helper` and `jobs` configure the remote helper that extract entries need.
+Extract entries are reduced on the host by the remote helper (`helper` says how to
+run it, `jobs` how many workers it may use) into a staging directory, pulled with
+rsync, and removed from the staging directory again; `extract_progress` is called
+with an [`ExtractProgress`](@ref) after each reduced file. A failure once the
+helper has started keeps the staged files for a resumed run and says where they are.
 """
 function apply!(h::RemoteHost, p::Production, sel::Selection;
                 dry_run::Bool = false, progress = nothing,
-                helper::HelperConfig = HelperConfig(), jobs::Integer = 0)
+                helper::HelperConfig = HelperConfig(), jobs::Integer = 0,
+                extract_progress = nothing)
     check_rsync()
     isdir(p.local_root) || error("local root $(p.local_root) does not exist")
     # Find out now, not halfway through a transfer, whether the mirror is writable.
@@ -339,24 +443,60 @@ function apply!(h::RemoteHost, p::Production, sel::Selection;
     close(io)
     rm(probe)
     isempty(sel.link) || check_mount(p)
+    staging, plan = isempty(sel.extract) ? ("", ExtractJob[]) :
+                    prepare_extraction(h, p, sel, helper)
     if dry_run
         estimate = rsync_dry_run(h, p, sel)
         isempty(sel.extract) && return estimate
-        _, plan = prepare_extraction(h, p, sel, helper)
         return Estimate(estimate.bytes, estimate.files, estimate.links, true,
                         plan_bytes(h, helper, plan; jobs), length(plan), true)
     end
 
-    replaced = remove_stale_links!(p, sel)
-    out, warnings = mktempdir() do dir
-        path = joinpath(dir, "files.txt")
-        write(path, join(sel.copy, "\n") * "\n")
-        run_rsync(rsync_command(h, p, path; dry_run = false), progress)
+    plan, conflicts = reconcile_local(p, plan)
+    isempty(plan) || check_staging_space(staging, free_bytes(h, make_dir(h, staging)),
+                                         plan_bytes(h, helper, plan; jobs))
+    warnings = String[]
+    pulled = Estimate(0, 0, 0, true)
+    replaced = 0
+    out = ""
+    try
+        if !isempty(plan)
+            spec = Dict("job" => [Dict("source" => j.source, "groups" => j.groups,
+                                       "destination" => j.destination) for j in plan])
+            done = 0
+            staged_bytes = 0
+            run_helper(h, helper, "extract", spec; jobs, warn = text -> push!(warnings, text),
+                       on_record = function (record)
+                           record["event"] == "file" || return
+                           done += 1
+                           staged_bytes += record["bytes"]
+                           extract_progress === nothing ||
+                               extract_progress(ExtractProgress(done, length(plan), staged_bytes))
+                       end)
+        end
+        replaced = remove_stale_links!(p, sel)
+        out, copy_warnings = rsync_listed(path -> rsync_command(h, p, path; dry_run = false),
+                                          sel.copy, progress)
+        push!(warnings, copy_warnings)
+        if !isempty(plan)
+            pull_out, pull_warnings = rsync_listed(
+                path -> rsync_command(h, staging_production_dir(staging, p), p.local_root, path;
+                                      dry_run = false),
+                [j.relative for j in plan], progress)
+            pulled = parse_rsync_stats(pull_out, 0)
+            push!(warnings, pull_warnings)
+        end
+    catch err
+        isempty(plan) && rethrow()
+        throw(ErrorException(sprint(showerror, err) *
+                             "\nreduced files already staged were kept in $staging; running the same selection again resumes from them"))
     end
     moved = parse_rsync_stats(out, length(sel.link))
     created, skipped = create_links!(h, p, sel)
+    isempty(plan) || remove_staged!(h, staging, [j.destination for j in plan])
     TransferResult(moved.bytes, moved.files, created, replaced, skipped,
-                   write_local_config(p), warnings)
+                   write_local_config(p), join(filter(!isempty, warnings), "\n"),
+                   length(plan), sum(j -> length(j.groups), plan; init = 0), pulled.bytes, conflicts)
 end
 
 """
@@ -370,6 +510,12 @@ function summary_text(r::TransferResult)
     isempty(r.skipped) ||
         push!(lines, "kept existing data at $(length(r.skipped)) link targets: " *
                      join(r.skipped, ", "))
+    r.extracted_files == 0 ||
+        push!(lines, "extracted $(r.extracted_files) files, $(r.extracted_groups) groups " *
+                     "($(format_bytes(r.extracted_bytes)) transferred)")
+    isempty(r.conflicts) ||
+        push!(lines, "kept existing full copies of $(length(r.conflicts)) files instead of extracting: " *
+                     join(r.conflicts, ", "))
     isempty(r.warnings) || push!(lines, "rsync warnings:\n$(r.warnings)")
     push!(lines, "export LEGEND_DATA_CONFIG=$(r.config)")
     join(lines, "\n")

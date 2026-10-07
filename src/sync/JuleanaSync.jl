@@ -13,6 +13,7 @@ using PropDicts
 import LegendDataManagement
 import YAML
 import TOML
+import HDF5
 import Tachikoma
 using LegendDataManagement: DetectorId, Timestamp
 using Tachikoma: Model, Frame, Buffer, Rect, Span,
