@@ -17,7 +17,6 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
@@ -233,7 +232,7 @@ function p_process_aoe_cut(processing_config::PropDict, l200::LegendData, period
     # get start time
     start_time = now()
 
-    result_aoe = parallel(chinfo_unfolded, det_aoe_cut, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(chinfo_unfolded, det_aoe_cut, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"

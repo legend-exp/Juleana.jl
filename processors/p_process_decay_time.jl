@@ -18,7 +18,6 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
     chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
@@ -160,7 +159,7 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(chinfo_unfolded, det_decay_time, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_pz = parallel(chinfo_unfolded, det_decay_time, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished decay time extraction"
 

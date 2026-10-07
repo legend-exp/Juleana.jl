@@ -24,7 +24,6 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
 
     log_nt = NamedTuple{(:Detector, :usability, :Status, :Plot, :Error)}
 
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     @info "Loading pulser data for period $period and run $run"
     puls = read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlpls), :phy, period, run, det_puls)
@@ -121,7 +120,7 @@ function process_stability_plots_phy(processing_config::PropDict, l200::LegendDa
         return (processed = processed_dict, log = log_info_dict)
     end
 
-    result_stability = parallel(chinfo, det_stability_plots, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_stability = parallel(chinfo, det_stability_plots, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished stability plot generation"
 

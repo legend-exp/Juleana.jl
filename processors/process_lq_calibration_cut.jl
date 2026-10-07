@@ -26,7 +26,6 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     log_nt_cut = NamedTuple{(:Detector, :usability, :Status, Symbol("Classifier Type"), Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -314,7 +313,7 @@ function process_lq_calibration_cut(processing_config::PropDict, l200::LegendDat
     start_time = now()
 
     # execute in parallel
-    result_lq = parallel(chinfo, det_lq_cut, merge(log_nt_cal, log_nt_cut), wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_lq = parallel(chinfo, det_lq_cut, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished LQ Cut calculation"
 

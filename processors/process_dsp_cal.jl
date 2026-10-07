@@ -67,7 +67,6 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -193,7 +192,7 @@ function process_dsp_cal(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekeys, filekey_dsp, log_nt, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp = parallel(filekeys, filekey_dsp, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished DSP for period $period and run $run"
 

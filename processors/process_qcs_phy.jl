@@ -22,7 +22,6 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Pulser single-pulse SF"), Symbol("Forced-trigger empty-trace SF"), Symbol("Number Pulser Events"), Symbol("Number Forced-trigger Events"), Symbol("Number Physics Events"), Symbol("Single pulses with invalid DSP properties"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -129,7 +128,7 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
     start_time = now()
 
     # execute in parallel
-    result_qc = parallel(chinfo, det_qcs_phy, log_nt, wpool; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_qc = parallel(chinfo, det_qcs_phy, log_nt; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished physics QC detector processing"
 

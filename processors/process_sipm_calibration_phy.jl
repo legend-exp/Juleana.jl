@@ -31,7 +31,6 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("1PE Pos."), Symbol("1PE Res."), Symbol("Cal. Constant"), :Error)}
     
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -206,7 +205,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
     start_time = now()
 
     # execute in parallel
-    result_sipm_calibration = parallel(chinfo, det_sipm_calibration, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_calibration = parallel(chinfo, det_sipm_calibration, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished SiPM calibration"
 
     pars_db = create_pars(pars_db, result_sipm_calibration)

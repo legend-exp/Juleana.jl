@@ -18,7 +18,6 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     log_peaksplit = NamedTuple{(:Detector, :usability, :Status, Symbol("Number of FEP Events"), Symbol("Number of SEP Events"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # get start time
     start_time = now()
@@ -85,7 +84,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
             return (result = is_ok, timer = fk_timer, log = log_fk, processed = true)
         end
 
-        result_fkcheck = Dict(parallel(filekeys, check_filekey, log_fkcheck, wpool,; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))"))
+        result_fkcheck = Dict(parallel(filekeys, check_filekey, log_fkcheck; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))"))
 
         if !all(v -> hasproperty(v, :result), values(result_fkcheck))
             error("Some filekeys failed during checking due to unknown reason.")
@@ -194,7 +193,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
     end
 
     # execute in parallel
-    result_peaksplit = parallel(chinfo, split_peak_det, log_peaksplit, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_peaksplit = parallel(chinfo, split_peak_det, log_peaksplit; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished peak splitting"
 

@@ -23,7 +23,6 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     log_nt_cut = NamedTuple{(:Detector, :usability, :Status, Symbol("Classifier Type"), Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :CutError)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
     
     # flush stdout
     flush(stdout)
@@ -382,7 +381,7 @@ function process_aoe_calibration_cut(processing_config::PropDict, l200::LegendDa
     start_time = now()
 
     # execute in parallel
-    result_aoe = parallel(chinfo, det_aoe_cut, merge(log_nt_cal, log_nt_cut), wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(chinfo, det_aoe_cut, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished AoE calibration"
 

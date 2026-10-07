@@ -22,7 +22,6 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -142,7 +141,7 @@ function process_ct_correction(processing_config::PropDict, l200::LegendData, pe
     # get start time
     start_time = now()
 
-    result_ctc = parallel(chinfo, det_ct_correction, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_ctc = parallel(chinfo, det_ct_correction, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished CT correction"
 

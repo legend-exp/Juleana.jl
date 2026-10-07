@@ -29,7 +29,6 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("Window length"), :Gain, Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
     # flush stdout
     flush(stdout)
@@ -206,7 +205,7 @@ function process_sipm_optimization_phy(processing_config::PropDict, l200::Legend
     start_time = now()
 
     # execute in parallel
-    result_sipm_optimization = parallel(chinfo, det_sipm_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_optimization = parallel(chinfo, det_sipm_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished SiPM optimization extraction"
 
     pars_db = create_pars(pars_db, result_sipm_optimization)

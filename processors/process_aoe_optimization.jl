@@ -33,7 +33,6 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
-    wpool = get_workerPool(processing_config, nameof(var"#self#"))
     
     # flush stdout
     flush(stdout)
@@ -197,7 +196,7 @@ function process_aoe_optimization(processing_config::PropDict, l200::LegendData,
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo, det_sg_optimization, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sg = parallel(chinfo, det_sg_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished SG filter optimization"
 

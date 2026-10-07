@@ -5,21 +5,86 @@ using Test
 using Markdown
 using Logging
 using TerminalLoggers
-
-include(joinpath(@__DIR__, "../src/markdown_logging.jl"))
+using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
+    process_succeeded, process_warning, process_failed
 
 @testset "juleana" begin
     @testset "log underscores" begin
-        message = escape_log_underscores("process_dsp_cal and e_cusp_ctc; `already_quoted`")
+        message = Juleana.escape_log_underscores("process_dsp_cal and e_cusp_ctc; `already_quoted`")
         @test message == "process\\_dsp\\_cal and e\\_cusp\\_ctc; `already_quoted`"
         @test !any(x -> x isa Markdown.Italic, Markdown.parse(message).content[1].content)
-        @test escape_log_underscores("already\\_escaped") == "already\\_escaped"
-        @test escape_log_underscores("``code_with_underscores`` and a_b") == "``code_with_underscores`` and a\\_b"
+        @test Juleana.escape_log_underscores("already\\_escaped") == "already\\_escaped"
+        @test Juleana.escape_log_underscores("``code_with_underscores`` and a_b") == "``code_with_underscores`` and a\\_b"
 
         output = IOBuffer()
         with_logger(UnderscoreSafeLogger(TerminalLogger(output))) do
             @info "process_dsp_cal and e_cusp_ctc; `already_quoted`"
         end
         @test occursin("process_dsp_cal and e_cusp_ctc; already_quoted", String(take!(output)))
+    end
+
+    @testset "truncation" begin
+        @test truncate_string("short", 10) == "short"
+        @test truncate_string("αβγδε"^3, 4) == "αβγδ..."
+        @test truncate_string(SubString("abcdef", 2), 3) == "bcd..."
+        msg = truncate_error(CompositeException([ErrorException("x"^50), ErrorException("second")]), 10)
+        @test endswith(msg, "...")
+        @test length(msg) == 13
+        @test !occursin("second", msg)
+    end
+
+    @testset "detector_status" begin
+        @test occursin("color:green", detector_status(:on))
+        @test occursin("color:yellow", detector_status(:ac))
+        @test occursin("color:red", detector_status(:off))
+        @test occursin("color:gray", detector_status(:unknown))
+    end
+
+    @testset "master_status" begin
+        row(status) = (processed = true, log = (Status = status, usability = "-"))
+        det(usability) = (detector = DetectorId(:V00048B), usability = usability)
+        @test master_status([det(:on) => row(process_succeeded)]) == process_succeeded
+        @test master_status([det(:off) => row(process_warning)]) == process_succeeded
+        @test master_status([det(:ac) => row(process_warning)]) == process_warning
+        @test master_status([det(:off) => row(process_failed)]) == process_warning
+        @test master_status([det(:on) => row(process_warning)]) == process_failed
+        @test master_status([det(:ac) => row(process_failed)]) == process_failed
+        @test master_status(nothing, [det(:on) => row(process_succeeded)]) == process_succeeded
+        @test master_status(Pair[]) == process_failed
+    end
+
+    fk = FileKey("l200-p03-r000-cal-20230311T235840Z")
+    FkLog = NamedTuple{(:Filekey, :Status, :A, :B, :Error)}
+
+    @testset "failure_log" begin
+        @test failure_log(FkLog, fk, "boom") == FkLog((fk, ProcessStatus(0), "-", "-", "boom"))
+
+        DetLog = NamedTuple{(:Detector, :usability, :Status, :X, :Error)}
+        det = (detector = DetectorId(:V00048B), usability = :on, channel = 1)
+        r = failure_log(DetLog, det, "boom")
+        @test r.Detector == det.detector
+        @test r.Status == ProcessStatus(0)
+        @test r.X == "-"
+        @test r.Error == "boom"
+
+        PartLog = NamedTuple{(:Detector, :usability, :Partition, :Status, :X, :Error)}
+        r = failure_log(PartLog, (; det..., partition = :p1), "boom")
+        @test r.Partition == :p1
+        @test r.X == "-"
+
+        @test_throws "needs `detector` and `usability` fields" failure_log(DetLog, (channel = 1,), "boom")
+    end
+
+    @testset "parallel" begin
+        ok = parallel([fk], k -> (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", ""))), FkLog)
+        @test only(ok).first == fk
+        @test only(ok).second.processed
+        @test only(ok).second.log.Status == process_succeeded
+
+        failed = parallel([fk], k -> error("item failed"), FkLog)
+        @test !only(failed).second.processed
+        @test only(failed).second.log == FkLog((fk, ProcessStatus(0), "-", "-", "ErrorException(\"item failed\")"))
+
+        @test_throws "no failure_log method for items of type Int64" parallel([1, 2], identity, FkLog)
     end
 end
