@@ -36,7 +36,9 @@
         @test (est2.extract_bytes, est2.extract_files) == ((400 + 1200) * 1, 1)
         @test est2.files == 1 && est2.bytes == filesize(files[2])
 
-        set_mode!(run, :copy)                      # copying the run supersedes the extraction
+        for row in run.children[end].children       # unmarking every detector ends the extraction
+            set_mode!(row, :none)
+        end
         est3 = running_estimate(root)
         @test (est3.extract_bytes, est3.extract_files, est3.extract_exact) == (0, 0, true)
     end

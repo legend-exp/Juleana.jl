@@ -1,32 +1,32 @@
 """
-    ExtractEntry(run_dir, groups)
+    ExtractEntry(dir, groups)
 
-The detectors to take out of every filekey file of one run directory: `run_dir`
-relative to the remote root, `groups` the top-level HDF5 group names, sorted and
-without duplicates. A `run_dir` that is absolute or has a `..` component, and an
-empty `groups`, are an `ArgumentError`: extraction writes below the staging
-directory at `run_dir`, so it must stay below the remote root.
+The detectors to take out of every filekey file below one directory: `dir` is a run
+directory or a period directory relative to the remote root, `groups` the detector
+names, sorted and without duplicates. A `dir` that is absolute or has a `..`
+component, and an empty `groups`, are an `ArgumentError`: extraction writes below the
+staging directory at `dir`, so it must stay below the remote root.
 """
 struct ExtractEntry
-    run_dir::String
+    dir::String
     groups::Vector{String}
-    function ExtractEntry(run_dir, groups)
-        isabspath(run_dir) && throw(ArgumentError("run_dir must be relative, got $run_dir"))
-        ".." in splitpath(run_dir) && throw(ArgumentError("run_dir must not contain .., got $run_dir"))
-        isempty(groups) && throw(ArgumentError("no groups for run_dir $run_dir"))
-        new(run_dir, sort!(unique(String.(groups))))
+    function ExtractEntry(dir, groups)
+        isabspath(dir) && throw(ArgumentError("dir must be relative, got $dir"))
+        ".." in splitpath(dir) && throw(ArgumentError("dir must not contain .., got $dir"))
+        isempty(groups) && throw(ArgumentError("no groups for dir $dir"))
+        new(dir, sort!(unique(String.(groups))))
     end
 end
 
-Base.:(==)(a::ExtractEntry, b::ExtractEntry) = a.run_dir == b.run_dir && a.groups == b.groups
-Base.hash(e::ExtractEntry, h::UInt) = hash(e.groups, hash(e.run_dir, h))
+Base.:(==)(a::ExtractEntry, b::ExtractEntry) = a.dir == b.dir && a.groups == b.groups
+Base.hash(e::ExtractEntry, h::UInt) = hash(e.groups, hash(e.dir, h))
 
 """
     Selection
 
 What the user chose, in a form that survives a restart: remote paths relative to
 the remote root, split into the ones to copy and the ones to link, plus the
-detectors to extract from individual runs. Only the nodes carrying an explicit
+detectors to extract from runs or whole periods. Only the nodes carrying an explicit
 mode are listed; the tree is reconstructed by expanding those paths again.
 """
 struct Selection
@@ -91,6 +91,14 @@ Choose `mode` for `node` and drop the explicit modes below it, so that the
 subtree follows the new choice. The one survivor is a `:copy` under a `:link`:
 that combination is how a few files are pulled out of an otherwise linked
 directory.
+
+A copy or link mark and an extract mark never cover the same run. Marking a
+detector row `:extract` throws when its run or period directory, a directory above
+it, or (for a period-level row) any listed run of the period that holds the detector is
+copied or linked; runs that do not hold it are ignored.
+Marking a production, section or directory `:copy` or `:link` throws when a marked
+detector row is below it or when a marked period-level row lists it as a holder.
+Single files and filekey groups can still be copied inside an extracted run.
 """
 function set_mode!(node::Node, mode::Symbol)
     mode in (:none, :copy, :link, :extract) || throw(ArgumentError(
@@ -99,11 +107,59 @@ function set_mode!(node::Node, mode::Symbol)
         "only detector rows can be extracted, not the :$(node.kind) row $(node.label)"))
     mode in (:copy, :link) && node.kind in (:detectors, :detector) && throw(ArgumentError(
         "detector rows have no path on the host; use :extract, not :$mode, on $(node.label)"))
-    mode == :extract && effective_mode(node.parent.parent) in (:copy, :link) && throw(ArgumentError(
-        "the run $(node.parent.parent.label) is already transferred whole; cannot extract $(node.label)"))
+    if mode == :extract
+        dir = node.parent.parent
+        # A period-level row concerns the period and only the runs that hold the detector.
+        held = Set(first(h) for h in node.holders)
+        scope = period_level(dir) ? vcat(dir, filter(r -> r.remote_path in held, run_dirs(dir))) : [dir]
+        for scoped in scope
+            effective_mode(scoped) in (:copy, :link) || continue
+            owner = scoped
+            while owner.mode == :none
+                owner = owner.parent
+            end
+            throw(ArgumentError("cannot extract $(node.label) from $(dir.label): " *
+                "$(scoped.label) is already transferred whole (:$(owner.mode) on $(owner.label))"))
+        end
+    elseif mode in (:copy, :link) && node.kind in (:production, :section, :dir)
+        marked = extract_conflict(node)
+        marked === nothing || throw(ArgumentError(
+            "cannot mark $(node.label) :$mode: detector $(marked.label) of " *
+            "$(marked.parent.parent.label) is marked for extraction; unmark the detector first"))
+    end
     node.mode = mode
     clear_descendants!(node, mode)
     node
+end
+
+# The first detector row in the listed subtree of `node` that is marked for extraction.
+function subtree_extract(node::Node)
+    node.kind == :detector && node.mode == :extract && return node
+    node.children === nothing && return nothing
+    for child in node.children
+        found = subtree_extract(child)
+        found === nothing || return found
+    end
+    nothing
+end
+
+# A marked detector row that covers part of `node`: one in its subtree, or a marked
+# period-level row above it that lists the path of `node` among its holders.
+function extract_conflict(node::Node)
+    found = subtree_extract(node)
+    found === nothing || return found
+    ancestor = node.parent
+    while ancestor !== nothing
+        i = ancestor.children === nothing ? nothing : findfirst(c -> c.kind == :detectors, ancestor.children)
+        if i !== nothing && ancestor.children[i].children !== nothing
+            for row in ancestor.children[i].children
+                row.mode == :extract && any(held -> first(held) == node.remote_path, row.holders) &&
+                    return row
+            end
+        end
+        ancestor = ancestor.parent
+    end
+    nothing
 end
 
 function clear_descendants!(node::Node, mode::Symbol)
@@ -126,9 +182,14 @@ its own. A node that carries its own mode simply loses it, along with the
 explicit modes below it.
 """
 function exclude!(node::Node)
-    # Detector rows without an own mode inherit the run's mode, which cannot be split per detector.
-    node.kind in (:detectors, :detector) && node.mode == :none && effective_mode(node) != :none &&
-        throw(ArgumentError("cannot exclude detector row $(node.label); unmark the run instead"))
+    # Detector rows without an own mode inherit the mode of their run or period, which cannot be split per detector.
+    if node.kind in (:detectors, :detector) && node.mode == :none && effective_mode(node) != :none
+        covering = covering_extract(node)
+        throw(ArgumentError(covering === nothing ?
+            "cannot exclude detector row $(node.label); unmark the run instead" :
+            "cannot exclude detector row $(node.label): it is extracted for the whole period; " *
+            "unmark the period row $(covering.remote_path) instead"))
+    end
     effective_mode(node) == :none && return node
     node.mode == :none || return set_mode!(node, :none)
     ancestors = Node[]
@@ -204,7 +265,7 @@ function collect_modes!(node::Node, p::Production, copies::Vector{String},
                         links::Vector{String}, extracts::Dict{String,Vector{String}})
     node.mode == :copy && push!(copies, relative(p, node.remote_path))
     node.mode == :link && push!(links, relative(p, node.remote_path))
-    # A detector row hangs below the run's `detectors` node, so its run is two levels up.
+    # A detector row hangs below the `detectors` node of its run or period directory, so that directory is two levels up.
     node.mode == :extract && push!(get!(extracts, relative(p, node.parent.parent.remote_path), String[]),
                                    node.label)
     node.children === nothing && return nothing
@@ -250,15 +311,18 @@ selection_propdict(sel::Selection) = PropDict(
     :mount_root => sel.mount_root === nothing ? "" : sel.mount_root,
     :copy => sel.copy,
     :link => sel.link,
-    :extract => [PropDict(:run_dir => e.run_dir, :groups => e.groups) for e in sel.extract],
+    :extract => [PropDict(:dir => e.dir, :groups => e.groups) for e in sel.extract],
     :created => string(sel.created),
 )
 
 function Selection(props::PropDict)
     mount = String(props.mount_root)
-    # readprops returns array elements as plain dictionaries with string keys.
+    # readprops returns array elements as plain dictionaries with string keys;
+    # `run_dir` is accepted as an alias for `dir`.
     extract = haskey(props, :extract) ?
-              [ExtractEntry(String(e["run_dir"]), String.(e["groups"])) for e in props.extract] :
+              [ExtractEntry(String(haskey(e, "dir") ? e["dir"] : get(e, "run_dir") do
+                                      throw(ArgumentError("extract entry without a \"dir\" key: $e"))
+                                  end), String.(e["groups"])) for e in props.extract] :
               ExtractEntry[]
     Selection(String(props.host), String(props.production),
               String(props.remote_root), String(props.local_root),
@@ -301,8 +365,8 @@ end
 Expand `root` along every path in `sel` and set the modes it records, including
 the detectors of every extract entry (which are listed with the remote helper). The
 overlay configs of `p` are copied with the production but are not nodes of its tree,
-so they are skipped. A recorded detector group that is not in the first file of its
-run is an error.
+so they are skipped. A recorded detector that is not in the first file of its run, or
+in no run of its period, is an error.
 """
 function apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selection;
                           helper::HelperConfig = HelperConfig(), jobs::Integer = 0)
@@ -314,12 +378,13 @@ function apply_selection!(h::RemoteHost, p::Production, root::Node, sel::Selecti
         set_mode!(find_node!(h, p, root, rel), :copy)
     end
     for entry in sel.extract
-        run = find_node!(h, p, root, entry.run_dir)
-        detectors = expand_detectors!(h, helper, ensure_detectors!(run); jobs)
+        dir = find_node!(h, p, root, entry.dir)
+        detectors = expand_detectors!(h, helper, ensure_detectors!(dir); jobs)
         for group in entry.groups
             i = findfirst(c -> c.label == group, detectors.children)
             i === nothing && throw(ArgumentError(
-                "detector group $group of $(entry.run_dir) is not in the first file of the run"))
+                "detector group $group of $(entry.dir) is not in " *
+                (period_level(dir) ? "any run of the period" : "the first file of the run")))
             set_mode!(detectors.children[i], :extract)
         end
     end

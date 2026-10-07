@@ -77,9 +77,9 @@
         set_mode!(detectors.children[1], :extract)
         @test detectors.children[1].mode == :extract
         @test effective_mode(detectors.children[1]) == :extract
-        # Copying the whole run supersedes the extraction below it.
-        set_mode!(node, :copy)
-        @test detectors.children[1].mode == :none
+        # A run with an extracted detector cannot be copied whole.
+        @test_throws "detector B00000C of r000 is marked for extraction" set_mode!(node, :copy)
+        @test node.mode == :none && detectors.children[1].mode == :extract
     end
 
     @testset "detector rows take no :copy or :link" begin
@@ -122,15 +122,15 @@
     end
 
     @testset "ExtractEntry rejects paths that leave the remote root and empty groups" begin
-        @test_throws "run_dir must be relative, got /abs/run" ExtractEntry("/abs/run", ["a"])
-        @test_throws "run_dir must not contain .., got a/../b" ExtractEntry("a/../b", ["a"])
-        @test_throws "run_dir must not contain .., got .." ExtractEntry("..", ["a"])
-        @test_throws "no groups for run_dir run" ExtractEntry("run", String[])
+        @test_throws "dir must be relative, got /abs/run" ExtractEntry("/abs/run", ["a"])
+        @test_throws "dir must not contain .., got a/../b" ExtractEntry("a/../b", ["a"])
+        @test_throws "dir must not contain .., got .." ExtractEntry("..", ["a"])
+        @test_throws "no groups for dir run" ExtractEntry("run", String[])
         good = Selection("local", "xprod", EXTRACT_ROOT, local_root, nothing, String[], String[], now(),
                          [ExtractEntry("good/run", ["a"])])
         path = save_selection(joinpath(mktempdir(), "bad.json"), good)
         write(path, replace(read(path, String), "good/run" => "/etc"))
-        @test_throws "run_dir must be relative, got /etc" load_selection(path, p)
+        @test_throws "dir must be relative, got /etc" load_selection(path, p)
     end
 
     @testset "extract entries round trip through a file" begin

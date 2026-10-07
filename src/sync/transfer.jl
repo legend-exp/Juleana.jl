@@ -201,11 +201,11 @@ function plan_extraction(h::RemoteHost, p::Production, sel::Selection, staging::
     stage = staging_production_dir(staging, p)
     plan = ExtractJob[]
     for entry in sel.extract
-        dir = joinpath(p.remote_root, entry.run_dir)
+        dir = joinpath(p.remote_root, entry.dir)
         for file in sort!(list_dir(h, dir); by = e -> e.name)
             id = tier_file_id(file.name)
             (file.kind == :file && id !== nothing && first(id) == :filekey) || continue
-            rel = joinpath(entry.run_dir, file.name)
+            rel = joinpath(entry.dir, file.name)
             destination = joinpath(stage, rel)
             startswith(destination, stage * "/") || throw(ErrorException(
                 "extraction destination $destination is not below the staging directory $stage"))
