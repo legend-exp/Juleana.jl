@@ -137,8 +137,8 @@ top-level directory recursively.
       layout (jl-v0.8.0 on viper, for example `jlpks`) the same walk lists the
       detectors.
 - [ ] On a detector row, `space`, `l` and `n` only report "use x" or "n applies to
-      run directories". `x` on a detector of a run marked `space` reports "run is
-      transferred whole".
+      run directories". `x` on a detector of a run marked `space` reports `... is
+      already transferred whole`.
 - [ ] Mark one detector with `x`; the status bar shows `~... extract (N files)`.
       `e` shows the exact size (within a few percent of N times the row's size)
       and the line `staging <dir>: ... free`.
@@ -178,10 +178,28 @@ top-level directory recursively.
 
 ### Tier/detector layout and period selection
 
-- [ ] On a jl-v0.8.0 production (`jlpks` or `jldsp` in the `<tier>/<detector>` layout), open a run's `detectors` row: the detectors are listed with sizes. Extract one detector of one run: the local file has the tier group (`HDF5.h5open(file) do f; keys(f); end` shows only the tier) with the chosen child, and the tier group's attributes equal the source's.
-- [ ] On an older production in the `<detector>/<tier>` layout, the same steps list and extract top-level groups. A file in the mirror from an earlier extraction is still accepted and is rebuilt with the union when another detector is added.
-- [ ] Open a period directory (`p18`): a `detectors` row appears; opening it takes a few seconds per run and lists the union of the detectors. A category directory (`cal`) has no such row. Record the time for a period with many runs.
-- [ ] Mark one detector on the period row: the status bar shows `~... extract (N files)` with N the files of all runs that hold it. Open one run's `detectors` row: the detector shows `[e]` and `x` on it reports that it is extracted for the whole period.
-- [ ] `space` on the period or on one of its runs while the detector is marked reports `cannot mark ... :copy` and names the detector; unmark the detector, mark the run with `space`, then `x` on a period row reports `... is already transferred whole`.
-- [ ] A detector that one run of the period lacks: `e` lists `<detector> in <run>` as "not in run"; `t` extracts the other runs and the summary repeats the line. A run that holds none of the chosen detectors has no files in the mirror.
-- [ ] Save, quit, and re-run headless with `--from`: the period entry is applied without the interface and gives the same extraction.
+- [ ] On a jl-v0.8.0 production (`jlpks` or `jldsp` in the `<tier>/<detector>`
+      layout), open a run's `detectors` row: the detectors are listed with sizes.
+      Extract one detector of one run: the local file has the tier group
+      (`HDF5.h5open(file) do f; keys(f); end` shows only the tier) with the chosen
+      child, and the tier group's attributes equal the source's.
+- [ ] On an older production in the `<detector>/<tier>` layout, the same steps list
+      and extract top-level groups. A file in the mirror from an earlier extraction
+      is still accepted and is rebuilt with the union when another detector is
+      added.
+- [ ] Open a period directory (`p18`): a `detectors` row appears; opening it takes a
+      few seconds per run and lists the union of the detectors. A category directory
+      (`cal`) has no such row. Record the time for a period with many runs.
+- [ ] Mark one detector on the period row: the status bar shows `~... extract (N
+      files)` with N the files of all runs that hold it. Open one run's `detectors`
+      row: the detector shows `[e]` and `x` on it reports that it is extracted for
+      the whole period.
+- [ ] `space` on the period or on one of its runs while the detector is marked
+      reports `cannot mark ... :copy` and names the detector; unmark the detector,
+      mark the run with `space`, then `x` on a period row reports `... is already
+      transferred whole`.
+- [ ] A detector that one run of the period lacks: `e` lists `<detector> in <run>`
+      as "not in run"; `t` extracts the other runs and the summary repeats the line.
+      A run that holds none of the chosen detectors has no files in the mirror.
+- [ ] Save, quit, and re-run headless with `--from`: the period entry is applied
+      without the interface and gives the same extraction.

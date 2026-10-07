@@ -196,9 +196,10 @@ their original names and sit at their original paths in the mirror. Both group
 layouts of the productions are supported and need no setting: `<detector>/<tier>`
 (the top-level groups are the detectors, as in jl-v0.4.0) and `<tier>/<detector>` (one
 top-level group named after the tier whose children are the detectors, as in
-jl-v0.8.0). The tool decides per file: if a top-level group name is a detector name (a detector id such as B00000C or a channel id such as ch1110402),
-the top-level groups are the detectors; otherwise, if the file has exactly one
-top-level group and one of its children is a detector name, the children are the
+jl-v0.8.0). The tool decides per file: if a top-level group name is a detector name
+(a detector id such as B00000C or a channel id such as ch1110402), the top-level
+groups are the detectors; otherwise, if the file has exactly one top-level group and
+one of its children is a detector name, the children are the
 detectors; otherwise the file has no detector axis (`jlevt`, `jlskm`, `jlpmt`). A
 reduced file of the second layout contains the tier group with its attributes and the
 chosen children.
@@ -218,10 +219,14 @@ approximate extracted size (`~1.2 G extract (2 files)`: the sizes in the first f
 times the number of files); `e` inspects every file and shows the exact size, the
 free space of the staging directory and the detectors left out (see below).
 `space`, `l` and `n` on a detector row only point to `x`. A copy or link mark and an
-extract mark never cover the same run: marking a run, a period or a directory above
-them with `space` or `l` while a detector below it is marked for extraction, and
-marking a detector while its run, its period or a directory above is copied or
-linked, are refused with a status line that names both marks. Filekey rows of the same
+extract mark never cover the same run. A run-level detector mark is refused while its
+run, its period or a directory above is copied or linked. A period-level detector mark
+is refused while any run that holds the detector, or the period or a directory above,
+is copied or linked; runs that do not hold the detector do not matter. Marking a run,
+a period or a directory above them with `space` or `l` is refused while a detector
+mark below covers that run (a period-level mark covers the runs that hold the
+detector). The status line names the detector, its directory and the mark that blocks
+it. Filekey rows of the same
 run can still be marked for copying: a file that is copied whole is left out of the
 extraction. A directory whose first files have no detector axis has no `detectors`
 row after the inspection. The detector list of a run comes from its first file; if a
@@ -231,8 +236,8 @@ naming the detector and the file.
 When a detector is extracted for a period and a run does not hold it, that run is
 left out for that detector and the pair is reported as "not in run" (in the exact
 estimate, the headless estimate and the summary, as `<detector> in <run>`). A run
-that holds none of the chosen detectors gets no job. Nothing else is skipped
-silently.
+that holds none of the chosen detectors gets no job. Nothing else is left out of the
+extraction without a message, except files that a copy mark already covers.
 
 Extraction runs on the host. A helper script (`src/sync/remote/extract.jl`) is
 copied to the staging directory and run with the host's Julia. It copies the chosen
@@ -367,7 +372,8 @@ through the mount. With the mount absent, opening a linked file fails with
 
 It never writes to a remote data production, never deletes local data, and never
 rewrites the mirrored `config.json`. On the remote host it writes only below its own
-staging directory, and the only files it removes there are the ones it staged.
+staging directory, apart from the Julia environment it offers to create (see above),
+and the only files it removes there are the ones it staged.
 Locally, the only things it removes are symlinks: one standing where a real copy is
 about to land, and one standing where a fresh link is about to replace it. A regular
 file or a directory is never removed. The one exception to never replacing a file is
