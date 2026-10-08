@@ -1,6 +1,26 @@
-function menu()        
+# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+
+"""
+    menu(session::DataflowSession)
+
+Show the interactive dataflow menu, perform the selected action on `session`, and
+return. The actions are:
+
+1. Execute processors: select run and partition processors and options, then run them
+   (or only inspect their reports with `check_report`).
+2. Select periods, 3. Select runs: change the selection and rebuild the dependency graph.
+4. Reload processing config: read the config file again with the original command line
+   options and rebuild the steps and the dependency graph.
+5. Reset dependency graph: rebuild the dependency graph for the enabled steps.
+6. Submit workers: start workers for the configured run mode.
+7. Exit: return without action.
+
+Processor functions are package code; with Revise loaded, edits to `src/processors/`
+take effect at the next menu call.
+"""
+function menu(session::DataflowSession)
     # main menu options
-    options = ["Execute processors", "Reload processors", "Select periods", "Select runs", "Reload processing config", "Reset dependency graph", "Submit workers", "Exit"]
+    options = ["Execute processors", "Select periods", "Select runs", "Reload processing config", "Reset dependency graph", "Submit workers", "Exit"]
     # main menu
     choice = try
         println()
@@ -13,51 +33,49 @@ function menu()
         @error "Abort: $e"
         return
     end
-    # reload all processors from files
-    if choice == 5
-        global l200, processing_config, runs, periods
-        l200, processing_config, runs, periods = get_processingconfig()
-        check_processor_kwargs(processing_config, Main)
-        @info "Reloaded processing config"
-        global process_steps, p_process_steps
-        process_steps, p_process_steps = run_steps(processing_config), partition_steps(processing_config)
-        global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
-        @info "Necessary reload of dependency graph"
-    # redefine periods per user choice
-    elseif choice == 3
-        global periods
+    if choice == 1
+        Base.exit_on_sigint(false)
         try
-            possible_periods = get_available_periods(l200)
-            periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in periods, possible_periods)], ctrl_c_interrupt = true)
+            execute_processors(session)
+        catch e
+            e = onlyfirst_exception(e)
+            if e isa TaskFailedException
+                e = e.task.exception
+            end
+            @error "Error in `execute_processors`: $(truncate_string(string(e)))"
+        end
+        Base.exit_on_sigint(true)
+    # redefine periods per user choice
+    elseif choice == 2
+        try
+            possible_periods = get_available_periods(session.l200)
+            periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in session.periods, possible_periods)], ctrl_c_interrupt = true)
             selected_periods = collect(request("Select periods to be executed:", periods_menu))
-            periods = possible_periods[selected_periods]
+            session.periods = possible_periods[selected_periods]
         catch e
             println()
             @error "Abort: $e"
             return
         end
-        @info "Selected periods: $periods"
-        global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
+        @info "Selected periods: $(session.periods)"
+        reset_dependency_graph!(session)
         @info "Reloaded dependency graph"
-    elseif choice == 4
-        global runs
+    elseif choice == 3
         try
-            possible_runs = if isempty(periods)
+            possible_runs = if isempty(session.periods)
                 @warn "No periods selected"
                 DataRun[]
             else
-                if length(periods) > 1
+                if length(session.periods) > 1
                     @warn "More than one period selected, choosing first to get runs"
                 end
-                get_available_runs(l200, first(periods))
+                get_available_runs(session.l200, first(session.periods))
             end
-            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> isnothing(runs) || x in runs, possible_runs)], ctrl_c_interrupt = true)
+            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> isnothing(session.runs) || x in session.runs, possible_runs)], ctrl_c_interrupt = true)
             selected_runs = collect(request("Select runs to be executed:", runs_menu))
-            runs = possible_runs[selected_runs]
-            if length(runs) == length(possible_runs)
-                runs = nothing
+            session.runs = possible_runs[selected_runs]
+            if length(session.runs) == length(possible_runs)
+                session.runs = nothing
                 @info "All runs selected."
             end
         catch e
@@ -65,49 +83,39 @@ function menu()
             @error "Abort: $e"
             return
         end
-        @info "Selected periods: $periods"
-        global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
+        @info "Selected periods: $(session.periods)"
+        reset_dependency_graph!(session)
         @info "Reloaded dependency graph"
-    # reload processors from all processor files
-    elseif choice == 2
-        r = include.(filter(contains(r"\.jl$"), readdir(joinpath(dirname(@__DIR__), "processors/"); join=true)))
-        @info "Reloaded processors: $r"
-    # reload dependency graph
+    # reload the config file with the original command line options
+    elseif choice == 4
+        l200, config, periods = get_processingconfig(session.args)
+        check_processor_kwargs(config)
+        session.l200, session.config, session.periods, session.runs = l200, config, periods, config.runs
+        session.process_steps, session.p_process_steps = selected_steps(config)
+        @info "Reloaded processing config"
+        reset_dependency_graph!(session)
+        @info "Necessary reload of dependency graph"
+    elseif choice == 5
+        reset_dependency_graph!(session)
+        @info "Reloaded dependency graph"
+    # add workers according to the run mode settings
     elseif choice == 6
-        global process_status, p_process_status
-        process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
-        @info "Reloaded dependency graph"
-    # add workers according to slurm settings
-    elseif choice == 7
-        @async runworkers(runmode)
+        @async runworkers(runprocs_mode(session.config))
         @info "Submitted workers"
-    # execute processing steps
-    elseif choice == 1
-        Base.exit_on_sigint(false)
-        try
-            execute_processors()
-        catch e
-            e = ParallelProcessingTools.onlyfirst_exception(e)
-            if e isa TaskFailedException
-                e = e.task.exception
-            end
-            @error "Error in `execute_processors`: $(truncate_string(string(e)))"
-        end
-        Base.exit_on_sigint(true)
     end
+    return nothing
 end
 
-function execute_processors()
+function execute_processors(session::DataflowSession)
     # create menus for processing steps
-    possible_steps = run_steps(processing_config; enabled_only = false)
-    possible_p_steps = partition_steps(processing_config; enabled_only = false)
+    possible_steps = run_steps(session.config; enabled_only = false)
+    possible_p_steps = partition_steps(session.config; enabled_only = false)
     process_steps, p_process_steps, additional_args = try
         steps_menu = MultiSelectMenu(String.(possible_steps), ctrl_c_interrupt = true)
         p_steps_menu = MultiSelectMenu(String.(possible_p_steps), ctrl_c_interrupt = true)
         additional_args = ["reprocess", "no-reprocess", "check_dependencies", "check_report"]
         additional_args_menu = MultiSelectMenu(additional_args, ctrl_c_interrupt = true)
-    
+
         # processing steps menu to select and deselect
         # `possible_steps` is sorted by rank, so sorted indices keep the rank order
         process_steps = possible_steps[sort!(collect(request("Select processing steps to be executed:", steps_menu)))]
@@ -125,21 +133,21 @@ function execute_processors()
         @error "Abort: $e"
         return
     end
-    
+
     if isempty(process_steps) && isempty(p_process_steps)
         @warn "No processing steps selected"
         return
     else
         # only inspect the reports of the selected steps and return without processing
         if "check_report" in additional_args
-            check_reports(process_steps, p_process_steps)
+            check_reports(session, process_steps, p_process_steps)
             return
         end
 
         if "check_dependencies" in additional_args
             # only the selected steps start as unfinished in the dependency graph
-            global process_status, p_process_status
-            process_status, p_process_status = setup_dependency_graph(l200, processing_config, periods, runs, process_steps, p_process_steps)
+            session.process_status, session.p_process_status = setup_dependency_graph(
+                session.l200, session.config, session.periods, session.runs, process_steps, p_process_steps)
         end
 
         if "reprocess" in additional_args && "no-reprocess" in additional_args
@@ -147,8 +155,9 @@ function execute_processors()
             return
         end
         reprocess = "reprocess" in additional_args ? true : "no-reprocess" in additional_args ? false : nothing
-        run_processing(processing_config, l200, periods, process_steps, p_process_steps, process_status, p_process_status;
-            mod = Main, check_dependencies = "check_dependencies" in additional_args, reprocess)
+        run_processing(session.config, session.l200, session.periods, process_steps, p_process_steps,
+            session.process_status, session.p_process_status;
+            check_dependencies = "check_dependencies" in additional_args, reprocess)
     end
 end
 
@@ -198,8 +207,15 @@ function get_report_failures(filename::AbstractString)
     return n_entries, n_failed, failures
 end
 
-# print all failed detectors in the reports of the selected process steps for the selected periods and runs
-function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Symbol})
+"""
+    check_reports(session::DataflowSession, process_steps, p_process_steps)
+
+Print, for every step in `process_steps` (run level) and `p_process_steps` (partition
+level), one line per report of the session's periods and runs with its failed entries,
+followed by a summary of the failed detectors and their errors.
+"""
+function check_reports(session::DataflowSession, process_steps::AbstractVector{Symbol}, p_process_steps::AbstractVector{Symbol})
+    (; l200, config, periods, runs) = session
     # print one line per report and collect the failed detectors and their errors for the summary
     function check_report(label::String, filename::AbstractString, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
         if !isfile(filename)
@@ -242,7 +258,7 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
     # reports written per run
     for process in process_steps
         report = Symbol("$(last(split(string(process), "process_")))")
-        category = processing_config.processors[process].category
+        category = config.processors[process].category
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
@@ -263,7 +279,7 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
     # reports written per partition, i.e. one per period
     for process in p_process_steps
         report = Symbol("$(last(split(string(process), "process_")))")
-        category = processing_config.p_processors[process].category
+        category = config.p_processors[process].category
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()

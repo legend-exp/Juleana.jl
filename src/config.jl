@@ -1,11 +1,20 @@
-# process parsed arguments for the main function
-function get_argparse()
+# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+
+"""
+    parse_commandline(args::AbstractVector{<:AbstractString})
+
+Parse the command line options of the dataflow driver and return them as a
+`Dict{String,Any}`. Repeated `--periods`/`--runs` options give one vector per
+occurrence. With `--help` or `--version`, ArgParse prints the text and exits the
+process in a non-interactive session; in an interactive session it returns `nothing`.
+"""
+function parse_commandline(args::AbstractVector{<:AbstractString})
     settings = ArgParseSettings(prog="LEGEND Julia main data processing",
                             description="LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
                             commands_are_required = true,
                             version = "1.0",
                             add_version = true)
-    @add_arg_table settings begin
+    @add_arg_table! settings begin
         "--config", "-c"
             help = "path to config file"
             arg_type = String
@@ -49,11 +58,22 @@ function get_argparse()
             arg_type = Int
             action = :append_arg
     end
-    parse_args(settings)
+    return parse_args(collect(String, args), settings)
 end
 
-function get_processingconfig()
-    parsed_args = get_argparse()
+"""
+    get_processingconfig(parsed_args::AbstractDict)
+
+Build the processing setup from the output of [`parse_commandline`](@ref) and return
+`(l200, processing_config, periods)`.
+
+Reads the config file, applies the command line overrides, sets `ENV` from the
+config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)`,
+and creates the log directory: `--log_path` when given, otherwise a time-stamped
+directory in the `jllog` tier. `periods` are the selected periods that are available
+on disk, or all available periods when the config selects all.
+"""
+function get_processingconfig(parsed_args::AbstractDict)
     config_dict = readlprops(parsed_args["config"])
     # command line overrides; repeated `--periods`/`--runs` options are concatenated
     cli = (;
@@ -76,7 +96,7 @@ function get_processingconfig()
     @info "Loading Legend MetaData"
     l200 = LegendData(:l200)
 
-    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], string(Dates.now())) : parsed_args["log_path"])
+    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], string(now())) : parsed_args["log_path"])
     processing_config = ProcessingConfig(config_dict; cli..., log_path)
     @info "Log path: $log_path"
 
@@ -98,7 +118,7 @@ function get_processingconfig()
     runs = processing_config.runs
     @info isnothing(runs) ? "Process all runs on disk for each period" : "Process runs: $(string.(runs))"
 
-    return l200, processing_config, runs, periods
+    return l200, processing_config, periods
 end
 
 """
@@ -150,18 +170,19 @@ end
 
 
 # The status of a step starts as finished unless the step is in `process_steps` or
-# `p_process_steps`, so only the selected steps are waited for.
+# `p_process_steps`, so only the selected steps are waited for. Periods without
+# processable runs are removed from `periods`.
 function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::Vector{DataPeriod}, runs::Union{Vector{DataRun}, Nothing},
         process_steps::Vector{Symbol}, p_process_steps::Vector{Symbol})
     # get all possible steps
     possible_steps = run_steps(processing_config; enabled_only = false)
     # generate process status with all possible steps for all possible runs in all periods
-    process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}}()
+    process_status = RunStatus()
 
     # check if each period contains any runs at all
     processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> get_processable_runs.(Ref(l200), periods, Ref(runs)))
     filter!(p -> !isempty(processable_runs_dict[p]), periods)
-    
+
     # fill
     for period in periods
         # get all processable runs
@@ -172,7 +193,7 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     # get all possible steps for partition processing
     possible_p_steps = partition_steps(processing_config; enabled_only = false)
     # generate process status with all possible steps for all possible runs in all periods
-    p_process_status = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, Bool}}()
+    p_process_status = PartitionStatus()
     for period in periods
         p_process_status[period] = ConcurrentDict{Symbol, Bool}([step => !(step in p_process_steps) for step in possible_p_steps])
     end

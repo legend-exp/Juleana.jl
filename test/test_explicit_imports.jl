@@ -5,11 +5,18 @@ import ExplicitImports
 import Juleana
 
 Test.@testset "ExplicitImports" begin
-    # The Logging interface methods are documented extension points but are not
-    # marked public in the Logging stdlib. `Base.kwarg_decl` is the only way to list
-    # the keyword arguments a method declares (used by `check_processor_kwargs`).
     ExplicitImports.test_explicit_imports(
         Juleana;
-        ignore = (:catch_exceptions, :handle_message, :min_enabled_level, :shouldlog, :kwarg_decl)
+        ignore = (
+            # Logging interface methods: documented extension points, not marked public.
+            :catch_exceptions, :handle_message, :min_enabled_level, :shouldlog,
+            # The only way to list the keywords a method declares (`check_processor_kwargs`).
+            :kwarg_decl,
+            # Evaluated in `Main` on every process by `@always_everywhere` in `main`.
+            :init_process,
+            # Non-public names of the LEGEND and utility packages used by the processors.
+            :fast_flatten, :set_timelimit, :_fix_vov, :AchatBlue, :BEGeOrange, :CoaxGreen,
+            :add_watermarks!, :parameterplot!, :tottime, :totallocated, :format_bytes,
+        )
     )
 end # testset

@@ -10,10 +10,9 @@ const CONFIG_DIR = joinpath(dirname(@__DIR__), "config")
 stringdict(x) = x
 stringdict(d::AbstractDict) = Dict{String,Any}(string(k) => stringdict(v) for (k, v) in d)
 
-module KwargsCheck
-    process_a(cfg, l200, period, run; reprocess::Bool = false, timeout::Int = 0) = nothing
-    p_process_b(cfg, l200, period; kwargs...) = true
-end
+process_a(cfg, l200, period, run; reprocess::Bool = false, timeout::Int = 0) = nothing
+p_process_b(cfg, l200, period; kwargs...) = true
+const STUB_PROCESSORS = Dict{Symbol,Function}(:process_a => process_a, :p_process_b => p_process_b)
 
 @testset "processing config" begin
     json = ProcessingConfig(joinpath(CONFIG_DIR, "processing_config.json"))
@@ -117,14 +116,21 @@ end
         d = deepcopy(base)
         d["processors"] = Dict{String,Any}("process_a" => processor("reprocess" => true, "timeout" => 1))
         d["p_processors"] = Dict{String,Any}("p_process_b" => processor("anything" => 1))
-        @test isnothing(check_processor_kwargs(ProcessingConfig(d), KwargsCheck))
+        @test isnothing(check_processor_kwargs(ProcessingConfig(d); processors = STUB_PROCESSORS))
 
         d["processors"]["process_a"]["kwargs"]["only_pulser"] = true
-        @test_throws "`process_a` does not accept keyword(s) only_pulser" check_processor_kwargs(ProcessingConfig(d), KwargsCheck)
+        @test_throws "`process_a` does not accept keyword(s) only_pulser" check_processor_kwargs(ProcessingConfig(d); processors = STUB_PROCESSORS)
         d["processors"]["process_missing"] = processor()
-        @test_throws "`process_missing` is not defined" check_processor_kwargs(ProcessingConfig(d), KwargsCheck)
+        @test_throws "`process_missing` is not a registered processor" check_processor_kwargs(ProcessingConfig(d); processors = STUB_PROCESSORS)
         d["processors"]["process_missing"]["enabled"] = false
         d["processors"]["process_a"]["kwargs"] = Dict{String,Any}()
-        @test isnothing(check_processor_kwargs(ProcessingConfig(d), KwargsCheck))
+        @test isnothing(check_processor_kwargs(ProcessingConfig(d); processors = STUB_PROCESSORS))
+    end
+
+    @testset "registered processors" begin
+        @test isnothing(check_processor_kwargs(json))
+        processors = run_steps(json; enabled_only = false) ∪ partition_steps(json; enabled_only = false)
+        # `process_hit_cal` is a disabled config entry without a processor function
+        @test setdiff(processors, keys(Juleana.PROCESSORS)) == [:process_hit_cal]
     end
 end

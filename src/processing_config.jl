@@ -272,21 +272,21 @@ Names of the partition-level processors sorted by rank (ties by name); with
 partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.p_processors, enabled_only)
 
 """
-    check_processor_kwargs(cfg::ProcessingConfig, mod::Module)
+    check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol,<:Function} = PROCESSORS)
 
-Check that every enabled processor of `cfg` is a function defined in `mod` that
-accepts all keyword arguments configured in its `kwargs`. Throw an `ArgumentError`
-listing every mismatch; return `nothing` otherwise.
+Check that every enabled processor of `cfg` is registered in `processors` and that its
+function accepts all keyword arguments configured in its `kwargs`. Throw an
+`ArgumentError` listing every mismatch; return `nothing` otherwise.
 """
-function check_processor_kwargs(cfg::ProcessingConfig, mod::Module)
+function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol,<:Function} = PROCESSORS)
     problems = String[]
     for specs in (cfg.processors, cfg.p_processors), spec in values(specs)
         spec.enabled || continue
-        if !isdefined(mod, spec.name)
-            push!(problems, "`$(spec.name)` is not defined in $mod")
+        if !haskey(processors, spec.name)
+            push!(problems, "`$(spec.name)` is not a registered processor")
             continue
         end
-        declared = reduce(vcat, (Base.kwarg_decl(m) for m in methods(getfield(mod, spec.name))); init = Symbol[])
+        declared = reduce(vcat, (Base.kwarg_decl(m) for m in methods(processors[spec.name])); init = Symbol[])
         # A method with `kwargs...` accepts every keyword.
         any(k -> endswith(string(k), "..."), declared) && continue
         unsupported = sort!(collect(setdiff(keys(spec.kwargs), declared)))
