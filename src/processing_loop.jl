@@ -21,14 +21,15 @@ end
 
 """
     run_processing(cfg::ProcessingConfig, l200::LegendData, periods, process_steps, p_process_steps,
-        process_status, p_process_status; mod::Module, check_dependencies::Bool=true,
-        reprocess::Union{Nothing,Bool}=nothing, dependency_timeout::Real=24*3600)
+        process_status, p_process_status; processors::AbstractDict{Symbol,<:Function}=PROCESSORS,
+        check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
+        dependency_timeout::Real=24*3600)
 
 Run the partition-level steps `p_process_steps` for every period in `periods` and the
 run-level steps `process_steps` for every period and every run listed in
 `process_status`. Periods, runs, and the two levels run concurrently; the steps of one
 period (partition level) or one run (run level) run in order. Processor functions are
-looked up by name in `mod`.
+looked up by name in `processors`.
 
 `process_status[period][step][run]` and `p_process_status[period][step]` are set to
 `true` when a step finishes. A run step that is skipped because the run is not an
@@ -47,15 +48,19 @@ With `check_dependencies`:
 A wait that exceeds `dependency_timeout` seconds throws. When any task throws, the other
 tasks stop at their next wait, and the exceptions are rethrown once all tasks have
 stopped. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
-processor.
+processor. A step without an entry in `processors` throws an `ArgumentError` before any
+work starts.
 """
 function run_processing(
         cfg::ProcessingConfig, l200::LegendData, periods::AbstractVector{DataPeriod},
         process_steps::AbstractVector{Symbol}, p_process_steps::AbstractVector{Symbol},
         process_status::AbstractDict, p_process_status::AbstractDict;
-        mod::Module, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
+        processors::AbstractDict{Symbol,<:Function} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
         dependency_timeout::Real = 24 * 3600
     )
+    unregistered = filter(!in(keys(processors)), [process_steps; p_process_steps])
+    isempty(unregistered) ||
+        throw(ArgumentError("run_processing: unregistered processor(s) $(join(unregistered, ", "))"))
     abort = Threads.Atomic{Bool}(false)
     possible_steps = run_steps(cfg; enabled_only = false)
     possible_p_steps = partition_steps(cfg; enabled_only = false)
@@ -76,7 +81,7 @@ function run_processing(
             end
             only_first_period = DataPeriod(period.no - 1) in periods
             kwargs = merge(NamedTuple(spec.kwargs), (; only_first_period), overrides)
-            has_lower_period_dependency = getfield(mod, process)(cfg, l200, period; kwargs...)
+            has_lower_period_dependency = processors[process](cfg, l200, period; kwargs...)
             if has_lower_period_dependency && check_dependencies
                 previous = DataPeriod(period.no - 1)
                 wait_for("$process of $previous before finishing $period"; abort, timeout = dependency_timeout) do
@@ -106,7 +111,7 @@ function run_processing(
                         all(dep -> p_process_status[period][dep], deps)
                     end
                 end
-                getfield(mod, process)(cfg, l200, period, run; merge(NamedTuple(spec.kwargs), overrides)...)
+                processors[process](cfg, l200, period, run; merge(NamedTuple(spec.kwargs), overrides)...)
                 flush(stdout)
                 @info "Finished $period-$run $process"
             end

@@ -55,17 +55,33 @@ To enable the `debug` mode for fast and interactive dataflow debugging and testi
 ``` bash
 julia -i main.jl -c config/processing_config.json
 ```
-This will start a `debug` menu with the following options:
-- **Execute Processors**: Execute individual processors which can be selected from two sub-menus consisting of `processors` and `p-processors`. Additionally, the `reprocess` flag as well as a `check_dependency` flag can be set globally.
-- **Reload Processors**: Reload all processor scripts from disk. Good to modify scripts without exiting session.
-- **Select Periods**: Select periods which should be processed.
-- **Reload processing config**: Reload processing config and `argparse` new from disk. Good to modify `processor` and `p-processor` settings without exiting session.
-- **Reset dependency graph**: Reset the dependency graph and restore initial graph before any processing happened and recheck all dependencies.
-- **Submit Workers**: Submit new workers to the session. This can be useful to add new workers to the session without exiting the session.
-- **Exit**: Exit the debug menu and continue with the processing.
+In an interactive session, `main.jl` sets up the configuration, the workers and the dependency graph and leaves the resulting `DataflowSession` in the variable `session` instead of starting the processing. Open the `debug` menu with
+``` julia
+menu(session)
+```
+Each call performs one of the following actions on the session and returns:
+1. **Execute processors**: Execute individual processors which can be selected from two sub-menus consisting of `processors` and `p-processors`. Additionally, the `reprocess`/`no-reprocess` flags, a `check_dependencies` flag, and `check_report` (only summarize the failures in the existing reports of the selected processors) can be set.
+2. **Select periods**: Select periods which should be processed.
+3. **Select runs**: Select runs which should be processed (taken from the first selected period).
+4. **Reload processing config**: Read the processing config again from disk with the original command line options. Good to modify `processor` and `p-processor` settings without exiting session.
+5. **Reset dependency graph**: Reset the dependency graph and restore initial graph before any processing happened and recheck all dependencies.
+6. **Submit workers**: Start new workers for the configured run mode. This can be useful to add new workers to the session without exiting the session.
+7. **Exit**: Leave the menu without action.
 
-The `debug` menu can be exited with the `Ctrl+c` command.
-It can also be manually invoked by calling `menu()` in the julia REPL.
+The menu can be left with `Ctrl+c`. The processors are part of the `Juleana` package; when [Revise](https://github.com/timholy/Revise.jl) is loaded in the session, edits to the processor files take effect at the next `menu(session)` call.
+
+The same entry point is available from any Julia session as `using Juleana; session = Juleana.main(["-c", "config/processing_config.json"])`.
+
+# Processors
+Each processor is a function in its own file in `src/processors/`, included by `src/Juleana.jl`. Run processors have the signature `process_xxx(processing_config, l200, period, run; kwargs...)` and partition processors `p_process_xxx(processing_config, l200, period; kwargs...)`; a partition processor returns `true` when its period must wait for the same processor to finish for the previous period. Every processor file ends with a registration call, which adds the function to the processor registry `Juleana.PROCESSORS` under the name used in the processing config.
+
+To add a processor:
+1. Write the function in a new file `src/processors/process_xxx.jl` (or `p_process_xxx.jl` for a partition processor). Add explicit `using` imports to `src/Juleana.jl` for any new names it uses.
+2. Add `include("processors/process_xxx.jl")` to `src/Juleana.jl`.
+3. End the file with `register_processor!(:process_xxx, process_xxx)`.
+4. Add an entry `process_xxx` to the `processors` (or `p_processors`) section of the processing config, see below.
+
+When the dataflow starts, every enabled processor of the config must be registered and accept all of its configured `kwargs`, otherwise it stops with an error naming the processor.
 
 # Setup
 To set up the dataflow, you need to have a running `julia` configuration on a login node of a SLURM based cluster with the corresponding acces to the *LEGEND data*. To help you set this up, the folder `setup/` contains helper scripts based on `bash` to guide you through the setup process. 
@@ -162,7 +178,7 @@ The following fields are required:
 1. **`enabled`**: flag can be used to enable or disable the processor in the chain.
 2. **`rank`**: field can be used to set the rank of the processor in the chain. This can be useful if the order of the processing matters. The processors will be sorted by the rank and then processed in this order.
 3. **`category`**: `"cal"` or `"phy"`, tells the dataflow if the processor is acting on `cal` or `phy` data.
-4. **`kwargs`**: keyword arguments passed to the processor. Every enabled processor must accept all of its configured keywords; this is checked when the processors are loaded. The `--reprocess` command line flag sets `reprocess` to `true` for every processor.
+4. **`kwargs`**: keyword arguments passed to the processor. Every enabled processor must accept all of its configured keywords; this is checked when the dataflow starts. The `--reprocess` command line flag sets `reprocess` to `true` for every processor.
 5. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully. Every dependency must name a configured processor, and processor names must be unique across `processors` and `p_processors`.
 
 String lists in `processors.*.kwargs` and `p_processors.*.kwargs` are converted to

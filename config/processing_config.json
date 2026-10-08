@@ -23,7 +23,7 @@
         },
         "env_variables": {
             "GKSwstype": "100",
-            "JULIA_DEBUG": "Main,LegendSpecFits",
+            "JULIA_DEBUG": "Juleana,LegendSpecFits",
             "JULIA_WORKER_TIMEOUT": "240"
         }
     },
