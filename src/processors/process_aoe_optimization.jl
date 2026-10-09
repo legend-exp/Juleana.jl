@@ -210,7 +210,7 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_sg)]))
     lreport!(report, "Time of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
-    lreport!(report, sg_flt_optimization_log_text)
+    lreport!(report, sg_filter_optimization_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")

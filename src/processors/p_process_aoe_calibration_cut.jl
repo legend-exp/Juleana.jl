@@ -457,7 +457,7 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_aoe)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
-    lreport!(report, aoe_part_log_text)
+    lreport!(report, aoe_partition_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")

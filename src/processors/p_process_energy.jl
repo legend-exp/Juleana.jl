@@ -248,7 +248,7 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_energy)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
-    lreport!(report, energy_part_log_text)
+    lreport!(report, energy_partition_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")

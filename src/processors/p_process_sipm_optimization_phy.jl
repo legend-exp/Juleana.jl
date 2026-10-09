@@ -245,7 +245,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_sipm_optimization)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
-    lreport!(report, sipm_opt_log_text)
+    lreport!(report, sipm_optimization_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
