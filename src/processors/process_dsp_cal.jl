@@ -219,4 +219,4 @@ function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod
     flush(stdout)
 end
 
-register_processor!(:process_dsp_cal, process_dsp_cal)
+register_processor!(process_dsp_cal)

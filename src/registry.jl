@@ -11,15 +11,13 @@ config. Every file in `src/processors/` adds its processor with
 const PROCESSORS = Dict{Symbol,Function}()
 
 """
-    register_processor!(name::Symbol, f)
+    register_processor!(f)
 
-Add the processor function `f` to [`PROCESSORS`](@ref) under `name` and return `f`.
-Throw an `ArgumentError` when `name` is already registered or differs from
-`nameof(f)`.
+Add the processor function `f` to [`PROCESSORS`](@ref) under `nameof(f)` and return `f`.
+Throw an `ArgumentError` when a processor of that name is already registered.
 """
-function register_processor!(name::Symbol, f)
-    nameof(f) == name ||
-        throw(ArgumentError("register_processor!: name `$name` does not match function name `$(nameof(f))`"))
+function register_processor!(f)
+    name = nameof(f)
     haskey(PROCESSORS, name) &&
         throw(ArgumentError("register_processor!: processor `$name` is already registered"))
     PROCESSORS[name] = f

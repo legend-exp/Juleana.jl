@@ -278,4 +278,4 @@ function p_process_filter_optimization(processing_config, l200::LegendData, peri
     return any(x -> get(last(x), :skipped, false), values(result_flt))
 end
 
-register_processor!(:p_process_filter_optimization, p_process_filter_optimization)
+register_processor!(p_process_filter_optimization)

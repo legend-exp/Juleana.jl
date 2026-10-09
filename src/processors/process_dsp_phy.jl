@@ -363,4 +363,4 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
     flush(stdout)
 end
 
-register_processor!(:process_dsp_phy, process_dsp_phy)
+register_processor!(process_dsp_phy)

@@ -221,4 +221,4 @@ function process_peak_split(processing_config, l200::LegendData, period::DataPer
     flush(stdout)
 end # function
 
-register_processor!(:process_peak_split, process_peak_split)
+register_processor!(process_peak_split)

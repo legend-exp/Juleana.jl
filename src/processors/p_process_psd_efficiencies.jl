@@ -333,4 +333,4 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
     return any(x -> get(last(x), :skipped, false), values(result_psd))
 end
 
-register_processor!(:p_process_psd_efficiencies, p_process_psd_efficiencies)
+register_processor!(p_process_psd_efficiencies)

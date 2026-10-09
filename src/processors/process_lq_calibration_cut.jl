@@ -341,4 +341,4 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
     flush(stdout)
 end
 
-register_processor!(:process_lq_calibration_cut, process_lq_calibration_cut)
+register_processor!(process_lq_calibration_cut)

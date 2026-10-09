@@ -232,4 +232,4 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
     flush(stdout)
 end
 
-register_processor!(:process_sipm_calibration_phy, process_sipm_calibration_phy)
+register_processor!(process_sipm_calibration_phy)

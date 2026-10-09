@@ -225,4 +225,4 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
     flush(stdout)
 end
 
-register_processor!(:process_aoe_optimization, process_aoe_optimization)
+register_processor!(process_aoe_optimization)

@@ -119,4 +119,4 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     return true
 end
 
-register_processor!(:p_process_skm_phy, p_process_skm_phy)
+register_processor!(p_process_skm_phy)

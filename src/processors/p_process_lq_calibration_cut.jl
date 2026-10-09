@@ -373,4 +373,4 @@ function p_process_lq_calibration_cut(processing_config, l200::LegendData, perio
     return any(x -> get(last(x), :skipped, false), values(result_lq))
 end
 
-register_processor!(:p_process_lq_calibration_cut, p_process_lq_calibration_cut)
+register_processor!(p_process_lq_calibration_cut)

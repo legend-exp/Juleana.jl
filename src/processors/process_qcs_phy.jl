@@ -170,4 +170,4 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     flush(stdout)
 end
 
-register_processor!(:process_qcs_phy, process_qcs_phy)
+register_processor!(process_qcs_phy)

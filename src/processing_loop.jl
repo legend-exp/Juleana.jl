@@ -21,7 +21,7 @@ end
 
 """
     run_processing(cfg::ProcessingConfig, l200::LegendData, periods, process_steps, p_process_steps,
-        process_status, p_process_status; processors::AbstractDict{Symbol,<:Function}=PROCESSORS,
+        process_status, p_process_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
         dependency_timeout::Real=24*3600)
 
@@ -55,7 +55,7 @@ function run_processing(
         cfg::ProcessingConfig, l200::LegendData, periods::AbstractVector{DataPeriod},
         process_steps::AbstractVector{Symbol}, p_process_steps::AbstractVector{Symbol},
         process_status::AbstractDict, p_process_status::AbstractDict;
-        processors::AbstractDict{Symbol,<:Function} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
+        processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
         dependency_timeout::Real = 24 * 3600
     )
     unregistered = filter(!in(keys(processors)), [process_steps; p_process_steps])

@@ -409,4 +409,4 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
     flush(stdout)
 end
 
-register_processor!(:process_aoe_calibration_cut, process_aoe_calibration_cut)
+register_processor!(process_aoe_calibration_cut)

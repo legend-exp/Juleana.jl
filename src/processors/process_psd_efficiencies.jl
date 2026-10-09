@@ -272,4 +272,4 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
     flush(stdout)
 end
 
-register_processor!(:process_psd_efficiencies, process_psd_efficiencies)
+register_processor!(process_psd_efficiencies)

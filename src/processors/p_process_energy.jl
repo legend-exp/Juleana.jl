@@ -264,4 +264,4 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     return any(x -> get(last(x), :skipped, false), values(result_energy))
 end
 
-register_processor!(:p_process_energy, p_process_energy)
+register_processor!(p_process_energy)

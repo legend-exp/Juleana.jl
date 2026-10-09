@@ -261,4 +261,4 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
     return any(x -> get(last(x), :skipped, false), values(result_sipm_optimization))
 end
 
-register_processor!(:p_process_sipm_optimization_phy, p_process_sipm_optimization_phy)
+register_processor!(p_process_sipm_optimization_phy)

@@ -232,4 +232,4 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     flush(stdout)
 end
 
-register_processor!(:process_sipm_optimization_phy, process_sipm_optimization_phy)
+register_processor!(process_sipm_optimization_phy)
