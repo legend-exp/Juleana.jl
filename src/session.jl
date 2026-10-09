@@ -67,7 +67,7 @@ selected_steps(cfg::ProcessingConfig) = (
 )
 
 function reset_dependency_graph!(session::DataflowSession)
-    session.run_status, session.partition_status = setup_dependency_graph(
+    session.periods, session.run_status, session.partition_status = setup_dependency_graph(
         session.l200, session.config, session.periods, session.runs, session.run_steps, session.partition_steps)
     return session
 end
@@ -123,7 +123,7 @@ return the session afterwards. Return `nothing` when `args` asks for `--help` or
 function main(args::AbstractVector{<:AbstractString} = ARGS)
     parsed_args = parse_commandline(args)
     isnothing(parsed_args) && return nothing
-    l200, config, periods = get_processingconfig(parsed_args)
+    l200, config, periods = setup_processing(parsed_args)
     check_processor_kwargs(config)
     @info "Start Data processing"
 
@@ -145,7 +145,7 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
     ppt_worker_pool!(FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1))
 
     run_steps, partition_steps = selected_steps(config)
-    run_status, partition_status = setup_dependency_graph(l200, config, periods, config.runs, run_steps, partition_steps)
+    periods, run_status, partition_status = setup_dependency_graph(l200, config, periods, config.runs, run_steps, partition_steps)
     session = DataflowSession(; args = parsed_args, l200, config, periods,
         run_steps, partition_steps, run_status, partition_status)
     flush(stdout)

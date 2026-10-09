@@ -12,7 +12,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
     settings = ArgParseSettings(prog="LEGEND Julia main data processing",
                             description="LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
                             commands_are_required = true,
-                            version = "1.0",
+                            version = string(pkgversion(Juleana)),
                             add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
@@ -62,7 +62,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
 end
 
 """
-    get_processingconfig(parsed_args::AbstractDict)
+    setup_processing(parsed_args::AbstractDict)
 
 Build the processing setup from the output of [`parse_commandline`](@ref) and return
 `(l200, processing_config, periods)`.
@@ -73,7 +73,7 @@ and creates the log directory: `--log_path` when given, otherwise a time-stamped
 directory in the `jllog` tier. `periods` are the selected periods that are available
 on disk, or all available periods when the config selects all.
 """
-function get_processingconfig(parsed_args::AbstractDict)
+function setup_processing(parsed_args::AbstractDict)
     config_dict = readlprops(parsed_args["config"])
     # command line overrides; repeated `--periods`/`--runs` options are concatenated
     cli = (;
@@ -108,11 +108,11 @@ function get_processingconfig(parsed_args::AbstractDict)
     parsed_args["reprocess"] && @info "Reprocess all processors"
 
     # restrict the selected periods to those available on disk
-    available_periods = get_available_periods(l200)
+    on_disk = available_periods(l200)
     periods = if isnothing(processing_config.periods)
-        available_periods
+        on_disk
     else
-        filter(in(available_periods), processing_config.periods)
+        filter(in(on_disk), processing_config.periods)
     end
     @info "Process periods: $(string.(periods))"
     runs = processing_config.runs
@@ -135,7 +135,7 @@ function find_data_tier(l200::LegendData, keys...)
     return nothing
 end
 
-function get_available_periods(l200::LegendData)
+function available_periods(l200::LegendData)
     tc = find_data_tier(l200)
     possible_periods = if isnothing(tc)
         @warn "No `DataPeriod` found in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
@@ -144,12 +144,12 @@ function get_available_periods(l200::LegendData)
         search_disk(DataPeriod, l200.tier[tc...])
     end
     # filter out periods that are not available on disk
-    available_runs_dict = Dict{DataPeriod, Vector{DataRun}}(possible_periods .=> get_available_runs.(Ref(l200), possible_periods))
+    available_runs_dict = Dict{DataPeriod, Vector{DataRun}}(possible_periods .=> available_runs.(Ref(l200), possible_periods))
     filter!(p -> !isempty(available_runs_dict[p]), possible_periods)
     possible_periods
 end
 
-function get_available_runs(l200::LegendData, period::DataPeriod)
+function available_runs(l200::LegendData, period::DataPeriod)
     tc = find_data_tier(l200, period)
     if isnothing(tc)
         @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
@@ -159,21 +159,22 @@ function get_available_runs(l200::LegendData, period::DataPeriod)
 end
 
 # `runs === nothing` selects all runs of `period` available on disk
-function get_processable_runs(l200::LegendData, period::DataPeriod, runs::Union{Vector{DataRun}, Nothing})
-    available_runs = get_available_runs(l200, period)
-    isnothing(runs) && return available_runs
+function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{AbstractVector{DataRun}, Nothing})
+    on_disk = available_runs(l200, period)
+    isnothing(runs) && return on_disk
     for run in runs
-        run in available_runs || @warn "Run $run not found in period $period"
+        run in on_disk || @warn "Run $run not found in period $period"
     end
-    return DataRun.([r for r in runs if r in available_runs])
+    return DataRun[r for r in runs if r in on_disk]
 end
 
 
-# The status of a step starts as finished unless the step is in `run_steps` or
-# `partition_steps`, so only the selected steps are waited for. Periods without
-# processable runs are removed from `periods`.
-function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::Vector{DataPeriod}, runs::Union{Vector{DataRun}, Nothing},
-        run_steps::Vector{Symbol}, partition_steps::Vector{Symbol})
+# Return `(periods, run_status, partition_status)`: the given periods that have
+# processable runs, and the completion flags of every step for them. The status of a
+# step starts as finished unless the step is in `run_steps` or `partition_steps`, so
+# only the selected steps are waited for.
+function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::AbstractVector{DataPeriod},
+        runs::Union{AbstractVector{DataRun}, Nothing}, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
     # get all possible steps
     # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
     possible_steps = _sorted_steps(processing_config.processors, false)
@@ -181,14 +182,14 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     run_status = RunStatus()
 
     # check if each period contains any runs at all
-    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> get_processable_runs.(Ref(l200), periods, Ref(runs)))
-    filter!(p -> !isempty(processable_runs_dict[p]), periods)
+    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> processable_runs.(Ref(l200), periods, Ref(runs)))
+    periods = filter(p -> !isempty(processable_runs_dict[p]), periods)
 
     # fill
     for period in periods
         # get all processable runs
-        processable_runs = processable_runs_dict[period]
-        run_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}([step => ConcurrentDict{DataRun, Bool}(processable_runs .=> !(step in run_steps)) for step in possible_steps])
+        period_runs = processable_runs_dict[period]
+        run_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}([step => ConcurrentDict{DataRun, Bool}(period_runs .=> !(step in run_steps)) for step in possible_steps])
     end
 
     # get all possible steps for partition processing
@@ -199,5 +200,5 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
         partition_status[period] = ConcurrentDict{Symbol, Bool}([step => !(step in partition_steps) for step in possible_p_steps])
     end
 
-    return run_status, partition_status
+    return periods, run_status, partition_status
 end
