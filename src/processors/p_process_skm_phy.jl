@@ -94,7 +94,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     # get start time
     start_time = now()
 
-    result_skm = parallel(rinfo.phy.startkey, skm_fk, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_skm = parallel(skm_fk, rinfo.phy.startkey, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished skimmed file processing"
 

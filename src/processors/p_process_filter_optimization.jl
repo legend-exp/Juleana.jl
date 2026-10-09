@@ -250,7 +250,7 @@ function p_process_filter_optimization(processing_config, l200::LegendData, peri
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(chinfo_unfolded, det_filter_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_flt = parallel(det_filter_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished filter optimization"
 
     @info "Write $period validity"

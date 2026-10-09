@@ -128,7 +128,7 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     start_time = now()
 
     # execute in parallel
-    result_qc = parallel(chinfo, det_qcs_phy, log_nt; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_qc = parallel(det_qcs_phy, chinfo, log_nt; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished physics QC detector processing"
 

@@ -233,7 +233,7 @@ function process_energy_calibration(processing_config, l200::LegendData, period:
     # get start time
     start_time = now()
 
-    result_energy = parallel(chinfo, det_energy_calibration, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = parallel(det_energy_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished energy calibration"
 

@@ -344,7 +344,7 @@ function p_process_lq_calibration_cut(processing_config, l200::LegendData, perio
     # get start time
     start_time = now()
 
-    result_lq = parallel(chinfo_unfolded, det_lq_cut, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_lq = parallel(det_lq_cut, chinfo_unfolded, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished lq cut generation"
 
     @info "Write $period validity"

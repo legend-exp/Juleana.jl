@@ -141,7 +141,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
     # get start time
     start_time = now()
 
-    result_ctc = parallel(chinfo, det_ct_correction, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_ctc = parallel(det_ct_correction, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished CT correction"
 

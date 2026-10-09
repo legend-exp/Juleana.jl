@@ -106,7 +106,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
     start_time = now()
 
     # execute in parallel
-    result_dsp_aux = parallel(chinfo_aux, det_dsp_aux, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp_aux = parallel(det_dsp_aux, chinfo_aux, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished auxiliary detector DSP"
 

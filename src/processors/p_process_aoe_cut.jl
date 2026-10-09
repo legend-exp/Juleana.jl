@@ -232,7 +232,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     # get start time
     start_time = now()
 
-    result_aoe = parallel(chinfo_unfolded, det_aoe_cut, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"

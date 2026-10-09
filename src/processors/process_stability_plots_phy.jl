@@ -120,7 +120,7 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
         return (processed = processed_dict, log = log_info_dict)
     end
 
-    result_stability = parallel(chinfo, det_stability_plots, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_stability = parallel(det_stability_plots, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished stability plot generation"
 

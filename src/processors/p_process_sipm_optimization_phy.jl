@@ -232,7 +232,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
     start_time = now()
 
     # execute in parallel
-    result_sipm_optimization = parallel(chinfo_unfolded, det_sipm_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_optimization = parallel(det_sipm_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished SiPM partition optimization"
 
