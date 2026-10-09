@@ -1,4 +1,4 @@
-function p_process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=15000, only_first_period::Bool=true)
 
     @info "Optimize PSD filter for all partitions containing period $period"
 

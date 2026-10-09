@@ -1,4 +1,4 @@
-function process_sipm_calibration_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+function process_sipm_calibration_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
         
     @info "Process SiPM calibration for period $period and run $run"
 

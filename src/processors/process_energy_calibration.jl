@@ -1,4 +1,4 @@
-function process_energy_calibration(processing_config, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Union{Int, Bool}=false)
+function process_energy_calibration(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
     
     @info "Energy calibration for period $period and run $run"
 

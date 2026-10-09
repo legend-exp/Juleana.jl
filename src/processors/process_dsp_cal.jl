@@ -1,4 +1,4 @@
-function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool = false, timeout::Int=0, max_wvfs::Int=10000, use_partition_filter::Bool=true)
+function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=10000, use_partition_pars::Bool=true)
     
     @info "Process DSP for period $period and run $run"
 
@@ -15,8 +15,8 @@ function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
-    pars_type = ifelse(use_partition_filter, :ppars, :rpars)
-    @info "Use $(ifelse(use_partition_filter, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
+    pars_type = ifelse(use_partition_pars, :ppars, :rpars)
+    @info "Use $(ifelse(use_partition_pars, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
     
     pars_tau = get_values(l200.par[pars_type, :pz](filekey))
     @debug "Loaded decay times"
@@ -29,7 +29,7 @@ function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod
         ch = chinfo_det.channel
         det = chinfo_det.detector
         # prevent DSP from failing if run doesnt appear in any partition by using pars from partition of closest run
-        if use_partition_filter && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, det, :cal, period, run))
+        if use_partition_pars && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.processable != :on && isempty(partitioninfo(l200, det, :cal, period, run))
             @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for detector"
             parts = partitioninfo(l200, det, :cal, period)
             closest_runs_distance = Real[]

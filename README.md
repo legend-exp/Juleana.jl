@@ -165,7 +165,7 @@ You can configure the `processors` section with the following layout
                 "reprocess": true,
                 "max_wvfs": 1000,
                 "timeout": 0,
-                "use_partition_filter": true
+                "use_partition_pars": true
             },
             "dependencies": ["p_process_aoe_optimization"]
         },
