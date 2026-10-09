@@ -48,7 +48,7 @@ function menu(session::DataflowSession)
     # redefine periods per user choice
     elseif choice == 2
         try
-            possible_periods = get_available_periods(session.l200)
+            possible_periods = available_periods(session.l200)
             periods_menu = MultiSelectMenu(string.(possible_periods); selected=eachindex(possible_periods)[map(x -> x in session.periods, possible_periods)], ctrl_c_interrupt = true)
             selected_periods = collect(request("Select periods to be executed:", periods_menu))
             session.periods = possible_periods[selected_periods]
@@ -69,7 +69,7 @@ function menu(session::DataflowSession)
                 if length(session.periods) > 1
                     @warn "More than one period selected, choosing first to get runs"
                 end
-                get_available_runs(session.l200, first(session.periods))
+                available_runs(session.l200, first(session.periods))
             end
             runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> isnothing(session.runs) || x in session.runs, possible_runs)], ctrl_c_interrupt = true)
             selected_runs = collect(request("Select runs to be executed:", runs_menu))
@@ -88,7 +88,7 @@ function menu(session::DataflowSession)
         @info "Reloaded dependency graph"
     # reload the config file with the original command line options
     elseif choice == 4
-        l200, config, periods = get_processingconfig(session.args)
+        l200, config, periods = setup_processing(session.args)
         check_processor_kwargs(config)
         session.l200, session.config, session.periods, session.runs = l200, config, periods, config.runs
         session.run_steps, session.partition_steps = selected_steps(config)
@@ -147,7 +147,7 @@ function execute_processors(session::DataflowSession)
 
         if "check_dependencies" in additional_args
             # only the selected steps start as unfinished in the dependency graph
-            session.run_status, session.partition_status = setup_dependency_graph(
+            session.periods, session.run_status, session.partition_status = setup_dependency_graph(
                 session.l200, session.config, session.periods, session.runs, run_steps, partition_steps)
         end
 
@@ -166,7 +166,7 @@ end
 # the failures as detector => error. An entry is a table row: per detector and filter type
 # for the fit reports, per filekey for the dsp reports - so for a dsp report the failure
 # count stays in filekeys while the labels name the individual failed detectors of each row.
-function get_report_failures(filename::AbstractString)
+function report_failures(filename::AbstractString)
     header, previous, n_entries, n_failed, failures = String[], String[], 0, 0, Tuple{String, String}[]
     for line in eachline(filename)
         # only markdown table rows are of interest
@@ -223,7 +223,7 @@ function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbo
             printstyled("  $(rpad(label, 11)) no report\n"; color = :light_black)
             return
         end
-        n_entries, n_failed, failures = get_report_failures(filename)
+        n_entries, n_failed, failures = report_failures(filename)
         if isempty(failures)
             printstyled("  $(rpad(label, 11)) OK"; color = :green)
             println(" ($n_entries entries)")
@@ -264,7 +264,7 @@ function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbo
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
-            for run in get_processable_runs(l200, period, runs)
+            for run in processable_runs(l200, period, runs)
                 filename = try
                     get_rreportfilename(l200, start_filekey(l200, (period, run, category)), report)
                 catch e
@@ -286,7 +286,7 @@ function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbo
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
             filename = try
-                get_preportfilename(l200, start_filekey(l200, (period, first(get_processable_runs(l200, period, runs)), category)), report)
+                get_preportfilename(l200, start_filekey(l200, (period, first(processable_runs(l200, period, runs)), category)), report)
             catch e
                 @warn "No start filekey for $period-$category, skip"
                 continue
