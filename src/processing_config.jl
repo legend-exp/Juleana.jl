@@ -15,6 +15,11 @@ Fields:
 - `rank::Int`: position in the processing order; lower ranks run first.
 - `dependencies::Vector{Symbol}`: processors of the other level that must finish first.
 - `kwargs::Dict{Symbol,Any}`: keyword arguments passed to the processor function.
+
+Besides the positional constructor, `ProcessorSpec(; name, level, category, rank,
+enabled=true, dependencies=Symbol[], kwargs=Dict{Symbol,Any}())` builds a spec from
+keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
+`:partition`, `category` is not `:cal` or `:phy`, or the processor depends on itself.
 """
 struct ProcessorSpec
     name::Symbol
@@ -24,7 +29,22 @@ struct ProcessorSpec
     rank::Int
     dependencies::Vector{Symbol}
     kwargs::Dict{Symbol,Any}
+
+    function ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs)
+        spec = new(name, level, enabled, category, rank, dependencies, kwargs)
+        spec.level in (:run, :partition) ||
+            throw(ArgumentError("processing_config: processor `$(spec.name)` has level $(repr(spec.level)), expected :run or :partition"))
+        path = "$(spec.level === :run ? "processors" : "p_processors").$(spec.name)."
+        spec.category in (:cal, :phy) ||
+            throw(ArgumentError("processing_config: key `$(path)category` must be \"cal\" or \"phy\", got $(repr(spec.category))"))
+        spec.name in spec.dependencies &&
+            throw(ArgumentError("processing_config: key `$(path)dependencies` names the processor itself"))
+        return spec
+    end
 end
+
+ProcessorSpec(; name, level, category, rank, enabled = true, dependencies = Symbol[], kwargs = Dict{Symbol,Any}()) =
+    ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs)
 
 """
     struct ProcessingConfig
@@ -49,6 +69,15 @@ Fields:
 - `processors::Dict{Symbol,ProcessorSpec}`: run-level processors.
 - `p_processors::Dict{Symbol,ProcessorSpec}`: partition-level processors.
 
+Besides the positional constructor and the config-file constructors documented below,
+`ProcessingConfig(; processors, p_processors, runmode=:local, ...)` builds a config from
+keywords named like the fields; every field except the two processor tables has a
+default (no workers flags, no selection, all flags `false`, `local_n = 1`). Every
+constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
+`local_n < 1`, both `only_runs` and `only_partitions` are set, a table key differs from
+its spec's name or level, a name appears in both tables, a dependency names an unknown
+processor, or no processor is enabled.
+
 See [`run_steps`](@ref), [`partition_steps`](@ref) and [`check_processor_kwargs`](@ref).
 """
 struct ProcessingConfig
@@ -67,7 +96,47 @@ struct ProcessingConfig
     log_path::String
     processors::Dict{Symbol,ProcessorSpec}
     p_processors::Dict{Symbol,ProcessorSpec}
+
+    function ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
+            slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
+            only_partitions, only_runs, log_path, processors, p_processors)
+        cfg = new(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
+            slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
+            only_partitions, only_runs, log_path, processors, p_processors)
+        cfg.runmode in (:local, :slurm) ||
+            throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(cfg.runmode))"))
+        cfg.local_n > 0 ||
+            throw(ArgumentError("processing_config: key `config.runmode_settings.local.n` must be positive, got $(cfg.local_n)"))
+        cfg.only_runs && cfg.only_partitions &&
+            throw(ArgumentError("processing_config: only one of `only_partitions` or `only_runs` can be set"))
+        for (section, level, specs) in (("processors", :run, cfg.processors), ("p_processors", :partition, cfg.p_processors)),
+                (name, spec) in specs
+            name === spec.name ||
+                throw(ArgumentError("processing_config: `$section` entry `$name` holds the spec of `$(spec.name)`"))
+            spec.level === level ||
+                throw(ArgumentError("processing_config: `$section.$name` has level $(repr(spec.level)), expected $(repr(level))"))
+        end
+        duplicates = intersect(keys(cfg.processors), keys(cfg.p_processors))
+        isempty(duplicates) ||
+            throw(ArgumentError("processing_config: processor names in both `processors` and `p_processors`: $(join(duplicates, ", "))"))
+        for (section, specs) in (("processors", cfg.processors), ("p_processors", cfg.p_processors)), spec in values(specs), dep in spec.dependencies
+            haskey(cfg.processors, dep) || haskey(cfg.p_processors, dep) ||
+                throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
+        end
+        any(s -> s.enabled, values(cfg.processors)) || any(s -> s.enabled, values(cfg.p_processors)) ||
+            throw(ArgumentError("processing_config: no processor is enabled"))
+        return cfg
+    end
 end
+
+ProcessingConfig(;
+        processors, p_processors, runmode = :local, submit_jobs = false, local_n = 1,
+        local_julia_settings = String[], slurm_flags = String[], slurm_julia_settings = String[],
+        env_variables = Dict{String,String}(), periods = nothing, runs = nothing,
+        analysis_runs_only = false, only_partitions = false, only_runs = false, log_path = ""
+    ) = ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
+        slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
+        only_partitions, only_runs, log_path, processors, p_processors)
 
 # Recursively convert nested dictionaries to `Dict{Symbol,Any}`.
 _symbolkeys(x) = x
@@ -114,8 +183,6 @@ function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, r
             throw(ArgumentError("processing_config: key `$section.$name` must be a table, got $(repr(entry))"))
         _check_keys(entry, (:enabled, :category, :rank, :kwargs, :dependencies), path)
         category = _typed(entry, :category, AbstractString, path)
-        category in ("cal", "phy") ||
-            throw(ArgumentError("processing_config: key `$(path)category` must be \"cal\" or \"phy\", got $(repr(category))"))
         kwargs = Dict{Symbol,Any}()
         for (k, v) in _typed(entry, :kwargs, AbstractDict, path)
             # String lists become Symbol lists, an untyped empty list becomes `Symbol[]`.
@@ -202,15 +269,8 @@ function ProcessingConfig(
     sel_analysis_runs_only = flag(analysis_runs_only, processing, :analysis_runs_only, "processing.")
     sel_only_partitions = flag(only_partitions, processing, :only_partitions, "processing.")
     sel_only_runs = flag(only_runs, processing, :only_runs, "processing.")
-    sel_only_runs && sel_only_partitions &&
-        throw(ArgumentError("processing_config: only one of `only_partitions` or `only_runs` can be set"))
-
-    sel_runmode = string(something(runmode, _typed(config, :runmode, AbstractString, "config.")))
-    sel_runmode in ("local", "slurm") ||
-        throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(sel_runmode))"))
-
+    sel_runmode = Symbol(something(runmode, _typed(config, :runmode, AbstractString, "config.")))
     n = _typed(local_settings, :n, Int, "config.runmode_settings.local.")
-    n > 0 || throw(ArgumentError("processing_config: key `config.runmode_settings.local.n` must be positive, got $n"))
 
     env_variables = Dict{String,String}()
     for (k, v) in _typed(config, :env_variables, AbstractDict, "config.")
@@ -229,18 +289,9 @@ function ProcessingConfig(
 
     processors = _processor_specs(_typed(d, :processors, AbstractDict, ""), :run, :processors, reprocess)
     p_processors = _processor_specs(_typed(d, :p_processors, AbstractDict, ""), :partition, :p_processors, reprocess)
-    duplicates = intersect(keys(processors), keys(p_processors))
-    isempty(duplicates) ||
-        throw(ArgumentError("processing_config: processor names in both `processors` and `p_processors`: $(join(duplicates, ", "))"))
-    for (section, specs) in (("processors", processors), ("p_processors", p_processors)), spec in values(specs), dep in spec.dependencies
-        haskey(processors, dep) || haskey(p_processors, dep) ||
-            throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
-    end
-    any(s -> s.enabled, values(processors)) || any(s -> s.enabled, values(p_processors)) ||
-        throw(ArgumentError("processing_config: no processor is enabled"))
 
     return ProcessingConfig(
-        Symbol(sel_runmode), sel_submit_jobs, n,
+        sel_runmode, sel_submit_jobs, n,
         _strings(local_settings, :julia_settings, "config.runmode_settings.local."),
         _strings(slurm_settings, :flags, "config.runmode_settings.slurm."),
         _strings(slurm_settings, :julia_settings, "config.runmode_settings.slurm."),
