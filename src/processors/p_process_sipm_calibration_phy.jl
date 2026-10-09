@@ -245,7 +245,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
     start_time = now()
 
     # execute in parallel
-    result_sipm_calibration = parallel(chinfo_unfolded, det_sipm_calibration, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_calibration = parallel(det_sipm_calibration, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     
     @info "Finished SiPM partition calibration"
 

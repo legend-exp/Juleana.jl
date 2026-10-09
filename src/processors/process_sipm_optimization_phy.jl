@@ -205,7 +205,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     start_time = now()
 
     # execute in parallel
-    result_sipm_optimization = parallel(chinfo, det_sipm_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_optimization = parallel(det_sipm_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished SiPM optimization extraction"
 
     pars_db = create_pars(pars_db, result_sipm_optimization)

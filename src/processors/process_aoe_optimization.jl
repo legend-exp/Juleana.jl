@@ -196,7 +196,7 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo, det_sg_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sg = parallel(det_sg_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished SG filter optimization"
 

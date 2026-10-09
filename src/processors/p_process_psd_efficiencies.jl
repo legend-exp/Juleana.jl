@@ -304,7 +304,7 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
     # get start time
     start_time = now()
 
-    result_psd = parallel(chinfo_unfolded, det_psd_sf, log_nt_cut; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_psd = parallel(det_psd_sf, chinfo_unfolded, log_nt_cut; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"

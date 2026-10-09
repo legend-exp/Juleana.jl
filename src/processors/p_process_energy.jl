@@ -235,7 +235,7 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     # get start time
     start_time = now()
 
-    result_energy = parallel(chinfo_unfolded, det_energy_calibration, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = parallel(det_energy_calibration, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished partition calibration"
 

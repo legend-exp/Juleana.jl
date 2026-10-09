@@ -79,16 +79,25 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
     end
 
     @testset "parallel" begin
-        ok = parallel([fk], k -> (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", ""))), FkLog)
+        ok = parallel(k -> (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", ""))), [fk], FkLog)
         @test only(ok).first == fk
         @test only(ok).second.processed
         @test only(ok).second.log.Status == process_succeeded
 
-        failed = parallel([fk], k -> error("item failed"), FkLog)
+        failed = parallel(k -> error("item failed"), [fk], FkLog)
         @test !only(failed).second.processed
         @test only(failed).second.log == FkLog((fk, ProcessStatus(0), "-", "-", "ErrorException(\"item failed\")"))
 
-        @test_throws "no failure_log method for items of type Int64" parallel([1, 2], identity, FkLog)
+        @test_throws "no failure_log method for items of type Int64" parallel(identity, [1, 2], FkLog)
+
+        viaDo = parallel([fk], FkLog; process_name = "do-block") do k
+            (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", "")))
+        end
+        @test viaDo == ok
+
+        slow = parallel(k -> (sleep(5); (processed = true,)), [fk], FkLog; timeout = 0.2)
+        @test !only(slow).second.processed
+        @test only(slow).second.log.Status == ProcessStatus(0)
     end
 
     @testset "wait_for" begin

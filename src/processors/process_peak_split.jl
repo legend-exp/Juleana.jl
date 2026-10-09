@@ -84,7 +84,7 @@ function process_peak_split(processing_config, l200::LegendData, period::DataPer
             return (result = is_ok, timer = fk_timer, log = log_fk, processed = true)
         end
 
-        result_fkcheck = Dict(parallel(filekeys, check_filekey, log_fkcheck; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))"))
+        result_fkcheck = Dict(parallel(check_filekey, filekeys, log_fkcheck; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))"))
 
         if !all(v -> hasproperty(v, :result), values(result_fkcheck))
             error("Some filekeys failed during checking due to unknown reason.")
@@ -193,7 +193,7 @@ function process_peak_split(processing_config, l200::LegendData, period::DataPer
     end
 
     # execute in parallel
-    result_peaksplit = parallel(chinfo, split_peak_det, log_peaksplit; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_peaksplit = parallel(split_peak_det, chinfo, log_peaksplit; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished peak splitting"
 

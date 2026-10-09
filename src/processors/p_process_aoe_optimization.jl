@@ -243,7 +243,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(chinfo_unfolded, det_sg_optimization, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sg = parallel(det_sg_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished SG filter optimization"
 
