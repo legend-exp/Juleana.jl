@@ -119,11 +119,6 @@ export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
 export run_processing
 export DataflowSession, menu
-export peak_splitting_log_text, decay_time_log_text, flt_optimization_log_text,
-    sg_flt_optimization_log_text, dsp_cal_log_text, qcs_cal_log_text, qcs_phy_log_text,
-    energy_ctc_log_text, energy_log_text, aoe_log_text, energy_part_log_text,
-    aoe_part_log_text, sipm_opt_log_text, lq_log_text, sipm_cal_log_text, evt_log_text,
-    skm_log_text
 
 public escape_log_underscores, wait_for, PROCESSORS, register_processor!, init_process,
     main, parse_commandline, check_reports
