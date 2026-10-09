@@ -1,6 +1,6 @@
 name = "Juleana"
 uuid = "4ddb2257-c192-4668-99e3-f65b8c22d0e6"
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
