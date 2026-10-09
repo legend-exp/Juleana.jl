@@ -22,6 +22,9 @@ Fields:
   partition steps scheduled by default, sorted by rank.
 - `process_status`, `p_process_status`: completion flags of the dependency graph, as
   built by `setup_dependency_graph`.
+
+`DataflowSession(; args, l200, config, periods, runs=config.runs, process_steps,
+p_process_steps, process_status, p_process_status)` builds a session from keywords.
 """
 mutable struct DataflowSession
     const args::Dict{String,Any}
@@ -34,6 +37,10 @@ mutable struct DataflowSession
     process_status::RunStatus
     p_process_status::PartitionStatus
 end
+
+DataflowSession(; args, l200, config, periods, runs = config.runs, process_steps, p_process_steps,
+        process_status, p_process_status) =
+    DataflowSession(args, l200, config, periods, runs, process_steps, p_process_steps, process_status, p_process_status)
 
 function Base.show(io::IO, session::DataflowSession)
     print(io, "DataflowSession(", length(session.periods), " period(s), ",
@@ -128,7 +135,7 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
 
     process_steps, p_process_steps = selected_steps(config)
     process_status, p_process_status = setup_dependency_graph(l200, config, periods, config.runs, process_steps, p_process_steps)
-    session = DataflowSession(parsed_args, l200, config, periods, config.runs,
+    session = DataflowSession(; args = parsed_args, l200, config, periods,
         process_steps, p_process_steps, process_status, p_process_status)
     flush(stdout)
 

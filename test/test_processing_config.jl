@@ -112,6 +112,39 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "no processor is enabled" ProcessingConfig(edited(d -> foreach(p -> p["enabled"] = false, (values(d["processors"])..., values(d["p_processors"])...))))
     end
 
+    @testset "constructors" begin
+        samefields(a, b) = all(f -> getfield(a, f) == getfield(b, f), fieldnames(typeof(a)))
+
+        spec = json.processors[:process_dsp_cal]
+        spec_fields = NamedTuple{fieldnames(ProcessorSpec)}(getfield.(Ref(spec), fieldnames(ProcessorSpec)))
+        @test samefields(ProcessorSpec(spec_fields...), spec)
+        @test samefields(ProcessorSpec(; spec_fields...), spec)
+        minimal = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1)
+        @test minimal.enabled && isempty(minimal.dependencies) && isempty(minimal.kwargs)
+        @test_throws "processor `x` has level :other" ProcessorSpec(; name = :x, level = :other, category = :cal, rank = 1)
+        @test_throws "key `p_processors.x.category` must be \"cal\" or \"phy\"" ProcessorSpec(; name = :x, level = :partition, category = :physics, rank = 1)
+        @test_throws "key `processors.x.dependencies` names the processor itself" ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, dependencies = [:x])
+
+        fields = NamedTuple{fieldnames(ProcessingConfig)}(getfield.(Ref(json), fieldnames(ProcessingConfig)))
+        @test samefields(ProcessingConfig(fields...), json)
+        @test samefields(ProcessingConfig(; fields...), json)
+        positional(; kw...) = ProcessingConfig(values(merge(fields, kw))...)
+        @test_throws "runmode must be \"local\" or \"slurm\", got :cluster" positional(runmode = :cluster)
+        @test_throws "`config.runmode_settings.local.n` must be positive" positional(local_n = 0)
+        @test_throws "only one of `only_partitions` or `only_runs`" positional(only_runs = true, only_partitions = true)
+        @test_throws "`processors` entry `renamed` holds the spec of `process_dsp_cal`" positional(processors = Dict(:renamed => spec))
+        @test_throws "`p_processors.process_dsp_cal` has level :run" positional(p_processors = Dict(:process_dsp_cal => spec))
+        partition_twin = ProcessorSpec(; name = :process_dsp_cal, level = :partition, category = :cal, rank = 1)
+        @test_throws "in both `processors` and `p_processors`: process_dsp_cal" positional(p_processors = merge(json.p_processors, Dict(:process_dsp_cal => partition_twin)))
+        orphan = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, dependencies = [:missing])
+        @test_throws "key `processors.x.dependencies` names unknown processor `missing`" ProcessingConfig(; processors = Dict(:x => orphan), p_processors = Dict{Symbol,ProcessorSpec}())
+        idle = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, enabled = false)
+        @test_throws "no processor is enabled" ProcessingConfig(; processors = Dict(:x => idle), p_processors = Dict{Symbol,ProcessorSpec}())
+
+        # A run selection over all periods is valid; runs are matched within each period.
+        @test isnothing(positional(periods = nothing, runs = DataRun.([1, 2])).periods)
+    end
+
     @testset "check_processor_kwargs" begin
         processor(entries...) = Dict{String,Any}(
             "enabled" => true, "category" => "cal", "rank" => 1, "dependencies" => Any[], "kwargs" => Dict{String,Any}(entries...))
