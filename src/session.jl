@@ -18,13 +18,13 @@ Fields:
 - `periods::Vector{DataPeriod}`: selected periods.
 - `runs::Union{Nothing,Vector{DataRun}}`: selected runs; `nothing` selects all runs of
   each period.
-- `process_steps::Vector{Symbol}`, `p_process_steps::Vector{Symbol}`: run and
+- `run_steps::Vector{Symbol}`, `partition_steps::Vector{Symbol}`: run and
   partition steps scheduled by default, sorted by rank.
-- `process_status`, `p_process_status`: completion flags of the dependency graph, as
+- `run_status`, `partition_status`: completion flags of the dependency graph, as
   built by `setup_dependency_graph`.
 
-`DataflowSession(; args, l200, config, periods, runs=config.runs, process_steps,
-p_process_steps, process_status, p_process_status)` builds a session from keywords.
+`DataflowSession(; args, l200, config, periods, runs=config.runs, run_steps,
+partition_steps, run_status, partition_status)` builds a session from keywords.
 """
 mutable struct DataflowSession
     const args::Dict{String,Any}
@@ -32,20 +32,31 @@ mutable struct DataflowSession
     config::ProcessingConfig
     periods::Vector{DataPeriod}
     runs::Union{Nothing,Vector{DataRun}}
-    process_steps::Vector{Symbol}
-    p_process_steps::Vector{Symbol}
-    process_status::RunStatus
-    p_process_status::PartitionStatus
+    run_steps::Vector{Symbol}
+    partition_steps::Vector{Symbol}
+    run_status::RunStatus
+    partition_status::PartitionStatus
 end
 
-DataflowSession(; args, l200, config, periods, runs = config.runs, process_steps, p_process_steps,
-        process_status, p_process_status) =
-    DataflowSession(args, l200, config, periods, runs, process_steps, p_process_steps, process_status, p_process_status)
+DataflowSession(; args, l200, config, periods, runs = config.runs, run_steps, partition_steps,
+        run_status, partition_status) =
+    DataflowSession(args, l200, config, periods, runs, run_steps, partition_steps, run_status, partition_status)
+
+"""
+    run_processing(session::DataflowSession; kwargs...)
+
+Run the session's scheduled steps over its periods and update its status flags, as
+`run_processing(session.config, session.l200, session.periods, session.run_steps,
+session.partition_steps, session.run_status, session.partition_status; kwargs...)`.
+"""
+run_processing(session::DataflowSession; kwargs...) =
+    run_processing(session.config, session.l200, session.periods, session.run_steps,
+        session.partition_steps, session.run_status, session.partition_status; kwargs...)
 
 function Base.show(io::IO, session::DataflowSession)
     print(io, "DataflowSession(", length(session.periods), " period(s), ",
         isnothing(session.runs) ? "all runs" : "$(length(session.runs)) run(s)", ", ",
-        length(session.process_steps), " run and ", length(session.p_process_steps), " partition steps)")
+        length(session.run_steps), " run and ", length(session.partition_steps), " partition steps)")
 end
 
 # Enabled steps sorted by rank. With `only_runs`/`only_partitions` the other level is
@@ -56,8 +67,8 @@ selected_steps(cfg::ProcessingConfig) = (
 )
 
 function reset_dependency_graph!(session::DataflowSession)
-    session.process_status, session.p_process_status = setup_dependency_graph(
-        session.l200, session.config, session.periods, session.runs, session.process_steps, session.p_process_steps)
+    session.run_status, session.partition_status = setup_dependency_graph(
+        session.l200, session.config, session.periods, session.runs, session.run_steps, session.partition_steps)
     return session
 end
 
@@ -133,17 +144,17 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
     end
     ppt_worker_pool!(FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1))
 
-    process_steps, p_process_steps = selected_steps(config)
-    process_status, p_process_status = setup_dependency_graph(l200, config, periods, config.runs, process_steps, p_process_steps)
+    run_steps, partition_steps = selected_steps(config)
+    run_status, partition_status = setup_dependency_graph(l200, config, periods, config.runs, run_steps, partition_steps)
     session = DataflowSession(; args = parsed_args, l200, config, periods,
-        process_steps, p_process_steps, process_status, p_process_status)
+        run_steps, partition_steps, run_status, partition_status)
     flush(stdout)
 
     if isinteractive()
         Base.exit_on_sigint(false)
         @info "Dataflow session ready, call `menu(session)` to select an action"
     else
-        run_processing(config, l200, session.periods, process_steps, p_process_steps, process_status, p_process_status)
+        run_processing(session)
         @info "# Processing Done"
     end
     return session

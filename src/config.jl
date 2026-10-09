@@ -169,15 +169,16 @@ function get_processable_runs(l200::LegendData, period::DataPeriod, runs::Union{
 end
 
 
-# The status of a step starts as finished unless the step is in `process_steps` or
-# `p_process_steps`, so only the selected steps are waited for. Periods without
+# The status of a step starts as finished unless the step is in `run_steps` or
+# `partition_steps`, so only the selected steps are waited for. Periods without
 # processable runs are removed from `periods`.
 function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::Vector{DataPeriod}, runs::Union{Vector{DataRun}, Nothing},
-        process_steps::Vector{Symbol}, p_process_steps::Vector{Symbol})
+        run_steps::Vector{Symbol}, partition_steps::Vector{Symbol})
     # get all possible steps
-    possible_steps = run_steps(processing_config; enabled_only = false)
+    # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
+    possible_steps = _sorted_steps(processing_config.processors, false)
     # generate process status with all possible steps for all possible runs in all periods
-    process_status = RunStatus()
+    run_status = RunStatus()
 
     # check if each period contains any runs at all
     processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> get_processable_runs.(Ref(l200), periods, Ref(runs)))
@@ -187,16 +188,16 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     for period in periods
         # get all processable runs
         processable_runs = processable_runs_dict[period]
-        process_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}([step => ConcurrentDict{DataRun, Bool}(processable_runs .=> !(step in process_steps)) for step in possible_steps])
+        run_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}([step => ConcurrentDict{DataRun, Bool}(processable_runs .=> !(step in run_steps)) for step in possible_steps])
     end
 
     # get all possible steps for partition processing
-    possible_p_steps = partition_steps(processing_config; enabled_only = false)
+    possible_p_steps = _sorted_steps(processing_config.p_processors, false)
     # generate process status with all possible steps for all possible runs in all periods
-    p_process_status = PartitionStatus()
+    partition_status = PartitionStatus()
     for period in periods
-        p_process_status[period] = ConcurrentDict{Symbol, Bool}([step => !(step in p_process_steps) for step in possible_p_steps])
+        partition_status[period] = ConcurrentDict{Symbol, Bool}([step => !(step in partition_steps) for step in possible_p_steps])
     end
 
-    return process_status, p_process_status
+    return run_status, partition_status
 end

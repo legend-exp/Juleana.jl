@@ -91,7 +91,7 @@ function menu(session::DataflowSession)
         l200, config, periods = get_processingconfig(session.args)
         check_processor_kwargs(config)
         session.l200, session.config, session.periods, session.runs = l200, config, periods, config.runs
-        session.process_steps, session.p_process_steps = selected_steps(config)
+        session.run_steps, session.partition_steps = selected_steps(config)
         @info "Reloaded processing config"
         reset_dependency_graph!(session)
         @info "Necessary reload of dependency graph"
@@ -108,9 +108,10 @@ end
 
 function execute_processors(session::DataflowSession)
     # create menus for processing steps
-    possible_steps = run_steps(session.config; enabled_only = false)
-    possible_p_steps = partition_steps(session.config; enabled_only = false)
-    process_steps, p_process_steps, additional_args = try
+    # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
+    possible_steps = _sorted_steps(session.config.processors, false)
+    possible_p_steps = _sorted_steps(session.config.p_processors, false)
+    run_steps, partition_steps, additional_args = try
         steps_menu = MultiSelectMenu(String.(possible_steps), ctrl_c_interrupt = true)
         p_steps_menu = MultiSelectMenu(String.(possible_p_steps), ctrl_c_interrupt = true)
         additional_args = ["reprocess", "no-reprocess", "check_dependencies", "check_report"]
@@ -118,36 +119,36 @@ function execute_processors(session::DataflowSession)
 
         # processing steps menu to select and deselect
         # `possible_steps` is sorted by rank, so sorted indices keep the rank order
-        process_steps = possible_steps[sort!(collect(request("Select processing steps to be executed:", steps_menu)))]
+        run_steps = possible_steps[sort!(collect(request("Select processing steps to be executed:", steps_menu)))]
         println()
         println()
-        p_process_steps = possible_p_steps[sort!(collect(request("Select partition processing steps to be executed:", p_steps_menu)))]
+        partition_steps = possible_p_steps[sort!(collect(request("Select partition processing steps to be executed:", p_steps_menu)))]
         println()
         println()
         additional_args = additional_args[collect(request("Select additional args:", additional_args_menu))]
         println()
         println()
-        process_steps, p_process_steps, additional_args
+        run_steps, partition_steps, additional_args
     catch e
         println()
         @error "Abort: $e"
         return
     end
 
-    if isempty(process_steps) && isempty(p_process_steps)
+    if isempty(run_steps) && isempty(partition_steps)
         @warn "No processing steps selected"
         return
     else
         # only inspect the reports of the selected steps and return without processing
         if "check_report" in additional_args
-            check_reports(session, process_steps, p_process_steps)
+            check_reports(session, run_steps, partition_steps)
             return
         end
 
         if "check_dependencies" in additional_args
             # only the selected steps start as unfinished in the dependency graph
-            session.process_status, session.p_process_status = setup_dependency_graph(
-                session.l200, session.config, session.periods, session.runs, process_steps, p_process_steps)
+            session.run_status, session.partition_status = setup_dependency_graph(
+                session.l200, session.config, session.periods, session.runs, run_steps, partition_steps)
         end
 
         if "reprocess" in additional_args && "no-reprocess" in additional_args
@@ -155,8 +156,8 @@ function execute_processors(session::DataflowSession)
             return
         end
         reprocess = "reprocess" in additional_args ? true : "no-reprocess" in additional_args ? false : nothing
-        run_processing(session.config, session.l200, session.periods, process_steps, p_process_steps,
-            session.process_status, session.p_process_status;
+        run_processing(session.config, session.l200, session.periods, run_steps, partition_steps,
+            session.run_status, session.partition_status;
             check_dependencies = "check_dependencies" in additional_args, reprocess)
     end
 end
@@ -208,13 +209,13 @@ function get_report_failures(filename::AbstractString)
 end
 
 """
-    check_reports(session::DataflowSession, process_steps, p_process_steps)
+    check_reports(session::DataflowSession, run_steps, partition_steps)
 
-Print, for every step in `process_steps` (run level) and `p_process_steps` (partition
+Print, for every step in `run_steps` (run level) and `partition_steps` (partition
 level), one line per report of the session's periods and runs with its failed entries,
 followed by a summary of the failed detectors and their errors.
 """
-function check_reports(session::DataflowSession, process_steps::AbstractVector{Symbol}, p_process_steps::AbstractVector{Symbol})
+function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
     (; l200, config, periods, runs) = session
     # print one line per report and collect the failed detectors and their errors for the summary
     function check_report(label::String, filename::AbstractString, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
@@ -256,7 +257,7 @@ function check_reports(session::DataflowSession, process_steps::AbstractVector{S
     end
 
     # reports written per run
-    for process in process_steps
+    for process in run_steps
         report = Symbol("$(last(split(string(process), "process_")))")
         category = config.processors[process].category
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
@@ -277,7 +278,7 @@ function check_reports(session::DataflowSession, process_steps::AbstractVector{S
     end
 
     # reports written per partition, i.e. one per period
-    for process in p_process_steps
+    for process in partition_steps
         report = Symbol("$(last(split(string(process), "process_")))")
         category = config.p_processors[process].category
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
