@@ -33,7 +33,7 @@ const STUB_PROCESSORS = Dict{Symbol,Function}(:process_a => process_a, :p_proces
         spec = json.processors[:process_dsp_cal]
         @test spec.level === :run && spec.category === :cal && spec.rank == 5 && !spec.enabled
         @test spec.dependencies == [:p_process_aoe_optimization, :p_process_filter_optimization, :p_process_decay_time]
-        @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_filter => true)
+        @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true)
         @test json.p_processors[:p_process_energy].level === :partition
         @test json.p_processors[:p_process_energy].category === :cal
         @test json.p_processors[:p_process_skm_phy].category === :phy
@@ -132,5 +132,18 @@ const STUB_PROCESSORS = Dict{Symbol,Function}(:process_a => process_a, :p_proces
         processors = run_steps(json; enabled_only = false) ∪ partition_steps(json; enabled_only = false)
         # `process_hit_cal` is a disabled config entry without a processor function
         @test setdiff(processors, keys(Juleana.PROCESSORS)) == [:process_hit_cal]
+
+        # Every processor entry in the shipped config, enabled or not, should match its function's keywords.
+        # Broken: the disabled `process_sipm_optimization_phy` entry passes `only_pulser`, which the function does not declare.
+        all_enabled = deepcopy(base)
+        for (name, entry) in (all_enabled["processors"]..., all_enabled["p_processors"]...)
+            entry["enabled"] = haskey(Juleana.PROCESSORS, Symbol(name))
+        end
+        @test_broken isnothing(check_processor_kwargs(ProcessingConfig(all_enabled)))
+        dsp = deepcopy(base)
+        dsp["processors"]["process_dsp_cal"]["enabled"] = true
+        @test isnothing(check_processor_kwargs(ProcessingConfig(dsp)))
+        dsp["processors"]["process_dsp_cal"]["kwargs"]["use_partition_filter"] = true
+        @test_throws "`process_dsp_cal` does not accept keyword(s) use_partition_filter" check_processor_kwargs(ProcessingConfig(dsp))
     end
 end

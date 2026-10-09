@@ -1,4 +1,4 @@
-function p_process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod,; reprocess::Bool=false, timeout::Int=0, only_first_period::Bool=true)
+function p_process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
     @info "Process detector stability plots for partitions conatining period $period"
 

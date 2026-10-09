@@ -1,4 +1,4 @@
-function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun,; reprocess::Bool=false, timeout::Int=0)
+function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Generate calibration QC flags for period $period and run $run"
 
