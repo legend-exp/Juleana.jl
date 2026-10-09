@@ -261,4 +261,4 @@ function process_energy_calibration(processing_config, l200::LegendData, period:
     flush(stdout)
 end
 
-register_processor!(:process_energy_calibration, process_energy_calibration)
+register_processor!(process_energy_calibration)

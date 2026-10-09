@@ -132,4 +132,4 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
     flush(stdout)
 end
 
-register_processor!(:process_evt_phy, process_evt_phy)
+register_processor!(process_evt_phy)

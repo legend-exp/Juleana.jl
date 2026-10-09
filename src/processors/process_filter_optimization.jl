@@ -247,4 +247,4 @@ function process_filter_optimization(processing_config, l200::LegendData, period
     flush(stdout)
 end
 
-register_processor!(:process_filter_optimization, process_filter_optimization)
+register_processor!(process_filter_optimization)

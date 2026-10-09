@@ -11,8 +11,7 @@ using Test
         @test count(name -> startswith(string(name), "p_process_"), keys(Juleana.PROCESSORS)) == 12
 
         n = length(Juleana.PROCESSORS)
-        @test_throws "processor `process_dsp_cal` is already registered" Juleana.register_processor!(:process_dsp_cal, Juleana.process_dsp_cal)
-        @test_throws "name `process_other` does not match function name `process_dsp_cal`" Juleana.register_processor!(:process_other, Juleana.process_dsp_cal)
+        @test_throws "processor `process_dsp_cal` is already registered" Juleana.register_processor!(Juleana.process_dsp_cal)
         @test length(Juleana.PROCESSORS) == n
     end
 

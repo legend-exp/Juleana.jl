@@ -473,4 +473,4 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
     return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
 
-register_processor!(:p_process_aoe_calibration_cut, p_process_aoe_calibration_cut)
+register_processor!(p_process_aoe_calibration_cut)

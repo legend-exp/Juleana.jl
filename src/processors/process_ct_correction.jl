@@ -169,4 +169,4 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
     flush(stdout)
 end
 
-register_processor!(:process_ct_correction, process_ct_correction)
+register_processor!(process_ct_correction)

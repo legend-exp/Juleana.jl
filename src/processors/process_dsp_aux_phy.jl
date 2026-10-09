@@ -127,4 +127,4 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
     flush(stdout)
 end
 
-register_processor!(:process_dsp_aux_phy, process_dsp_aux_phy)
+register_processor!(process_dsp_aux_phy)

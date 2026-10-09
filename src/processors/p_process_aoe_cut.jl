@@ -260,4 +260,4 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
 
-register_processor!(:p_process_aoe_cut, p_process_aoe_cut)
+register_processor!(p_process_aoe_cut)

@@ -274,4 +274,4 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     return any(x -> get(last(x), :skipped, false), values(result_sg))
 end
 
-register_processor!(:p_process_aoe_optimization, p_process_aoe_optimization)
+register_processor!(p_process_aoe_optimization)

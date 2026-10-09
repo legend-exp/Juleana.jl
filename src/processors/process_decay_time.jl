@@ -162,4 +162,4 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
     flush(stdout)
 end
 
-register_processor!(:process_decay_time, process_decay_time)
+register_processor!(process_decay_time)

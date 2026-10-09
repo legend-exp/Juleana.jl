@@ -190,4 +190,4 @@ function p_process_decay_time(processing_config, l200::LegendData, period::DataP
     return any(x -> get(last(x), :skipped, false), values(result_pz))
 end
 
-register_processor!(:p_process_decay_time, p_process_decay_time)
+register_processor!(p_process_decay_time)

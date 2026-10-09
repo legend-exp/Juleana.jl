@@ -78,7 +78,7 @@ Each processor is a function in its own file in `src/processors/`, included by `
 To add a processor:
 1. Write the function in a new file `src/processors/process_xxx.jl` (or `p_process_xxx.jl` for a partition processor). Add explicit `using` imports to `src/Juleana.jl` for any new names it uses.
 2. Add `include("processors/process_xxx.jl")` to `src/Juleana.jl`.
-3. End the file with `register_processor!(:process_xxx, process_xxx)`.
+3. End the file with `register_processor!(process_xxx)`.
 4. Add an entry `process_xxx` to the `processors` (or `p_processors`) section of the processing config, see below.
 
 When the dataflow starts, every enabled processor of the config must be registered and accept all of its configured `kwargs`, otherwise it stops with an error naming the processor.

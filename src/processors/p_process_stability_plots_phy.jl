@@ -165,4 +165,4 @@ function p_process_stability_plots_phy(processing_config, l200::LegendData, peri
     return any(x -> get(last(x), :skipped, false), values(result_stability))
 end
 
-register_processor!(:p_process_stability_plots_phy, p_process_stability_plots_phy)
+register_processor!(p_process_stability_plots_phy)

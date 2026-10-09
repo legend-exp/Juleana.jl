@@ -11,8 +11,10 @@ stringdict(x) = x
 stringdict(d::AbstractDict) = Dict{String,Any}(string(k) => stringdict(v) for (k, v) in d)
 
 process_a(cfg, l200, period, run; reprocess::Bool = false, timeout::Int = 0) = nothing
-p_process_b(cfg, l200, period; kwargs...) = true
-const STUB_PROCESSORS = Dict{Symbol,Function}(:process_a => process_a, :p_process_b => p_process_b)
+# A callable struct stands in for a processor, as a test double might.
+struct PartitionStub end
+(::PartitionStub)(cfg, l200, period; kwargs...) = true
+const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b => PartitionStub())
 
 @testset "processing config" begin
     json = ProcessingConfig(joinpath(CONFIG_DIR, "processing_config.json"))

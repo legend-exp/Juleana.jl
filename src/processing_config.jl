@@ -272,13 +272,13 @@ Names of the partition-level processors sorted by rank (ties by name); with
 partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.p_processors, enabled_only)
 
 """
-    check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol,<:Function} = PROCESSORS)
+    check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol} = PROCESSORS)
 
 Check that every enabled processor of `cfg` is registered in `processors` and that its
 function accepts all keyword arguments configured in its `kwargs`. Throw an
 `ArgumentError` listing every mismatch; return `nothing` otherwise.
 """
-function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol,<:Function} = PROCESSORS)
+function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol} = PROCESSORS)
     problems = String[]
     for specs in (cfg.processors, cfg.p_processors), spec in values(specs)
         spec.enabled || continue

@@ -274,4 +274,4 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
     return any(x -> get(last(x), :skipped, false), values(result_sipm_calibration))
 end
 
-register_processor!(:p_process_sipm_calibration_phy, p_process_sipm_calibration_phy)
+register_processor!(p_process_sipm_calibration_phy)

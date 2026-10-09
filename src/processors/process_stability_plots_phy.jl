@@ -141,4 +141,4 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
     flush(stdout)
 end
 
-register_processor!(:process_stability_plots_phy, process_stability_plots_phy)
+register_processor!(process_stability_plots_phy)
