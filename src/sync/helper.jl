@@ -154,6 +154,18 @@ function parse_record(line::AbstractString)
 end
 
 """
+    helper_command(h, c, script, command, jobfile, jobs)::Cmd
+
+The command that runs the staged helper `script` on `h`. LinearAlgebra is part of the
+sysimage, so the BLAS thread count must be in the process environment before Julia
+starts; the script sets it again for the workers.
+"""
+function helper_command(h::RemoteHost, c::HelperConfig, script, command, jobfile, jobs)
+    cmd = `env OPENBLAS_NUM_THREADS=1 $(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) $script $command $jobfile`
+    jobs > 0 ? `$cmd --jobs $jobs` : cmd
+end
+
+"""
     run_helper(h, c, command, spec; jobs = 0, on_record = Returns(nothing),
                warn = Returns(nothing))::Vector{Dict{String,Any}}
 
@@ -176,10 +188,7 @@ function run_helper(h::RemoteHost, c::HelperConfig, command::AbstractString,
         open(io -> TOML.print(io, spec), file, "w")
         push_file(h, file, joinpath(staging, "jobs"); checksum = true)
     end
-    # LinearAlgebra is part of the sysimage, so OpenBLAS reads its thread count before any
-    # Julia code runs; the script sets the variable again for the workers.
-    cmd = `env OPENBLAS_NUM_THREADS=1 $(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) $script $command $jobfile`
-    jobs > 0 && (cmd = `$cmd --jobs $jobs`)
+    cmd = helper_command(h, c, script, command, jobfile, jobs)
     records = Dict{String,Any}[]
     warnings = stream_remote(h, cmd, function (line)
         record = parse_record(line)

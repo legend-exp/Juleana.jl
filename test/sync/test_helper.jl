@@ -227,11 +227,18 @@
 
         # The helper process starts with one BLAS thread already requested.
         probe = joinpath(work, "probe-julia")
-        write(probe, "#!/bin/sh\necho \"\$OPENBLAS_NUM_THREADS\" > $(joinpath(work, "blas-env"))\n" *
-                     "exec $(joinpath(Sys.BINDIR, "julia")) \"\$@\"\n")
+        write(probe, "#!/bin/sh\necho \"\$OPENBLAS_NUM_THREADS\" > '$(joinpath(work, "blas-env"))'\n" *
+                     "exec '$(joinpath(Sys.BINDIR, "julia"))' \"\$@\"\n")
         chmod(probe, 0o755)
-        run_helper(h, HelperConfig(; staging, julia = probe), "inspect", Dict("files" => files))
+        withenv("OPENBLAS_NUM_THREADS" => nothing) do
+            run_helper(h, HelperConfig(; staging, julia = probe), "inspect", Dict("files" => files))
+        end
         @test strip(read(joinpath(work, "blas-env"), String)) == "1"
+
+        # The prefix survives the ssh quoting.
+        remote = remote_command(ssh, helper_command(ssh, HelperConfig(; julia = "/opt/julia/bin/julia"),
+                                                    "/stage/extract.jl", "inspect", "/stage/job.toml", 2))
+        @test occursin("env OPENBLAS_NUM_THREADS=1 /opt/julia/bin/julia ", last(remote.exec))
 
         bad = Dict("job" => [Dict("source" => files[1], "groups" => ["nope"],
                                   "destination" => joinpath(work, "x.lh5"))])
