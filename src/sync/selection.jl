@@ -275,20 +275,27 @@ function collect_modes!(node::Node, p::Production, copies::Vector{String},
     nothing
 end
 
-function Selection(p::Production, host::AbstractString, root::Node)
-    copies = String[]
-    links = String[]
-    extracts = Dict{String,Vector{String}}()
-    collect_modes!(root, p, copies, links, extracts)
-    # The production's own config.json, the overlays applied to it and its metadata
-    # checkout are what make the mirror openable at all, so they are copied whether
-    # or not they were picked.
+"""
+    mandatory_copies(p::Production)::Vector{String}
+
+The paths, relative to the remote root, that every mirror of `p` copies: the
+production's own config.json, the overlays applied to it and its metadata checkout.
+Without them the mirror cannot be opened.
+"""
+function mandatory_copies(p::Production)
     mandatory = [relative(p, joinpath(p.remote_root, p.name, "config.json")); p.overlays]
     i = findfirst(kv -> first(kv) == "metadata", p.roots)
     i === nothing && throw(ArgumentError(
         "production $(p.name) has no \"metadata\" path key; legend-metadata cannot be mirrored"))
     push!(mandatory, relative(p, last(p.roots[i])))
-    for path in mandatory
+end
+
+function Selection(p::Production, host::AbstractString, root::Node)
+    copies = String[]
+    links = String[]
+    extracts = Dict{String,Vector{String}}()
+    collect_modes!(root, p, copies, links, extracts)
+    for path in mandatory_copies(p)
         path in copies || push!(copies, path)
     end
     entries = [ExtractEntry(run, sort!(groups)) for (run, groups) in sort!(collect(extracts); by = first)]
@@ -347,7 +354,8 @@ end
 
 Read a saved selection and check it belongs to `p`. Variable substitution is off:
 a selection holds literal paths, and expanding a `\$` in one would silently point
-the transfer somewhere else.
+the transfer somewhere else. The returned selection's copy list is the union of the
+file's and `mandatory_copies(p)`, so a hand-written file still yields an openable mirror.
 """
 function load_selection(path::AbstractString, p::Production)
     sel = Selection(readprops(path; subst_pathvar = false, subst_env = false))
@@ -355,7 +363,8 @@ function load_selection(path::AbstractString, p::Production)
         "selection $path is for production $(sel.production), not $(p.name)"))
     rstrip(normpath(sel.remote_root), '/') == p.remote_root || throw(ArgumentError(
         "selection $path has remote root $(sel.remote_root), not $(p.remote_root)"))
-    sel
+    Selection(sel.host, sel.production, sel.remote_root, sel.local_root, sel.mount_root,
+              sort!(union(sel.copy, mandatory_copies(p))), sel.link, sel.created, sel.extract)
 end
 
 """

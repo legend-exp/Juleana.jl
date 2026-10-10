@@ -202,6 +202,17 @@
         @test back.mount_root == "/Volumes/cslg4"
         @test back.created == sel.created
 
+        # A hand-written selection without copy entries still gets the mandatory ones.
+        bare = Selection("cslg4", "test", sel.remote_root, sel.local_root, nothing,
+                         String[], [first(sel.link)], sel.created)
+        bare_path = save_selection(joinpath(mktempdir(), "bare.json"), bare)
+        loaded = load_selection(bare_path, p)
+        @test loaded.copy == sort(mandatory_copies(p))
+        @test joinpath("test", "config.json") in loaded.copy
+        @test joinpath("test", "legend-metadata") in loaded.copy
+        @test loaded.link == bare.link
+        @test loaded.host == "cslg4" && loaded.created == bare.created && loaded.mount_root === nothing
+
         # A selection without a mount root round-trips as nothing, not "".
         plain = Production(h, "test", FIXTURE_ROOT, local_root)
         sel2 = Selection(plain, "cslg4", production_tree(h, plain))

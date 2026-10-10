@@ -85,7 +85,8 @@
         text = read(path, String)
         @test code == 0
         @test occursin("selected: ", text)
-        @test occursin("copy (3 files)", text)
+        # The listed copies plus the mandatory overlay and metadata entries.
+        @test occursin("copy (5 files)", text)
         @test !isdir(joinpath(local_root, "temp"))
     end
 
