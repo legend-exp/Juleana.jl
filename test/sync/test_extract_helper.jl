@@ -194,6 +194,25 @@
         @test occursin("extract.jl:", r.stderr)
     end
 
+    @testset "the helper keeps BLAS to one thread" begin
+        env = copy(ENV)
+        delete!(env, "OPENBLAS_NUM_THREADS")
+        delete!(env, "OMP_NUM_THREADS")
+        delete!(env, "OPENBLAS_DEFAULT_NUM_THREADS")
+        code = """
+            const LOADED_AS_LIBRARY = true
+            include($(repr(script)))
+            using LinearAlgebra, Distributed
+            println(get(ENV, "OPENBLAS_NUM_THREADS", "unset"))
+            start_workers(2)
+            println(join(remotecall_fetch.(() -> get(ENV, "OPENBLAS_NUM_THREADS", "unset"), workers()), ","))
+            println(join(remotecall_fetch.(() -> LinearAlgebra.BLAS.get_num_threads(), workers()), ","))
+            stopworkers()
+            """
+        out = read(setenv(`$(Base.julia_cmd()) --startup-file=no --project=$project -e $code`, env), String)
+        @test split(out, '\n')[1:3] == ["1", "1,1", "1,1"]
+    end
+
     @testset "--jobs below one is rejected" begin
         r = run_script("inspect", Dict("files" => sources); jobs = 0)
         @test r.code == 2

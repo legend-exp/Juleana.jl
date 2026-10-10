@@ -6,6 +6,10 @@
 #
 #     julia --project=ENV extract.jl inspect JOBFILE [--jobs N]
 #     julia --project=ENV extract.jl extract JOBFILE [--jobs N]
+# The helper does no linear algebra. One BLAS thread per process keeps the master and up
+# to eight workers well below the per-user thread limits of login nodes; workers inherit
+# the setting. It must precede the packages below, which load LinearAlgebra.
+ENV["OPENBLAS_NUM_THREADS"] = "1"
 using Distributed
 using HDF5
 using ParallelProcessingTools
