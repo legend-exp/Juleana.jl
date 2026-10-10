@@ -225,6 +225,14 @@
         @test isfile(joinpath(staging, "extract.jl"))
         @test !isfile(joinpath(staging, "jobs", "inspect.toml"))
 
+        # The helper process starts with one BLAS thread already requested.
+        probe = joinpath(work, "probe-julia")
+        write(probe, "#!/bin/sh\necho \"\$OPENBLAS_NUM_THREADS\" > $(joinpath(work, "blas-env"))\n" *
+                     "exec $(joinpath(Sys.BINDIR, "julia")) \"\$@\"\n")
+        chmod(probe, 0o755)
+        run_helper(h, HelperConfig(; staging, julia = probe), "inspect", Dict("files" => files))
+        @test strip(read(joinpath(work, "blas-env"), String)) == "1"
+
         bad = Dict("job" => [Dict("source" => files[1], "groups" => ["nope"],
                                   "destination" => joinpath(work, "x.lh5"))])
         @test_throws "group nope not found" run_helper(h, c, "extract", bad)

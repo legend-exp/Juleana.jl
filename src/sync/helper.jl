@@ -176,7 +176,9 @@ function run_helper(h::RemoteHost, c::HelperConfig, command::AbstractString,
         open(io -> TOML.print(io, spec), file, "w")
         push_file(h, file, joinpath(staging, "jobs"); checksum = true)
     end
-    cmd = `$(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) $script $command $jobfile`
+    # LinearAlgebra is part of the sysimage, so OpenBLAS reads its thread count before any
+    # Julia code runs; the script sets the variable again for the workers.
+    cmd = `env OPENBLAS_NUM_THREADS=1 $(remote_julia(h, c)) --startup-file=no --project=$(julia_project(h, c)) $script $command $jobfile`
     jobs > 0 && (cmd = `$cmd --jobs $jobs`)
     records = Dict{String,Any}[]
     warnings = stream_remote(h, cmd, function (line)
