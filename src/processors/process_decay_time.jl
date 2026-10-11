@@ -135,7 +135,7 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(det_decay_time, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_pz = parallel(det_decay_time, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_decay_time")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
@@ -155,7 +155,7 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
     lreport!(report, create_logtbl(result_pz))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :decay_time), report)
     @info report
     
     # flush stdout

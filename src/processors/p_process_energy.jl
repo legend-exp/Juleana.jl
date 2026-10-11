@@ -235,7 +235,7 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     # get start time
     start_time = now()
 
-    result_energy = parallel(det_energy_calibration, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = parallel(det_energy_calibration, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_energy")
 
     @info "Finished partition calibration"
 
@@ -255,7 +255,7 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_preportfilename(l200, filekey, :energy), report)
     @info report
 
     # flush stdout

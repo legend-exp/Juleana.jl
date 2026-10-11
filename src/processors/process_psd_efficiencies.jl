@@ -244,7 +244,7 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
     start_time = now()
 
     # execute in parallel
-    result_psd = parallel(det_psd_sf, chinfo, log_nt_cut; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_psd = parallel(det_psd_sf, chinfo, log_nt_cut; timeout=timeout, retry=false, process_name="$period-$run-process_psd_efficiencies")
 
     @info "Finished PSD efficiencies"
 
@@ -265,7 +265,7 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
     lreport!(report, create_logtbl(result_psd))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :psd_efficiencies), report)
     @info report
 
     # flush stdout

@@ -141,7 +141,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
     # get start time
     start_time = now()
 
-    result_ctc = parallel(det_ct_correction, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_ctc = parallel(det_ct_correction, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_ct_correction")
 
     @info "Finished CT correction"
 
@@ -162,7 +162,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
     lreport!(report, create_logtbl(result_ctc))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :ct_correction), report)
     @info report
 
     # flush stdout

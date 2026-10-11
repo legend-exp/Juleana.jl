@@ -105,7 +105,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
     start_time = now()
 
     # execute in parallel
-    result_evt = parallel(filekey_evt, filekeys, log_nt; timeout=timeout, retry=true, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_evt = parallel(filekey_evt, filekeys, log_nt; timeout=timeout, retry=true, process_name="$period-$run-process_evt_phy")
     
     @info "Finished Evt for period $period and run $run"
 
@@ -125,7 +125,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :evt_phy), report)
     @info report
 
     # flush stdout

@@ -233,7 +233,7 @@ function process_energy_calibration(processing_config, l200::LegendData, period:
     # get start time
     start_time = now()
 
-    result_energy = parallel(det_energy_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_energy = parallel(det_energy_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_energy_calibration")
 
     @info "Finished energy calibration"
 
@@ -254,7 +254,7 @@ function process_energy_calibration(processing_config, l200::LegendData, period:
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :energy_calibration), report)
     @info report
 
     # flush stdout

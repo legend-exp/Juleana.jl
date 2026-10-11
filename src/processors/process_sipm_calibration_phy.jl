@@ -205,7 +205,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
     start_time = now()
 
     # execute in parallel
-    result_sipm_calibration = parallel(det_sipm_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_calibration = parallel(det_sipm_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_sipm_calibration_phy")
     @info "Finished SiPM calibration"
 
     pars_db = create_pars(pars_db, result_sipm_calibration)
@@ -225,7 +225,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
     lreport!(report, create_logtbl(result_sipm_calibration))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :sipm_calibration_phy), report)
     @info report
     
     # flush stdout
