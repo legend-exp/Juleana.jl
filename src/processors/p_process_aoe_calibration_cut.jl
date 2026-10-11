@@ -108,7 +108,7 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
             end
         end
 
-        e_cal, hit_cal, ts = nothing, nothing, nothing
+        e_cal, hit_cal, e_unit, ts = nothing, nothing, nothing, nothing
         try
             if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([
@@ -120,6 +120,7 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
                     end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)
+                e_unit = unit(eltype(e_cal))
 
                 # get timestamps for stability plots
                 ts = uconvert.(u"hr", hit_cal.timestamp)
@@ -135,8 +136,6 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
             @error "E data for $det from cannot be loaded"
             throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
-
-        e_unit = unit(eltype(e_cal))
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
             if haskey(processed_dict, aoe_type)

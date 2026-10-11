@@ -75,7 +75,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
             end
         end
 
-        e_cal, hit_cal = nothing, nothing
+        e_cal, hit_cal, e_unit = nothing, nothing, nothing
         try
             if !all([haskey(processed_dict, aoe_type) for aoe_type in aoe_types]) || !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = let e_type_cal=e_type, e_type=Symbol(first(split(string(e_type), "_cal")))
@@ -85,13 +85,12 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                     read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, period, run, det)[qc_mask]
                 end
                 e_cal = getproperty(hit_cal, e_type)
+                e_unit = unit(eltype(e_cal))
             end
         catch e
             @error "Hit data for $det from cannot be loaded: $(truncate_error(e))"
             throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
         end
-
-        e_unit = unit(eltype(e_cal))
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
             if haskey(processed_dict, aoe_type)
