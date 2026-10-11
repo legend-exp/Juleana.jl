@@ -219,7 +219,7 @@ function process_filter_optimization(processing_config, l200::LegendData, period
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(det_filter_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_flt = parallel(det_filter_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_filter_optimization")
 
     @info "Finished filter optimization"
 
@@ -240,7 +240,7 @@ function process_filter_optimization(processing_config, l200::LegendData, period
     lreport!(report, create_logtbl(result_flt))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :filter_optimization), report)
     @info report
     
     # flush stdout

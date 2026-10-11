@@ -380,7 +380,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
     start_time = now()
 
     # execute in parallel
-    result_aoe = parallel(det_aoe_cut, chinfo, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(det_aoe_cut, chinfo, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-$run-process_aoe_calibration_cut")
 
     @info "Finished AoE calibration"
 
@@ -401,7 +401,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :aoe_calibration_cut), report)
     @info report
 
     # flush stdout

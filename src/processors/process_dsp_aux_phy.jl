@@ -106,7 +106,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
     start_time = now()
 
     # execute in parallel
-    result_dsp_aux = parallel(det_dsp_aux, chinfo_aux, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp_aux = parallel(det_dsp_aux, chinfo_aux, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_dsp_aux_phy")
 
     @info "Finished auxiliary detector DSP"
 
@@ -121,7 +121,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
     lreport!(report, create_logtbl(result_dsp_aux))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :dsp_aux_phy), report)
     @info report
 
     flush(stdout)

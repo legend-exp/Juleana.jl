@@ -205,7 +205,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     start_time = now()
 
     # execute in parallel
-    result_sipm_optimization = parallel(det_sipm_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sipm_optimization = parallel(det_sipm_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_sipm_optimization_phy")
     @info "Finished SiPM optimization extraction"
 
     pars_db = create_pars(pars_db, result_sipm_optimization)
@@ -225,7 +225,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     lreport!(report, create_logtbl(result_sipm_optimization))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :sipm_optimization_phy), report)
     @info report
     
     # flush stdout

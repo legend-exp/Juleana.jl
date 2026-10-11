@@ -94,7 +94,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     # get start time
     start_time = now()
 
-    result_skm = parallel(skm_fk, rinfo.phy.startkey, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_skm = parallel(skm_fk, rinfo.phy.startkey, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_skm_phy")
 
     @info "Finished skimmed file processing"
 
@@ -110,7 +110,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     lreport!(report, create_logtbl(result_skm))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_preportfilename(l200, filekey, :skm_phy), report)
     @info report
 
     # flush stdout

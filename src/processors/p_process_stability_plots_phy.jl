@@ -143,7 +143,7 @@ function p_process_stability_plots_phy(processing_config, l200::LegendData, peri
     end
 
     # execute in parallel
-    result_stability = parallel(det_stability_plots, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_stability = parallel(det_stability_plots, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_stability_plots_phy")
 
     @info "Finished stability plot generation"
 
@@ -158,7 +158,7 @@ function p_process_stability_plots_phy(processing_config, l200::LegendData, peri
     lreport!(report, create_logtbl(result_stability))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_preportfilename(l200, filekey, :stability_plots_phy), report)
     @info report
 
     flush(stdout)

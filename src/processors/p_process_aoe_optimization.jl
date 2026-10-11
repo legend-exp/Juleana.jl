@@ -243,7 +243,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(det_sg_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_sg = parallel(det_sg_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_aoe_optimization")
 
     @info "Finished SG filter optimization"
 
@@ -264,7 +264,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
 
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_preportfilename(l200, filekey, :aoe_optimization), report)
     @info report
 
     # flush stdout

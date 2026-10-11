@@ -139,7 +139,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                                     fit_func=Symbol(aoe_config_det.dep_cut_search_fit_func), uncertainty=true)
                 catch e
                     @error "AoE cut for $det cannot be generated"
-                    throw(ErrorException("AoE cut for $det from $period-$run cannot be generated"))
+                    throw(ErrorException("AoE cut for $det from partition $part cannot be generated"))
                 end
 
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
@@ -155,7 +155,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                                                     low_cut=result_cut.lowcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks low SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated"))
+                    throw(ErrorException("AoE peaks low SF for $det from partition $part cannot be generated"))
                 end
 
                 @debug "Found low SEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
@@ -166,7 +166,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                     qbb_result_low, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut)
                 catch e
                     @error "Qbb low SF for $det cannot be generated"
-                    throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated"))
+                    throw(ErrorException("Qbb low SF for $det from partition $part cannot be generated"))
                 end
 
                 @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
@@ -178,7 +178,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                                                     low_cut=result_cut.lowcut, high_cut=result_cut.highcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
                     @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
+                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated"))
                 end
 
                 @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
@@ -189,7 +189,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                     qbb_result_ds, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut, high_cut=result_cut.highcut)
                 catch e
                     @error "Qbb DS SF for $det cannot be generated"
-                    throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
+                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated"))
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
@@ -231,7 +231,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     # get start time
     start_time = now()
 
-    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_aoe_cut")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"
@@ -250,7 +250,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_preportfilename(l200, filekey, :aoe_cut), report)
     @info report
     
     # flush stdout

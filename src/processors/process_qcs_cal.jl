@@ -146,7 +146,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     start_time = now()
 
     # execute in parallel
-    result_qc = parallel(det_qcs_cal, chinfo, log_nt; timeout = timeout, retry = false, process_name = "$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_qc = parallel(det_qcs_cal, chinfo, log_nt; timeout = timeout, retry = false, process_name = "$period-$run-process_qcs_cal")
 
     @info "Finished QC detector processing"
 
@@ -177,7 +177,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     lreport!(report, "\n# Results")
     lreport!(report, create_logtbl(result_qc))
 
-    report_filename = get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))"))
+    report_filename = get_rreportfilename(l200, filekey, :qcs_cal)
 
     @info "Write log report"
     writelreport(report_filename, report)

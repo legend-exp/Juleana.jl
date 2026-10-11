@@ -195,7 +195,7 @@ function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekey_dsp, filekeys, log_nt; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+    result_dsp = parallel(filekey_dsp, filekeys, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_dsp_cal")
     
     @info "Finished DSP for period $period and run $run"
 
@@ -215,7 +215,7 @@ function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
+    writelreport(get_rreportfilename(l200, filekey, :dsp_cal), report)
     @info report
 
     # flush stdout
