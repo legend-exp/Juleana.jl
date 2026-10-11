@@ -135,12 +135,12 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
 
     mode = runprocs_mode(config)
     if config.runmode == :local
-        @async runworkers(mode)
+        errormonitor(@async runworkers(mode))
     else
         script = joinpath(pkgdir(Juleana), "startjlworkers.sh")
         @info "Write worker start script to $script"
         write_worker_start_script(script, mode)
-        config.submit_jobs && @async runworkers(mode)
+        config.submit_jobs && errormonitor(@async runworkers(mode))
     end
     ppt_worker_pool!(FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1))
 

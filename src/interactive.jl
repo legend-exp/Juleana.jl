@@ -100,7 +100,7 @@ function menu(session::DataflowSession)
         @info "Reloaded dependency graph"
     # add workers according to the run mode settings
     elseif choice == 6
-        @async runworkers(runprocs_mode(session.config))
+        errormonitor(@async runworkers(runprocs_mode(session.config)))
         @info "Submitted workers"
     end
     return nothing
