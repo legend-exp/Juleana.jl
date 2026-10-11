@@ -103,8 +103,6 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
             throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
 
-        e_unit = unit(eltype(e_cal))
-
         @showprogress desc="Detector: $det" for psd_classifier in psd_classifiers
             if haskey(processed_dict, psd_classifier)
                 continue

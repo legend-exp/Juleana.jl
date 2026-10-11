@@ -86,7 +86,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
             end
         end
 
-        e_cal, hit_cal = nothing, nothing
+        e_cal, hit_cal, e_unit = nothing, nothing, nothing
         try
             if !all([haskey(processed_dict, aoe_classifier) for aoe_classifier in aoe_classifiers])
                 hit_cal = fast_flatten([begin
@@ -97,13 +97,12 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                 end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)
+                e_unit = unit(first(e_cal))
             end
         catch e
             @error "E data for $det from cannot be loaded: $(truncate_error(e))"
             throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
-
-        e_unit = unit(first(e_cal))
 
         @showprogress desc="Detector: $det" for aoe_classifier in aoe_classifiers
             if haskey(processed_dict, aoe_classifier)
