@@ -236,7 +236,7 @@
         @test strip(read(joinpath(work, "blas-env"), String)) == "1"
 
         # The prefix survives the ssh quoting.
-        remote = remote_command(ssh, helper_command(ssh, HelperConfig(; julia = "/opt/julia/bin/julia"),
+        remote = remote_command(ssh, helper_command(ssh, HelperConfig(; julia = "/opt/julia/bin/julia", julia_project = "/opt/proj"),
                                                     "/stage/extract.jl", "inspect", "/stage/job.toml", 2))
         @test occursin("env OPENBLAS_NUM_THREADS=1 /opt/julia/bin/julia ", last(remote.exec))
 
