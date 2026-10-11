@@ -36,6 +36,11 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
         @test !occursin("second", msg)
         @test truncate_string("abcdef", Int32(3)) == "abc..."
         @test length(truncate_error(ErrorException("x"^50), UInt8(10))) == 13
+        failed = Threads.@spawn error("inner failure")
+        wrapped = try; wait(failed); catch e; e; end
+        @test wrapped isa TaskFailedException
+        @test truncate_error(wrapped) == string(ErrorException("inner failure"))
+        @test truncate_error(CompositeException([wrapped, ErrorException("second")])) == string(ErrorException("inner failure"))
     end
 
     @testset "report texts are internal" begin
