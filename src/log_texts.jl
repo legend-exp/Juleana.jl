@@ -44,12 +44,9 @@ function truncate_string(s::AbstractString, max_length::Integer=1000)
     length(s) > max_length ? first(s, max_length) * "..." : s
 end
 
-function truncate_error(e::Exception, max_length::Integer=1000)
-    if e isa CompositeException
-        e = e.exceptions[1]
-    end
-    truncate_string(string(@userfriendly_exceptions e), max_length)
-end
+# Message of the first exception of `e`, unwrapped from task and remote-call wrappers.
+truncate_error(e::Exception, max_length::Integer=1000) =
+    truncate_string(string(original_exception(onlyfirst_exception(e))), max_length)
 
 # Static report sections, one per processor; internal to the module.
 

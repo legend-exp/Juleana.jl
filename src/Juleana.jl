@@ -55,8 +55,8 @@ using Logging: global_logger
 import Makie
 using Measurements: value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
-    @userfriendly_exceptions, CreateOrModify, CreateOrReplace, FlexWorkerPool,
-    OnLocalhost, OnSlurm, onlyfirst_exception, onworker, pinthreads_auto,
+    CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
+    onlyfirst_exception, onworker, original_exception, pinthreads_auto,
     ppt_worker_pool!, runworkers, write_files, write_worker_start_script
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
