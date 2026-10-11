@@ -138,6 +138,9 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "in both `processors` and `p_processors`: process_dsp_cal" positional(p_processors = merge(json.p_processors, Dict(:process_dsp_cal => partition_twin)))
         orphan = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, dependencies = [:missing])
         @test_throws "key `processors.x.dependencies` names unknown processor `missing`" ProcessingConfig(; processors = Dict(:x => orphan), p_processors = Dict{Symbol,ProcessorSpec}())
+        first_run = ProcessorSpec(; name = :a, level = :run, category = :cal, rank = 1)
+        second_run = ProcessorSpec(; name = :b, level = :run, category = :cal, rank = 2, dependencies = [:a])
+        @test_throws "key `processors.b.dependencies` names `a` of the same level; dependencies must name processors of the other level" ProcessingConfig(; processors = Dict(:a => first_run, :b => second_run), p_processors = Dict{Symbol,ProcessorSpec}())
         idle = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, enabled = false)
         @test_throws "no processor is enabled" ProcessingConfig(; processors = Dict(:x => idle), p_processors = Dict{Symbol,ProcessorSpec}())
 

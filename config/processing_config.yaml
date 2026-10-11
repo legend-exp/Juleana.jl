@@ -152,8 +152,7 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies:
-      - process_dsp_aux_phy
+    dependencies: []
 
   process_dsp_phy:
     enabled: true

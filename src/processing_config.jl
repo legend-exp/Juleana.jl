@@ -76,7 +76,7 @@ default (no workers flags, no selection, all flags `false`, `local_n = 1`). Ever
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
 `local_n < 1`, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
-processor, or no processor is enabled.
+processor or one of its own level, or no processor is enabled.
 
 See [`run_steps`](@ref), [`partition_steps`](@ref) and [`check_processor_kwargs`](@ref).
 """
@@ -119,9 +119,12 @@ struct ProcessingConfig
         duplicates = intersect(keys(cfg.processors), keys(cfg.p_processors))
         isempty(duplicates) ||
             throw(ArgumentError("processing_config: processor names in both `processors` and `p_processors`: $(join(duplicates, ", "))"))
-        for (section, specs) in (("processors", cfg.processors), ("p_processors", cfg.p_processors)), spec in values(specs), dep in spec.dependencies
-            haskey(cfg.processors, dep) || haskey(cfg.p_processors, dep) ||
-                throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
+        for (section, specs, others) in (("processors", cfg.processors, cfg.p_processors), ("p_processors", cfg.p_processors, cfg.processors)),
+                spec in values(specs), dep in spec.dependencies
+            haskey(others, dep) && continue
+            haskey(specs, dep) &&
+                throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names `$dep` of the same level; dependencies must name processors of the other level"))
+            throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
         end
         any(s -> s.enabled, values(cfg.processors)) || any(s -> s.enabled, values(cfg.p_processors)) ||
             throw(ArgumentError("processing_config: no processor is enabled"))
