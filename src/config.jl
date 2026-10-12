@@ -57,7 +57,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
             arg_type = Int
             action = :append_arg
     end
-    return parse_args(collect(String, args), settings)
+    return parse_args(append!(String[], args), settings)
 end
 
 """
