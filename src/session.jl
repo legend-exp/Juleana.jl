@@ -124,6 +124,8 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
     parsed_args = parse_commandline(args)
     isnothing(parsed_args) && return nothing
     l200, config, periods = setup_processing(parsed_args)
+    # a config reload from the menu writes to the same log directory
+    parsed_args["log_path"] = config.log_path
     check_processor_kwargs(config)
     @info "Start Data processing"
 

@@ -10,7 +10,8 @@ return. The actions are:
    (or only inspect their reports with `check_report`).
 2. Select periods, 3. Select runs: change the selection and rebuild the dependency graph.
 4. Reload processing config: read the config file again with the original command line
-   options and rebuild the steps and the dependency graph.
+   options, keeping the session's log directory, and rebuild the steps and the
+   dependency graph.
 5. Reset dependency graph: rebuild the dependency graph for the enabled steps.
 6. Submit workers: start workers for the configured run mode.
 7. Exit: return without action.
