@@ -21,7 +21,6 @@ It consists of a dataflow implementation to run an analysis on a [SLURM](https:/
 - Automated plot generation of monitoring and analysis plots.
 - Automated `pars` generation with `validity` flagging
 - Partition and run based processing with automated dataflow control.
-folder.
 
 # Quick Start
 To start the processing just execute the `main.jl` script with the julia interpreter.
@@ -31,7 +30,7 @@ julia main.jl -c config/processing_config.json
 You should consider to put all necessary packages in a single environment. The current standard environment is found in the `Project.toml` and `Manifest.toml` files in the dataflow folder and will be automatically activated if no other project is specified. 
 
 # Command line options
-The script also offers command line options to have a handy way of processing things in the command line. A help menu is available in the command line with the `--help` flag. The following options are availbale at the moment:
+The script also offers command line options to have a handy way of processing things in the command line. A help menu is available in the command line with the `--help` flag. The following options are available at the moment:
 
 | Command           | Description         |
 |-------------------|---------------------|
@@ -84,20 +83,20 @@ To add a processor:
 When the dataflow starts, every enabled processor of the config must be registered and accept all of its configured `kwargs`, otherwise it stops with an error naming the processor.
 
 # Setup
-To set up the dataflow, you need to have a running `julia` configuration on a login node of a SLURM based cluster with the corresponding acces to the *LEGEND data*. To help you set this up, the folder `setup/` contains helper scripts based on `bash` to guide you through the setup process. 
+To set up the dataflow, you need to have a running `julia` configuration on a login node of a SLURM based cluster with the corresponding access to the *LEGEND data*. To help you set this up, the folder `setup/` contains helper scripts based on `bash` to guide you through the setup process. 
 
 ## Installation
 To install your own julia on a cluster and do all necessary pre-steps to be able to process data, you can find a more detailed introduction to Juleana and the setup process in the [How-to-Legend](https://github.com/LisaSchlueter/HowTo-Legend/tree/main) repository including detailed instructions on how to setup things on different clusters. 
 
 **Important**: Before you can run any of the code, you need to make sure that you activated the production environment once and installed all necessary packages. You can do this by running the following command:
 ``` julia
-import Pkg; Pkg.activate("path/to/legend-julia-dataflow")
+import Pkg; Pkg.activate("path/to/Juleana.jl")
 Pkg.instantiate()
 Pkg.precompile()
 ```
 
 ## Production environment
-If you want to run the dataflow, you a need a place to store the output of your data production. This is called a prodcution environment. Since it does not only contains your generated data, but also input data like e.g. `legend-metadata`, it requires a certain structure. To help you guide through that process, a bash script is provided `setup/production.sh` to guide you trhough that process. You can run it with the following command:
+If you want to run the dataflow, you a need a place to store the output of your data production. This is called a production environment. Since it does not only contains your generated data, but also input data like e.g. `legend-metadata`, it requires a certain structure. To help you guide through that process, a bash script is provided `setup/production.sh` to guide you through that process. You can run it with the following command:
 ``` bash
 bash setup/production.sh
 ```
@@ -108,10 +107,10 @@ To run the dataflow, the `main.jl` script will be executed on a login node provi
 ``` bash
 bash setup/tmux.sh
 ```
-It will create a new tmux session with the name `Juelana` and several windows for the different tasks. You can then attach to the session with `tmux attach -t Juelana` and detach with `Ctrl+b d`. In the `monitoring` window, you will find a current overview of free nodes and jobs in the SLURM queue from your user. This will help you monitor the progress of your jobs and check how many free resources are available and can be accessed by you.
+It will create a new tmux session with the name `Juleana` and several windows for the different tasks. You can then attach to the session with `tmux attach -t Juleana` and detach with `Ctrl+b d`. In the `monitoring` window, you will find a current overview of free nodes and jobs in the SLURM queue from your user. This will help you monitor the progress of your jobs and check how many free resources are available and can be accessed by you.
 
 ## SLURM integration
-After you set up a tmux session, you can start the dataflow by running the `main.jl` script with the julia interpreter in the first window. This will start the dataflow and give you information about the running steps in the terminal. However, this will not start any SLRUM processes for you. So to say, the script will wait at the beginning for new workers which the user has to add manually. This can be done with the `startjlworkers.sh` which the dataflow will write automatically to the dataflow folder. Here, you can find the slurm settings to add workers to the running julia session. You can run the script with the following command:
+After you set up a tmux session, you can start the dataflow by running the `main.jl` script with the julia interpreter in the first window. This will start the dataflow and give you information about the running steps in the terminal. However, this will not start any SLURM processes for you. So to say, the script will wait at the beginning for new workers which the user has to add manually. This can be done with the `startjlworkers.sh` which the dataflow will write automatically to the dataflow folder. Here, you can find the slurm settings to add workers to the running julia session. You can run the script with the following command:
 ``` bash
 bash startjlworkers.sh
 ```
@@ -120,19 +119,19 @@ Feel free to edit the settings in the script e.g. the number of nodes etc. It is
 **Info** If you activate the `submit_jobs` option, the script will automatically add a new SLURM process to the running julia session. This can be useful to automate the process of adding new workers to the session.
 
 # Configuration File
-To comunicate with the dataflow, you need to set up a configuration file. An example can be found in the `config/` folder.
+To communicate with the dataflow, you need to set up a configuration file. An example can be found in the `config/` folder.
 The `processing_config.json` file can be used to set up your own specific analysis chain in a simple JSON format. The file contains the following fields:
 ## `config`
 In the config section, you set the run mode, the worker settings and `ENV` environment variables.
 1. **`runmode`**: `"local"` or `"slurm"`.
 2. **`submit_jobs`**: flag to start the workers of the selected run mode automatically.
 3. **`runmode_settings`**: `local.n` (number of local workers) and `local.julia_settings`, `slurm.flags` and `slurm.julia_settings`.
-4. **`env_variables`**: field can be used to pass environment variables to the analysis. This can be useful to set up the analysis for different data sets. For a stable analysis, you should always set the `JULIA_WORKER_TIMEOUT` variable for `ParallelProcessingTools` and the `GKWSwstype` variable for the `GR` plotting backend. In addition, it can be useful to set the `JULIA_DEBUG` variable to enable debugging information for different packages.
+4. **`env_variables`**: field can be used to pass environment variables to the analysis. This can be useful to set up the analysis for different data sets. For a stable analysis, you should always set the `JULIA_WORKER_TIMEOUT` variable for `ParallelProcessingTools`. In addition, it can be useful to set the `JULIA_DEBUG` variable to enable debugging information for different packages.
 5. **`slurm.flags`**: field can be used to pass options to the slurm processors. All available options can found in the [SLURM documentation](https://slurm.schedmd.com). Please also refer to the documentation of the specific cluster you are using and adapt the settings appropriately.
 6. **`julia_settings`**: field can be used to pass options to the julia interpreter. This can be useful to set additional settings for the julia interpreter such as `--heap-size-hint` etc. Please refer to the [`julia` documentation](https://docs.julialang.org/en/v1/manual/command-line-interface/) for all available options.
 
 ## `processing`
-In the processing section, you can set which `periods` and `runs` you wanna process in your chain as well as different general settings. You can either pass an array with the corresponding run, period and partition numbers in any combination or just use the `"all"` keyword to process all available data such as e.g.
+In the processing section, you can set which `periods` and `runs` you wanna process in your chain as well as different general settings. You can either pass an array with the corresponding period and run numbers or just use the `"all"` keyword to process all available data such as e.g.
 ``` json
 "processing": {
     "periods": [3],
