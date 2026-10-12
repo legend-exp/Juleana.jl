@@ -111,7 +111,7 @@ Run the dataflow with the command line options `args` (see `julia main.jl --help
 Builds the processing config and `LegendData(:l200)`, runs [`init_process`](@ref) on
 this process and registers it for every worker, starts the workers of the configured
 run mode (`local` workers are always started; `slurm` workers only with
-`submit_jobs`, otherwise `startjlworkers.sh` is written to the package directory for
+`submit_jobs`, otherwise `startjlworkers.sh` is written to the current directory for
 manual submission), checks the processor keyword arguments, and builds the dependency
 graph for the enabled steps.
 
@@ -139,7 +139,7 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
     if config.runmode == :local
         errormonitor(@async runworkers(mode))
     else
-        script = joinpath(pkgdir(Juleana), "startjlworkers.sh")
+        script = joinpath(pwd(), "startjlworkers.sh")
         @info "Write worker start script to $script"
         write_worker_start_script(script, mode)
         config.submit_jobs && errormonitor(@async runworkers(mode))
