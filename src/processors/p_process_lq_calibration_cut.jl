@@ -355,7 +355,7 @@ function p_process_lq_calibration_cut(processing_config, l200::LegendData, perio
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_lq)]))
-    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Date of processing: $(utc_timestamp())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, lq_log_text)
     lreport!(report, "# Metadata")

@@ -241,7 +241,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_aoe)]))
-    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Date of processing: $(utc_timestamp())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, aoe_partition_log_text)
     lreport!(report, "# Metadata")

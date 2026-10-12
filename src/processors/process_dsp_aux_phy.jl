@@ -113,7 +113,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_dsp_aux)]))
-    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Date of processing: $(utc_timestamp())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
