@@ -149,7 +149,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
             end
         catch e
             @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter

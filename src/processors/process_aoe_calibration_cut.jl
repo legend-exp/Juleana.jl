@@ -88,8 +88,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                 e_unit = unit(eltype(e_cal))
             end
         catch e
-            @error "Hit data for $det from cannot be loaded: $(truncate_error(e))"
-            throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
+            @error "Hit data for $det cannot be loaded: $(truncate_error(e))"
+            throw(ErrorException("Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for aoe_type in aoe_types
@@ -108,7 +108,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                     aoe_expression = "$(aoe_funcs[aoe_type]) / $(cuts_aoe.max)"
                 catch e
                     @error "Error in $aoe_type simple normalization for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $aoe_type simple normalization"))
+                    throw(ErrorException("Error in $aoe_type simple normalization: $(truncate_error(e))"))
                 end
                 GC.gc()
 
@@ -132,7 +132,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                     result_fit, report_fit = fit_aoe_compton(compton_band_peakhists.peakhists, compton_band_peakhists.peakstats, compton_bands,; uncertainty=true)
                 catch e
                     @error "AoE compton bands cannot be fitted: $(truncate_error(e))"
-                    throw(ErrorException("AoE compton bands cannot be fitted"))
+                    throw(ErrorException("AoE compton bands cannot be fitted: $(truncate_error(e))"))
                 end
                 GC.gc()
 
@@ -149,7 +149,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                     result_fit_single, report_fit_single = fit_aoe_corrections(compton_bands, μ, σ,; aoe_expression = aoe_expression, e_expression = e_type)
                 catch e
                     @error "AoE corrections cannot be fitted: $(truncate_error(e))"
-                    throw(ErrorException("AoE corrections cannot be fitted"))
+                    throw(ErrorException("AoE corrections cannot be fitted: $(truncate_error(e))"))
                 end
 
                 # perform A/E combined fit
@@ -159,8 +159,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                         result_fit_combined, report_fit_combined = fit_aoe_compton_combined(peakhists, peakstats, compton_bands, result_fit_single; 
                                         e_expression = e_type, aoe_expression = aoe_expression, uncertainty = true)
                     catch e
-                        @error "AoE compton bands cannot be fitted using a combined fit: $e"
-                        throw(ErrorException("AoE compton bands cannot be fitted using a combined fit"))
+                        @error "AoE compton bands cannot be fitted using a combined fit: $e: $(truncate_error(e))"
+                        throw(ErrorException("AoE compton bands cannot be fitted using a combined fit: $(truncate_error(e))"))
                     end
                     
                     # create plots
@@ -197,7 +197,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                             aoe_expression = result_correction.func, qdrift_expression = qdrift_expression)
                     catch e
                         @error "AoE classifier cannot be charge-trapping corrected: $(truncate_error(e))"
-                        throw(ErrorException("AoE classifier cannot be charge-trapping corrected"))
+                        throw(ErrorException("AoE classifier cannot be charge-trapping corrected: $(truncate_error(e))"))
                     end
 
                     # plot A/E ctc correlation plot
@@ -264,8 +264,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                 try
                     aoe = ljl_propfunc(pars_db_ch[det][Symbol(first(split(string(aoe_classifier), "_classifier")))].func).(hit_cal)
                 catch e
-                    @error "AoE for $det from cannot be loaded"
-                    throw(LoadError("AoE", 154, "AoE data for $det cannot be loaded"))
+                    @error "AoE for $det cannot be loaded: $(truncate_error(e))"
+                    throw(ErrorException("AoE data for $det cannot be loaded: $(truncate_error(e))"))
                 end
 
                 h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
@@ -287,8 +287,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                                     fixed_position=aoe_config_det.dep_cut_search_fixed_position, sigma_high_sided=sigma_high_sided,
                                     fit_func=Symbol(aoe_config_det.dep_cut_search_fit_func), uncertainty=true)
                 catch e
-                    @error "AoE cut for $det cannot be generated"
-                    throw(ErrorException("AoE cut for $det from $period-$run cannot be generated"))
+                    @error "AoE cut for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE cut for $det from $period-$run cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
@@ -303,8 +303,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                     result_peaks_low, report_peaks_low = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
                                                     low_cut=result_cut.lowcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks low SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated"))
+                    @error "AoE peaks low SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks low SF for $det from $period-$run cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low SEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
@@ -314,8 +314,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                 try
                     qbb_result_low, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut)
                 catch e
-                    @error "Qbb low SF for $det cannot be generated"
-                    throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated"))
+                    @error "Qbb low SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb low SF for $det from $period-$run cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
@@ -326,8 +326,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                     result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
                                                     low_cut=result_cut.lowcut, high_cut=result_cut.highcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated"))
+                    @error "AoE peaks DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks DS SF for $det from $period-$run cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
@@ -337,8 +337,8 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
                 try
                     qbb_result_ds, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut, high_cut=result_cut.highcut)
                 catch e
-                    @error "Qbb DS SF for $det cannot be generated"
-                    throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated"))
+                    @error "Qbb DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb DS SF for $det from $period-$run cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"

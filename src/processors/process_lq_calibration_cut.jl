@@ -111,7 +111,7 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
             end
         catch e
             @error "E data for $det cannot be loaded: $(truncate_error(e))"
-            throw(LoadError("E data", 154, "E data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("E data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for lq_type in lq_types
@@ -138,8 +138,8 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
                     lq_e_corr_expression = "( $(lq_funcs[lq_type]) ) / $(cuts_lq.max)"
                     dt_eff_expression = qdrift_expression
                 catch e
-                    @error "Error in energy correction and normalization: $e"
-                    throw(ErrorException("Error in energy correction and normalization: $e"))
+                    @error "Error in energy correction and normalization: $e: $(truncate_error(e))"
+                    throw(ErrorException("Error in energy correction and normalization: $e: $(truncate_error(e))"))
                 end
 
                 @debug "Drift time correction of $lq_type"
@@ -232,7 +232,7 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
                     lq_class = ljl_propfunc(norm_func).(hit_cal)
                 catch e
                     @error "LQ classifier for $det cannot be loaded: $(truncate_error(e))"
-                    throw(LoadError("LQ classifier", 154, "LQ classifier for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
+                    throw(ErrorException("LQ classifier for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
                 end
 
                 # create and save plots
@@ -266,16 +266,16 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
                 try
                     result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right; high_cut=high_cut_sigma, fit_funcs=lq_peaks_fit_funcs)
                 catch e
-                    @error "Error in peak lq survival fraction calculation: $e"
-                    throw(ErrorException("Error in peak lq survival fraction calculation: $e"))
+                    @error "Error in peak lq survival fraction calculation: $e: $(truncate_error(e))"
+                    throw(ErrorException("Error in peak lq survival fraction calculation: $e: $(truncate_error(e))"))
                 end
 
                 result_qbb, report_qbb = nothing, nothing
                 try
                     result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window; high_cut=high_cut_sigma)
                 catch e
-                    @error "Error in qbb lq survival fraction calculation: $e"
-                    throw(ErrorException("Error in qbb lq survival fraction calculation: $e"))
+                    @error "Error in qbb lq survival fraction calculation: $e: $(truncate_error(e))"
+                    throw(ErrorException("Error in qbb lq survival fraction calculation: $e: $(truncate_error(e))"))
                 end
                 
 

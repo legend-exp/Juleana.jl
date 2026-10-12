@@ -90,7 +90,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
             end
         catch e
             @error "SiPM data from $(period)-$(run) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string("$(period)-$(run)"), 154,"SiPM data from $(period)-$(run) cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("SiPM data from $(period)-$(run) cannot be loaded: $(truncate_error(e))"))
         end
         
         wvfs_det = nothing

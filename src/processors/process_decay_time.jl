@@ -61,7 +61,7 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
         filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
-            throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
+            throw(ErrorException("File $(basename(filename)) does not exist"))
         end
 
         # load data
@@ -76,7 +76,7 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
             end
         catch e
             @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
         end
         yield()
 

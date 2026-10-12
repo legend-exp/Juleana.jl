@@ -99,8 +99,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                 e_cal = getproperty(hit_cal, e_type)
             end
         catch e
-            @error "E data for $det from cannot be loaded"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
+            @error "E data for $det cannot be loaded: $(truncate_error(e))"
+            throw(ErrorException("E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for psd_classifier in psd_classifiers
@@ -120,16 +120,16 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                     aoe_high_cut_vec = .!(getproperty(hit_cal, Symbol("$(aoe_classifier)")) .> aoe_high_cut)
                     aoe_ds_cut_vec = .!(getproperty(hit_cal, Symbol("$(aoe_classifier)_low_cut")) .|| getproperty(hit_cal, Symbol("$(aoe_classifier)")) .> aoe_high_cut)
                 catch e
-                    @error "AoE for $det from cannot be loaded"
-                    throw(LoadError("AoE", 154, "AoE and E data for $det from partition $(part) cannot be loaded"))
+                    @error "AoE for $det cannot be loaded: $(truncate_error(e))"
+                    throw(ErrorException("AoE and E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
                 end
 
                 lq_high_cut_vec = nothing
                 try
                     lq_high_cut_vec = .!getproperty(hit_cal, Symbol("$(lq_classifier)_high_cut"))
                 catch e
-                    @error "LQ for $det from cannot be loaded"
-                    throw(LoadError("LQ", 154, "LQ data for $det from partition $(part) cannot be loaded"))
+                    @error "LQ for $det cannot be loaded: $(truncate_error(e))"
+                    throw(ErrorException("LQ data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
                 end
 
                 ## low A/E cut
@@ -139,8 +139,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                     result_peaks_low, report_peaks_low = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_low_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks low SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks low SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks low SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks low SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low SEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
@@ -150,8 +150,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                 try
                     qbb_result_low, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_low_cut_vec)
                 catch e
-                    @error "Qbb low SF for $det cannot be generated"
-                    throw(ErrorException("Qbb low SF for $det from partition $part cannot be generated"))
+                    @error "Qbb low SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb low SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
@@ -165,8 +165,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                     result_peaks_high, report_peaks_high = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_high_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks high SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks high SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks high SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks high SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found high SEP Survival Fraction at $(round(u"percent", result_peaks_high[:Tl208SEP].sf, digits=2))"
@@ -176,8 +176,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                 try
                     qbb_result_high, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_high_cut_vec)
                 catch e
-                    @error "Qbb high SF for $det cannot be generated"
-                    throw(ErrorException("Qbb high SF for $det from partition $part cannot be generated"))
+                    @error "Qbb high SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb high SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found high Qbb Survival Fraction at $(round(u"percent", qbb_result_high.sf, digits=2))"
@@ -191,8 +191,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                     result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_ds_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
@@ -202,8 +202,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                 try
                     qbb_result_ds, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_ds_cut_vec)
                 catch e
-                    @error "Qbb DS SF for $det cannot be generated"
-                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated"))
+                    @error "Qbb DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
@@ -218,8 +218,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                     result_peaks_low_lq, report_peaks_low_lq = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_low_cut_vec .&& lq_high_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found LQ DS SEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208SEP].sf, digits=2))"
@@ -229,8 +229,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                 try
                     qbb_result_low_lq, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_low_cut_vec .&& lq_high_cut_vec)
                 catch e
-                    @error "Qbb DS SF for $det cannot be generated"
-                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated"))
+                    @error "Qbb DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_low_lq.sf, digits=2))"
@@ -246,8 +246,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                     result_peaks_lq_ds, report_peaks_lq_ds = get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_ds_cut_vec .&& lq_high_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found LQ DS SEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208SEP].sf, digits=2))"
@@ -257,8 +257,8 @@ function p_process_psd_efficiencies(processing_config, l200::LegendData, period:
                 try
                     qbb_result_lq_ds, _ = get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_ds_cut_vec .&& lq_high_cut_vec)
                 catch e
-                    @error "Qbb DS SF for $det cannot be generated"
-                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated"))
+                    @error "Qbb DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_lq_ds.sf, digits=2))"

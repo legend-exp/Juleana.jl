@@ -103,7 +103,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
             end
         catch e
             @error "Error in loading DSP data for detector $det: $(truncate_error(e))"
-            throw(ErrorException("Error data loader"))
+            throw(ErrorException("Error data loader: $(truncate_error(e))"))
         end
 
         is_pulser = nothing
@@ -133,7 +133,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
                 data_det_after_qc = data_dsp[findall(ljl_propfunc(e_type_config.qc).(data_dsp) .&& .!is_pulser)]
             catch e
                 @error "Error in loading data for detector $det, $e_type: $(truncate_error(e))"
-                throw(ErrorException("Error data loader"))
+                throw(ErrorException("Error data loader: $(truncate_error(e))"))
             end
 
             try
@@ -148,7 +148,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
                     e_uncal_func = "$e_type"
                 catch e
                     @error "Error in $e_type data extraction for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type data extraction"))
+                    throw(ErrorException("Error in $e_type data extraction: $(truncate_error(e))"))
                 end
 
                 p = LegendMakie.lplot(fit(Histogram, e_uncal, e_type_config.simple.kwargs.initial_min_amp:0.1:e_type_config.simple.kwargs.initial_max_amp), 
@@ -163,7 +163,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
                     result_simple, report_simple = sipm_simple_calibration(getproperty(data_det_after_qc, e_type); NamedTuple(e_type_config.simple.kwargs)...)
                 catch e
                     @error "Error in $e_type simple calibration for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type simple calibration"))
+                    throw(ErrorException("Error in $e_type simple calibration: $(truncate_error(e))"))
                 end
                 GC.gc()
 
@@ -180,7 +180,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
                             f_uncal=result_simple.f_simple_uncal, uncertainty=true)
                 catch e
                     @error "Error in $e_type peak fitting for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type peak fitting"))
+                    throw(ErrorException("Error in $e_type peak fitting: $(truncate_error(e))"))
                 end
                 GC.gc()
 
@@ -198,7 +198,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
                     @debug "Found $e_type calibration curve: $(result_calib.func)"
                 catch e
                     @error "Error in $e_type calibration curve fitting for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type calibration curve fitting"))
+                    throw(ErrorException("Error in $e_type calibration curve fitting: $(truncate_error(e))"))
                 end
 
                 p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey_det, part, det, "Calibration Curve"; additional_type=string(e_type)))

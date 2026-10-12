@@ -91,7 +91,7 @@ function p_process_decay_time(processing_config, l200::LegendData, period::DataP
             end
         catch e
             @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))
         end
         yield()
 

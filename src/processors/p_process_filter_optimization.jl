@@ -120,7 +120,7 @@ function p_process_filter_optimization(processing_config, l200::LegendData, peri
             end
         catch e
             @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(part), 154,"$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("$peakname data from $(part) cannot be loaded: $(truncate_error(e))"))
         end
         yield()
 
