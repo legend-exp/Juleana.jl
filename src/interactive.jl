@@ -265,13 +265,19 @@ function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbo
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
             for run in processable_runs(l200, period, runs)
-                filename = try
-                    get_rreportfilename(l200, start_filekey(l200, (period, run, category)), report)
+                # `start_filekey` throws an `ArgumentError` for a run without run information
+                filekey = try
+                    start_filekey(l200, (period, run, category))
                 catch e
-                    @warn "No start filekey for $period-$run-$category, skip"
+                    e isa ArgumentError || rethrow()
+                    @warn "No start filekey for $period-$run-$category, skip: $(truncate_error(e))"
                     continue
                 end
-                check_report("$period-$run", filename, failed, errors)
+                if ismissing(filekey)
+                    @warn "No $category data in $period-$run, skip"
+                    continue
+                end
+                check_report("$period-$run", get_rreportfilename(l200, filekey, report), failed, errors)
             end
         end
         check_summary(process, failed, errors)
@@ -285,13 +291,23 @@ function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbo
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
-            filename = try
-                get_preportfilename(l200, start_filekey(l200, (period, first(processable_runs(l200, period, runs)), category)), report)
-            catch e
-                @warn "No start filekey for $period-$category, skip"
+            period_runs = processable_runs(l200, period, runs)
+            if isempty(period_runs)
+                @warn "No selected runs in $period, skip"
                 continue
             end
-            check_report("$period", filename, failed, errors)
+            filekey = try
+                start_filekey(l200, (period, first(period_runs), category))
+            catch e
+                e isa ArgumentError || rethrow()
+                @warn "No start filekey for $period-$category, skip: $(truncate_error(e))"
+                continue
+            end
+            if ismissing(filekey)
+                @warn "No $category data in $period-$(first(period_runs)), skip"
+                continue
+            end
+            check_report("$period", get_preportfilename(l200, filekey, report), failed, errors)
         end
         check_summary(process, failed, errors)
     end
