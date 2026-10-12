@@ -2,6 +2,9 @@ using LegendDataManagement
 using ConcurrentCollections
 using ParallelProcessingTools
 using ParallelProcessingTools: getlabel
+using LegendMachineLearning: training_filekey, qc_ml_config, raw_filekeys, run_qc_sampling, scan_candidates,
+    qc_pars_entry_name, qc_sample_filename, read_sample, UNLABELED
+using Random: Xoshiro
 
 @always_everywhere begin
     # load packages

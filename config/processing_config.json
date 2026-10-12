@@ -324,6 +324,26 @@
                 "timeout": 0
             },
             "dependencies": ["process_evt_phy"]
+        },
+        "p_process_qc_ml_sampling": {
+            "enabled": false,
+            "n_workers": 1,
+            "category": "cal",
+            "rank": 12,
+            "kwargs": {
+                "reprocess": false
+            },
+            "dependencies": []
+        },
+        "p_process_qc_ml_sampling_phy": {
+            "enabled": false,
+            "n_workers": 1,
+            "category": "phy",
+            "rank": 13,
+            "kwargs": {
+                "reprocess": false
+            },
+            "dependencies": []
         }
     }
 }
