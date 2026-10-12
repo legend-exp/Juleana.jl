@@ -24,6 +24,9 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
             @info "process_dsp_cal and e_cusp_ctc; `already_quoted`"
         end
         @test occursin("process_dsp_cal and e_cusp_ctc; already_quoted", String(take!(output)))
+        for inner in (TerminalLogger(output), ConsoleLogger(output))
+            @test Logging.catch_exceptions(UnderscoreSafeLogger(inner)) == Logging.catch_exceptions(inner)
+        end
     end
 
     @testset "truncation" begin
