@@ -39,6 +39,22 @@ and the batch continues. `retry = true` gives each item up to three attempts on 
 loss. Element types without a [`failure_log`](@ref) method for `log_nt` are rejected
 with an `ArgumentError` before any work starts.
 """
+# Call `advance()` once for each task in `tasks` as it finishes, checking every `poll` seconds;
+# return when all tasks are done.
+function watch_tasks(advance, tasks::AbstractArray{Task}; poll::Real = 2)
+    counted = fill!(similar(tasks, Bool), false)
+    while !all(counted)
+        for i in eachindex(tasks, counted)
+            if !counted[i] && istaskdone(tasks[i])
+                counted[i] = true
+                advance()
+            end
+        end
+        all(counted) || sleep(poll)
+    end
+    return nothing
+end
+
 function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeout::Real=0, retry::Bool=false, process_name::AbstractString="")
     for T in unique(typeof.(iterator))
         hasmethod(failure_log, Tuple{Type{log_nt}, T, String}) ||
@@ -89,21 +105,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
         p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
         update!(p)
     
-        # create result vector
-        Threads.@spawn begin
-            update!(p)
-            n_finished = 0
-            while n_finished < length(iterator)
-                for t in tasks
-                    if istaskdone(t)
-                        n_finished += 1
-                        next!(p)
-                        update!(p)
-                    end
-                end
-                sleep(2)
-            end
-        end
+        errormonitor(Threads.@spawn watch_tasks(() -> next!(p), tasks))
         # fetch results
         result = fetch.(tasks)
 

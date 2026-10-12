@@ -112,6 +112,12 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
         slow = parallel(k -> (sleep(5); (processed = true,)), [fk], FkLog; timeout = 0.2)
         @test !only(slow).second.processed
         @test only(slow).second.log.Status == ProcessStatus(0)
+
+        finished = Threads.Atomic{Int}(0)
+        staggered = [Threads.@spawn sleep(0.05 * k) for k in 1:4]
+        watcher = Threads.@spawn Juleana.watch_tasks(() -> Threads.atomic_add!(finished, 1), staggered; poll = 0.01)
+        @test timedwait(() -> istaskdone(watcher), 10) === :ok
+        @test finished[] == length(staggered)
     end
 
     @testset "wait_for" begin
