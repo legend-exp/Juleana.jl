@@ -109,6 +109,7 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
         end
         @test viaDo == ok
 
+        # Without workers the item runs on the main process, which onworker does not terminate.
         slow = parallel(k -> (sleep(5); (processed = true,)), [fk], FkLog; timeout = 0.2)
         @test !only(slow).second.processed
         @test only(slow).second.log.Status == ProcessStatus(0)
@@ -118,6 +119,8 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
         watcher = Threads.@spawn Juleana.watch_tasks(() -> Threads.atomic_add!(finished, 1), staggered; poll = 0.01)
         @test timedwait(() -> istaskdone(watcher), 10) === :ok
         @test finished[] == length(staggered)
+
+        @test occursin("exceeds `timeout` seconds", string(@doc parallel))
     end
 
     @testset "wait_for" begin
