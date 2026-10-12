@@ -70,7 +70,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
             @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
             @debug "Generate DSP for $det"
-            dsp_data = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[det]))(raw_data, dsp_config_det)
+            dsp_data = legend_dsp_function(dsp_config_pd.additional_detectors[det], "dsp.additional_detectors.$det")(raw_data, dsp_config_det)
 
             @debug "Calibrate DSP data"
             evt_config_pd_det = dataprod_config(l200).evt(filekey).aux[det]

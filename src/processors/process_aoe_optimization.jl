@@ -127,8 +127,8 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
                 try
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
-                    dsp_dep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_det_dep_wdw, wvfs_det_dep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                    dsp_sep = getfield(LegendDSP, Symbol("dsp_$(filter_type)_optimization_compressed"))(wvfs_det_sep_wdw, wvfs_det_sep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_dep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_dep_wdw, wvfs_det_dep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_sep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_sep_wdw, wvfs_det_sep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
                 catch e
                     @error "Failed DSP for DEP or SEP: $(truncate_error(e))"
                     throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_error(e))"))

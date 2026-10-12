@@ -134,7 +134,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                     outdata_det = nothing
                                     try
                                         raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
-                                        outdata_det = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[Symbol(det)]))(raw_data_det, dsp_config_det)
+                                        outdata_det = legend_dsp_function(dsp_config_pd.additional_detectors[Symbol(det)], "dsp.additional_detectors.$det")(raw_data_det, dsp_config_det)
                                     catch e
                                         if e isa TaskFailedException
                                             e = e.task.exception
