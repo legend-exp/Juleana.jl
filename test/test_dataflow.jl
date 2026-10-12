@@ -2,6 +2,39 @@
 
 using Juleana
 using Test
+using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun
+
+# Stands in for `LegendData`: every run is in the run info.
+struct FakeData end
+LegendDataManagement.is_lrun(::FakeData, key) = true
+
+const ConcurrentDict = Juleana.ConcurrentDict
+
+function stub_status(periods, runs, run_steps, partition_steps)
+    run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
+    for p in periods
+        run_status[p] = ConcurrentDict{Symbol,ConcurrentDict{DataRun,Bool}}(
+            [s => ConcurrentDict{DataRun,Bool}(runs .=> false) for s in run_steps])
+        partition_status[p] = ConcurrentDict{Symbol,Bool}([s => false for s in partition_steps])
+    end
+    return run_status, partition_status
+end
+
+const REPORT = """
+# Energy calibration
+| Key | Value |
+|:---|:---|
+| Period | p03 |
+
+| Detector | Status | Filter Type | Error |
+|:---|:---|:---|:---|
+| V01 | <span style="color:green">Success</span> | trap | - |
+| V02 | <span style="color:red">Failure</span> | trap | fit failed |
+
+| Filekey | Status | Failed Detectors |
+|:---|:---|:---|
+| l200-p03-r001-cal-20230101T000000Z | Failure | ["V03", "V04"] |
+"""
 
 @testset "dataflow" begin
     @testset "processor registry" begin
@@ -31,5 +64,57 @@ using Test
         @test isempty(args["runs"])
         @test args["runmode"] == "slurm"
         @test args["only_partitions"]
+    end
+
+    @testset "run_processing" begin
+        p3, p4 = DataPeriod(3), DataPeriod(4)
+        runs = DataRun.(1:2)
+        calls = Tuple{Symbol,DataPeriod}[]
+        calls_lock = ReentrantLock()
+        record!(step, period) = lock(() -> push!(calls, (step, period)), calls_lock)
+        run_a(cfg, l200, period, run; reprocess::Bool = false) = (sleep(0.2); record!(:run_a, period); nothing)
+        p_part_b(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = false) = (record!(:p_part_b, period); false)
+        cfg = ProcessingConfig(;
+            processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
+            p_processors = Dict(:p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1, dependencies = [:run_a])))
+        stubs = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b)
+
+        # The partition step waits for its run dependency in all runs of the period.
+        run_status, partition_status = stub_status([p3], runs, [:run_a], [:p_part_b])
+        run_processing(cfg, FakeData(), [p3], [:run_a], [:p_part_b], run_status, partition_status;
+            processors = stubs, dependency_timeout = 60)
+        @test calls == [(:run_a, p3), (:run_a, p3), (:p_part_b, p3)]
+        @test all(values(run_status[p3][:run_a])) && partition_status[p3][:p_part_b]
+
+        @test_throws "unregistered processor(s) p_part_b" run_processing(cfg, FakeData(), [p3], Symbol[], [:p_part_b],
+            stub_status([p3], runs, [:run_a], [:p_part_b])...; processors = Dict{Symbol,Any}(:run_a => run_a))
+
+        # A processor returning `true` waits for the previous period; when that one throws,
+        # the waiting chain stops too and both errors are rethrown.
+        p_part_c(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = false) =
+            period == p3 ? error("p03 failed") : true
+        cfg_c = ProcessingConfig(; processors = Dict{Symbol,ProcessorSpec}(),
+            p_processors = Dict(:p_part_c => ProcessorSpec(; name = :p_part_c, level = :partition, category = :cal, rank = 1)))
+        err = try
+            run_processing(cfg_c, FakeData(), [p3, p4], Symbol[], [:p_part_c], stub_status([p3, p4], runs, Symbol[], [:p_part_c])...;
+                processors = Dict{Symbol,Any}(:p_part_c => p_part_c), dependency_timeout = 60)
+        catch e
+            e
+        end
+        @test err isa CompositeException
+        messages = [sprint(showerror, Juleana.original_exception(x)) for x in err.exceptions]
+        @test any(contains("p03 failed"), messages)
+        @test any(contains("another processing task failed"), messages)
+    end
+
+    @testset "report_failures" begin
+        n_entries, n_failed, failures = mktemp() do path, io
+            write(io, REPORT)
+            close(io)
+            Juleana.report_failures(path)
+        end
+        @test n_entries == 3
+        @test n_failed == 2
+        @test failures == [("V02 (trap)", "fit failed"), ("V03", ""), ("V04", "")]
     end
 end

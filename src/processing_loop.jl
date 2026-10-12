@@ -20,7 +20,7 @@ function wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, time
 end
 
 """
-    run_processing(cfg::ProcessingConfig, l200::LegendData, periods, run_steps, partition_steps,
+    run_processing(cfg::ProcessingConfig, l200, periods, run_steps, partition_steps,
         run_status, partition_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
         dependency_timeout::Real=24*3600)
@@ -29,7 +29,8 @@ Run the partition-level steps `partition_steps` for every period in `periods` an
 run-level steps `run_steps` for every period and every run listed in
 `run_status`. Periods, runs, and the two levels run concurrently; the steps of one
 period (partition level) or one run (run level) run in order. Processor functions are
-looked up by name in `processors`.
+looked up by name in `processors`. `l200` (usually a `LegendData`) is passed to every
+processor and to the run-info checks `is_analysis_run` and `is_lrun`.
 
 `run_status[period][step][run]` and `partition_status[period][step]` are set to
 `true` when a step finishes. A run step that is skipped because the run is not an
@@ -52,7 +53,7 @@ processor. A step without an entry in `processors` throws an `ArgumentError` bef
 work starts.
 """
 function run_processing(
-        cfg::ProcessingConfig, l200::LegendData, periods::AbstractVector{DataPeriod},
+        cfg::ProcessingConfig, l200, periods::AbstractVector{DataPeriod},
         run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol},
         run_status::AbstractDict, partition_status::AbstractDict;
         processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
