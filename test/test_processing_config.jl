@@ -163,6 +163,15 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         d["processors"]["process_missing"]["enabled"] = false
         d["processors"]["process_a"]["kwargs"] = Dict{String,Any}()
         @test isnothing(check_processor_kwargs(ProcessingConfig(d); processors = STUB_PROCESSORS))
+
+        # `run_processing` passes `only_first_period` to partition processors and may pass `reprocess`.
+        p_process_c(cfg, l200, period; reprocess::Bool = false) = true
+        d["p_processors"]["p_process_c"] = processor()
+        @test_throws "`p_process_c` does not accept keyword(s) only_first_period" check_processor_kwargs(ProcessingConfig(d); processors = merge(STUB_PROCESSORS, Dict(:p_process_c => p_process_c)))
+        process_d(cfg, l200, period, run) = nothing
+        d["p_processors"]["p_process_c"]["enabled"] = false
+        d["processors"]["process_d"] = processor()
+        @test_throws "`process_d` does not accept keyword(s) reprocess" check_processor_kwargs(ProcessingConfig(d); processors = merge(STUB_PROCESSORS, Dict(:process_d => process_d)))
     end
 
     @testset "registered processors" begin

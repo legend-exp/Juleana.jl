@@ -329,8 +329,10 @@ partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_step
     check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol} = PROCESSORS)
 
 Check that every enabled processor of `cfg` is registered in `processors` and that its
-function accepts all keyword arguments configured in its `kwargs`. Throw an
-`ArgumentError` listing every mismatch; return `nothing` otherwise.
+function accepts all keyword arguments configured in its `kwargs`, plus the keywords
+[`run_processing`](@ref) may pass on its own: `reprocess` for every processor and
+`only_first_period` for partition processors. Throw an `ArgumentError` listing every
+mismatch; return `nothing` otherwise.
 """
 function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol} = PROCESSORS)
     problems = String[]
@@ -343,7 +345,8 @@ function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{
         declared = reduce(vcat, (Base.kwarg_decl(m) for m in methods(processors[spec.name])); init = Symbol[])
         # A method with `kwargs...` accepts every keyword.
         any(k -> endswith(string(k), "..."), declared) && continue
-        unsupported = sort!(collect(setdiff(keys(spec.kwargs), declared)))
+        implicit = spec.level === :partition ? (:reprocess, :only_first_period) : (:reprocess,)
+        unsupported = sort!(collect(setdiff(union(keys(spec.kwargs), implicit), declared)))
         isempty(unsupported) ||
             push!(problems, "`$(spec.name)` does not accept keyword(s) $(join(unsupported, ", "))")
     end
