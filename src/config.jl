@@ -11,7 +11,6 @@ process in a non-interactive session; in an interactive session it returns `noth
 function parse_commandline(args::AbstractVector{<:AbstractString})
     settings = ArgParseSettings(prog="LEGEND Julia main data processing",
                             description="LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
-                            commands_are_required = true,
                             version = string(pkgversion(Juleana)),
                             add_version = true)
     @add_arg_table! settings begin
@@ -69,8 +68,8 @@ Build the processing setup from the output of [`parse_commandline`](@ref) and re
 
 Reads the config file, applies the command line overrides, sets `ENV` from the
 config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)`,
-and creates the log directory: `--log_path` when given, otherwise a time-stamped
-directory in the `jllog` tier. `periods` are the selected periods that are available
+and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
+named by the current UTC time (`yyyy-mm-ddTHH:MM:SSZ`). `periods` are the selected periods that are available
 on disk, or all available periods when the config selects all.
 """
 function setup_processing(parsed_args::AbstractDict)
@@ -96,7 +95,7 @@ function setup_processing(parsed_args::AbstractDict)
     @info "Loading Legend MetaData"
     l200 = LegendData(:l200)
 
-    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], string(now())) : parsed_args["log_path"])
+    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], utc_timestamp()) : parsed_args["log_path"])
     processing_config = ProcessingConfig(config_dict; cli..., log_path)
     @info "Log path: $log_path"
 

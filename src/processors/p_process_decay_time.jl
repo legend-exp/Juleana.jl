@@ -171,7 +171,7 @@ function p_process_decay_time(processing_config, l200::LegendData, period::DataP
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_pz)]))
-    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Date of processing: $(utc_timestamp())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, decay_time_log_text)
     lreport!(report, "# Metadata")

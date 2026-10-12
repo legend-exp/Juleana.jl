@@ -40,6 +40,9 @@ function master_status(results...)
     return has_entries ? status : process_failed
 end
 
+# Current UTC time as ISO 8601 with a `Z` suffix, for log directory names and reports.
+utc_timestamp() = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHH:MM:SS\Z")
+
 function truncate_string(s::AbstractString, max_length::Integer=1000)
     length(s) > max_length ? first(s, max_length) * "..." : s
 end

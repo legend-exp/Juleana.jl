@@ -43,6 +43,10 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
         @test truncate_error(CompositeException([wrapped, ErrorException("second")])) == string(ErrorException("inner failure"))
     end
 
+    @testset "utc_timestamp" begin
+        @test occursin(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", Juleana.utc_timestamp())
+    end
+
     @testset "legend_dsp_function" begin
         @test Juleana.legend_dsp_function("dsp_icpc_compressed", "dsp.x") === Juleana.LegendDSP.dsp_icpc_compressed
         @test_throws "dataprod config key `dsp.additional_detectors.V1` selects `dsp_nonexistent`, which LegendDSP does not define" Juleana.legend_dsp_function("dsp_nonexistent", "dsp.additional_detectors.V1")

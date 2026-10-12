@@ -256,7 +256,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
     report = lreport()
     lreport!(report, "# Main Log")
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_sipm_calibration)]))
-    lreport!(report, "Date of processing: $(now())")
+    lreport!(report, "Date of processing: $(utc_timestamp())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, sipm_calibration_log_text)
     lreport!(report, "# Metadata")
