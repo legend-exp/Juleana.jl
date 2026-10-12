@@ -23,3 +23,11 @@ function register_processor!(f)
     PROCESSORS[name] = f
     return f
 end
+
+# The LegendDSP function `name` that the dataprod config key `config_key` selects.
+function legend_dsp_function(name, config_key::AbstractString)
+    sym = Symbol(name)
+    isdefined(LegendDSP, sym) ||
+        throw(ArgumentError("dataprod config key `$config_key` selects `$sym`, which LegendDSP does not define"))
+    return getglobal(LegendDSP, sym)
+end

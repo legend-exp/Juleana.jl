@@ -43,6 +43,11 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
         @test truncate_error(CompositeException([wrapped, ErrorException("second")])) == string(ErrorException("inner failure"))
     end
 
+    @testset "legend_dsp_function" begin
+        @test Juleana.legend_dsp_function("dsp_icpc_compressed", "dsp.x") === Juleana.LegendDSP.dsp_icpc_compressed
+        @test_throws "dataprod config key `dsp.additional_detectors.V1` selects `dsp_nonexistent`, which LegendDSP does not define" Juleana.legend_dsp_function("dsp_nonexistent", "dsp.additional_detectors.V1")
+    end
+
     @testset "report texts are internal" begin
         texts = filter(n -> endswith(string(n), "_log_text"), names(Juleana; all = true))
         @test length(texts) == 17

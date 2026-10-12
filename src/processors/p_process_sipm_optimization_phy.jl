@@ -142,7 +142,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
                 trig_max_grid, thresholds_grid = nothing, nothing
                 try
                     @debug "Generate $filter_type DSP filter grid"
-                    dsp_grid = getfield(LegendDSP, Symbol("dsp_$(filter_type)_sipm_optimization_compressed"))(1000, decode_data(wvfs_det), dsp_config_det, optimization_config_flt)
+                    dsp_grid = legend_dsp_function("dsp_$(filter_type)_sipm_optimization_compressed", "sipm.optimization.e_filter.$filter_type")(1000, decode_data(wvfs_det), dsp_config_det, optimization_config_flt)
                     trig_max_grid = dsp_grid.trig_max_grid
                     thresholds_grid = dsp_grid.thresholds_grid
                 catch e
@@ -172,7 +172,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
                 dsp_thresholds = nothing
                 try
                     @debug "DSP $filter_type thresholds"
-                    dsp_thresholds = getfield(LegendDSP, Symbol("dsp_$(filter_type)_sipm_thresholds_compressed"))(decode_data(wvfs_det[1:optimization_config_flt.threshold.n_wvfs]), mvalue(result_wl.wl), dsp_config_det)
+                    dsp_thresholds = legend_dsp_function("dsp_$(filter_type)_sipm_thresholds_compressed", "sipm.optimization.e_filter.$filter_type")(decode_data(wvfs_det[1:optimization_config_flt.threshold.n_wvfs]), mvalue(result_wl.wl), dsp_config_det)
                 catch e
                     @error "DSP $filter_type thresholds: $(truncate_error(e))"
                     throw(ErrorException("Error in DSP $filter_type thresholds: $(truncate_error(e))"))
