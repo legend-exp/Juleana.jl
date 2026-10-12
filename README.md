@@ -178,7 +178,7 @@ The following fields are required:
 1. **`enabled`**: flag can be used to enable or disable the processor in the chain.
 2. **`rank`**: field can be used to set the rank of the processor in the chain. This can be useful if the order of the processing matters. The processors will be sorted by the rank and then processed in this order.
 3. **`category`**: `"cal"` or `"phy"`, tells the dataflow if the processor is acting on `cal` or `phy` data.
-4. **`kwargs`**: keyword arguments passed to the processor. Every enabled processor must accept all of its configured keywords; this is checked when the dataflow starts. The `--reprocess` command line flag sets `reprocess` to `true` for every processor.
+4. **`kwargs`**: keyword arguments passed to the processor. Every enabled processor must accept all of its configured keywords, plus `reprocess` and, for partition processors, `only_first_period`, which the dataflow passes on its own; this is checked when the dataflow starts. The `--reprocess` command line flag sets `reprocess` to `true` for every processor.
 5. **`dependencies`**: field can be used to set dependencies to other processors. This can be useful if the processor needs to wait for a *partition* processor to finish before it can start. The processor will only start if the *partition* processor (and all lower ranks) has finished successfully. Every dependency must name a configured processor of the other level (a *run* processor can depend on *partition* processors and vice versa), and processor names must be unique across `processors` and `p_processors`.
 
 String lists in `processors.*.kwargs` and `p_processors.*.kwargs` are converted to
