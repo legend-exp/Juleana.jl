@@ -1,3 +1,47 @@
+"""
+    process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Calibrate LQ and generate the LQ cut for the HPGe detectors (`geds`) of one `cal` run.
+
+For each detector with `usability == :on` and `lq_status` of `:valid` or `:present`, the energy-corrected LQ of every
+type in `lq_funcs` is normalized and corrected for its dependence on the effective drift time (`qdrift_expression`)
+using DEP events. The corrected LQ is then normalized with the DEP peak and its sidebands. For each classifier in
+`lq_classifiers`, the high cut is the configured value `high_cut_sigma` of the normalized LQ. Survival fractions are
+computed for the configured peaks and the Qbb window with that cut.
+
+# Inputs
+- First `cal` filekey of the run.
+- `l200.par.rpars.ecal[period, run]`: the calibration function of the energy type `e_type`, and the DEP resolution
+  from the `e_cusp_ctc` fit of the `Tl208DEP` peak.
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of the `cal` run.
+- `dataprod_config(l200).psd(filekey).lq`, `default` merged with the detector section: `e_type`, `lq_funcs`,
+  `lq_classifiers`, `qdrift_expression`, `dep_mu`, the drift time correction settings (`ctc_dep_edgesigma`,
+  `ctc_lq_precut_relative_cut`, `ctc_driftime_cutoff_method`, `lq_outlier_sigma`, `dt_eff_outlier_sigma`,
+  `ctc_dt_eff_low_quantile`, `ctc_dt_eff_high_quantile`, `pol_fit_order`, `ctc_uncertainty`), the normalization
+  settings (`dep_sideband_sigma`, `cut_truncation_sigma`, `cut_uncertainty`) and the cut and survival fraction
+  settings (`high_cut_sigma`, `lq_peaks`, `lq_peaks_names`, `lq_peaks_windows_left`, `lq_peaks_windows_right`,
+  `lq_peaks_fit_funcs`, `qbb`, `qbb_window`).
+
+# Outputs
+- `l200.par.rpars.lq[period, run]`: per detector, one entry per LQ type (the drift time correction and normalization
+  results, with `func` the full LQ expression, and the mean, standard deviation and median of the energy-corrected LQ)
+  and one entry per classifier (`highcut`, `peaks`, `qbb`), plus the matching validity entry. The classifier name is
+  the LQ type name followed by `_classifier`.
+- Plots per detector: `lq_ctc_DEP_<type>`, `lq_ctc_<type>`, `lq_dep_normalization_<type>`, `lq_sidebands_<type>`,
+  `lq_sideband_position_<type>`, `lq_classalized_<classifier>`, `lq_energy_after_<classifier>` and
+  `lq_cut_fraction_<classifier>`.
+- Run report `lq_calibration_cut` with the processing status, a metadata table, and one row per detector and LQ type
+  combining the calibration and the cut results.
+
+# Keywords
+- `reprocess`: Discard the existing `lq` parameters of the run and process all detectors, LQ types and classifiers
+  again. Otherwise, entries that already exist are kept and only missing ones are computed.
+- `timeout`: Seconds allowed per detector in `parallel`; `0` means no limit.
+
+# Returns
+The return value is not used by `run_processing`.
+"""
 function process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Calibrate LQ for period $period and run $run"

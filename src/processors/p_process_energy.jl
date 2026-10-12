@@ -1,3 +1,30 @@
+"""
+    p_process_energy(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Calibrate the energy per detector and `cal` partition for all partitions that contain `period` (HPGe detectors `geds`).
+
+For each energy type in `energy_types` of the partition energy config, the energies of all runs of the partition are calibrated with the run-level calibration function (`cal.func` from `l200.par.rpars.ecal`) and concatenated, after selecting single-pulse, non-pulser events that pass the quality cuts. The Th-228 peaks in the resulting spectrum are fitted with the functions in `th228_fit_func`, then a polynomial calibration curve (`cal_pol_order`) and a FWHM curve (`fwhm_pol_order`) are fitted to the peaks that pass the fit quality cuts in `qc`. Peaks in `cal_fit_excluded_peaks` and `fwhm_fit_excluded_peaks` are left out of the respective fit.
+
+# Inputs
+- `jlqcs` and `jldsp` tiers of all `cal` runs of each partition, for each detector.
+- `l200.par.rpars.ecal[period, run]` (run-level calibration function) for each run of the partition.
+- `dataprod_config(l200).energy(filekey)`, sections `p_default` and per-detector entries `p`.
+- `l200.par.ppars.ecal[det, part]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.ppars.ecal[det, part]`: per energy type the FWHM curve (`fwhm`), calibration curve (`cal`) and peak fit results (`fit`), with validity entries for the partition; the validity of all partitions of the period is written to `l200.par.ppars.ecal`.
+- Per detector, partition and energy type, plots `partition_spectrum_<e_type>`, `peak_fits_<e_type>`, `calibration_curve_<e_type>` and `fwhm_<e_type>`.
+- Partition report `:energy` (Main Log, Metadata, Results table with one row per detector, partition and energy type).
+
+# Keywords
+- `reprocess`: redo all energy types, ignoring results in `l200.par.ppars.ecal[det, part]`. If `false`, only energy types without results are processed.
+- `timeout`: seconds allowed per detector and partition in `parallel` (0 = no limit).
+- `only_first_period`: if `true`, a detector whose partition starts in an earlier period is skipped (it is processed with that earlier period). `run_processing` sets this to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector and partition was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses this to wait for the same step in the previous period.
+"""
 function p_process_energy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Energy calibration for for all partitions containing period $period"

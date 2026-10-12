@@ -16,9 +16,10 @@ Fields:
 - `dependencies::Vector{Symbol}`: processors of the other level that must finish first.
 - `kwargs::Dict{Symbol,Any}`: keyword arguments passed to the processor function.
 
-Besides the positional constructor, `ProcessorSpec(; name, level, category, rank,
-enabled=true, dependencies=Symbol[], kwargs=Dict{Symbol,Any}())` builds a spec from
-keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
+The positional constructor takes the fields in the order listed above,
+`ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs)`;
+`ProcessorSpec(; name, level, category, rank, enabled=true, dependencies=Symbol[],
+kwargs=Dict{Symbol,Any}())` builds a spec from keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
 `:partition`, `category` is not `:cal` or `:phy`, or the processor depends on itself.
 """
 struct ProcessorSpec
@@ -71,8 +72,9 @@ Fields:
 
 Besides the positional constructor and the config-file constructors documented below,
 `ProcessingConfig(; processors, p_processors, runmode=:local, ...)` builds a config from
-keywords named like the fields; every field except the two processor tables has a
-default (no workers flags, no selection, all flags `false`, `local_n = 1`). Every
+keywords named like the fields. Every field except the two processor tables has a
+default: empty flag and settings lists, no environment variables, `periods` and `runs`
+of `nothing`, all `Bool` fields `false`, `local_n = 1` and `log_path = ""`. Every
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
 `local_n < 1`, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
@@ -207,9 +209,9 @@ end
         reprocess=false, log_path="")
     ProcessingConfig(filename::AbstractString; kwargs...)
 
-Validate a parsed processing config `dict` (keys may be `Symbol`s or strings) and
-combine it with command line overrides. The second form reads `filename` (JSON or
-YAML) with `readlprops`.
+Validate a parsed processing config `dict` (keys may be `Symbol`s or strings), combine
+it with command line overrides and return the resulting [`ProcessingConfig`](@ref). The
+second form reads `filename` (JSON or YAML) with `readlprops`.
 
 The config must contain exactly these keys; a missing or unknown key throws an
 `ArgumentError` that names the key path:
@@ -237,6 +239,29 @@ Overrides:
   without `periods` is an error.
 - `reprocess = true` sets the `reprocess` keyword of every processor to `true`.
 - `log_path` is stored as given.
+
+# Examples
+```jldoctest
+julia> config = Dict(
+           "config" => Dict("runmode" => "local", "submit_jobs" => false,
+               "runmode_settings" => Dict(
+                   "local" => Dict("n" => 4, "julia_settings" => []),
+                   "slurm" => Dict("flags" => [], "julia_settings" => [])),
+               "env_variables" => Dict()),
+           "processing" => Dict("periods" => [3], "runs" => "all", "analysis_runs_only" => false,
+               "only_partitions" => false, "only_runs" => false),
+           "processors" => Dict("process_energy_calibration" => Dict("enabled" => true,
+               "category" => "cal", "rank" => 1, "kwargs" => Dict(), "dependencies" => [])),
+           "p_processors" => Dict());
+
+julia> cfg = ProcessingConfig(config; periods = [3, 4])
+ProcessingConfig(runmode=:local, 1/1 run and 0/0 partition processors enabled)
+
+julia> string.(cfg.periods)
+2-element Vector{String}:
+ "p03"
+ "p04"
+```
 """
 function ProcessingConfig(
         dict::AbstractDict;
@@ -312,16 +337,17 @@ _sorted_steps(specs::AbstractDict, enabled_only::Bool) =
 """
     run_steps(cfg::ProcessingConfig; enabled_only::Bool=true)
 
-Names of the run-level processors sorted by rank (ties by name); with
-`enabled_only = false` the disabled processors are included.
+Return the names of the run-level processors of `cfg` as a `Vector{Symbol}`, sorted by
+rank (ties by name). With `enabled_only = false` the disabled processors are included.
 """
 run_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.processors, enabled_only)
 
 """
     partition_steps(cfg::ProcessingConfig; enabled_only::Bool=true)
 
-Names of the partition-level processors sorted by rank (ties by name); with
-`enabled_only = false` the disabled processors are included.
+Return the names of the partition-level processors of `cfg` as a `Vector{Symbol}`,
+sorted by rank (ties by name). With `enabled_only = false` the disabled processors are
+included.
 """
 partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.p_processors, enabled_only)
 

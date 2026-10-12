@@ -1,3 +1,44 @@
+"""
+    p_process_sipm_optimization_phy(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Optimize the energy filters of the SiPM channels (`spms`) per partition from `phy` data and
+extract the trigger thresholds, for all partitions that contain `period`.
+
+The method is the same as in `process_sipm_optimization_phy`, but the waveforms of all runs of
+a detector's partition are used and the results are valid for the whole partition.
+
+# Inputs
+- `raw` tier of the `phy` filekeys of all runs of each detector's partition (excluding filekeys
+  marked `unprocessable`), fields `waveform_bit_drop` and `timestamp`, limited to `n_evts`
+  events per detector.
+- `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
+  waveforms within `puls_ts_window` of a pulser trigger are excluded.
+- `dataprod_config(l200).sipm(filekey)`: the `default` section (DSP settings) merged with the
+  per-detector section, and its `optimization` subsection using `p_default` merged with `p`
+  (`n_evts`, `max_wvfs`, `e_filter` with `e_grid_wl`, `kwargs` and `threshold`).
+- `l200.par.ppars.sipmopt[det, part]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.ppars.sipmopt[det, part]`: per filter, the window length `wl`, `gain`, `res_1pe` and
+  the trigger thresholds `trig_threshold`, written for each detector as soon as it is finished;
+  the validity of all partitions is written once at the end.
+- Plots per detector, partition and filter: `wl_sweep_<filter>`, `wl_sweep_calibration_<filter>`;
+  the `trigger_threshold_<threshold type>` plots are saved by filekey and detector without the
+  partition.
+- Partition report `sipm_optimization_phy`.
+
+# Keywords
+- `reprocess`: discard the existing results and optimize all filters of all detectors again.
+  Otherwise, filters that already have results are skipped and only missing ones are optimized.
+- `timeout`: seconds allowed per detector and partition in `parallel` (0 = no limit).
+- `only_first_period`: if `true`, skip a detector whose partition starts in an earlier period
+  than `period`; it is processed together with that earlier period. `run_processing` sets this
+  to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`.
+"""
 function p_process_sipm_optimization_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
         
     @info "Process SiPM optimization for all partitions containing period $period"

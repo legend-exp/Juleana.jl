@@ -1,3 +1,28 @@
+"""
+    process_evt_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0, subsystems::Vector{Symbol}=[:geds, :spms, :pmts, :aux])
+
+Build the event tier (`jlevt`) of the `phy` run from the `jldsp` files, combining the listed subsystems.
+
+For each `phy` filekey with a `jldsp` file, the DSP data of the detectors of all `subsystems` are read, calibrated and combined into one event table by `calibrate_all`, including the cut flags. Per file the log counts forced triggers, pulser triggers and physical triggers (events with `geds.is_valid_qc` and more than one entry in `geds.trig_e_det`). If the PMT output is not empty and `:pmts` is in `subsystems`, a separate PMT file (`jlpmt` tier) is written.
+
+# Inputs
+- `jldsp` tier of all `phy` filekeys of the run.
+- Channel info of every system in `subsystems` and the calibration parameters used by `calibrate_all`.
+
+# Outputs
+- `jlevt` tier: one file per `phy` filekey, table `jlevt`.
+- `jlpmt` tier: one file per filekey with PMT data, table `jlpmt`.
+- Run report `:evt_phy` (Main Log, Metadata, Results table with one row per filekey, Total Timing).
+
+# Keywords
+- `reprocess`: recreate the `jlevt` file (and the `jlpmt` file) of each filekey, removing existing ones. If `false`, existing `jlevt` files are kept and only their trigger counts are read for the report.
+- `timeout`: seconds allowed per filekey in `parallel` (0 = no limit). Failed filekeys are retried (`retry=true`).
+- `subsystems`: systems included in the event table, default `[:geds, :spms, :pmts, :aux]`.
+
+# Returns
+`nothing`.
+"""
 function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, subsystems::Vector{Symbol}=[:geds, :spms, :pmts, :aux])
     
     @info "Process events for period $period and run $run"

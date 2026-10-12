@@ -3,9 +3,18 @@
 """
     wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, timeout::Real, poll::Real=10)
 
-Block until `ready()` returns `true`, checking every `poll` seconds. Throw an
-`ErrorException` that names `what` as soon as `abort[]` is `true` or after `timeout`
-seconds.
+Block until the zero-argument function `ready()` returns `true`, checking every `poll`
+seconds, and return `nothing`. When `ready()` is `false` on the first check, log a
+warning `"Waiting for \$what"`. Throw an `ErrorException` that names `what` as soon as
+`abort[]` is `true` or after `timeout` seconds.
+
+# Examples
+```julia
+abort = Threads.Atomic{Bool}(false)
+Juleana.wait_for("energy calibration of p03"; abort, timeout = 3600) do
+    all(values(run_status[DataPeriod(3)][:process_energy_calibration]))
+end
+```
 """
 function wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, timeout::Real, poll::Real = 10)
     ready() && return nothing
@@ -35,8 +44,10 @@ processor and to the run-info checks `is_analysis_run` and `is_lrun`.
 `run_status[period][step][run]` and `partition_status[period][step]` are set to
 `true` when a step finishes. A run step that is skipped because the run is not an
 analysis run (with `cfg.analysis_runs_only`) or not in the run info also counts as
-finished for that run. Steps that are not scheduled must start as finished, as
-`setup_dependency_graph` does.
+finished for that run. Every step of `cfg` must have an entry for each period (and, at
+run level, for each run), and steps that are not scheduled must start as `true`;
+otherwise a dependency on them waits until `dependency_timeout`. `run_status` lists the
+runs to process: every run of a period that has an entry in the first step's table.
 
 With `check_dependencies`:
 - a run step waits until each of its dependencies, and every partition step ranked
@@ -50,7 +61,7 @@ A wait that exceeds `dependency_timeout` seconds throws. When any task throws, t
 tasks stop at their next wait, and the exceptions are rethrown once all tasks have
 stopped. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
 processor. A step without an entry in `processors` throws an `ArgumentError` before any
-work starts.
+work starts. Return `nothing`.
 """
 function run_processing(
         cfg::ProcessingConfig, l200, periods::AbstractVector{DataPeriod},

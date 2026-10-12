@@ -1,3 +1,42 @@
+"""
+    process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0, use_partition_pars::Bool=true)
+
+Compute the survival fractions of the combined A/E and LQ cuts for the HPGe detectors (`geds`) of one `cal` run.
+
+For each detector with `usability == :on` and `low_aoe_status` of `:valid` or `:present`, and for each classifier in
+the `psd_classifiers` table, the processor applies the A/E and LQ cuts to the `cal` data of the run and fits the
+configured peaks and the Qbb window. Survival fractions are evaluated for four selections: the low A/E cut (`low`),
+the low and high A/E cuts (`ds`), the low A/E cut and the LQ cut (`low_lq`), and all three cuts (`lq_ds`).
+
+# Inputs
+- First `cal` filekey of the run.
+- `l200.par.rpars.ecal[period, run]`: the calibration function of the energy type `e_type`.
+- A/E and LQ parameters of the run: the `aoe` and `lq` parameters from `ppars` if `use_partition_pars` is `true`,
+  otherwise from `rpars`. The low A/E cut is `lowcut` of the A/E classifier and the LQ cut is `highcut` of the LQ
+  classifier.
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of the `cal` run.
+- `dataprod_config(l200).psd(filekey).psd`, `default` merged with the detector section: `e_type`, `psd_classifiers`
+  (per classifier name, a list of the A/E classifier, the high A/E cut and the LQ classifier), `psd_peaks`,
+  `psd_peaks_names`, `psd_peaks_windows_left`, `psd_peaks_windows_right`, `psd_peaks_bin_width_window`,
+  `psd_peaks_fit_funcs`, `qbb` and `qbb_window`.
+
+# Outputs
+- `l200.par.rpars.psd[period, run]`: per detector and classifier, `cuts` (`lowcut`, `highcut`, `lq`) and the `peaks`
+  and `qbb` survival fractions for the four selections, plus the matching validity entry.
+- Run report `psd_efficiencies` with the processing status, a metadata table and one result row per detector and
+  classifier. No plots are written.
+
+# Keywords
+- `reprocess`: Discard the existing `psd` parameters of the run and process all detectors and classifiers again.
+  Otherwise, classifiers that already have results are kept.
+- `timeout`: Seconds allowed per detector in `parallel`; `0` means no limit.
+- `use_partition_pars`: If `true` (default), read the A/E and LQ cuts from the partition parameters (`ppars`);
+  if `false`, from the run parameters (`rpars`).
+
+# Returns
+The return value is not used by `run_processing`.
+"""
 function process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, use_partition_pars::Bool=true)
 
     @info "Generate PSD efficiencies for period $period and run $run"

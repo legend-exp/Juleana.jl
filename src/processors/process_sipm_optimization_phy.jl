@@ -1,3 +1,45 @@
+"""
+    process_sipm_optimization_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Optimize the energy filters of the SiPM channels (`spms`) of one run from `phy` data and
+extract the trigger thresholds.
+
+For each processable SiPM and each filter listed under `e_filter` in the optimization
+configuration, the DSP is run on a grid of filter window lengths. The window length with the
+best one photoelectron peak is selected (`fit_sipm_wl`), and the gain and the one photoelectron
+resolution are determined there. At the selected window length, the baseline distributions of
+the threshold waveforms are fitted (`fit_sipm_threshold`) and their sigma is taken as the
+trigger threshold.
+
+# Inputs
+- `raw` tier of the `phy` filekeys of the run (excluding filekeys marked `unprocessable`),
+  fields `waveform_bit_drop` and `timestamp`.
+- `jlaux` tier fields `timestamp` and `aux_trig` of the pulser channel named by
+  `dataprod_config(l200).qc(filekey).pulser.puls_detector`; waveforms within `puls_ts_window`
+  of a pulser trigger are excluded.
+- `dataprod_config(l200).sipm(filekey)`: the `default` section (DSP settings) merged with the
+  per-detector section, and its `optimization` subsection (`max_wvfs`, `e_filter` with
+  `e_grid_wl`, `kwargs` and `threshold`).
+- `l200.par.rpars.sipmopt[period, run]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.rpars.sipmopt[period, run]`: per detector and filter, the window length `wl`, `gain`,
+  `res_1pe` and the trigger thresholds `trig_threshold`; the validity entry is written for
+  `(period, run)`.
+- Plots per detector and filter: `wl_sweep_<filter>`, `wl_sweep_calibration_<filter>`, and per
+  threshold type `trigger_threshold_<threshold type>`.
+- Run report `sipm_optimization_phy`.
+
+# Keywords
+- `reprocess`: discard the existing results of the run and optimize all filters of all
+  detectors again. Otherwise, filters that already have results are skipped and only missing
+  ones are optimized.
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit).
+
+# Returns
+`nothing`.
+"""
 function process_sipm_optimization_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
         
     @info "Process SiPM optimization for period $period and run $run"

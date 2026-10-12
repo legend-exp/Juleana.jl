@@ -1,3 +1,30 @@
+"""
+    process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Optimize the energy filter rise time and flat-top time for all processable HPGe detectors (`geds`) of the `cal` run.
+
+For each filter type listed under `e_filter` in the optimization config, the rise time is chosen first from a sweep over the baseline noise (minimal ENC at a fixed flat-top time). The flat-top time is then chosen from a sweep over the full-energy-peak events as the one with the smallest FWHM. Waveforms of the peak named by `peakname` are taken from the `jlpks` tier. Quality cuts (`qc` expression of the optimization config) are applied to the waveforms before the sweeps, and at most `max_wvfs` waveforms are used. Filter types that already have results are skipped unless `reprocess` is set.
+
+# Inputs
+- `jlpks` tier of the start `cal` filekey of the run, for each detector (peak waveforms named by `peakname`).
+- `dataprod_config(l200).dsp(filekey)`, in particular the `flt_optimization` section (`default` and per-detector entries) and the DSP config used for the filter grids.
+- `l200.par.rpars.pz[period, run]` (decay times).
+- Quality-cut evaluator loaded by `load_qc_evaluator(l200, filekey)`.
+- `l200.par.rpars.fltopt[period, run]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.rpars.fltopt[period, run]`: per detector and filter type the optimal rise time, flat-top time and minimal FWHM, together with the validity entry for the run.
+- Per detector and filter type, plots `noise_sweep_<filter_type>` and `fwhm_ft_scan_<filter_type>`.
+- Run report `:filter_optimization` (Main Log, Metadata, Results table with one row per detector and filter type).
+
+# Keywords
+- `reprocess`: redo all detectors and filter types, discarding existing results in `l200.par.rpars.fltopt[period, run]`. If `false`, only filter types without results are processed.
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit).
+
+# Returns
+`nothing`.
+"""
 function process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
     
     @info "Optimize filter for period $period and run $run"

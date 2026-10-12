@@ -4,9 +4,27 @@
     parse_commandline(args::AbstractVector{<:AbstractString})
 
 Parse the command line options of the dataflow driver and return them as a
-`Dict{String,Any}`. Repeated `--periods`/`--runs` options give one vector per
-occurrence. With `--help` or `--version`, ArgParse prints the text and exits the
-process in a non-interactive session; in an interactive session it returns `nothing`.
+`Dict{String,Any}` keyed by the long option names. With `--help` or `--version`,
+ArgParse prints the text and exits the process in a non-interactive session; in an
+interactive session it returns `nothing`.
+
+Options (see `julia main.jl --help` for the full text):
+- `--config`, `-c` (required): path of the processing config file.
+- `--periods`, `-p` and `--runs`, `-r`: period and run numbers. Each occurrence gives
+  one vector, so `-p 3 4 -p 6` gives `[[3, 4], [6]]`.
+- `--runmode`, `--rm`: `local` or `slurm`, replacing the config's run mode.
+- `--log_path`, `-o`: log directory; `""` when not given.
+- Flags, `false` when not given: `--reprocess`, `--only_runs` (`--or`),
+  `--only_partitions` (`--op`), `--submit_jobs`, `--ignore_config`,
+  `--analysis_runs_only`.
+
+# Examples
+```jldoctest
+julia> args = Juleana.parse_commandline(["-c", "config.json", "-p", "3", "4", "--reprocess"]);
+
+julia> args["periods"], args["reprocess"], args["only_runs"]
+([[3, 4]], true, false)
+```
 """
 function parse_commandline(args::AbstractVector{<:AbstractString})
     settings = ArgParseSettings(prog="LEGEND Julia main data processing",

@@ -1,3 +1,40 @@
+"""
+    p_process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Calibrate LQ and generate the LQ cut for every detector and `cal` partition that contains `period`.
+
+This is the partition-level counterpart of [`process_lq_calibration_cut`](@ref): the `cal` data of all runs in a
+detector's partition are combined, and the drift time correction, normalization, cut and survival fractions are
+computed once per detector and partition. Detectors with `lq_status` of `:valid` or `:present` are processed.
+
+# Inputs
+- `l200.par.rpars.ecal[period, run]` of every run in the partition: the calibration function of the energy type `e_type`.
+- `l200.par.ppars.ecal[det, part]`: the DEP resolution from the `e_cusp_ctc` fit of the `Tl208DEP` peak.
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition.
+- `dataprod_config(l200).psd(filekey).lq` of the first run of the partition, `p_default` merged with `p[det]`, with
+  the same entries as described for `process_lq_calibration_cut`.
+
+# Outputs
+- `l200.par.ppars.lq[det, part]`: per LQ type the drift time correction and normalization results, and per classifier
+  `highcut`, `peaks` and `qbb`, plus the validity of `ppars.lq` for `period`.
+- Plots per detector and partition: `lq_ctc_DEP_<type>`, `lq_ctc_<type>`, `lq_dep_normalization_<type>`,
+  `lq_sidebands_<type>`, `lq_sideband_position_<type>`, `lq_classalized_<classifier>` and
+  `lq_energy_after_<classifier>`.
+- Partition report `lq_calibration_cut` with the processing status, a metadata table, and one row per detector,
+  partition and LQ type.
+
+# Keywords
+- `reprocess`: Discard the existing `ppars.lq` parameters of each detector and partition and process all LQ types
+  and classifiers again.
+- `timeout`: Seconds allowed per detector and partition in `parallel`; `0` means no limit.
+- `only_first_period`: If `true`, a detector whose partition starts in an earlier period is skipped and logged as
+  skipped. `run_processing` sets it to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
+this to wait for the same step in the previous period.
+"""
 function p_process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate lq cut for all partitions containing period $period"

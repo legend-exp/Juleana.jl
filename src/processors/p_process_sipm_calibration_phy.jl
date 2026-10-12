@@ -1,3 +1,44 @@
+"""
+    p_process_sipm_calibration_phy(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Calibrate the SiPM channels (`spms`) per partition from `phy` data, for all partitions that
+contain `period`.
+
+The method is the same as in `process_sipm_calibration_phy`, but the data of all runs of a
+detector's partition are combined and the results are valid for the whole partition.
+
+# Inputs
+- `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of all runs of each detector's partition.
+- `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`
+  over the same runs; events within `puls_ts_window` of a pulser trigger are excluded.
+- `dataprod_config(l200).sipm(filekey).calibration`, using the `p_default` section merged with the
+  per-detector section `p`. It sets `energy_types` (each with `qc`, `simple.kwargs`, `fit.min_pe`,
+  `fit.max_pe`, `fit.kwargs`) and `pol_order`.
+- `l200.par.ppars.sipmcal[det, part]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.ppars.sipmcal[det, part]`: per energy type, the simple calibration constants, the
+  noise thresholds, the peak fit result (`fit`) and the calibration curve (`cal`), written for
+  each detector as soon as it is finished; the validity of all partitions is written once at
+  the end.
+- Plots per detector, partition and energy type: `pe_uncalibrated_<energy type>`,
+  `sipm_simple_calibration_<energy type>`, `sipm_peak_fits_<energy type>`,
+  `sipm_calibration_curve_<energy type>`.
+- Partition report `sipm_calibration_phy`.
+
+# Keywords
+- `reprocess`: discard the existing results and calibrate all energy types of all detectors
+  again. Otherwise, energy types that already have results are skipped and only missing ones
+  are calibrated.
+- `timeout`: seconds allowed per detector and partition in `parallel` (0 = no limit).
+- `only_first_period`: if `true`, skip a detector whose partition starts in an earlier period
+  than `period`; it is processed together with that earlier period. `run_processing` sets this
+  to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`.
+"""
 function p_process_sipm_calibration_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
         
     @info "Process SiPM calibration for all partitions containing period $period"
