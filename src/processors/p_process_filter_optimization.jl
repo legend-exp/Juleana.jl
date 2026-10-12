@@ -1,3 +1,31 @@
+"""
+    p_process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Optimize the energy filter rise time and flat-top time per detector and `cal` partition for all partitions that contain `period`, using all analysis runs of the partition (HPGe detectors `geds`).
+
+The method is the same as in `process_filter_optimization`: for each filter type listed under `e_filter`, the rise time is chosen from a baseline noise sweep and the flat-top time from a sweep over full-energy-peak events. The waveforms of the peak named by `peakname` are read from the `jlpks` tier of all runs of the partition (`n_evts` events per run, drawn randomly if `select_random` is set) and at most `max_wvfs` of them are used after the quality cuts (`qc` expression).
+
+# Inputs
+- `jlpks` tier of the `cal` runs of each partition, for each detector.
+- `dataprod_config(l200).dsp(filekey)`, in particular `flt_optimization.p_default` and the per-detector entries `flt_optimization.p`, and the DSP config used for the filter grids.
+- `l200.par.ppars.pz[det, part]` (decay times).
+- Quality-cut evaluator loaded by `load_qc_evaluator(l200, filekey)`.
+- `l200.par.ppars.fltopt[det, part]` (existing results, if present).
+
+# Outputs
+- `l200.par.ppars.fltopt[det, part]`: per filter type the optimal rise time, flat-top time and minimal FWHM, with validity entries for the partition; the validity of all partitions of the period is written to `l200.par.ppars.fltopt`.
+- Per detector, partition and filter type, plots `noise_sweep_<filter_type>` and `fwhm_ft_scan_<filter_type>`.
+- Partition report `:filter_optimization` (Main Log, Metadata, Results table with one row per detector, partition and filter type).
+
+# Keywords
+- `reprocess`: redo all filter types, ignoring results in `l200.par.ppars.fltopt[det, part]`. If `false`, only filter types without results are processed.
+- `timeout`: seconds allowed per detector and partition in `parallel` (0 = no limit).
+- `only_first_period`: if `true`, a detector whose partition starts in an earlier period is skipped (it is processed with that earlier period). `run_processing` sets this to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector and partition was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses this to wait for the same step in the previous period.
+"""
 function p_process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Optimize filter for all partitions containing period $period"

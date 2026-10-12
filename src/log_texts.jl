@@ -2,7 +2,8 @@
 """
     detector_status(usability::Symbol)
 
-Format detector usability for Markdown reports: green `on`, yellow `ac`, red `off`.
+Return `usability` as an HTML `<span>` string for Markdown reports, colored green for
+`:on`, yellow for `:ac`, red for `:off` and gray for any other value.
 """
 function detector_status(usability::Symbol)
     color = get((on="green", ac="yellow", off="red"), usability, "gray")
@@ -12,10 +13,22 @@ end
 """
     master_status(results...)
 
-Combine processor log statuses using detector usability from the result iterators.
-An `on` warning/failure or `ac` failure fails the processor; an `ac` warning or
-`off` failure warns. An `off` warning is acceptable. Rows without usability
-must succeed. Reports without log entries fail; optional `nothing` results are ignored.
+Combine the report rows of a processor into one status: `process_succeeded`,
+`process_warning` or `process_failed`.
+
+Each element of `results` is a collection of `itr => res` pairs as returned by
+[`parallel`](@ref), or `nothing`, which is ignored. `res.log` is a report row with a
+`Status` field, or a `Dict` of such rows. When a row has a `usability` column, the
+detector usability is read from `itr.usability`; otherwise the row counts as `:on`.
+
+| Row status | `:on` | `:ac` | `:off` |
+|:-----------|:------|:------|:-------|
+| success    | –     | –     | –      |
+| warning    | fail  | warn  | –      |
+| failure    | fail  | fail  | warn   |
+
+The result is `process_failed` if any row fails, otherwise `process_warning` if any row
+warns, otherwise `process_succeeded`. Without any rows the result is `process_failed`.
 """
 function master_status(results...)
     status = process_succeeded
@@ -43,11 +56,29 @@ end
 # Current UTC time as ISO 8601 with a `Z` suffix, for log directory names and reports.
 utc_timestamp() = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHH:MM:SS\Z")
 
+"""
+    truncate_string(s::AbstractString, max_length::Integer=1000)
+
+Return `s` if it has at most `max_length` characters, otherwise its first `max_length`
+characters followed by `"..."`.
+
+# Examples
+```jldoctest
+julia> truncate_string("process_dsp_cal", 7)
+"process..."
+```
+"""
 function truncate_string(s::AbstractString, max_length::Integer=1000)
     length(s) > max_length ? first(s, max_length) * "..." : s
 end
 
-# Message of the first exception of `e`, unwrapped from task and remote-call wrappers.
+"""
+    truncate_error(e::Exception, max_length::Integer=1000)
+
+Return the text of the first exception in `e`, unwrapped from `CompositeException`,
+`TaskFailedException` and remote-call wrappers, shortened with
+[`truncate_string`](@ref) to `max_length` characters.
+"""
 truncate_error(e::Exception, max_length::Integer=1000) =
     truncate_string(string(original_exception(onlyfirst_exception(e))), max_length)
 

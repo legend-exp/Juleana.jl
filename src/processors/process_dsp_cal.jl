@@ -1,3 +1,37 @@
+"""
+    process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0,
+        max_wvfs::Int=10000, use_partition_pars::Bool=true)
+
+Run the DSP on the `cal` raw data of the HPGe detectors (`geds`) of a run.
+
+For every raw `cal` file of the run, each detector is processed with its DSP configuration, its
+pole-zero decay time, and its energy and A/E filter optimization parameters. A detector is
+skipped and reported as failed if the decay time, the optimization parameters, or a parameter
+listed in `required_fltopt` (or `required_aoeopt` for usable detectors with a valid or present
+low A/E status) is missing, or if its DSP throws an error. With `use_partition_pars=true`, a
+detector that is not `:on` and whose run is in no `cal` partition takes its parameters from the
+partition with the closest run.
+
+# Inputs
+- `raw` tier of all `cal` filekeys of the run, except the filekeys marked unprocessable
+- `dataprod_config(l200).dsp(filekey)`
+- `l200.par[pars_type, :pz]`, `l200.par[pars_type, :fltopt]` and `l200.par[pars_type, :aoeopt]`, with `pars_type` being `:ppars` if `use_partition_pars` is `true` and `:rpars` otherwise
+- the QC evaluator from `load_qc_evaluator(l200, filekey)`
+
+# Outputs
+- `jldsp` tier file for each filekey, with one table per detector
+- run report `:dsp_cal`, with one row per filekey (number of processed detectors, failed detectors, time, allocations)
+
+# Keywords
+- `reprocess`: remove the existing `jldsp` files and process all detectors again; otherwise detectors already present in a file are skipped
+- `timeout`: seconds allowed per filekey in `parallel` (0 = no limit)
+- `max_wvfs`: not used by this processor
+- `use_partition_pars`: read the decay time and optimization parameters from the partition-level parameters (`:ppars`) instead of the run-level parameters (`:rpars`)
+
+# Returns
+Return `nothing`.
+"""
 function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=10000, use_partition_pars::Bool=true)
     
     @info "Process DSP for period $period and run $run"

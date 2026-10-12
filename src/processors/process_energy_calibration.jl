@@ -1,3 +1,29 @@
+"""
+    process_energy_calibration(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Calibrate the energy of all processable HPGe detectors (`geds`) of the `cal` run with the Th-228 spectrum.
+
+For each energy type in `energy_types` of the energy config, the uncalibrated energies of single-pulse, non-pulser events passing the quality cuts are calibrated in three steps: a simple calibration locates the Th-228 peaks, the peaks are fitted with the functions in `th228_fit_func`, and a polynomial calibration curve (`cal_pol_order`) and a FWHM curve (`fwhm_pol_order`) are fitted to the peaks that pass the fit quality cuts in `qc`. Peaks in `cal_fit_excluded_peaks` and `fwhm_fit_excluded_peaks` are left out of the respective fit. Energy types ending in `_ctc` use the charge-trapping-corrected energy expression from the CT correction results.
+
+# Inputs
+- `jlqcs` tier of the start `cal` filekey (event mask `is_single_pulse && !is_pulser`) and `jldsp` tier of the `cal` run, for each detector.
+- `dataprod_config(l200).energy(filekey)` (`default` and per-detector entries).
+- `l200.par.rpars.ctc[period, run]` (needed for `_ctc` energy types).
+- `l200.par.rpars.ecal[period, run]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.rpars.ecal[period, run]`: per detector and energy type the simple calibration constant (`m_cal_simple`), FWHM curve (`fwhm`), calibration curve (`cal`) and calibrated peak fit results (`fit`), together with the validity entry for the run.
+- Per detector and energy type, plots `simple_calibration_<e_type>`, `peak_fits_<e_type>`, `calibration_curve_<e_type>` and `fwhm_<e_type>`.
+- Run report `:energy_calibration` (Main Log, Metadata, Results table with one row per detector and energy type).
+
+# Keywords
+- `reprocess`: redo all detectors and energy types, discarding existing results in `l200.par.rpars.ecal[period, run]`. If `false`, only energy types without results are processed.
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit).
+
+# Returns
+`nothing`.
+"""
 function process_energy_calibration(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
     
     @info "Energy calibration for period $period and run $run"

@@ -1,3 +1,42 @@
+"""
+    p_process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Plot the stability of the HPGe detectors (`geds`) per partition from `phy` data, for all
+partitions that contain `period`.
+
+The plots are the same as in `process_stability_plots_phy`, but the data of all runs of a
+detector's partition are shown together. Each plot is made and logged separately; a failing
+plot does not stop the others.
+
+# Inputs
+- `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of all runs of each detector's partition,
+  fields `timestamp`, `blmean`, `blsigma` and `e_10410`; events with non-finite values are
+  dropped.
+- `jlpls` tier fields `e_10410` and `aux_trig` of the pulser channel named by
+  `dataprod_config(l200).qc(filekey).pulser.puls_detector`, over the same runs.
+- `dataprod_config(l200).qc(filekey).stability_plots`: `n_ref` (number of events for the
+  reference value), `n_smooth` (smoothing window of `20 * n_smooth` seconds) and `Qbb`.
+
+# Outputs
+- Plots per detector and partition: `stability_time_vs_bl`, `stability_time_vs_blsigma`,
+  `stability_time_vs_e10410`, `stability_e10410_hist`. If pulser-triggered events exist:
+  `stability_time_vs_e10410_trig` and `stability_pulser_rate`. If more than `n_ref` finite
+  pulser-triggered events exist: `stability_gain_stability`.
+- Partition report `stability_plots_phy`.
+
+No parameters are written.
+
+# Keywords
+- `reprocess`: only logged; plots are always remade and overwritten.
+- `timeout`: seconds allowed per detector and partition in `parallel` (0 = no limit).
+- `only_first_period`: if `true`, skip a detector whose partition starts in an earlier period
+  than `period`; it is processed together with that earlier period. `run_processing` sets this
+  to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`.
+"""
 function p_process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
     @info "Process detector stability plots for partitions conatining period $period"

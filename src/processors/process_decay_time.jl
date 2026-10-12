@@ -1,3 +1,36 @@
+"""
+    process_decay_time(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Determine the preamplifier decay time of the HPGe detectors (`geds`) from the `cal` data of a run.
+
+For each detector, the presummed waveforms of the peak named by `peakname` in the `pz`
+section of the DSP configuration are read from the `jlpks` tier. If there are more than
+`max_wvfs` waveforms, `max_wvfs` of them are selected by drawing random indices in `1:max_wvfs`
+with replacement. Waveforms that fail the QC condition `qc` are removed. The decay time of each
+remaining waveform is computed, and a truncated Gaussian is fitted to the values between
+`min_tau` and `max_tau`; its mean is the decay time. A detector gets warning status if the
+decay time is outside 350 to 700 µs. A detector fails if its `jlpks` file is missing or if
+loading, QC, DSP or the fit throws an error.
+
+# Inputs
+- `jlpks` tier of the start filekey of the run, entry `peakname`
+- `dataprod_config(l200).dsp(filekey)`, sections `default`, per detector, and `pz` (`min_tau`, `max_tau`, `nbins`, `rel_cut_fit`, `peakname`, `qc`, `max_wvfs`)
+- the QC evaluator from `load_qc_evaluator(l200, filekey)`
+- `l200.par.rpars.pz[period, run]` (existing parameters, unless `reprocess` is `true`)
+
+# Outputs
+- `l200.par.rpars.pz[period, run]` with the decay time `τ` and the fit result of each detector, with its validity
+- plot `:decay_time` for each detector
+- run report `:decay_time`, with one row per detector (decay time, width)
+
+# Keywords
+- `reprocess`: discard the existing parameters and process all detectors; otherwise detectors that already have parameters are skipped
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit)
+
+# Returns
+Return `nothing`.
+"""
 function process_decay_time(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
         
     @info "Process decay time for period $period and run $run"

@@ -1,3 +1,39 @@
+"""
+    process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Plot the stability of the HPGe detectors (`geds`) over one run from `phy` data.
+
+For each processable detector, the following time-dependent quantities are plotted: baseline,
+baseline sigma, the `e_10410` energy estimator, the pulser rate, and the gain stability. The
+gain stability compares the relative change of `e_10410` of the pulser channel and of the
+detector for pulser-triggered events, scaled to keV at `Qbb`. Each plot is made and logged
+separately; a failing plot does not stop the others.
+
+# Inputs
+- `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of the run, per detector, fields `timestamp`,
+  `blmean`, `blsigma` and `e_10410`; events with non-finite values are dropped.
+- `jlpls` tier fields `e_10410` and `aux_trig` of the pulser channel named by
+  `dataprod_config(l200).qc(filekey).pulser.puls_detector`.
+- `dataprod_config(l200).qc(filekey).stability_plots`: `n_ref` (number of events for the
+  reference value), `n_smooth` (smoothing window of `20 * n_smooth` seconds) and `Qbb`.
+
+# Outputs
+- Plots per detector: `stability_time_vs_bl`, `stability_time_vs_blsigma`,
+  `stability_time_vs_e10410`, `stability_e10410_hist`. If pulser-triggered events exist:
+  `stability_time_vs_e10410_trig` and `stability_pulser_rate`. If more than `n_ref` finite
+  pulser-triggered events exist: `stability_gain_stability`.
+- Run report `stability_plots_phy`.
+
+No parameters are written.
+
+# Keywords
+- `reprocess`: only logged; plots are always remade and overwritten.
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit).
+
+# Returns
+`nothing`.
+"""
 function process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Process detector stability plots for period $period and run $run"

@@ -9,7 +9,7 @@ const PartitionStatus = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, Bool}}
     mutable struct DataflowSession
 
 State of a dataflow session that [`menu`](@ref) reads and edits, as returned by
-[`main`](@ref) in an interactive session.
+[`main`](@ref).
 
 Fields:
 - `args::Dict{String,Any}`: parsed command line options, used to reload the config.
@@ -20,8 +20,10 @@ Fields:
   each period.
 - `run_steps::Vector{Symbol}`, `partition_steps::Vector{Symbol}`: run and
   partition steps scheduled by default, sorted by rank.
-- `run_status`, `partition_status`: completion flags of the dependency graph, as
-  built by `setup_dependency_graph`.
+- `run_status`, `partition_status`: completion flags of the dependency graph,
+  `run_status[period][step][run]::Bool` for every run step and
+  `partition_status[period][step]::Bool` for every partition step of the config. A
+  step that is not scheduled starts as `true`, so steps that depend on it do not wait.
 
 `DataflowSession(; args, l200, config, periods, runs=config.runs, run_steps,
 partition_steps, run_status, partition_status)` builds a session from keywords.
@@ -48,6 +50,7 @@ DataflowSession(; args, l200, config, periods, runs = config.runs, run_steps, pa
 Run the session's scheduled steps over its periods and update its status flags, as
 `run_processing(session.config, session.l200, session.periods, session.run_steps,
 session.partition_steps, session.run_status, session.partition_status; kwargs...)`.
+The keywords are those of that method. Return `nothing`.
 """
 run_processing(session::DataflowSession; kwargs...) =
     run_processing(session.config, session.l200, session.periods, session.run_steps,
@@ -108,17 +111,24 @@ end
 
 Run the dataflow with the command line options `args` (see `julia main.jl --help`).
 
-Builds the processing config and `LegendData(:l200)`, runs [`init_process`](@ref) on
-this process and registers it for every worker, starts the workers of the configured
-run mode (`local` workers are always started; `slurm` workers only with
+Build the processing config and `LegendData(:l200)`, run [`init_process`](@ref) on
+this process and register it for every worker, and start the workers of the configured
+run mode: `local` workers are always started; `slurm` workers only with
 `submit_jobs`, otherwise `startjlworkers.sh` is written to the current directory for
-manual submission), checks the processor keyword arguments, and builds the dependency
-graph for the enabled steps.
+manual submission. Then check the processor keyword arguments with
+[`check_processor_kwargs`](@ref) and build the dependency graph for the enabled steps.
 
 In an interactive session, return the [`DataflowSession`](@ref) to pass to
 [`menu`](@ref). Otherwise run all enabled steps with [`run_processing`](@ref) and
 return the session afterwards. Return `nothing` when `args` asks for `--help` or
 `--version` in an interactive session.
+
+# Examples
+```julia
+using Juleana
+session = Juleana.main(["--config", "config/processing_config.json", "--periods", "3"])
+menu(session)
+```
 """
 function main(args::AbstractVector{<:AbstractString} = ARGS)
     parsed_args = parse_commandline(args)

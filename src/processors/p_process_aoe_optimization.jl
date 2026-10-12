@@ -1,3 +1,45 @@
+"""
+    p_process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=15000, only_first_period::Bool=true)
+
+Optimize the window length of the A/E filters for every detector and `cal` partition that contains `period`.
+
+This is the partition-level counterpart of [`process_aoe_optimization`](@ref). The Tl208 DEP and SEP waveforms of all
+`cal` runs in a detector's partition are combined for one optimization per detector, partition and filter type.
+Detectors with `low_aoe_status` of `:valid` or `:present` are processed.
+
+# Inputs
+- First `cal` start filekey of the analysis runs of `period` (selects the channels), and the start filekey of the
+  first run of each partition (selects the configuration).
+- Windowed and presummed waveforms of the `Tl208DEP_Bi212FEP` and `Tl208SEP` selections from the `jlpks` tier of the
+  `cal` runs in the partition. The configuration entry `n_evts` sets how many events are read per run, and
+  `select_random` whether they are chosen randomly.
+- `l200.par.ppars.pz[det, part]` (decay times) and `l200.par.ppars.fltopt[det, part]` (energy filter parameters).
+- `dataprod_config(l200).dsp(filekey)`: the `default` section merged with the detector section for the DSP settings;
+  `aoe_optimization.p_default` merged with `aoe_optimization.p[det]` for `qc`, `n_evts`, `select_random` and the
+  `aoe_filter` table (same entries as in `process_aoe_optimization`).
+- The QC evaluator of the filekey (`load_qc_evaluator`).
+
+# Outputs
+- `l200.par.ppars.aoeopt[det, part]`: per filter type, the selected window length (`wl`), SEP survival fraction
+  (`sf`) and the number of DEP and SEP events used (`n_dep`, `n_sep`), plus the validity of `ppars.aoeopt` for `period`.
+- One plot per detector, partition and filter type, named `aoe_sweep_<filter type>`.
+- Partition report `aoe_optimization` with the processing status, a metadata table and one result row per detector,
+  partition and filter type.
+
+# Keywords
+- `reprocess`: Discard the existing `ppars.aoeopt` parameters of each detector and partition and optimize all filter
+  types again. Otherwise, filter types that already have results are kept.
+- `timeout`: Seconds allowed per detector and partition in `parallel`; `0` means no limit.
+- `max_wvfs`: Maximum number of DEP waveforms and of SEP waveforms used per detector and partition (default `15000`).
+  If more are loaded, `max_wvfs` indices are drawn at random, with replacement, from the first `max_wvfs` events.
+- `only_first_period`: If `true`, a detector whose partition starts in an earlier period is skipped and logged as
+  skipped. `run_processing` sets it to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
+this to wait for the same step in the previous period.
+"""
 function p_process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=15000, only_first_period::Bool=true)
 
     @info "Optimize PSD filter for all partitions containing period $period"

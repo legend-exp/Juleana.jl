@@ -1,3 +1,27 @@
+"""
+    p_process_skm_phy(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Create the skimmed event tier (`jlskm`) of the `phy` analysis runs of `period`, one file per run.
+
+For each run, all `jlevt` files of the run (except filekeys listed as bad) are read and only events that are neither pulser nor forced triggers are kept, and that have `ged_pmt.is_valid_muon`, `geds.is_valid_qc`, `geds.is_valid_trig`, `geds.is_valid_hit`, `geds.multiplicity == 1` and `geds.max_e_cusp_ctc_cal > 500.0u"keV"`. The report lists the fraction of the selected events that pass the PSD cut, the LAr cut, and both. The total exposure of the period is logged.
+
+# Inputs
+- `jlevt` tier of all `phy` filekeys of each analysis run in `period` (run info `phy.is_analysis_run`).
+- Channel info of the `geds` system and bad-filekey list from `bad_filekeys(l200)`.
+
+# Outputs
+- `jlskm` tier: one file per run (named by the start filekey of the run), table `jlskm`.
+- Partition report `:skm_phy` (Main Log, Metadata, Results table with one row per run).
+
+# Keywords
+- `reprocess`: recreate the `jlskm` file of each run, removing existing ones. If `false`, existing files are kept and only the survival fractions are read for the report.
+- `timeout`: seconds allowed per run in `parallel` (0 = no limit).
+- `only_first_period`: accepted for a uniform call signature; it has no effect in this processor.
+
+# Returns
+Always `true`.
+"""
 function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Event skimmed tier for runs containing period $period"

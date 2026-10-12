@@ -1,3 +1,28 @@
+"""
+    process_ct_correction(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Determine the charge-trapping correction for all processable HPGe detectors (`geds`) of the `cal` run.
+
+For each energy type in `energy_types` of the `ctc` section of the energy config, the energy is calibrated with a simple Th-228 calibration, and the correction parameters (polynomial in `qdrift` of order `ctc_order`) are optimized on the peak `peak` within the window (`left_window_size`, `right_window_size`). The FWHM of the peak before and after the correction is reported. Only single-pulse, non-pulser events passing the quality cuts are used.
+
+# Inputs
+- `jlqcs` tier of the start `cal` filekey (event mask `is_single_pulse && !is_pulser`) and `jldsp` tier of the `cal` run (energy types and `qdrift`), for each detector. A missing `jlqcs` file counts as a failure of that detector.
+- `dataprod_config(l200).energy(filekey)` (`default`, `ctc.default` and per-detector entries).
+- `l200.par.rpars.ctc[period, run]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.rpars.ctc[period, run]`: per detector and energy type the correction result (including `fct`, `fwhm_before`, `fwhm_after`), together with the validity entry for the run.
+- Per detector and energy type, plots `simple_calibration_<e_type>` and `ctc_<e_type>`.
+- Run report `:ct_correction` (Main Log, Metadata, Results table with one row per detector and energy type).
+
+# Keywords
+- `reprocess`: redo all detectors and energy types, discarding existing results in `l200.par.rpars.ctc[period, run]`. If `false`, only energy types without results are processed.
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit).
+
+# Returns
+`nothing`.
+"""
 function process_ct_correction(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "CT correction for period $period and run $run"

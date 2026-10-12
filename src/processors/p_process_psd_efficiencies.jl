@@ -1,3 +1,43 @@
+"""
+    p_process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Compute the survival fractions of the combined A/E and LQ cuts for every detector and `cal` partition that contains `period`.
+
+The `cal` data of all runs in a detector's partition are calibrated with `calibrate_ged_detector_data`, which applies
+the A/E and LQ cut flags (`<A/E classifier>_low_cut` and `<LQ classifier>_high_cut`) from the parameters selected by
+`get_ged_evt_kwargs`. The high A/E cut is taken from the `psd_classifiers` table of the configuration. Peaks and the
+Qbb window are fitted for five selections: the low A/E cut (`low`), the high A/E cut (`high`), the low and high A/E
+cuts (`ds`), the low A/E cut and the LQ cut (`low_lq`), and all three cuts (`lq_ds`). Detectors with `low_aoe_status`
+of `:valid` or `:present` are processed.
+
+# Inputs
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition.
+- Calibration and cut parameters as read by `calibrate_ged_detector_data` with the keyword arguments of
+  `get_ged_evt_kwargs(l200, filekey)`.
+- `dataprod_config(l200).psd(filekey).psd` of the first run of the partition, `default` merged with the detector
+  section: `e_type`, `psd_classifiers` (per classifier name, a list of the A/E classifier, the high A/E cut and the LQ
+  classifier), `psd_peaks`, `psd_peaks_names`, `psd_peaks_windows_left`, `psd_peaks_windows_right`,
+  `psd_peaks_bin_width_window`, `psd_peaks_fit_funcs`, `qbb` and `qbb_window`.
+
+# Outputs
+- `l200.par.ppars.psd[det, part]`: per classifier, `cuts` (`highcut` is the configured high A/E cut; `lowcut` and `lq`
+  are stored as `NaN`) and the `peaks` and `qbb` survival fractions for the five selections, plus the validity of
+  `ppars.psd` for `period`. The file is written only if the detector has results.
+- Partition report `psd_efficiencies` with the processing status, a metadata table and one result row per detector,
+  partition and classifier. No plots are written.
+
+# Keywords
+- `reprocess`: Discard the existing `ppars.psd` parameters of each detector and partition and process all
+  classifiers again. Otherwise, classifiers that already have results are kept.
+- `timeout`: Seconds allowed per detector and partition in `parallel`; `0` means no limit.
+- `only_first_period`: If `true`, a detector whose partition starts in an earlier period is skipped and logged as
+  skipped. `run_processing` sets it to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
+this to wait for the same step in the previous period.
+"""
 function p_process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate PSD efficiencies for all partitions containing period $period"

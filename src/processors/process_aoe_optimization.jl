@@ -1,3 +1,40 @@
+"""
+    process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Optimize the window length of the A/E filters for the HPGe detectors (`geds`) of one `cal` run.
+
+For each detector with `usability == :on` and `low_aoe_status` of `:valid` or `:present`, and for each filter type
+listed in the `aoe_filter` table of the configuration, the processor runs a short DSP routine on the Tl208 DEP and SEP
+waveforms for a grid of window lengths, applies the configured QC expression, and evaluates the SEP survival fraction
+after a simple A/E cut set on the DEP. It stores the selected window length together with its survival fraction.
+
+# Inputs
+- First `cal` filekey of the run (`start_filekey(l200, (period, run, :cal))`).
+- Windowed and presummed waveforms of the `Tl208DEP_Bi212FEP` and `Tl208SEP` selections from the `jlpks` tier.
+- `l200.par.rpars.pz[period, run]` (decay times) and `l200.par.rpars.fltopt[period, run]` (energy filter parameters).
+- `dataprod_config(l200).dsp(filekey)`: the `default` section merged with the detector section for the DSP settings,
+  including the window length grids `a_grid_wl_<filter type>`; and `aoe_optimization` (`default` merged with the
+  detector section) with `qc` and the `aoe_filter` table. Each filter entry sets `dep`, `dep_window`, `sep`,
+  `sep_window`, `sep_rel_cut`, `min_aoe_quantile`, `max_aoe_quantile`, `min_aoe_offset`, `max_aoe_offset`,
+  `dep_cut_search_fit_func` and `sep_cut_search_fit_func`.
+- The QC evaluator of the filekey (`load_qc_evaluator`).
+
+# Outputs
+- `l200.par.rpars.aoeopt[period, run]`: per detector and filter type, the selected window length (`wl`), SEP survival
+  fraction (`sf`) and the number of DEP and SEP events used (`n_dep`, `n_sep`), plus the matching validity entry.
+- One plot per detector and filter type of the window length sweep, named `<filter type>_sweep`.
+- Run report `aoe_optimization` with the processing status, a metadata table and one result row per detector and
+  filter type.
+
+# Keywords
+- `reprocess`: Discard the existing `aoeopt` parameters of the run and optimize all detectors and filter types again.
+  Otherwise, filter types that already have results are kept and only missing ones are computed.
+- `timeout`: Seconds allowed per detector in `parallel`; `0` means no limit.
+
+# Returns
+The return value is not used by `run_processing`.
+"""
 function process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Optimize PSD filter for period $period and run $run"

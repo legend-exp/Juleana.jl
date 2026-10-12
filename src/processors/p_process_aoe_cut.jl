@@ -1,3 +1,45 @@
+"""
+    p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Generate the A/E cuts from the combined `cal` data of every detector and partition that contains `period`.
+
+The `cal` data of all runs in a detector's partition are calibrated with the run-level parameters
+(`rpars`, category `aoe`) through `calibrate_ged_detector_data`. For each classifier in `aoe_classifiers`, the low A/E
+cut is searched on the DEP of the combined data, the high cut is set from `sigma_high_sided`, and survival fractions
+are computed for the configured peaks and the Qbb window with the low cut alone and with both cuts (`ds`). Detectors
+with `low_aoe_status` of `:valid` or `:present` are processed.
+
+# Inputs
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition, calibrated with
+  the run-level A/E parameters `l200.par.rpars.aoe` (and the parameters `calibrate_ged_detector_data` reads for the
+  energy).
+- `dataprod_config(l200).psd(filekey).aoe` of the first run of the partition, `p_default` merged with `p[det]`:
+  `e_type`, `aoe_classifiers`, `sigma_high_sided`, the DEP cut search settings (`dep`, `dep_window`,
+  `dep_cut_search_interval`, `dep_bin_width_window`, `dep_cut_search_rtol`, `dep_cut_search_maxiters`,
+  `dep_cut_search_target_sf`, `dep_cut_search_fixed_position`, `dep_cut_search_fit_func`) and the survival fraction
+  settings (`aoe_peaks`, `aoe_peaks_names`, `aoe_peaks_windows_left`, `aoe_peaks_windows_right`,
+  `aoe_peaks_bin_width_window`, `aoe_peaks_fit_funcs`, `qbb`, `qbb_window`).
+
+# Outputs
+- `l200.par.ppars.aoecut[det, part]`: per classifier, `lowcut`, `highcut`, and `peaks` and `qbb` survival fractions
+  with the `low` cut and with both cuts `ds`, plus the validity of `ppars.aoecut` for `period`.
+- Plots per detector and partition: `aoe_normalized_runcal_<classifier>`,
+  `aoe_energy_afterAoE_zoom_runcal_<classifier>` and `aoe_peaks_sf_runcal_<classifier>`.
+- Partition report `aoe_cut` with the processing status, a metadata table and one result row per detector,
+  partition and classifier.
+
+# Keywords
+- `reprocess`: Discard the existing `ppars.aoecut` parameters of each detector and partition and process all
+  classifiers again. Otherwise, classifiers that already have results are kept.
+- `timeout`: Seconds allowed per detector and partition in `parallel`; `0` means no limit.
+- `only_first_period`: If `true`, a detector whose partition starts in an earlier period is skipped and logged as
+  skipped. `run_processing` sets it to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
+this to wait for the same step in the previous period.
+"""
 function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate AoE cut for all partitions containing period $period"

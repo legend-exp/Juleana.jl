@@ -1,3 +1,39 @@
+"""
+    process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0,
+        max_wvfs::Int=10000, use_partition_pars::Bool=false)
+
+Run the DSP on the `phy` raw data of a run for the additional detectors, PMTs, SiPMs (`spms`) and HPGe detectors (`geds`).
+
+For every raw `phy` file of the run, the channel groups are processed in this order: the
+detectors listed under `additional_detectors` in the DSP configuration, the PMTs, the SiPMs
+(with their per-detector thresholds), and the HPGe detectors (with their pole-zero decay time
+and energy and A/E filter optimization parameters). A SiPM or HPGe detector is skipped and
+reported as failed if its parameters are missing (for HPGe detectors also a parameter listed
+in `required_fltopt`, or `required_aoeopt` for usable detectors with a valid or present low
+A/E status), or if its DSP throws an error. With `use_partition_pars=true`, an HPGe detector
+that is not `:on` and whose run is in no `cal` partition takes its parameters from the partition
+with the closest run.
+
+# Inputs
+- `raw` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `dataprod_config(l200).dsp(filekey)`, `dataprod_config(l200).sipm(filekey)` and `dataprod_config(l200).pmt(filekey)`
+- `l200.par[pars_type, :pz]`, `l200.par[pars_type, :fltopt]`, `l200.par[pars_type, :aoeopt]` and `l200.par[pars_type, :sipmopt]`, with `pars_type` being `:ppars` if `use_partition_pars` is `true` and `:rpars` otherwise
+- the QC evaluator from `load_qc_evaluator(l200, filekey)`
+
+# Outputs
+- `jldsp` tier file for each filekey, with one table per detector
+- run report `:dsp_phy`, with one row per filekey (number of processed detectors, failed detectors, time, allocations)
+
+# Keywords
+- `reprocess`: remove the existing `jldsp` files and process all detectors again; otherwise detectors already present in a file are skipped
+- `timeout`: seconds allowed per filekey in `parallel` (0 = no limit)
+- `max_wvfs`: not used by this processor
+- `use_partition_pars`: read the HPGe decay time and optimization parameters from the partition-level parameters (`:ppars`) instead of the run-level parameters (`:rpars`)
+
+# Returns
+Return `nothing`.
+"""
 function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=10000, use_partition_pars::Bool=false)
     
     @info "Process DSP for period $period and run $run"

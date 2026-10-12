@@ -1,3 +1,36 @@
+"""
+    process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Generate the quality-cut (QC) flags and their survival fractions for the `cal` data of the HPGe detectors (`geds`) of a run.
+
+For each detector, the QC labels and the `is_single_pulse` flag defined in the QC configuration
+are evaluated on the `jldsp` data. Pulser events are flagged by coincidence of the event
+timestamps with the timestamps of the pulser channel (`pulser.puls_detector`) in the raw data.
+The survival fraction of each flag is computed for the pulser events and for the Tl-208
+full-energy peak, which is located with a simple Th-228 calibration of the non-pulser events.
+A detector with fewer than 5000 events fails. A warning is logged if single-pulse events fail
+the `is_valid_e` flag.
+
+# Inputs
+- `jldsp` tier of all `cal` filekeys of the run, except the filekeys marked bad
+- `raw` tier timestamps of the pulser channel
+- `dataprod_config(l200).qc(filekey)` and `dataprod_config(l200).energy(filekey)`
+- `l200.par.rpars.qcs[period, run]` (existing parameters, unless `reprocess` is `true`)
+
+# Outputs
+- `jlqcs` tier file for each detector, with the QC flags and the pulser flag
+- `l200.par.rpars.qcs[period, run]` (flag definition, survival fractions, event counts) with its validity (category `cal`)
+- plots `:raw_energy_e_trap` and `:qc_survival_fractions` for each detector, and `:qc_survival_fractions` over all detectors
+- run report `:qcs_cal`, with one row per detector
+
+# Keywords
+- `reprocess`: discard the existing parameters and process all detectors; otherwise a detector with complete parameters and an existing `jlqcs` file is skipped
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit)
+
+# Returns
+Return `nothing`.
+"""
 function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Generate calibration QC flags for period $period and run $run"

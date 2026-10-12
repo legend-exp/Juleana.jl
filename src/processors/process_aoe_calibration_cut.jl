@@ -1,3 +1,48 @@
+"""
+    process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Calibrate A/E and generate the A/E cuts for the HPGe detectors (`geds`) of one `cal` run.
+
+For each detector with `usability == :on` and `low_aoe_status` of `:valid` or `:present`, the A/E of every type listed
+in `aoe_funcs` is normalized and the Compton bands (`compton_bands`) are fitted. The fitted mean and width are
+described with energy-dependent correction functions, optionally refined by a combined fit (`use_combined_fit`).
+If `apply_ctc` is set, a charge trapping correction against the effective drift time (`qdrift_expression`) follows.
+For each classifier in `aoe_classifiers`, the low A/E cut is searched on the DEP, the high cut is set from
+`sigma_high_sided`, and survival fractions are computed for the configured peaks and the Qbb window with the low cut
+alone and with both cuts (`ds`).
+
+# Inputs
+- First `cal` filekey of the run.
+- `l200.par.rpars.ecal[period, run]`: the calibration function of the energy type `e_type`.
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of the `cal` run.
+- `dataprod_config(l200).psd(filekey).aoe`, `default` merged with the detector section: `e_type`, `aoe_funcs`,
+  `aoe_classifiers`, `compton_bands`, `compton_window`, `p_value`, `use_combined_fit`, `apply_ctc`,
+  `qdrift_expression`, `sigma_high_sided`, the DEP cut search settings (`dep`, `dep_window`,
+  `dep_cut_search_interval`, `dep_bin_width_window`, `dep_cut_search_rtol`, `dep_cut_search_maxiters`,
+  `dep_cut_search_target_sf`, `dep_cut_search_fixed_position`, `dep_cut_search_fit_func`) and the survival fraction
+  settings (`aoe_peaks`, `aoe_peaks_names`, `aoe_peaks_windows_left`, `aoe_peaks_windows_right`,
+  `aoe_peaks_bin_width_window`, `aoe_peaks_fit_funcs`, `qbb`, `qbb_window`).
+
+# Outputs
+- `l200.par.rpars.aoe[period, run]`: per detector, one entry per A/E type (`func`, `ctc`, `correction`, `apply_ctc`,
+  `use_combined_fit`) and one entry per classifier (`lowcut`, `highcut`, and `peaks` and `qbb` survival fractions
+  with the `low` cut and with both cuts `ds`), plus the matching validity entry. The classifier name is the A/E type
+  name followed by `_classifier`.
+- Plots per detector: `aoe_uncalibrated_<type>`, `compton_bands_mu_<type>`, `compton_bands_sigma_<type>`,
+  `aoe_ctc_<type>` (if `apply_ctc`), `aoe_normalized_<type>`, `aoe_normalized_<classifier>`,
+  `aoe_energy_afterAoE_zoom_<classifier>` and `aoe_peaks_ds_sf_<classifier>`.
+- Run report `aoe_calibration_cut` with the processing status, a metadata table, and one row per detector and A/E type
+  combining the calibration and the cut results.
+
+# Keywords
+- `reprocess`: Discard the existing `aoe` parameters of the run and process all detectors, A/E types and classifiers
+  again. Otherwise, entries that already exist are kept and only missing ones are computed.
+- `timeout`: Seconds allowed per detector in `parallel`; `0` means no limit.
+
+# Returns
+The return value is not used by `run_processing`.
+"""
 function process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Calibrate AoE for period $period and run $run"

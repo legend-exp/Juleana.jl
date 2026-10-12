@@ -3,12 +3,14 @@
 """
     menu(session::DataflowSession)
 
-Show the interactive dataflow menu, perform the selected action on `session`, and
-return. The actions are:
+Show the interactive dataflow menu, perform one selected action on `session`, and
+return `nothing`. Call `menu` again for the next action. The actions are:
 
-1. Execute processors: select run and partition processors and options, then run them
-   (or only inspect their reports with `check_report`).
-2. Select periods, 3. Select runs: change the selection and rebuild the dependency graph.
+1. Execute processors: select run and partition processors and options, then run them,
+   or with the `check_report` option only summarize their reports with
+   [`check_reports`](@ref).
+2. Select periods: change the period selection and rebuild the dependency graph.
+3. Select runs: change the run selection and rebuild the dependency graph.
 4. Reload processing config: read the config file again with the original command line
    options, keeping the session's log directory, and rebuild the steps and the
    dependency graph.
@@ -16,8 +18,15 @@ return. The actions are:
 6. Submit workers: start workers for the configured run mode.
 7. Exit: return without action.
 
-Processor functions are package code; with Revise loaded, edits to `src/processors/`
-take effect at the next menu call.
+!!! note
+    Processor functions are package code. With Revise loaded, edits to
+    `src/processors/` take effect at the next menu call.
+
+# Examples
+```julia
+session = Juleana.main(["--config", "config/processing_config.json"])
+menu(session)
+```
 """
 function menu(session::DataflowSession)
     # main menu options
@@ -214,7 +223,10 @@ end
 
 Print, for every step in `run_steps` (run level) and `partition_steps` (partition
 level), one line per report of the session's periods and runs with its failed entries,
-followed by a summary of the failed detectors and their errors.
+followed by a summary of the failed detectors and their errors. Return `nothing`.
+
+An entry is a row of a report table with a `Status` column; it counts as failed when
+its status cell contains `Failure`. A missing report is listed as `no report`.
 """
 function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
     (; l200, config, periods, runs) = session

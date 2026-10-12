@@ -1,4 +1,34 @@
-#!/usr/bin/env julia
+"""
+    process_peak_split(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Extract the events in the Th-228 peaks from the raw `cal` data of the HPGe detectors (`geds`) of a run.
+
+First, each raw `cal` file is checked by reading the `daqenergy` of every detector; the files
+that can be read are listed in `filekeys.txt` and the others in `broken_filekeys.txt` in the
+`jlpks` directory of the run. An existing `filekeys.txt` is reused unless `reprocess` is `true`.
+Then, for each detector, the DAQ energy of all good files is calibrated automatically with the
+Th-228 lines (`th228_cal_lines`), and the events inside the energy windows given by `peaks`
+(for example `Tl208FEP` and `Tl208SEP`) are written with their raw waveforms. The processor
+throws an error if no file is found.
+
+# Inputs
+- `raw` tier of all `cal` filekeys of the run, except the filekeys marked bad
+- `dataprod_config(l200).raw(filekey)`, sections `default` and per detector
+
+# Outputs
+- `jlpks` tier file for each detector, with one table per entry of `peaks`
+- `filekeys.txt` and `broken_filekeys.txt` in the `jlpks` directory of the run
+- plots `:daq_energy_raw` and `:daq_energy` for each detector
+- run report `:peak_split`, with the file check (if it ran) and one row per detector (numbers of FEP and SEP events, time, allocations)
+
+# Keywords
+- `reprocess`: check all files again and recreate the `jlpks` files; otherwise a detector with a readable `jlpks` file is skipped (an unreadable file is removed and recreated)
+- `timeout`: seconds allowed per item in `parallel` (0 = no limit); an item is a filekey in the file check and a detector in the peak splitting
+
+# Returns
+Return `nothing`.
+"""
 function process_peak_split(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Process peak splitting for period $period and run $run"

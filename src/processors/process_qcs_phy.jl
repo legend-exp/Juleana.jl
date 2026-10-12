@@ -1,3 +1,36 @@
+"""
+    process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Generate the quality-cut (QC) flags and their survival fractions for the `phy` data of the HPGe detectors (`geds`) of a run.
+
+For each detector, the QC labels and the `is_single_pulse` and `is_empty_trace` flags defined
+in the QC configuration are evaluated on the `jldsp` data. Pulser events and forced-trigger
+events (without pulser events) are taken from the `aux_trig` flags of the pulser channel
+(`pulser.puls_detector`) and of the forced-trigger channel (`forced_trigger.detector`). The
+survival fraction of each flag is computed for the pulser events and for the forced-trigger
+events. A detector with fewer than 5000 events fails. A warning is logged if single-pulse events
+fail the `is_valid_dsp` flag.
+
+# Inputs
+- `jldsp` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `jlaux` tier column `aux_trig` of the pulser and forced-trigger channels
+- `dataprod_config(l200).qc(filekey)`
+- `l200.par.rpars.qcs[period, Symbol("<run>-phy")]` (existing parameters, unless `reprocess` is `true`)
+
+# Outputs
+- `jlqcs` tier file for each detector, with the QC flags and the pulser flag
+- `l200.par.rpars.qcs[period, Symbol("<run>-phy")]` (flag definition, survival fractions, event counts) with its validity (category `phy`)
+- plots `:qc_survival_fractions` and `:qc_survival_fractions_forced_trigger` for each detector, and `:qc_survival_fractions` over all detectors
+- run report `:qcs_phy`, with one row per detector
+
+# Keywords
+- `reprocess`: discard the existing parameters and process all detectors; otherwise a detector with complete parameters and an existing `jlqcs` file is skipped
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit)
+
+# Returns
+Return `nothing`.
+"""
 function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Generate physics QC flags for period $period and run $run"

@@ -1,3 +1,42 @@
+"""
+    p_process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+
+Calibrate A/E and generate the A/E cuts for every detector and `cal` partition that contains `period`.
+
+This is the partition-level counterpart of [`process_aoe_calibration_cut`](@ref): the `cal` data of all runs in a
+detector's partition are combined and the A/E normalization, Compton band fits, optional charge trapping correction
+and cut search run once per detector and partition. Detectors with `low_aoe_status` of `:valid` or `:present` are
+processed. In addition, the Compton-band A/E is plotted against time over the partition.
+
+# Inputs
+- `l200.par.rpars.ecal[period, run]` of every run in the partition: the calibration function of the energy type `e_type`.
+- `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition.
+- `dataprod_config(l200).psd(filekey).aoe` of the first run of the partition, `p_default` merged with `p[det]`, with
+  the same entries as described for `process_aoe_calibration_cut`.
+
+# Outputs
+- `l200.par.ppars.aoe[det, part]`: per A/E type (`func`, `ctc`, `correction`, `apply_ctc`, `use_combined_fit`) and per
+  classifier (`lowcut`, `highcut`, `peaks` and `qbb` survival fractions), plus the validity of `ppars.aoe` for
+  `period`. The file is written only if the detector has results.
+- Plots per detector and partition: `aoe_uncalibrated_<type>`, `aoe_stability_<type>`, `compton_bands_mu_<type>`,
+  `compton_bands_sigma_<type>`, `aoe_ctc_<type>` and `aoe_compton_after_ctc_<type>` (if `apply_ctc`),
+  `aoe_normalized_<type>`, `aoe_normalized_<classifier>`, `aoe_energy_afterAoE_zoom_<classifier>` and
+  `aoe_peaks_sf_<classifier>`.
+- Partition report `aoe_calibration_cut` with the processing status, a metadata table, and one row per detector,
+  partition and A/E type.
+
+# Keywords
+- `reprocess`: Discard the existing `ppars.aoe` parameters of each detector and partition and process all A/E types
+  and classifiers again. Otherwise, entries that already exist are kept.
+- `timeout`: Seconds allowed per detector and partition in `parallel`; `0` means no limit.
+- `only_first_period`: If `true`, a detector whose partition starts in an earlier period is skipped and logged as
+  skipped. `run_processing` sets it to `true` when the previous period is also being processed.
+
+# Returns
+`true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
+this to wait for the same step in the previous period.
+"""
 function p_process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate AoE cut for all partitions containing period $period"

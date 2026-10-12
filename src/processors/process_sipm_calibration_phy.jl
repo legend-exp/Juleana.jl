@@ -1,3 +1,42 @@
+"""
+    process_sipm_calibration_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Calibrate the SiPM channels (`spms`) of one run from `phy` data.
+
+For each processable SiPM and each energy type listed in the calibration configuration, the
+pulser-tagged events and the events failing the energy-type `qc` cut are removed, a simple
+calibration of the amplitude spectrum is made, the photoelectron peaks are fitted, and a
+polynomial calibration curve is fitted to the peak positions. Control plots are saved for each
+step.
+
+# Inputs
+- `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of the run, per SiPM.
+- `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
+  events within `puls_ts_window` of a pulser trigger are excluded.
+- `dataprod_config(l200).sipm(filekey).calibration`: the `default` section merged with the
+  per-detector section. It sets `energy_types` (each with `qc`, `simple.kwargs`, `fit.min_pe`,
+  `fit.max_pe`, `fit.kwargs`) and `pol_order`.
+- `l200.par.rpars.sipmcal[period, run]` (existing results, unless `reprocess` is set).
+
+# Outputs
+- `l200.par.rpars.sipmcal[period, run]`: per detector and energy type, the simple calibration
+  constants, the noise thresholds, the peak fit result (`fit`) and the calibration curve (`cal`);
+  the validity entry is written for `(period, run)`.
+- Plots per detector and energy type: `pe_uncalibrated_<energy type>`,
+  `sipm_simple_calibration_<energy type>`, `sipm_peak_fits_<energy type>`,
+  `sipm_calibration_curve_<energy type>`.
+- Run report `sipm_calibration_phy`.
+
+# Keywords
+- `reprocess`: discard the existing results of the run and calibrate all energy types of all
+  detectors again. Otherwise, energy types that already have results are skipped and only
+  missing ones are calibrated.
+- `timeout`: seconds allowed per detector in `parallel` (0 = no limit).
+
+# Returns
+`nothing`.
+"""
 function process_sipm_calibration_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
         
     @info "Process SiPM calibration for period $period and run $run"

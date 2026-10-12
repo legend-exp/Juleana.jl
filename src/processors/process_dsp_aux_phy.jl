@@ -1,3 +1,34 @@
+"""
+    process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0)
+
+Run the DSP and the calibration for the auxiliary detectors (for example the pulser) of the `phy` data of a run.
+
+The auxiliary detectors are the channels selected by `get_aux_evt_detsel_propfunc`. For each of
+them, the raw data of all `phy` filekeys of the run are read together and processed with the
+function configured for it under `additional_detectors` in the DSP configuration. The result is
+then extended by the auxiliary calibration property function. A cross-check histogram of the
+energy named in the `cal.aux_trig` condition of the event configuration is saved, with the
+trigger threshold marked.
+
+# Inputs
+- `raw` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `dataprod_config(l200).dsp(filekey)`, section `additional_detectors`
+- `dataprod_config(l200).evt(filekey)`, section `aux`
+- the auxiliary calibration from `get_aux_cal_propfunc(l200, filekey, det)`
+
+# Outputs
+- `jlaux` tier file for each auxiliary detector, with the DSP and calibrated columns
+- plot `:dsp_aux_energy` for each auxiliary detector
+- run report `:dsp_aux_phy`, with one row per detector (status, number of events)
+
+# Keywords
+- `reprocess`: process detectors again whose `jlaux` file exists; otherwise a detector with a readable `jlaux` file is skipped
+- `timeout`: seconds allowed per auxiliary detector in `parallel` (0 = no limit)
+
+# Returns
+Return `nothing`.
+"""
 function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Process auxiliary detector DSP for period $period and run $run"
