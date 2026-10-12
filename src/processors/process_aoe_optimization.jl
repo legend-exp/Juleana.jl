@@ -76,7 +76,7 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
         filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
-            throw(LoadError(string(filename), 154,"File $(filename) does not exist"))
+            throw(ErrorException("File $(filename) does not exist"))
         end
         
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
@@ -109,8 +109,8 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
             wvfs_det_sep_wdw          = sep_data.waveform_windowed
             wvfs_det_sep_pre          = sep_data.waveform_presummed
         catch e
-            @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(part), 154,"DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
+            @error "DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
+            throw(ErrorException("DEP and SEP data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter

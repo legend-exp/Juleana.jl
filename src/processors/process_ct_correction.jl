@@ -71,7 +71,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
             end
         catch e
             @error "Error in loading data for detector $det: $(truncate_error(e))"
-            throw(ErrorException("Error data loader"))
+            throw(ErrorException("Error data loader: $(truncate_error(e))"))
         end
 
         quantile_perc = if energy_config_det.quantile_perc isa String parse(Float64, energy_config_det.quantile_perc) else energy_config_det.quantile_perc end
@@ -93,7 +93,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
                     result_simple, report_simple = simple_calibration(getproperty(data_det_after_qc, e_type), energy_config_det.th228_lines, energy_config_det.left_window_sizes, energy_config_det.right_window_sizes,; calib_type=:th228, quantile_perc=quantile_perc, binning_peak_window=energy_config_det.binning_peak_window)
                 catch e
                     @error "Error in $e_type simple calibration for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type simple calibration"))
+                    throw(ErrorException("Error in $e_type simple calibration: $(truncate_error(e))"))
                 end
 
                 # get simple calibration constant
@@ -110,7 +110,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
                     result_ctc, report_ctc = ctc_energy(getproperty(data_det_after_qc, e_type) .* m_cal_simple, data_det_after_qc.qdrift, ctc_config_det.peak, (ctc_config_det.left_window_size, ctc_config_det.right_window_size), m_cal_simple; e_expression="$e_type", pol_order=ctc_config_det.ctc_order)
                 catch e
                     @error "Error in $e_type alpha generation $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type alpha generation"))
+                    throw(ErrorException("Error in $e_type alpha generation: $(truncate_error(e))"))
                 end
                 
                 @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"

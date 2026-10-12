@@ -100,8 +100,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                 e_unit = unit(first(e_cal))
             end
         catch e
-            @error "E data for $det from cannot be loaded: $(truncate_error(e))"
-            throw(LoadError("E data", 154, "E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
+            @error "E data for $det cannot be loaded: $(truncate_error(e))"
+            throw(ErrorException("E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for aoe_classifier in aoe_classifiers
@@ -115,8 +115,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                 try
                     aoe = getproperty(hit_cal, aoe_classifier)
                 catch e
-                    @error "AoE for $det from cannot be loaded"
-                    throw(LoadError("AoE", 154, "AoE and E data for $det from partition $(part) cannot be loaded"))
+                    @error "AoE for $det cannot be loaded: $(truncate_error(e))"
+                    throw(ErrorException("AoE and E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
                 end
 
                 h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
@@ -138,8 +138,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                                     fixed_position=aoe_config_det.dep_cut_search_fixed_position, sigma_high_sided=sigma_high_sided,
                                     fit_func=Symbol(aoe_config_det.dep_cut_search_fit_func), uncertainty=true)
                 catch e
-                    @error "AoE cut for $det cannot be generated"
-                    throw(ErrorException("AoE cut for $det from partition $part cannot be generated"))
+                    @error "AoE cut for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE cut for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
@@ -154,8 +154,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                     result_peaks_low, report_peaks_low = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
                                                     low_cut=result_cut.lowcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks low SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks low SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks low SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks low SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low SEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
@@ -165,8 +165,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                 try
                     qbb_result_low, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut)
                 catch e
-                    @error "Qbb low SF for $det cannot be generated"
-                    throw(ErrorException("Qbb low SF for $det from partition $part cannot be generated"))
+                    @error "Qbb low SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb low SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
@@ -177,8 +177,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                     result_peaks_ds, report_peaks_ds = get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
                                                     low_cut=result_cut.lowcut, high_cut=result_cut.highcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
                 catch e
-                    @error "AoE peaks DS SF for $det cannot be generated"
-                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated"))
+                    @error "AoE peaks DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("AoE peaks DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
@@ -188,8 +188,8 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
                 try
                     qbb_result_ds, _ = get_continuum_survival_fraction(aoe, e_cal, aoe_config_det.qbb, aoe_config_det.qbb_window; low_cut=result_cut.lowcut, high_cut=result_cut.highcut)
                 catch e
-                    @error "Qbb DS SF for $det cannot be generated"
-                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated"))
+                    @error "Qbb DS SF for $det cannot be generated: $(truncate_error(e))"
+                    throw(ErrorException("Qbb DS SF for $det from partition $part cannot be generated: $(truncate_error(e))"))
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"

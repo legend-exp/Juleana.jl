@@ -76,8 +76,8 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
             end
             e_cal = getproperty(hit_cal, e_type)
         catch e
-            @error "Hit data for $det from cannot be loaded: $(truncate_error(e))"
-            throw(LoadError("Hit data", 154, "Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
+            @error "Hit data for $det cannot be loaded: $(truncate_error(e))"
+            throw(ErrorException("Hit data for $det from $period-$run cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for psd_classifier in psd_classifiers
@@ -96,8 +96,8 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
                     aoe = ljl_propfunc(pars_aoe[det][Symbol(first(split(string(aoe_classifier), "_classifier")))].func).(hit_cal)
                     aoe_low_cut = pars_aoe[det][aoe_classifier].lowcut
                 catch e
-                    @error "AoE for $det from cannot be loaded"
-                    throw(LoadError("AoE", 154, "AoE data for $det cannot be loaded"))
+                    @error "AoE for $det cannot be loaded: $(truncate_error(e))"
+                    throw(ErrorException("AoE data for $det cannot be loaded: $(truncate_error(e))"))
                 end
 
                 lq, lq_cut = nothing, nothing
@@ -106,7 +106,7 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
                     lq_cut = pars_lq[det][lq_classifier].highcut
                 catch e
                     @error "LQ for $det cannot be loaded: $(truncate_error(e))"
-                    throw(LoadError("LQ", 154, "LQ data for $det cannot be loaded: $(truncate_error(e))"))
+                    throw(ErrorException("LQ data for $det cannot be loaded: $(truncate_error(e))"))
                 end
 
                 @debug "Use low A/E cut at $(round(aoe_low_cut, digits=2)) and high A/E cut at $(round(aoe_high_cut, digits=2))"

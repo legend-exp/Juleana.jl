@@ -75,7 +75,7 @@ function process_filter_optimization(processing_config, l200::LegendData, period
         filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
-            throw(LoadError(string(basename(filename)), 154,"File $(basename(filename)) does not exist"))
+            throw(ErrorException("File $(basename(filename)) does not exist"))
         end
         yield()
 
@@ -98,7 +98,7 @@ function process_filter_optimization(processing_config, l200::LegendData, period
             end
         catch e
             @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
-            throw(LoadError(string(basename(filename)), 154,"$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
+            throw(ErrorException("$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
         end
         yield()
 
