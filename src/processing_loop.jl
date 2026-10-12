@@ -59,7 +59,7 @@ function run_processing(
         processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
         dependency_timeout::Real = 24 * 3600
     )
-    unregistered = filter(!in(keys(processors)), [run_steps; partition_steps])
+    unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((run_steps, partition_steps))))
     isempty(unregistered) ||
         throw(ArgumentError("run_processing: unregistered processor(s) $(join(unregistered, ", "))"))
     abort = Threads.Atomic{Bool}(false)
