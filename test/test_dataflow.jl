@@ -7,6 +7,13 @@ using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun
 # Stands in for `LegendData`: every run is in the run info.
 struct FakeData end
 LegendDataManagement.is_lrun(::FakeData, key) = true
+# Runs that are in the run info but are no analysis runs.
+struct NoAnalysisData end
+LegendDataManagement.is_lrun(::NoAnalysisData, key) = true
+LegendDataManagement.is_analysis_run(::NoAnalysisData, key) = false
+# Runs that are not in the run info.
+struct NoRunData end
+LegendDataManagement.is_lrun(::NoRunData, key) = false
 
 const ConcurrentDict = Juleana.ConcurrentDict
 
@@ -105,6 +112,41 @@ const REPORT = """
         messages = [sprint(showerror, Juleana.original_exception(x)) for x in err.exceptions]
         @test any(contains("p03 failed"), messages)
         @test any(contains("another processing task failed"), messages)
+    end
+
+    @testset "skipped runs" begin
+        p3, r1 = DataPeriod(3), DataRun(1)
+        run_a(cfg, l200, period, run; reprocess::Bool = false) = error("run_a must be skipped")
+        processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1))
+        stubs = Dict{Symbol,Any}(:run_a => run_a)
+        for (data, analysis_runs_only, message) in ((NoAnalysisData(), true, "p03-r001-cal is not an analysis run, skip run_a"),
+                (NoRunData(), false, "p03-r001-cal is not in runinfo, skip run_a"))
+            cfg = ProcessingConfig(; processors, p_processors = Dict{Symbol,ProcessorSpec}(), analysis_runs_only)
+            run_status, partition_status = stub_status([p3], [r1], [:run_a], Symbol[])
+            @test_logs (:warn, message) match_mode = :any run_processing(cfg, data, [p3], [:run_a], Symbol[],
+                run_status, partition_status; processors = stubs)
+            # a skipped run counts as finished for the steps that depend on it
+            @test run_status[p3][:run_a][r1]
+        end
+    end
+
+    @testset "selected_steps and runprocs_mode" begin
+        processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1))
+        p_processors = Dict(:p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1))
+        @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors)) == ([:run_a], [:p_part_b])
+        @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors, only_runs = true)) == ([:run_a], Symbol[])
+        @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors, only_partitions = true)) == (Symbol[], [:p_part_b])
+
+        env_variables = Dict("A" => "1")
+        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, env_variables))
+        @test mode isa Juleana.ParallelProcessingTools.OnLocalhost
+        @test mode.n == 3
+        @test mode.env == env_variables
+        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, runmode = :slurm,
+            slurm_flags = ["--nodes=2"], env_variables))
+        @test mode isa Juleana.ParallelProcessingTools.OnSlurm
+        @test mode.slurm_flags == `--nodes=2`
+        @test mode.env == env_variables
     end
 
     @testset "report_failures" begin
