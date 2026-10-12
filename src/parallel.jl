@@ -23,22 +23,6 @@ function failure_log(log_nt::Type{<:NamedTuple}, itr::NamedTuple, message::Abstr
     log_nt((lead..., ProcessStatus(0), fill("-", length(fieldnames(log_nt)) - length(lead) - 2)..., message))
 end
 
-"""
-    parallel(f, iterator::AbstractArray, log_nt; timeout::Real=0, retry::Bool=false, process_name::AbstractString="")
-    parallel(iterator::AbstractArray, log_nt; kwargs...) do itr
-        ...
-    end
-
-Apply `f` to every element of `iterator` on the ParallelProcessingTools worker pool and
-return an array of `itr => f(itr)` pairs with the same shape and axes as `iterator`.
-The function comes first, as in `map`, so a `do`-block can supply it.
-
-An item whose `f` throws, or exceeds `timeout` seconds when `timeout > 0`, does not abort
-the batch: its pair is `itr => (processed = false, log = failure_log(log_nt, itr, msg))`
-and the batch continues. `retry = true` gives each item up to three attempts on worker
-loss. Element types without a [`failure_log`](@ref) method for `log_nt` are rejected
-with an `ArgumentError` before any work starts.
-"""
 # Call `advance()` once for each task in `tasks` as it finishes, checking every `poll` seconds;
 # return when all tasks are done.
 function watch_tasks(advance, tasks::AbstractArray{Task}; poll::Real = 2)
@@ -55,6 +39,23 @@ function watch_tasks(advance, tasks::AbstractArray{Task}; poll::Real = 2)
     return nothing
 end
 
+"""
+    parallel(f, iterator::AbstractArray, log_nt; timeout::Real=0, retry::Bool=false, process_name::AbstractString="")
+    parallel(iterator::AbstractArray, log_nt; kwargs...) do itr
+        ...
+    end
+
+Apply `f` to every element of `iterator` on the ParallelProcessingTools worker pool and
+return an array of `itr => f(itr)` pairs with the same shape and axes as `iterator`.
+The function comes first, as in `map`, so a `do`-block can supply it.
+
+An item whose `f` throws, or exceeds `timeout` seconds when `timeout > 0`, does not abort
+the batch: its pair is `itr => (processed = false, log = failure_log(log_nt, itr, msg))`
+and the batch continues. A timed-out item's worker process is terminated and not replaced
+(an item on the main process keeps running in the background). `retry = true` gives each
+item up to three attempts on worker loss or timeout. Element types without a [`failure_log`](@ref) method for `log_nt` are rejected
+with an `ArgumentError` before any work starts.
+"""
 function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeout::Real=0, retry::Bool=false, process_name::AbstractString="")
     for T in unique(typeof.(iterator))
         hasmethod(failure_log, Tuple{Type{log_nt}, T, String}) ||
@@ -70,27 +71,13 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
         failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_string(string(e))))
         tasks = broadcast(iterator) do itr
             Threads.@spawn try
-                # The pool's own limit is a backstop for the poll loop below, which checks every 0.1 s;
-                # whichever fires first, the item ends up as a failure row rather than aborting the batch.
-                onworker(; tries=retry ? 3 : 1, label="$itr", maxtime=1.1*timeout) do
+                # Past `maxtime`, onworker terminates the worker (never the main process) and
+                # counts the timeout as a failed try; the last failure lands in the catch below.
+                onworker(; tries=retry ? 3 : 1, label="$itr", maxtime=timeout) do
                     try
-                        if timeout <= 0
-                            return itr => f(itr)
-                        end
-                        t_end = time() + timeout
-                        task = Threads.@spawn f(itr)
-                        while time() <= t_end && !istaskdone(task)
-                            sleep(0.1)
-                        end
-                        if !istaskdone(task)
-                            @debug "Timeout for $(itr)"
-                            schedule(task, InterruptException(); error=true)
-                            throw(ErrorException("Timeout for $(itr)"))
-                        end
-                        return itr => fetch(task)
+                        return itr => f(itr)
                     catch e
-                        # Caught here so that `retry` only covers worker loss, not errors in `f`.
-                        e isa TaskFailedException && (e = e.task.exception)
+                        # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
                         @debug "Write Error log for $(itr): $e"
                         return failure_row(itr, e)
                     end
