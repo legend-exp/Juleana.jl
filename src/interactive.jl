@@ -197,12 +197,13 @@ function execute_processors()
                                         @info "$(string(process))"
                                         flush(stdout)
 
-                                        # check if run is a analysis run if switched on
-                                        if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config.processors[process].category))
-                                            @warn "$period-$run-$(processing_config.processors[process].category) is not a analysis run, skip $(string(process))"
-                                            continue
-                                        elseif !is_lrun(l200, (period, run, processing_config.processors[process].category))
-                                            @warn "$period-$run-$(processing_config.processors[process].category) is not in runinfo, skip $(string(process))"
+                                        processor_config = processing_config.processors[process]
+                                        select_categories = !haskey(processor_config, :category)
+                                        categories = vcat(select_categories ? processor_config.category_selection : processor_config.category)
+                                        categories = filter(category -> is_lrun(l200, (period, run, category)) &&
+                                            (!processing_config.analysis_runs_only || is_analysis_run(l200, (period, run, category))), categories)
+                                        if isempty(categories)
+                                            @warn "$period-$run has no eligible run category, skip $(string(process))"
                                             continue
                                         end
                                         
@@ -230,7 +231,13 @@ function execute_processors()
                                         if "no-reprocess" in additional_args
                                             kwargs = merge(kwargs, (reprocess = false, ))
                                         end
-                                        getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
+                                        if select_categories
+                                            for category in categories
+                                                getfield(Main, process)(processing_config, l200, period, run; kwargs..., category=Symbol(category))
+                                            end
+                                        else
+                                            getfield(Main, process)(processing_config, l200, period, run; kwargs...)
+                                        end
                                         flush(stdout)
 
                                         # update process status
@@ -397,19 +404,21 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
     # reports written per run
     for process in process_steps
         report = Symbol("$(last(split(string(process), "process_")))")
-        category = processing_config.processors[process].category
+        processor_config = processing_config.processors[process]
+        category = haskey(processor_config, :category) ? processor_config.category : processor_config.category_selection
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
         for period in periods
-            for run in get_proccessable_runs(l200, period, runs)
+            for run in get_proccessable_runs(l200, period, runs), cat in vcat(category)
                 filename = try
-                    get_rreportfilename(l200, start_filekey(l200, (period, run, category)), report)
+                    get_rreportfilename(l200, start_filekey(l200, (period, run, cat)), report)
                 catch e
-                    @warn "No start filekey for $period-$run-$category, skip"
+                    @warn "No start filekey for $period-$run-$cat, skip"
                     continue
                 end
-                check_report("$period-$run", filename, failed, errors)
+                label = category isa AbstractVector ? "$period-$run-$cat" : "$period-$run"
+                check_report(label, filename, failed, errors)
             end
         end
         check_summary(process, failed, errors)

@@ -180,12 +180,13 @@ else
                                     @info "$(string(process))"
                                     flush(stdout)
 
-                                    # check if run is a analysis run if switched on
-                                    if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config.processors[process].category))
-                                        @warn "$period-$run-$(processing_config.processors[process].category) is not a analysis run, skip $(string(process))"
-                                        continue
-                                    elseif !is_lrun(l200, (period, run, processing_config.processors[process].category))
-                                        @warn "$period-$run-$(processing_config.processors[process].category) is not in runinfo, skip $(string(process))"
+                                    processor_config = processing_config.processors[process]
+                                    select_categories = !haskey(processor_config, :category)
+                                    categories = vcat(select_categories ? processor_config.category_selection : processor_config.category)
+                                    categories = filter(category -> is_lrun(l200, (period, run, category)) &&
+                                        (!processing_config.analysis_runs_only || is_analysis_run(l200, (period, run, category))), categories)
+                                    if isempty(categories)
+                                        @warn "$period-$run has no eligible run category, skip $(string(process))"
                                         continue
                                     end
                                     
@@ -208,7 +209,13 @@ else
                                     # get kwargs
                                     kwargs = NamedTuple([(k, v) for (k, v) in pairs(processing_config.processors[process].kwargs)])
                                     # run process
-                                    getfield(Main, process)(processing_config, l200, period, run,; kwargs...)
+                                    if select_categories
+                                        for category in categories
+                                            getfield(Main, process)(processing_config, l200, period, run; kwargs..., category=Symbol(category))
+                                        end
+                                    else
+                                        getfield(Main, process)(processing_config, l200, period, run; kwargs...)
+                                    end
 
                                     # flush streams
                                     flush(stdout)
