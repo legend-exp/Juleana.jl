@@ -184,9 +184,8 @@ end
 Entry point of the `juleana` app and of `julia -m Juleana`: parse the command line
 options `args` (see `juleana --help`) and return the process exit code.
 
-With `--no-tui`, set up the session with [`setup_session`](@ref) and run all enabled
-steps with [`run_processing`](@ref). Otherwise open the terminal user interface with
-[`run_tui`](@ref).
+With `--no-tui`, run all enabled steps with [`run_no_tui`](@ref) and return its exit
+code. Otherwise open the terminal user interface with [`run_tui`](@ref).
 
 Install the app with `Pkg.Apps.add(path = "<path to Juleana.jl>")`; the `juleana`
 command then starts Julia with `--threads=8,1`. Julia options placed before a `--`
@@ -195,11 +194,7 @@ replace these defaults, e.g. `juleana --threads=16,1 -- -c config.json`.
 function (@main)(args::AbstractVector{<:AbstractString})
     parsed_args = parse_commandline(args)
     isnothing(parsed_args) && return 0
-    if parsed_args["no_tui"]
-        run_processing(setup_session(parsed_args))
-        @info "# Processing Done"
-    else
-        run_tui(parsed_args)
-    end
+    parsed_args["no_tui"] && return run_no_tui(parsed_args)
+    run_tui(parsed_args)
     return 0
 end

@@ -47,17 +47,18 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
 
         Juleana.set_step_state!(store, a, :running)
         first_id = Juleana.items_queued!(store, a, 3)
-        Juleana.item_started!(store, a, first_id, 2)
-        Juleana.item_started!(store, a, first_id + 1, 3)
+        Juleana.item_started!(store, a, first_id, 2, "fk1")
+        Juleana.item_started!(store, a, first_id + 1, 3, "fk2")
         @test only(filter(e -> e.step === :run_a, progress(store).steps)).workers == [2, 3]
         Juleana.item_finished!(store, a, first_id, :done)
         Juleana.item_finished!(store, a, first_id + 1, :failed)
         # a retried item moves to its new worker
-        Juleana.item_started!(store, a, first_id + 2, 4)
-        Juleana.item_started!(store, a, first_id + 2, 5)
+        Juleana.item_started!(store, a, first_id + 2, 4, "fk3")
+        Juleana.item_started!(store, a, first_id + 2, 5, "fk3")
         e = first(progress(store).steps)
         @test (e.state, e.total, e.done, e.failed, e.notrun, e.workers) == (:running, 3, 1, 1, 0, [5])
         @test e.fraction ≈ 2 / 4
+        @test [(b.worker, b.item) for b in busy_workers(store)] == [(5, "fk3")]
         @test !isnothing(e.started) && !isnothing(e.eta)
         Juleana.item_finished!(store, a, first_id + 2, :notrun)
         p = progress(store)
@@ -72,6 +73,9 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test_throws KeyError Juleana.set_step_state!(store, (p3, r2, :run_a), :running)
         @test_throws ":running is not a final step state" Juleana.finish_progress!(store, :running)
 
+        # every started item is listed as busy until it ends
+        @test isempty(busy_workers(store))
+
         Juleana.set_step_state!(store, a, :done)
         Juleana.finish_progress!(store, :cancelled)
         p = progress(store)
@@ -79,6 +83,33 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test p.fraction == 1 && isnothing(p.eta) && !isnothing(p.finished)
         @test p.counts.done == 1 && p.counts.cancelled == 1
         @test [(g.period, g.run, g.nsteps) for g in p.groups] == [(p3, r1, 1), (p3, nothing, 1)]
+    end
+
+    @testset "busy workers and abandoned items" begin
+        store = ProgressStore()
+        a = (p3, r1, :run_a)
+        Juleana.reset_progress!(store, [a])
+        Juleana.set_step_state!(store, a, :running)
+        first_id = Juleana.items_queued!(store, a, 3)
+        Juleana.item_started!(store, a, first_id, 2, "fk1")
+        sleep(0.01)
+        Juleana.item_started!(store, a, first_id + 1, 3, "fk2")
+        Juleana.item_finished!(store, a, first_id, :done)
+        busy = only(busy_workers(store))
+        @test (busy.worker, busy.item, busy.period, busy.run, busy.step, busy.abandoned) == (3, "fk2", p3, r1, :run_a, false)
+
+        Juleana.items_abandoned!(store, a)
+        e = only(progress(store).steps)
+        @test (e.done, e.notrun) == (1, 2) && isempty(e.workers)
+        @test only(busy_workers(store)).abandoned
+        # a new run keeps the abandoned item until it ends; its end changes no counts
+        Juleana.reset_progress!(store, [a])
+        @test only(busy_workers(store)).worker == 3
+        Juleana.item_finished!(store, a, first_id + 1, :done)
+        @test isempty(busy_workers(store))
+        @test only(progress(store).steps).done == 0
+        # item ids are unique across runs
+        @test Juleana.items_queued!(store, a, 1) == first_id + 3
     end
 
     cfg = ProcessingConfig(;

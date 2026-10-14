@@ -21,7 +21,7 @@ module Juleana
 using ArgParse: @add_arg_table!, ArgParseSettings, parse_args
 import CairoMakie
 using ConcurrentCollections: ConcurrentDict
-using Dates: Dates, DateTime, Millisecond, UTC, canonicalize, now, @dateformat_str
+using Dates: Dates, DateTime, Millisecond, Second, UTC, canonicalize, now, @dateformat_str
 using Format: format
 using HDF5: h5open
 using IntervalSets: (..), leftendpoint, rightendpoint
@@ -61,7 +61,7 @@ using Measurements: value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
     onlyfirst_exception, onworker, original_exception, pinthreads_auto,
-    ppt_worker_pool!, ppt_worker_pool, runworkers, stopworkers, write_files, write_worker_start_script
+    ppt_worker_pool!, ppt_worker_pool, runworkers, write_files, write_worker_start_script
 using ProgressLogging: ProgressLogging
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
@@ -90,6 +90,7 @@ include("session.jl")
 include("config.jl")
 include("interactive.jl")
 include("controller.jl")
+include("no_tui.jl")
 include("tui.jl")
 
 include("processors/p_process_aoe_calibration_cut.jl")
@@ -128,13 +129,13 @@ export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
-export run_processing, ProcessingStopped, ProgressStore, progress, show_progress
+export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, show_progress
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, SubmitWorkers
 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, init_process,
-    main, setup_session, run_tui, parse_commandline, check_reports
+    main, setup_session, run_no_tui, run_tui, parse_commandline, check_reports
 
 end # module

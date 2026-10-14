@@ -9,6 +9,7 @@ Juleana
 ```@docs
 Juleana.main
 Juleana.setup_session
+Juleana.run_no_tui
 Juleana.run_tui
 Juleana.parse_commandline
 Juleana.init_process
@@ -28,6 +29,7 @@ dispatch!
 snapshot
 wait(::DataflowController)
 progress
+busy_workers
 ProgressStore
 show_progress
 Juleana.effective_config

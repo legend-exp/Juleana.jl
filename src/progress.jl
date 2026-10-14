@@ -9,6 +9,9 @@ const FINAL_STEP_STATES = STEP_STATES[3:end]
 # a partition-level step.
 const ProgressKey = Tuple{DataPeriod,Union{Nothing,DataRun},Symbol}
 
+const BusyItem = NamedTuple{(:worker, :item, :period, :run, :step, :since, :abandoned),
+    Tuple{Int,String,DataPeriod,Union{Nothing,DataRun},Symbol,DateTime,Bool}}
+
 mutable struct StepProgress
     state::Symbol
     total::Int
@@ -17,12 +20,14 @@ mutable struct StepProgress
     notrun::Int
     # item id => worker the item runs on
     const running::Dict{Int,Int}
+    # ids of the items that have not finished yet
+    const pending::Set{Int}
     started::Union{Nothing,DateTime}
     items_started::Union{Nothing,DateTime}
     finished::Union{Nothing,DateTime}
 end
 
-StepProgress() = StepProgress(:waiting, 0, 0, 0, 0, Dict{Int,Int}(), nothing, nothing, nothing)
+StepProgress() = StepProgress(:waiting, 0, 0, 0, 0, Dict{Int,Int}(), Set{Int}(), nothing, nothing, nothing)
 
 """
     ProgressStore()
@@ -33,18 +38,27 @@ as `progress_store`. It holds one entry per scheduled step of a period (partitio
 or of a run (run level) with the step's state, the number of items handed to `parallel`
 and how many of them finished, failed, were not run or are running on which worker.
 
-[`progress`](@ref) returns a copy of the current state with the aggregated progress.
+The store also records the busy workers: every item that a worker runs, from the moment
+the item is handed to the worker until its call returns. This record is kept across
+processing runs, so that items whose run was stopped without waiting for them stay listed
+until their workers are free again.
+
+[`progress`](@ref) returns a copy of the current state with the aggregated progress and
+[`busy_workers`](@ref) the busy workers.
 """
 mutable struct ProgressStore
     const lock::ReentrantLock
     const keys::Vector{ProgressKey}
     const steps::Dict{ProgressKey,StepProgress}
+    # item id => busy worker record, kept across runs
+    const busy::Dict{Int,BusyItem}
+    # item ids are unique across runs
     next_item::Int
     started::Union{Nothing,DateTime}
     finished::Union{Nothing,DateTime}
 end
 
-ProgressStore() = ProgressStore(ReentrantLock(), ProgressKey[], Dict{ProgressKey,StepProgress}(), 0, nothing, nothing)
+ProgressStore() = ProgressStore(ReentrantLock(), ProgressKey[], Dict{ProgressKey,StepProgress}(), Dict{Int,BusyItem}(), 0, nothing, nothing)
 
 # Start a new processing run with the steps `keys`, all waiting.
 function reset_progress!(store::ProgressStore, keys)
@@ -56,7 +70,6 @@ function reset_progress!(store::ProgressStore, keys)
             push!(store.keys, key)
             store.steps[key] = StepProgress()
         end
-        store.next_item = 0
         store.started, store.finished = now(UTC), nothing
     end
     return store
@@ -94,31 +107,69 @@ function items_queued!(store::ProgressStore, key::ProgressKey, n::Integer)
         isnothing(step.items_started) && (step.items_started = now(UTC))
         first = store.next_item + 1
         store.next_item += n
+        union!(step.pending, first:store.next_item)
         return first
     end
 end
 
-# Item `id` of step `key` was handed to `worker`. A retried item moves to its new worker.
-item_started!(store::ProgressStore, key::ProgressKey, id::Integer, worker::Integer) =
-    @lock store.lock (store.steps[key].running[id] = worker; nothing)
-
-# Item `id` of step `key` ended with `outcome`: `:done`, `:failed` or `:notrun`.
-function item_finished!(store::ProgressStore, key::ProgressKey, id::Integer, outcome::Symbol)
+# Item `id` of step `key`, labeled `label`, was handed to `worker`. A retried item moves to
+# its new worker.
+function item_started!(store::ProgressStore, key::ProgressKey, id::Integer, worker::Integer, label::AbstractString)
     @lock store.lock begin
-        step = store.steps[key]
+        store.steps[key].running[id] = worker
+        store.busy[id] = (; worker, item = String(label), period = key[1], run = key[2], step = key[3],
+            since = now(UTC), abandoned = false)
+    end
+    return nothing
+end
+
+# Item `id` of step `key` ended with `outcome`: `:done`, `:failed` or `:notrun`. An item
+# that was abandoned before (see `items_abandoned!`) only frees its worker.
+function item_finished!(store::ProgressStore, key::ProgressKey, id::Integer, outcome::Symbol)
+    outcome in (:done, :failed, :notrun) || throw(ArgumentError("progress: unknown item outcome $(repr(outcome))"))
+    @lock store.lock begin
+        delete!(store.busy, id)
+        step = get(store.steps, key, nothing)
+        (isnothing(step) || !(id in step.pending)) && return nothing
+        delete!(step.pending, id)
         delete!(step.running, id)
         if outcome === :done
             step.done += 1
         elseif outcome === :failed
             step.failed += 1
-        elseif outcome === :notrun
-            step.notrun += 1
         else
-            throw(ArgumentError("progress: unknown item outcome $(repr(outcome))"))
+            step.notrun += 1
         end
     end
     return nothing
 end
+
+# Stop waiting for the unfinished items of step `key`: they count as not run, and their
+# workers stay listed as busy, marked abandoned, until the items' calls return.
+function items_abandoned!(store::ProgressStore, key::ProgressKey)
+    @lock store.lock begin
+        step = store.steps[key]
+        for id in step.pending
+            step.notrun += 1
+            haskey(store.busy, id) && (store.busy[id] = merge(store.busy[id], (; abandoned = true)))
+        end
+        empty!(step.pending)
+        empty!(step.running)
+    end
+    return nothing
+end
+
+"""
+    busy_workers(store::ProgressStore)
+    busy_workers(ctrl::DataflowController)
+
+Return the items that workers are running, oldest first, as `NamedTuple`s with `worker`,
+`item` (the item's label), `period`, `run` (`nothing` for partition-level steps), `step`,
+`since` (UTC time the worker got the item) and `abandoned`. An abandoned item belongs to a
+processing run that was stopped without waiting for it; its worker stays busy until the
+item's call returns, which for an unresponsive worker never happens.
+"""
+busy_workers(store::ProgressStore) = @lock store.lock sort!(collect(values(store.busy)); by = b -> b.since)
 
 # A running step counts its items plus one unit for the work after the last item, so it
 # reaches 1 only when the step itself is final.

@@ -37,6 +37,7 @@ end
         run_status, partition_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
         dependency_timeout::Real=24*3600, stop::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false),
+        abandon::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false),
         progress_store::Union{Nothing,ProgressStore}=nothing)
 
 Run the partition-level steps `partition_steps` for every period in `periods` and the
@@ -68,8 +69,9 @@ stopped.
 
 Setting `stop[]` to `true` stops the run: no further step starts, waiting steps stop
 waiting, and [`parallel`](@ref) hands no further items to workers and throws
-[`ProcessingStopped`](@ref) once its running items have finished. The run then ends with
-the resulting exceptions as above. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
+[`ProcessingStopped`](@ref) once its running items have finished. With `abandon[]` also
+`true`, `parallel` throws without waiting for its running items, which go on in the
+background. The run then ends with the resulting exceptions as above. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
 processor. A step without an entry in `processors` throws an `ArgumentError` before any
 work starts. Return `nothing`.
 
@@ -85,7 +87,7 @@ function run_processing(
         run_status::AbstractDict, partition_status::AbstractDict;
         processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
         dependency_timeout::Real = 24 * 3600, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
-        progress_store::Union{Nothing,ProgressStore} = nothing
+        abandon::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false), progress_store::Union{Nothing,ProgressStore} = nothing
     )
     unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((run_steps, partition_steps))))
     isempty(unregistered) ||
@@ -185,9 +187,9 @@ function run_processing(
         rethrow()
     end
 
-    # `parallel` reads the stop flag from the scope; spawned tasks inherit it.
+    # `parallel` reads the stop flags from the scope; spawned tasks inherit it.
     try
-        with(PROCESSING_STOP => stop) do
+        with(PROCESSING_STOP => stop, PROCESSING_ABANDON => abandon) do
             @sync begin
                 if !isempty(partition_steps)
                     for period in periods

@@ -12,6 +12,9 @@ Base.showerror(io::IO, ::ProcessingStopped) = print(io, "ProcessingStopped: proc
 # Stop flag of the current processing run, set by `run_processing`; `nothing` outside of it.
 const PROCESSING_STOP = ScopedValue{Union{Nothing,Threads.Atomic{Bool}}}(nothing)
 
+# Flag of the current processing run to stop waiting for running items; `nothing` outside of it.
+const PROCESSING_ABANDON = ScopedValue{Union{Nothing,Threads.Atomic{Bool}}}(nothing)
+
 # Progress entry of the current processing step, set by `run_processing`; `nothing` outside of it.
 const PROGRESS_STEP = ScopedValue{Union{Nothing,Tuple{ProgressStore,ProgressKey}}}(nothing)
 
@@ -120,7 +123,9 @@ Element types without a [`failure_log`](@ref) method for `log_nt` are rejected w
 
 Inside [`run_processing`](@ref), a stop of the processing run takes effect here: items that
 have not been handed to a worker are not run, items already running finish, and `parallel`
-then throws [`ProcessingStopped`](@ref) instead of returning.
+then throws [`ProcessingStopped`](@ref) instead of returning. When the run is stopped without
+waiting for running items, `parallel` throws right away and the running items go on in
+the background; their workers return to the pool when the items end.
 
 # Examples
 ```julia
@@ -150,7 +155,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
     tasks = broadcast(iterator, ids) do itr, id
         Threads.@spawn begin
-            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker)
+            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker, string(itr))
             result, outcome = try
                 # Past `maxtime`, onworker terminates the worker (never the main process) and
                 # counts the timeout as a failed try; the last failure lands in the catch below.
@@ -178,6 +183,17 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
         p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
         update!(p)
         errormonitor(Threads.@spawn watch_tasks(() -> next!(p), tasks))
+    end
+    abandon = PROCESSING_ABANDON[]
+    if !isnothing(abandon)
+        while !abandon[] && !all(istaskdone, tasks)
+            sleep(0.2)
+        end
+        if !all(istaskdone, tasks)
+            # the running items go on in the background and free their workers when done
+            isnothing(step) || items_abandoned!(step...)
+            throw(ProcessingStopped())
+        end
     end
     # fetch results
     result = fetch.(tasks)

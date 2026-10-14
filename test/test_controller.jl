@@ -188,22 +188,34 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             @everywhere [pid] using Juleana
             push!(pool, pid)
             filekeys = [FileKey("l200-p02-r006-cal-20230101T00000$(i)Z") for i in 1:3]
-            hanging_step(cfg, l200, period, run; reprocess = false) = parallel(filekeys, StopLog) do fk
-                sleep(3600)
+            slow_item_step(cfg, l200, period, run; reprocess = false) = parallel(filekeys, StopLog) do fk
+                sleep(8)
                 (processed = true, log = StopLog((fk, ProcessStatus(1), "")))
             end
-            ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration => hanging_step)))
+            ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration => slow_item_step)))
             dispatch!(ctrl, SelectPeriods([2]))
             dispatch!(ctrl, SelectRuns([6]))
             dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
             dispatch!(ctrl, StartProcessing())
-            sleep(2)
+            @test waituntil(() -> !isempty(busy_workers(ctrl)))
+            busy = only(busy_workers(ctrl))
+            @test busy.worker == pid && !busy.abandoned && busy.step === :process_energy_calibration
+            @test busy.period == p2 && busy.run == DataRun(6) && busy.item in string.(filekeys)
+            t_stop = time()
             dispatch!(ctrl, StopProcessing(; force = true))
-            # the running item fails with its worker and the waiting items give up
+            # the run ends without waiting for the running item
             @test waituntil(() -> snapshot(ctrl).state === :ready; timeout = 60)
+            @test time() - t_stop < 5
             snap = snapshot(ctrl)
             @test snap.outcome === :stopped && isnothing(snap.last_error)
-            @test !(pid in workers())
+            step = only(progress(ctrl).steps)
+            @test step.state === :stopped && step.notrun == length(filekeys) && isempty(step.workers)
+            # the worker is kept and stays busy with the abandoned item until it ends
+            @test pid in workers()
+            @test only(busy_workers(ctrl)).abandoned
+            @test waituntil(() -> isempty(busy_workers(ctrl)); timeout = 30)
+            @test waituntil(() -> isready(pool); timeout = 10)
+            @test only(progress(ctrl).steps).notrun == length(filekeys)
         finally
             ppt_worker_pool!(original_pool)
             pid in workers() && rmprocs(pid)

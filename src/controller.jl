@@ -127,9 +127,10 @@ struct StartProcessing <: ControllerCommand end
     StopProcessing(; force::Bool = false)
 
 Stop the processing run: no further step or item starts, items running on workers
-finish, and the run ends as `:stopped`. With `force = true`, also stop all workers, so
-that items on unresponsive workers fail and the run ends without waiting for them; start
-new workers with [`SubmitWorkers`](@ref) afterwards.
+finish, and the run ends as `:stopped`. With `force = true`, the run ends without waiting
+for the running items. They count as not run, go on in the background and keep their
+workers busy until they end; [`busy_workers`](@ref) lists them as abandoned. No worker is
+stopped.
 """
 struct StopProcessing <: ControllerCommand
     force::Bool
@@ -185,6 +186,7 @@ mutable struct DataflowController
     const loader::Any
     const lock::ReentrantLock
     const stop::Threads.Atomic{Bool}
+    const abandon::Threads.Atomic{Bool}
     const progress::ProgressStore
     state::Symbol
     session::Union{Nothing,DataflowSession}
@@ -203,7 +205,7 @@ end
 function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console))
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
-        Threads.Atomic{Bool}(false), ProgressStore(), :idle, nothing, DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(),
+        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), :idle, nothing, DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(),
         nothing, true, Dict{Symbol,Dict{Symbol,Any}}(), nothing, nothing, nothing, nothing, nothing)
 end
 
@@ -400,7 +402,7 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
         session.periods, session.run_status, session.partition_status = setup_dependency_graph(
             session.l200, cfg, session.periods, session.runs, steps, p_steps)
     end
-    ctrl.stop[] = false
+    ctrl.stop[], ctrl.abandon[] = false, false
     # no progress of the last run is shown until `run_processing` registers the new steps
     reset_progress!(ctrl.progress, ProgressKey[])
     ctrl.state, ctrl.outcome, ctrl.last_error = :running, nothing, nothing
@@ -410,7 +412,7 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     ctrl.task = Threads.@spawn begin
         outcome, err = try
             run_processing(cfg, l200, periods, steps, p_steps, run_status, partition_status;
-                processors = ctrl.processors, check_dependencies, reprocess, ctrl.stop, progress_store = ctrl.progress)
+                processors = ctrl.processors, check_dependencies, reprocess, ctrl.stop, ctrl.abandon, progress_store = ctrl.progress)
             :finished, nothing
         catch e
             ctrl.stop[] ? (:stopped, nothing) : (:failed, e)
@@ -427,12 +429,10 @@ end
 
 function apply!(ctrl::DataflowController, cmd::StopProcessing)
     require_state(ctrl, cmd, :running, :stopping)
+    cmd.force && (ctrl.abandon[] = true)
     ctrl.stop[] = true
     ctrl.state = :stopping
-    if cmd.force
-        @warn "Stopping all workers"
-        errormonitor(Threads.@spawn stopworkers())
-    end
+    cmd.force && @warn "Stopping without waiting for the running items; their workers stay busy until the items end"
     return nothing
 end
 
@@ -519,3 +519,4 @@ function snapshot(ctrl::DataflowController)
 end
 
 progress(ctrl::DataflowController) = progress(ctrl.progress)
+busy_workers(ctrl::DataflowController) = busy_workers(ctrl.progress)
