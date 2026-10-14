@@ -30,7 +30,7 @@ struct ReloadConfig <: ControllerCommand end
     SelectPeriods(periods)
 
 Select the periods to process, given as `DataPeriod`s or anything `DataPeriod` accepts.
-Every period must be available on disk.
+Every period must be available on disk. Periods that stay selected keep their runs.
 """
 struct SelectPeriods <: ControllerCommand
     periods::Vector{DataPeriod}
@@ -40,13 +40,21 @@ end
 """
     SelectRuns(runs)
 
-Select the runs to process within the selected periods, given as `DataRun`s or anything
-`DataRun` accepts; `nothing` selects all runs. Every run must be available in at least
-one selected period.
+Select the runs to process.
+
+- `nothing` selects all runs of the selected periods.
+- A vector of `DataRun`s (or anything `DataRun` accepts) selects the same runs in every
+  selected period; every run must be available in at least one selected period.
+- A dict of period => runs (keys and values as `DataPeriod` and `DataRun` accept)
+  selects exactly these periods, each with its runs, where `nothing` stands for all runs
+  of the period. Every period and every run of it must be available on disk.
 """
 struct SelectRuns <: ControllerCommand
-    runs::Union{Nothing,Vector{DataRun}}
-    SelectRuns(runs) = new(isnothing(runs) ? nothing : DataRun[DataRun(r) for r in runs])
+    runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Union{Nothing,Vector{DataRun}}}}
+    SelectRuns(::Nothing) = new(nothing)
+    SelectRuns(runs::AbstractDict) = new(Dict{DataPeriod,Union{Nothing,Vector{DataRun}}}(
+        DataPeriod(p) => (isnothing(r) ? nothing : DataRun[DataRun(x) for x in r]) for (p, r) in runs))
+    SelectRuns(runs) = new(DataRun[DataRun(r) for r in runs])
 end
 
 """
@@ -80,6 +88,16 @@ without waiting (`false`).
 """
 struct SetCheckDependencies <: ControllerCommand
     check::Bool
+end
+
+"""
+    SetAnalysisRunsOnly(only::Bool)
+
+Choose whether processing skips the runs that are not analysis runs (`true`) or processes
+every run in the run info (`false`), instead of the setting of the config.
+"""
+struct SetAnalysisRunsOnly <: ControllerCommand
+    only::Bool
 end
 
 """
@@ -190,9 +208,12 @@ mutable struct DataflowController
     const progress::ProgressStore
     state::Symbol
     session::Union{Nothing,DataflowSession}
+    # selected periods, including those without runs to process
+    periods::Vector{DataPeriod}
     available_periods::Vector{DataPeriod}
     available_runs::Dict{DataPeriod,Vector{DataRun}}
     reprocess::Union{Nothing,Bool}
+    analysis_runs_only::Union{Nothing,Bool}
     check_dependencies::Bool
     kwarg_overrides::Dict{Symbol,Dict{Symbol,Any}}
     task::Union{Nothing,Task}
@@ -205,8 +226,9 @@ end
 function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console))
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
-        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), :idle, nothing, DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(),
-        nothing, true, Dict{Symbol,Dict{Symbol,Any}}(), nothing, nothing, nothing, nothing, nothing)
+        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), :idle, nothing, DataPeriod[], DataPeriod[],
+        Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, true, Dict{Symbol,Dict{Symbol,Any}}(),
+        nothing, nothing, nothing, nothing, nothing)
 end
 
 function DataflowController(session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS)
@@ -224,6 +246,7 @@ end
 # Take over `session` and scan the periods and runs on disk; the caller holds the lock.
 function install_session!(ctrl::DataflowController, session::DataflowSession)
     ctrl.session = session
+    ctrl.periods = copy(session.periods)
     ctrl.available_periods = available_periods(session.l200)
     ctrl.available_runs = Dict(p => available_runs(session.l200, p) for p in ctrl.available_periods)
     ctrl.state = :ready
@@ -264,13 +287,14 @@ end
     effective_config(ctrl::DataflowController)
 
 Return the session's [`ProcessingConfig`](@ref) with the kwarg overrides of the
-controller merged into the processor kwargs.
+controller merged into the processor kwargs and its `analysis_runs_only` setting
+applied.
 """
 function effective_config(ctrl::DataflowController)
     cfg = ctrl.session.config
     return ProcessingConfig(cfg.runmode, cfg.submit_jobs, cfg.local_n, cfg.local_julia_settings,
         cfg.slurm_flags, cfg.slurm_julia_settings, cfg.env_variables, cfg.periods, cfg.runs,
-        cfg.analysis_runs_only, cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level,
+        something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level,
         with_overrides(cfg.processors, ctrl.kwarg_overrides), with_overrides(cfg.p_processors, ctrl.kwarg_overrides))
 end
 
@@ -307,7 +331,7 @@ function apply!(ctrl::DataflowController, cmd::ReloadConfig)
         l200, config, periods = setup_processing(session.args)
         check_processor_kwargs(config; ctrl.processors)
         @lock ctrl.lock begin
-            session.l200, session.config, session.periods, session.runs = l200, config, periods, config.runs
+            session.l200, session.config, session.periods, session.runs = l200, config, periods, session_runs(session.args, config)
             session.run_steps, session.partition_steps = selected_steps(config)
             empty!(ctrl.kwarg_overrides)
             reset_dependency_graph!(session)
@@ -317,27 +341,55 @@ function apply!(ctrl::DataflowController, cmd::ReloadConfig)
     end
 end
 
-function apply!(ctrl::DataflowController, cmd::SelectPeriods)
-    require_state(ctrl, cmd, :ready)
-    unknown = setdiff(cmd.periods, ctrl.available_periods)
-    isempty(unknown) ||
-        throw(ArgumentError("periods not available on disk: $(join(string.(unknown), ", "))"))
-    ctrl.session.periods = sort(unique(cmd.periods))
+function check_available_periods(ctrl::DataflowController, periods)
+    unknown = setdiff(periods, ctrl.available_periods)
+    isempty(unknown) || throw(ArgumentError("periods not available on disk: $(join(string.(unknown), ", "))"))
+    return nothing
+end
+
+# Rebuild the dependency graph for the selected periods; periods without runs to process
+# stay selected in the controller.
+function select_periods!(ctrl::DataflowController, periods)
+    ctrl.periods = sort(unique(periods))
+    ctrl.session.periods = copy(ctrl.periods)
     reset_dependency_graph!(ctrl.session)
     return nothing
 end
 
+function apply!(ctrl::DataflowController, cmd::SelectPeriods)
+    require_state(ctrl, cmd, :ready)
+    check_available_periods(ctrl, cmd.periods)
+    runs = ctrl.session.runs
+    if runs isa AbstractDict
+        filter!(((p, _),) -> p in cmd.periods, runs)
+        isempty(runs) && (ctrl.session.runs = nothing)
+    end
+    select_periods!(ctrl, cmd.periods)
+end
+
 function apply!(ctrl::DataflowController, cmd::SelectRuns)
     require_state(ctrl, cmd, :ready)
-    if !isnothing(cmd.runs)
-        selectable = reduce(union, (ctrl.available_runs[p] for p in ctrl.session.periods); init = DataRun[])
-        unknown = setdiff(cmd.runs, selectable)
-        isempty(unknown) ||
-            throw(ArgumentError("runs not available in the selected periods: $(join(string.(unknown), ", "))"))
+    session = ctrl.session
+    if cmd.runs isa AbstractDict
+        check_available_periods(ctrl, keys(cmd.runs))
+        for (period, runs) in cmd.runs
+            unknown = isnothing(runs) ? DataRun[] : setdiff(runs, ctrl.available_runs[period])
+            isempty(unknown) ||
+                throw(ArgumentError("runs not available in $period: $(join(string.(unknown), ", "))"))
+        end
+        explicit = Dict{DataPeriod,Vector{DataRun}}(p => sort(unique(r)) for (p, r) in cmd.runs if !isnothing(r))
+        session.runs = isempty(explicit) ? nothing : explicit
+        select_periods!(ctrl, collect(keys(cmd.runs)))
+    else
+        if !isnothing(cmd.runs)
+            selectable = reduce(union, (ctrl.available_runs[p] for p in ctrl.periods); init = DataRun[])
+            unknown = setdiff(cmd.runs, selectable)
+            isempty(unknown) ||
+                throw(ArgumentError("runs not available in the selected periods: $(join(string.(unknown), ", "))"))
+        end
+        session.runs = isnothing(cmd.runs) ? nothing : sort(unique(cmd.runs))
+        select_periods!(ctrl, ctrl.periods)
     end
-    ctrl.session.runs = isnothing(cmd.runs) ? nothing : sort(unique(cmd.runs))
-    reset_dependency_graph!(ctrl.session)
-    return nothing
 end
 
 function apply!(ctrl::DataflowController, cmd::SelectSteps)
@@ -357,6 +409,12 @@ end
 function apply!(ctrl::DataflowController, cmd::SetReprocess)
     require_state(ctrl, cmd, :idle, :ready)
     ctrl.reprocess = cmd.reprocess
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SetAnalysisRunsOnly)
+    require_state(ctrl, cmd, :idle, :ready)
+    ctrl.analysis_runs_only = cmd.only
     return nothing
 end
 
@@ -395,12 +453,13 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     session = ctrl.session
     steps, p_steps = copy(session.run_steps), copy(session.partition_steps)
     isempty(steps) && isempty(p_steps) && throw(ArgumentError("no processing steps selected"))
+    isempty(ctrl.periods) && throw(ArgumentError("no periods selected"))
     cfg = effective_config(ctrl)
     problems = filter(!isnothing, [processor_kwargs_problem(processor_spec(cfg, step), ctrl.processors) for step in vcat(steps, p_steps)])
     isempty(problems) || throw(ArgumentError("processor kwargs mismatch:\n  " * join(problems, "\n  ")))
     if ctrl.check_dependencies
         session.periods, session.run_status, session.partition_status = setup_dependency_graph(
-            session.l200, cfg, session.periods, session.runs, steps, p_steps)
+            session.l200, cfg, ctrl.periods, session.runs, steps, p_steps)
     end
     ctrl.stop[], ctrl.abandon[] = false, false
     # no progress of the last run is shown until `run_processing` registers the new steps
@@ -479,14 +538,17 @@ Return a `NamedTuple` with a copy of the controller state:
   processing run), `last_error` (message or `nothing`), `started`, `finished` (UTC
   times of the last processing run or `nothing`);
 - `config_file`, `log_path`;
-- `available_periods`, `available_runs` (`Dict` period => runs on disk), `periods`,
-  `runs` (`nothing` for all runs), `run_steps`, `partition_steps` (selected steps in
+- `available_periods`, `available_runs` (`Dict` period => runs on disk), `periods`
+  (selected periods), `runs` (selected runs: `nothing` for all runs, a vector for the
+  same runs in every period, or a dict of runs per period where a period without an
+  entry keeps all its runs), `run_steps`, `partition_steps` (selected steps in
   processing order);
 - `processors`: one `NamedTuple` per configured processor, run level first and then by
   rank, with `name`, `level`, `category`, `rank`, `enabled`, `selected`,
   `dependencies`, `kwargs` (with the overrides applied) and `overridden` (names of the
   overridden kwargs);
-- `reprocess`, `check_dependencies`, `nworkers` (workers in the pool).
+- `reprocess`, `analysis_runs_only` (the setting in effect), `check_dependencies`,
+  `nworkers` (workers in the pool).
 """
 function snapshot(ctrl::DataflowController)
     @lock ctrl.lock begin
@@ -508,11 +570,13 @@ function snapshot(ctrl::DataflowController)
             log_path = isnothing(session) ? nothing : session.config.log_path,
             available_periods = copy(ctrl.available_periods),
             available_runs = Dict(p => copy(r) for (p, r) in ctrl.available_runs),
-            periods = isnothing(session) ? DataPeriod[] : copy(session.periods),
-            runs = isnothing(session) || isnothing(session.runs) ? nothing : copy(session.runs),
+            periods = copy(ctrl.periods),
+            runs = isnothing(session) ? nothing : deepcopy(session.runs),
             run_steps = isnothing(session) ? Symbol[] : copy(session.run_steps),
             partition_steps = isnothing(session) ? Symbol[] : copy(session.partition_steps),
-            processors, ctrl.reprocess, ctrl.check_dependencies,
+            processors, ctrl.reprocess,
+            analysis_runs_only = isnothing(session) ? ctrl.analysis_runs_only : something(ctrl.analysis_runs_only, session.config.analysis_runs_only),
+            ctrl.check_dependencies,
             nworkers = nprocs() > 1 ? nworkers() : 0,
         )
     end

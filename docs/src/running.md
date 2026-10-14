@@ -28,8 +28,8 @@ session = Juleana.setup_session(["-c", "config/processing_config.json"])
 | Option            | Description |
 |:------------------|:------------|
 | `--config`, `-c`  | Path of the processing config file (required) |
-| `--periods`, `-p` | Periods to process, e.g. `-p 3 4` |
-| `--runs`, `-r`    | Runs to process within the periods; requires `--periods` |
+| `--periods`, `-p` | Periods to process, each optionally with runs: `-p 3 4` (all runs of p03 and p04), `-p 6,1` (r001 of p06), `-p 6,1-3` (r001 to r003), `-p 6,1,4-6`; repeatable, e.g. `-p 6,1 -p 7,2-4` |
+| `--runs`, `-r`    | Runs to process in the periods given without runs; requires `--periods` and cannot be combined with periods given with runs |
 | `--reprocess`     | Reprocess all detectors, discarding existing results; sets `reprocess` of every processor |
 | `--only_runs`, `--or` | Run only the run-level processors |
 | `--only_partitions`, `--op` | Run only the partition-level processors |

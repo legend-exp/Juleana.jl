@@ -16,8 +16,9 @@ Fields:
 - `l200::LegendData`: the LEGEND data the session processes.
 - `config::ProcessingConfig`: the validated processing config.
 - `periods::Vector{DataPeriod}`: selected periods.
-- `runs::Union{Nothing,Vector{DataRun}}`: selected runs; `nothing` selects all runs of
-  each period.
+- `runs`: selected runs: `nothing` selects all runs of each period, a
+  `Vector{DataRun}` the same runs in every period, and a `Dict{DataPeriod,Vector{DataRun}}`
+  the runs per period, where a period without an entry keeps all its runs.
 - `run_steps::Vector{Symbol}`, `partition_steps::Vector{Symbol}`: run and
   partition steps scheduled by default, sorted by rank.
 - `run_status`, `partition_status`: completion flags of the dependency graph,
@@ -33,7 +34,7 @@ mutable struct DataflowSession
     l200::LegendData
     config::ProcessingConfig
     periods::Vector{DataPeriod}
-    runs::Union{Nothing,Vector{DataRun}}
+    runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}}
     run_steps::Vector{Symbol}
     partition_steps::Vector{Symbol}
     run_status::RunStatus
@@ -73,6 +74,13 @@ function reset_dependency_graph!(session::DataflowSession)
     session.periods, session.run_status, session.partition_status = setup_dependency_graph(
         session.l200, session.config, session.periods, session.runs, session.run_steps, session.partition_steps)
     return session
+end
+
+# The run selection of a session for the command line options `parsed_args`: the
+# per-period runs of `--periods`, else the runs of `config`.
+function session_runs(parsed_args::AbstractDict, config::ProcessingConfig)
+    _, runs = parse_period_runs(parsed_args["periods"], parsed_args["runs"])
+    return runs isa AbstractDict ? runs : config.runs
 end
 
 # ParallelProcessingTools run mode that starts the workers configured in `cfg`.
@@ -173,8 +181,9 @@ function setup_session(parsed_args::AbstractDict; console::Bool = true, start_wo
     ppt_worker_pool!(FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1))
 
     run_steps, partition_steps = selected_steps(config)
-    periods, run_status, partition_status = setup_dependency_graph(l200, config, periods, config.runs, run_steps, partition_steps)
-    session = DataflowSession(; args = parsed_args, l200, config, periods,
+    runs = session_runs(parsed_args, config)
+    periods, run_status, partition_status = setup_dependency_graph(l200, config, periods, runs, run_steps, partition_steps)
+    session = DataflowSession(; args = parsed_args, l200, config, periods, runs,
         run_steps, partition_steps, run_status, partition_status)
     flush(stdout)
     return session

@@ -10,8 +10,12 @@ interactive session it returns `nothing`.
 
 Options (see `juleana --help` for the full text):
 - `--config`, `-c` (required): path of the processing config file.
-- `--periods`, `-p` and `--runs`, `-r`: period and run numbers. Each occurrence gives
-  one vector, so `-p 3 4 -p 6` gives `[[3, 4], [6]]`.
+- `--periods`, `-p`: periods, each optionally with runs: `6` (all runs of p06), `6,1`
+  (r001), `6,1-3` (r001 to r003), `6,1,4-6`. Each occurrence gives one vector of these
+  strings, so `-p 3 4 -p 6,1` gives `[["3", "4"], ["6,1"]]`; see
+  [`Juleana.parse_period_runs`](@ref).
+- `--runs`, `-r`: run numbers for the periods given without runs, as one vector per
+  occurrence.
 - `--runmode`, `--rm`: `local` or `slurm`, replacing the config's run mode.
 - `--log_path`, `-o`: log directory; `""` when not given.
 - Flags, `false` when not given: `--no-tui`, `--reprocess`, `--only_runs` (`--or`),
@@ -23,7 +27,7 @@ Options (see `juleana --help` for the full text):
 julia> args = Juleana.parse_commandline(["-c", "config.json", "-p", "3", "4", "--reprocess"]);
 
 julia> args["periods"], args["reprocess"], args["only_runs"]
-([[3, 4]], true, false)
+([["3", "4"]], true, false)
 ```
 """
 function parse_commandline(args::AbstractVector{<:AbstractString})
@@ -69,17 +73,72 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
             help = "process only channels that are marked as analysis runs"
             action = :store_true
         "--periods", "-p"
-            help = "Periods to process"
+            help = "periods to process, each optionally with runs: 6 (all runs), 6,1 (r001), 6,1-3, 6,1,4-6; repeatable"
             nargs = '+'
-            arg_type = Int
+            arg_type = String
             action = :append_arg
         "--runs", "-r"
-            help = "Runs to process within periods"
+            help = "runs to process in the periods given without runs"
             nargs = '+'
             arg_type = Int
             action = :append_arg
     end
     return parse_args(append!(String[], args), settings)
+end
+
+"""
+    Juleana.parse_period_runs(period_args, run_args)
+
+Turn the `--periods` and `--runs` options of [`parse_commandline`](@ref) into
+`(periods, runs)`. `period_args` and `run_args` are vectors with one vector per
+occurrence of the option: strings like `"6"`, `"6,1"`, `"6,1-3"` or `"6,1,4-6"` for
+periods, and run numbers for runs.
+
+`periods` is a `Vector{DataPeriod}` in the given order, or `nothing` without
+`--periods`. `runs` is
+- a `Dict{DataPeriod,Vector{DataRun}}` with the sorted runs of each period given with
+  runs, when any is; the other periods keep all their runs;
+- else the `--runs` numbers as a `Vector{DataRun}` for all given periods;
+- else `nothing`.
+
+Throws an `ArgumentError` for a malformed string, a period given twice, a run range
+that ends before it starts, and for `--runs` together with periods given with runs.
+
+# Examples
+```jldoctest
+julia> periods, runs = Juleana.parse_period_runs([["3", "6,1-3"], ["7,2,5"]], []);
+
+julia> string.(periods), sort([string(p) => string.(r) for (p, r) in runs])
+(["p03", "p06", "p07"], ["p06" => ["r001", "r002", "r003"], "p07" => ["r002", "r005"]])
+```
+"""
+function parse_period_runs(period_args, run_args)
+    periods = DataPeriod[]
+    period_runs = Dict{DataPeriod,Vector{DataRun}}()
+    function number(text, spec)
+        n = tryparse(Int, strip(text))
+        isnothing(n) && throw(ArgumentError("invalid period or run `$text` in `-p $spec`"))
+        return n
+    end
+    for spec in Iterators.flatten(period_args)
+        parts = split(spec, ',')
+        period = DataPeriod(number(first(parts), spec))
+        period in periods && throw(ArgumentError("period $period is given more than once"))
+        push!(periods, period)
+        length(parts) > 1 || continue
+        runs = Int[]
+        for part in parts[2:end]
+            bounds = number.(split(part, '-'; limit = 2), spec)
+            first(bounds) <= last(bounds) || throw(ArgumentError("run range `$part` in `-p $spec` ends before it starts"))
+            append!(runs, first(bounds):last(bounds))
+        end
+        period_runs[period] = DataRun.(sort!(unique!(runs)))
+    end
+    global_runs = DataRun[DataRun(r) for r in Iterators.flatten(run_args)]
+    !isempty(period_runs) && !isempty(global_runs) &&
+        throw(ArgumentError("`-r` cannot be combined with periods given with runs (`-p 6,1`)"))
+    runs = !isempty(period_runs) ? period_runs : isempty(global_runs) ? nothing : global_runs
+    return isempty(periods) ? nothing : periods, runs
 end
 
 """
@@ -96,7 +155,8 @@ on disk, or all available periods when the config selects all.
 """
 function setup_processing(parsed_args::AbstractDict)
     config_dict = readlprops(parsed_args["config"])
-    # command line overrides; repeated `--periods`/`--runs` options are concatenated
+    # command line overrides; per-period runs are applied to the session, not the config
+    periods, runs = parse_period_runs(parsed_args["periods"], parsed_args["runs"])
     cli = (;
         runmode = parsed_args["runmode"],
         submit_jobs = parsed_args["submit_jobs"],
@@ -105,8 +165,8 @@ function setup_processing(parsed_args::AbstractDict)
         only_runs = parsed_args["only_runs"],
         ignore_config = parsed_args["ignore_config"],
         reprocess = parsed_args["reprocess"],
-        periods = isempty(parsed_args["periods"]) ? nothing : reduce(vcat, parsed_args["periods"]),
-        runs = isempty(parsed_args["runs"]) ? nothing : reduce(vcat, parsed_args["runs"])
+        periods,
+        runs = runs isa AbstractDict ? nothing : runs
     )
     processing_config = ProcessingConfig(config_dict; cli...)
     # the environment variables must be set before the metadata is loaded
@@ -136,8 +196,12 @@ function setup_processing(parsed_args::AbstractDict)
         filter(in(on_disk), processing_config.periods)
     end
     @info "Process periods: $(string.(periods))"
-    runs = processing_config.runs
-    @info isnothing(runs) ? "Process all runs on disk for each period" : "Process runs: $(string.(runs))"
+    if runs isa AbstractDict
+        @info "Process runs: " * join(("$p: $(join(string.(r), ", "))" for (p, r) in sort!(collect(runs); by = first)), "; ")
+    else
+        runs = processing_config.runs
+        @info isnothing(runs) ? "Process all runs on disk for each period" : "Process runs: $(string.(runs))"
+    end
 
     return l200, processing_config, periods
 end
@@ -189,13 +253,18 @@ function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{Abst
     return DataRun[r for r in runs if r in on_disk]
 end
 
+# Runs given per period; a period without an entry keeps all its runs.
+processable_runs(l200::LegendData, period::DataPeriod, runs::AbstractDict{DataPeriod}) =
+    processable_runs(l200, period, get(runs, period, nothing))
+
 
 # Return `(periods, run_status, partition_status)`: the given periods that have
 # processable runs, and the completion flags of every step for them. The status of a
 # step starts as finished unless the step is in `run_steps` or `partition_steps`, so
-# only the selected steps are waited for.
+# only the selected steps are waited for. `runs` is `nothing` (all runs), a vector of
+# runs for every period, or a dict of runs per period (other periods keep all runs).
 function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::AbstractVector{DataPeriod},
-        runs::Union{AbstractVector{DataRun}, Nothing}, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
+        runs::Union{AbstractVector{DataRun}, AbstractDict{DataPeriod}, Nothing}, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
     # get all possible steps
     # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
     possible_steps = _sorted_steps(processing_config.processors, false)

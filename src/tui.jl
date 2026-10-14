@@ -91,11 +91,13 @@ message_lines(buf::MessageBuffer) = @lock buf.lock copy(buf.lines)
 State of the terminal user interface opened by [`Juleana.run_tui`](@ref).
 
 `JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())` shows
-the dataflow of `ctrl`. All controller commands and reads run in background tasks of the
-interface's `Tachikoma.TaskQueue`, so the interface never waits for the controller; the
-latest state read from it is kept in the fields `snap`, `progress` and `busy`.
+the dataflow of `ctrl`. Controller commands run one after another in a background task,
+in the order they were sent, and state reads run in background tasks of the interface's
+`Tachikoma.TaskQueue`, so the interface never waits for the controller; the latest
+state read from it is kept in the fields `snap`, `progress` and `busy`.
 
-Keys: Tab and Shift-Tab or `1` to `4` switch pages, `q` or Ctrl-C quits. While processing
+Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
+Setup page); otherwise `1` to `4` switch pages and `q` or Ctrl-C quits. While processing
 runs, quitting asks first: `s` stops processing after the running items and quits when the
 run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
@@ -104,6 +106,11 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const ctrl::DataflowController
     const messages::MessageBuffer
     const queue::Tachikoma.TaskQueue
+    const commands::Channel{ControllerCommand}
+    const setup::SetupPage
+    # commands sent and not yet answered, and commands answered so far
+    pending::Int
+    answered::Int
     page::Int
     quit::Bool
     # `:quit` while the quit dialog is open
@@ -117,9 +124,25 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     command_error::Union{Nothing,String}
 end
 
-JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer()) =
-    JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), 1, false, nothing, false, false, nothing,
-        nothing, nothing, BusyItem[], nothing)
+function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), 0, 0,
+        1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing)
+    errormonitor(Threads.@spawn run_commands(m))
+    return m
+end
+
+# Dispatch the commands of `m` in order; each result comes back as a `:command` event.
+function run_commands(m::JuleanaTUI)
+    for cmd in m.commands
+        result = try
+            dispatch!(m.ctrl, cmd)
+            nothing
+        catch e
+            e
+        end
+        wait(Tachikoma.spawn_task!(() -> result, m.queue, :command))
+    end
+end
 
 Tachikoma.should_quit(m::JuleanaTUI) = m.quit
 Tachikoma.task_queue(m::JuleanaTUI) = m.queue
@@ -127,18 +150,23 @@ Tachikoma.task_queue(m::JuleanaTUI) = m.queue
 """
     Juleana.send_command!(m::JuleanaTUI, cmd::ControllerCommand)
 
-Dispatch `cmd` to the controller of `m` in a background task. A rejected command shows
-its error in the status bar.
+Queue `cmd` for the controller of `m`; the commands are dispatched one after another in
+a background task. A rejected command shows its error in the status bar.
 """
-send_command!(m::JuleanaTUI, cmd::ControllerCommand) =
-    (Tachikoma.spawn_task!(() -> (dispatch!(m.ctrl, cmd); nothing), m.queue, :command); nothing)
+function send_command!(m::JuleanaTUI, cmd::ControllerCommand)
+    m.pending += 1
+    put!(m.commands, cmd)
+    return nothing
+end
 
-# Read the controller state in a background task, one read at a time.
+# Read the controller state in a background task, one read at a time. The read carries
+# the number of commands answered when it started, so that a read older than an answer
+# is recognized.
 function refresh!(m::JuleanaTUI)
     m.refreshing && return nothing
     m.refreshing = true
-    ctrl = m.ctrl
-    Tachikoma.spawn_task!(() -> (snapshot(ctrl), progress(ctrl), busy_workers(ctrl)), m.queue, :refresh)
+    ctrl, answered = m.ctrl, m.answered
+    Tachikoma.spawn_task!(() -> (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl)), m.queue, :refresh)
     return nothing
 end
 
@@ -152,7 +180,11 @@ end
 
 Tachikoma.init!(m::JuleanaTUI, ::Tachikoma.Terminal) = start!(m)
 
-Tachikoma.cleanup!(m::JuleanaTUI) = (isnothing(m.timer) || Tachikoma.cancel!(m.timer); nothing)
+function Tachikoma.cleanup!(m::JuleanaTUI)
+    isnothing(m.timer) || Tachikoma.cancel!(m.timer)
+    close(m.commands)
+    return nothing
+end
 
 processing(m::JuleanaTUI) = !isnothing(m.snap) && m.snap.state in (:running, :stopping)
 
@@ -162,9 +194,13 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     elseif evt.id === :refresh
         m.refreshing = false
         evt.value isa Exception && throw(evt.value)
-        m.snap, m.progress, m.busy = evt.value
+        answered, m.snap, m.progress, m.busy = evt.value
+        # a read from before the last answer may miss its command: keep the page, read again
+        answered == m.answered ? sync_setup!(m.setup, m.snap; pending = m.pending > 0) : refresh!(m)
         m.quit_after_stop && !processing(m) && (m.quit = true)
     elseif evt.id === :command
+        m.pending -= 1
+        m.answered += 1
         m.command_error = evt.value isa Exception ? sprint(showerror, evt.value) : nothing
         refresh!(m)
     end
@@ -185,15 +221,17 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
         return nothing
     end
     n = length(TUI_PAGES)
-    if evt.key == :tab
-        m.page = mod1(m.page + 1, n)
-    elseif evt.key == :backtab
-        m.page = mod1(m.page - 1, n)
-    elseif ctrl_c || (evt.key == :char && evt.char == 'q')
+    m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
+    if ctrl_c || (evt.key == :char && evt.char == 'q')
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
     elseif evt.key == :char && '1' <= evt.char <= '0' + n
         m.page = evt.char - '0'
     end
+    return nothing
+end
+
+function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
+    isnothing(m.dialog) && m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
     return nothing
 end
 
@@ -242,18 +280,22 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     tab_area, body_area, help_area, status_area = Tachikoma.split_layout(layout, f.area)
 
     Tachikoma.render(tabs, tab_area, f.buffer)
-    body = Tachikoma.Paragraph(
-        "This page is not available yet.";
-        block = Tachikoma.Block(
-            title = TUI_PAGES[m.page],
-            border_style = Tachikoma.tstyle(:border),
-            title_style = Tachikoma.tstyle(:title),
-        ),
-    )
-    Tachikoma.render(body, body_area, f.buffer)
+    if m.page == 1
+        render_setup(m.setup, m.snap, body_area, f.buffer)
+    else
+        body = Tachikoma.Paragraph(
+            "This page is not available yet.";
+            block = Tachikoma.Block(
+                title = TUI_PAGES[m.page],
+                border_style = Tachikoma.tstyle(:border),
+                title_style = Tachikoma.tstyle(:title),
+            ),
+        )
+        Tachikoma.render(body, body_area, f.buffer)
+    end
     Tachikoma.set_string!(
         f.buffer, help_area.x, help_area.y,
-        "1-4/Tab: switch page   q: quit", Tachikoma.tstyle(:text_dim),
+        "1-4: switch page   q: quit", Tachikoma.tstyle(:text_dim),
     )
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)

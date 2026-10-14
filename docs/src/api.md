@@ -25,7 +25,13 @@ Juleana.Tachikoma.render(::Juleana.Checklist, ::Juleana.Tachikoma.Rect, ::Julean
 Juleana.checked
 Juleana.set_checked!
 Juleana.current
+Juleana.SetupPage
+Juleana.sync_setup!
+Juleana.setup_key!
+Juleana.setup_mouse!
+Juleana.render_setup
 Juleana.parse_commandline
+Juleana.parse_period_runs
 Juleana.init_process
 DataflowSession
 menu
@@ -54,6 +60,7 @@ SelectPeriods
 SelectRuns
 SelectSteps
 SetReprocess
+SetAnalysisRunsOnly
 SetCheckDependencies
 SetKwarg
 ResetKwargs

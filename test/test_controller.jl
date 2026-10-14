@@ -124,6 +124,55 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test !any(values(ctrl.session.run_status[p2][:process_energy_calibration]))
     end
 
+    @testset "per-period runs" begin
+        empty!(calls)
+        ctrl = DataflowController(new_session(); processors)
+        @test snapshot(ctrl).available_runs[p3] == [DataRun(0)]
+        dispatch!(ctrl, SelectRuns(Dict(2 => [7], "p03" => nothing)))
+        snap = snapshot(ctrl)
+        @test snap.periods == [p2, p3]
+        # p03 keeps all its runs
+        @test snap.runs == Dict(p2 => [DataRun(7)])
+        @test_throws "runs not available in p02: r009" dispatch!(ctrl, SelectRuns(Dict(2 => [9])))
+        @test_throws "periods not available on disk: p99" dispatch!(ctrl, SelectRuns(Dict(99 => nothing)))
+        @test snapshot(ctrl).runs == Dict(p2 => [DataRun(7)])
+
+        dispatch!(ctrl, StartProcessing())
+        wait(ctrl)
+        @test snapshot(ctrl).outcome === :finished
+        @test sort(map(c -> c[1:3], calls); by = string) == sort([(:process_energy_calibration, p2, DataRun(7)),
+            (:process_energy_calibration, p3, DataRun(0)), (:p_process_aoe_cut, p2, nothing), (:p_process_aoe_cut, p3, nothing)]; by = string)
+
+        # a period without any of the selected runs stays selected, but has nothing to process
+        dispatch!(ctrl, SelectRuns([6]))
+        snap = snapshot(ctrl)
+        @test snap.periods == [p2, p3] && snap.runs == [DataRun(6)]
+        @test ctrl.session.periods == [p2]
+        dispatch!(ctrl, SelectRuns(nothing))
+        @test ctrl.session.periods == [p2, p3]
+
+        # periods that stay selected keep their runs
+        dispatch!(ctrl, SelectRuns(Dict(2 => [6], 3 => [0])))
+        dispatch!(ctrl, SelectPeriods([2]))
+        snap = snapshot(ctrl)
+        @test snap.periods == [p2] && snap.runs == Dict(p2 => [DataRun(6)])
+        dispatch!(ctrl, SelectPeriods([3]))
+        @test isnothing(snapshot(ctrl).runs)
+
+        dispatch!(ctrl, SelectPeriods(Int[]))
+        @test_throws "no periods selected" dispatch!(ctrl, StartProcessing())
+    end
+
+    @testset "analysis runs only" begin
+        ctrl = DataflowController(new_session(); processors)
+        @test snapshot(ctrl).analysis_runs_only == cfg.analysis_runs_only
+        dispatch!(ctrl, SetAnalysisRunsOnly(!cfg.analysis_runs_only))
+        @test snapshot(ctrl).analysis_runs_only == !cfg.analysis_runs_only
+        @test Juleana.effective_config(ctrl).analysis_runs_only == !cfg.analysis_runs_only
+        # the session config is unchanged
+        @test ctrl.session.config.analysis_runs_only == cfg.analysis_runs_only
+    end
+
     @testset "failed run" begin
         failing(cfg, l200, period, run; reprocess = false) = error("stub failure")
         ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration => failing)))

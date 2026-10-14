@@ -81,7 +81,9 @@ function menu(session::DataflowSession)
                 end
                 available_runs(session.l200, first(session.periods))
             end
-            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> isnothing(session.runs) || x in session.runs, possible_runs)], ctrl_c_interrupt = true)
+            # the menu selects the same runs in every period; per-period runs preselect those of the first period
+            current = session.runs isa AbstractDict && !isempty(session.periods) ? get(session.runs, first(session.periods), possible_runs) : session.runs isa AbstractDict ? nothing : session.runs
+            runs_menu = MultiSelectMenu(string.(possible_runs); selected=eachindex(possible_runs)[map(x -> isnothing(current) || x in current, possible_runs)], ctrl_c_interrupt = true)
             selected_runs = collect(request("Select runs to be executed:", runs_menu))
             session.runs = possible_runs[selected_runs]
             if length(session.runs) == length(possible_runs)
@@ -100,7 +102,7 @@ function menu(session::DataflowSession)
     elseif choice == 4
         l200, config, periods = setup_processing(session.args)
         check_processor_kwargs(config)
-        session.l200, session.config, session.periods, session.runs = l200, config, periods, config.runs
+        session.l200, session.config, session.periods, session.runs = l200, config, periods, session_runs(session.args, config)
         session.run_steps, session.partition_steps = selected_steps(config)
         @info "Reloaded processing config"
         reset_dependency_graph!(session)

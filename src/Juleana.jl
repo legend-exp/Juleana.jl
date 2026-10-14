@@ -92,6 +92,7 @@ include("interactive.jl")
 include("controller.jl")
 include("no_tui.jl")
 include("tui_checklist.jl")
+include("tui_setup.jl")
 include("tui.jl")
 
 include("processors/p_process_aoe_calibration_cut.jl")
@@ -133,7 +134,7 @@ export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_proces
 export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, show_progress
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
-    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetCheckDependencies, SetKwarg,
+    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, SubmitWorkers
 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, init_process,

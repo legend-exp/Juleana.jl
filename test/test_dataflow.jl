@@ -58,7 +58,7 @@ const REPORT = """
     @testset "parse_commandline" begin
         args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "-r", "1", "2", "--reprocess"])
         @test args["config"] == "x.json"
-        @test args["periods"] == [[3]]
+        @test args["periods"] == [["3"]]
         @test args["runs"] == [[1, 2]]
         @test args["reprocess"]
         @test !args["only_runs"] && !args["only_partitions"] && !args["submit_jobs"]
@@ -67,13 +67,39 @@ const REPORT = """
         @test args["log_path"] == ""
 
         args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "4", "-p", "6", "--rm", "slurm", "--op"])
-        @test args["periods"] == [[3, 4], [6]]
+        @test args["periods"] == [["3", "4"], ["6"]]
         @test isempty(args["runs"])
         @test args["runmode"] == "slurm"
         @test args["only_partitions"]
 
+        @test Juleana.parse_commandline(["-c", "x.json", "-p", "6,1-3", "-p", "7,2"])["periods"] == [["6,1-3"], ["7,2"]]
         @test Juleana.parse_commandline(["-c", "x.json", "--no-tui"])["no_tui"]
         @test Juleana.parse_commandline(["-c", "x.json", "--no_tui"])["no_tui"]
+    end
+
+    @testset "parse_period_runs" begin
+        p3, p6, p7 = DataPeriod.((3, 6, 7))
+        @test Juleana.parse_period_runs([], []) == (nothing, nothing)
+        @test Juleana.parse_period_runs([["3", "6"]], []) == ([p3, p6], nothing)
+        @test Juleana.parse_period_runs([["3"], ["6"]], [[2, 1], [4]]) == ([p3, p6], DataRun.([2, 1, 4]))
+        periods, runs = Juleana.parse_period_runs([["3", "6, 4-6,1"], ["7,2"]], [])
+        @test periods == [p3, p6, p7]
+        # periods given without runs keep all their runs
+        @test runs == Dict(p6 => DataRun.([1, 4, 5, 6]), p7 => [DataRun(2)])
+        @test Juleana.parse_period_runs([["6,2-2,2"]], [])[2] == Dict(p6 => [DataRun(2)])
+        @test_throws "invalid period or run `x` in `-p 6,x`" Juleana.parse_period_runs([["6,x"]], [])
+        @test_throws "invalid period or run `` in `-p 6,`" Juleana.parse_period_runs([["6,"]], [])
+        @test_throws "invalid period or run `p6`" Juleana.parse_period_runs([["p6"]], [])
+        @test_throws "period p06 is given more than once" Juleana.parse_period_runs([["6"], ["6,1"]], [])
+        @test_throws "run range `3-1` in `-p 6,3-1` ends before it starts" Juleana.parse_period_runs([["6,3-1"]], [])
+        @test_throws "`-r` cannot be combined" Juleana.parse_period_runs([["6,1"]], [[2]])
+
+        # per-period runs go to the session, other run selections come from the config
+        cfg = ProcessingConfig(; processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
+            p_processors = Dict{Symbol,ProcessorSpec}(), periods = [p6], runs = [DataRun(4)])
+        args(opts...) = Juleana.parse_commandline(["-c", "x.json", opts...])
+        @test Juleana.session_runs(args("-p", "6,1-2"), cfg) == Dict(p6 => DataRun.([1, 2]))
+        @test Juleana.session_runs(args("-p", "6"), cfg) == [DataRun(4)]
     end
 
     @testset "run_processing" begin

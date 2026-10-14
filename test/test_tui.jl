@@ -65,32 +65,26 @@ end
         for name in Juleana.TUI_PAGES
             @test find_text(tb, name) !== nothing
         end
-        @test find_text(tb, "This page is not available yet.") !== nothing
-        @test find_text(tb, "1-4/Tab: switch page   q: quit") !== nothing
+        @test find_text(tb, "Loading the session") !== nothing
+        @test find_text(tb, "1-4: switch page   q: quit") !== nothing
         @test find_text(tb, "starting") !== nothing
-        # body title on the first row of the bordered block, below the tab bar
-        @test count(r -> occursin("Setup", row_text(tb, r)), 1:30) == 2
+        Tachikoma.update!(m, KeyEvent('2'))
+        @test find_text(render_tui(m), "This page is not available yet.") !== nothing
     end
 
     @testset "page switching" begin
         m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
-        Tachikoma.update!(m, KeyEvent(:tab))
-        @test m.page == 2
-        Tachikoma.update!(m, KeyEvent(:tab))
-        Tachikoma.update!(m, KeyEvent(:tab))
-        @test m.page == 4
-        Tachikoma.update!(m, KeyEvent(:tab))
-        @test m.page == 1
-        Tachikoma.update!(m, KeyEvent(:backtab))
-        @test m.page == 4
-        Tachikoma.update!(m, KeyEvent('1'))
-        @test m.page == 1
         Tachikoma.update!(m, KeyEvent('3'))
         @test m.page == 3
         Tachikoma.update!(m, KeyEvent('5'))
         @test m.page == 3
+        # Tab moves between the panes of a page, not between pages
+        Tachikoma.update!(m, KeyEvent(:tab))
+        @test m.page == 3
         tb = render_tui(m)
         @test count(r -> occursin("Reports", row_text(tb, r)), 1:30) == 2
+        Tachikoma.update!(m, KeyEvent('1'))
+        @test m.page == 1
         @test !m.quit
     end
 
