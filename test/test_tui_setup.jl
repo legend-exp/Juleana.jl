@@ -298,5 +298,20 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test m.setup.focus == 1 && m.setup.periods.focused
         @test setup_refreshed!(m)
         @test m.snap.periods == [p3]
+
+        # a click on an option row focuses the options pane and cycles the option
+        render_setup_page(m)
+        options = m.setup.options
+        @test m.snap.check_dependencies
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 1, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test m.setup.focus == 4 && m.setup.option == 2 && !m.setup.periods.focused
+        @test setup_refreshed!(m)
+        @test !m.snap.check_dependencies
+        tb = render_setup_page(m)
+        @test find_text(tb, "▶ Options") !== nothing && find_text(tb, "▶ Periods") === nothing
+        # below the option rows the click only focuses the pane
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test setup_refreshed!(m)
+        @test !m.snap.check_dependencies
     end
 end

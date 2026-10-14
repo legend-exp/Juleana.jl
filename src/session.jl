@@ -199,8 +199,9 @@ With `--no-tui`, run all enabled steps with [`run_no_tui`](@ref) and return its 
 code. Otherwise open the terminal user interface with [`run_tui`](@ref).
 
 Install the app with `Pkg.Apps.add(path = "<path to Juleana.jl>")`; the `juleana`
-command then starts Julia with `--threads=8,1`. Julia options placed before a `--`
-replace these defaults, e.g. `juleana --threads=16,1 -- -c config.json`.
+command then starts Julia with `--threads=8,1` and without the user's `startup.jl`
+(`--startup-file=no`): packages loaded there are not in the app's environment. Julia
+options placed before a `--` replace these defaults, e.g. `juleana --threads=16,1 -- -c config.json`.
 """
 function (@main)(args::AbstractVector{<:AbstractString})
     parsed_args = parse_commandline(args)

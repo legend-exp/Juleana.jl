@@ -30,12 +30,14 @@ mutable struct SetupPage
     layout::Any
     editor::Union{Nothing,KwargsEditor}
     confirm::Union{Nothing,Symbol}
+    # inside of the options pane at the last render
+    options::Tachikoma.Rect
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
     Checklist(ChecklistItem[]; title = "Run processors", focused = false),
     Checklist(ChecklistItem[]; title = "Partition processors", focused = false), 1, 1, nothing,
-    nothing, nothing)
+    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0))
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
@@ -187,9 +189,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     elseif page.focus == 4 && key in (:up, :down)
         page.option = clamp(page.option + (key == :up ? -1 : 1), 1, length(SETUP_OPTIONS))
     elseif page.focus == 4 && (key == :enter || (key == :char && char == ' ')) && !isnothing(snap)
-        option, _, values = SETUP_OPTIONS[page.option]
-        i = something(findfirst(==(option_value(snap, option)), values), 0)
-        send(option_command(option, values[mod1(i + 1, length(values))]))
+        cycle_option(page, snap, send)
     elseif key == :char && char == 's'
         send(StartProcessing())
     elseif key == :char && char == 'x'
@@ -212,22 +212,46 @@ end
     Juleana.setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
 
 Pass the mouse event `evt` to the checklist under the pointer, focus that pane, and send
-the new selection if it changed. Return whether the event was used.
+the new selection if it changed. A left click in the options pane focuses it; on an
+option row it also chooses the row and sends its next value. Return whether the event
+was used.
 """
 function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
-    for (i, list) in pairs(setup_panes(page))
-        before = checked(list)
-        Tachikoma.handle_mouse!(list, evt) || continue
+    (isnothing(page.editor) && isnothing(page.confirm)) || return false
+    panes = setup_panes(page)
+    function focus!(i)
         page.focus = i
-        for (j, other) in pairs(setup_panes(page))
+        for (j, other) in pairs(panes)
             other.focused = j == i
         end
+    end
+    for (i, list) in pairs(panes)
+        before = checked(list)
+        Tachikoma.handle_mouse!(list, evt) || continue
+        focus!(i)
         if checked(list) != before && !isnothing(snap)
             send(i == 1 ? period_selection(page, snap) : steps_selection(page))
         end
         return true
     end
+    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.options, evt.x, evt.y)
+        focus!(length(panes) + 1)
+        row = evt.y - page.options.y + 1
+        if !isnothing(snap) && !isempty(snap.processors) && row in eachindex(SETUP_OPTIONS)
+            page.option = row
+            cycle_option(page, snap, send)
+        end
+        return true
+    end
     return false
+end
+
+# Send the next value of the option row `page.option`.
+function cycle_option(page::SetupPage, snap, send)
+    option, _, values = SETUP_OPTIONS[page.option]
+    i = something(findfirst(==(option_value(snap, option)), values), 0)
+    send(option_command(option, values[mod1(i + 1, length(values))]))
+    return nothing
 end
 
 format_option(value) = value === nothing ? "config" : value === true ? "yes" : value === false ? "no" : string(value)
@@ -274,9 +298,9 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     Tachikoma.render(page.run_procs, top, buf)
     Tachikoma.render(page.part_procs, bottom, buf)
 
-    block = Tachikoma.Block(title = "Options",
-        border_style = Tachikoma.tstyle(page.focus == 4 ? :border_focus : :border))
+    block = pane_block("Options", page.focus == 4)
     inner = Tachikoma.render(block, right, buf)
+    page.options = inner
     lines = Tuple{String,Any}[]
     if isnothing(snap) || isempty(snap.processors)
         push!(lines, ("Loading the session…", Tachikoma.tstyle(:text_dim)))

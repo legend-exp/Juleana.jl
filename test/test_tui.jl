@@ -86,6 +86,13 @@ end
         Tachikoma.update!(m, KeyEvent('1'))
         @test m.page == 1
         @test !m.quit
+        # a click on a tab opens its page
+        tb = render_tui(m)
+        y = findfirst(r -> occursin("Progress", row_text(tb, r)), 1:30)
+        x = findfirst("Progress", row_text(tb, y)).start
+        Tachikoma.update!(m, Tachikoma.MouseEvent(x + 1, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test m.page == 4
+        @test find_text(render_tui(m), "No processing run yet.") !== nothing
     end
 
     @testset "start! loads the session in the background" begin

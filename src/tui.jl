@@ -96,6 +96,8 @@ in the order they were sent, and state reads run in background tasks of the inte
 `Tachikoma.TaskQueue`, so the interface never waits for the controller; the latest
 state read from it is kept in the fields `snap`, `progress` and `busy`.
 
+A left click on a page's tab opens the page; other mouse events go to the visible page.
+
 Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
 Setup page and [`Juleana.progress_key!`](@ref) for the Progress page); otherwise `1` to
 `4` switch pages and `q` or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after the running items and quits when the
@@ -109,6 +111,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const commands::Channel{ControllerCommand}
     const setup::SetupPage
     const progress_page::ProgressPage
+    const tabs::Tachikoma.TabBar
     # commands sent and not yet answered, and commands answered so far
     pending::Int
     answered::Int
@@ -126,7 +129,8 @@ mutable struct JuleanaTUI <: Tachikoma.Model
 end
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(), 0, 0,
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(),
+        Tachikoma.TabBar(collect(TUI_PAGES); focused = true), 0, 0,
         1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing)
     errormonitor(Threads.@spawn run_commands(m))
     return m
@@ -234,6 +238,10 @@ end
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
     if isnothing(m.dialog)
+        if Tachikoma.handle_mouse!(m.tabs, evt) === :changed
+            m.page = m.tabs.active
+            return nothing
+        end
         m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
         m.page == 4 && progress_mouse!(m.progress_page, evt, m.progress)
     end
@@ -277,7 +285,8 @@ function status_spans(m::JuleanaTUI)
 end
 
 function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
-    tabs = Tachikoma.TabBar(collect(TUI_PAGES); active = m.page, focused = true)
+    tabs = m.tabs
+    tabs.active = m.page
     tab_h = Tachikoma.tab_height(tabs.tab_style.decoration)
     layout = Tachikoma.Layout(
         Tachikoma.Vertical, [Tachikoma.Fixed(tab_h), Tachikoma.Fill(), Tachikoma.Fixed(1), Tachikoma.Fixed(1)]

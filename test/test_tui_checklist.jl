@@ -60,8 +60,12 @@ grouped_items() = [
         @test find_text(tb, "[ ] gamma") !== nothing
         @test find_text(tb, "cal") !== nothing
         @test find_text(tb, "rank 3  deps: a") !== nothing
-        # tags are right-aligned
-        @test occursin(r"cal│$", row_text(tb, 2))
+        # tags are right-aligned; a focused checklist has a heavy border and a marked title
+        @test occursin(r"cal┃$", row_text(tb, 2))
+        @test find_text(tb, "▶ Processors") !== nothing
+        w.focused = false
+        tb = render_checklist(w)
+        @test occursin(r"cal│$", row_text(tb, 2)) && find_text(tb, "▶") === nothing
         @test Juleana.current(w).key == :a
 
         # no title

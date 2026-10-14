@@ -156,7 +156,20 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test Juleana.progress_mouse!(page, wheel(Tachikoma.mouse_scroll_up), prog)
         @test !page.follow
         @test !Juleana.progress_mouse!(page, wheel(Tachikoma.mouse_scroll_up, 5, 1), prog)
-        @test !Juleana.progress_mouse!(page, wheel(Tachikoma.mouse_left), prog)
+
+        # a left click on a row moves the cursor there; on a group row it also folds or unfolds
+        page = Juleana.ProgressPage()
+        render_page(page, prog, Juleana.BusyItem[])
+        click(y) = MouseEvent(5, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
+        rows = Juleana.progress_rows(page, prog)
+        row_y(i) = page.list.y + i - page.top
+        @test rows[2].step
+        @test Juleana.progress_mouse!(page, click(row_y(2)), prog)
+        @test page.cursor == rows[2].key && !page.follow
+        @test !rows[1].step && rows[1].unfolded
+        @test Juleana.progress_mouse!(page, click(row_y(1)), prog)
+        @test page.cursor == rows[1].key && page.expanded[rows[1].key] == false
+        @test !Juleana.progress_mouse!(page, click(1), prog)
 
         # a vanished cursor row falls back to the nearest row
         page.cursor = (p3, r2, :gone)

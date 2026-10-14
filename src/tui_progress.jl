@@ -35,11 +35,12 @@ mutable struct ProgressPage
     height::Int
     follow::Bool
     const expanded::Dict{Any,Bool}
-    # area of the steps block at the last render
+    # area of the steps block and the part of it that holds the rows at the last render
     rect::Tachikoma.Rect
+    list::Tachikoma.Rect
 end
 
-ProgressPage() = ProgressPage(nothing, 1, 1, 1, true, Dict{Any,Bool}(), Tachikoma.Rect(1, 1, 0, 0))
+ProgressPage() = ProgressPage(nothing, 1, 1, 1, true, Dict{Any,Bool}(), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
 # Displayed rows: a group row followed by the rows of its steps if it is unfolded. A group
 # is unfolded as the user left it, else if a step runs, failed, stopped or has items that
@@ -125,12 +126,21 @@ end
 """
     Juleana.progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::Bool
 
-Apply the mouse event `evt` to `page`: the scroll wheel moves the cursor by one row and
-turns following off while the pointer is inside the steps block of the last render.
-Return `true` if the event was used.
+Apply the mouse event `evt` to `page`: the scroll wheel moves the cursor by one row while
+the pointer is inside the steps block of the last render, and a left click on a row moves
+the cursor to it and folds or unfolds a group row. Both turn following off. Return `true`
+if the event was used.
 """
 function progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::Bool
-    if evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) && evt.action == Tachikoma.mouse_press
+    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press
+        Base.contains(page.list, evt.x, evt.y) || return false
+        rows = progress_rows(page, prog)
+        idx = page.top + evt.y - page.list.y
+        idx in eachindex(rows) || return false
+        move_cursor!(page, rows, idx)
+        rows[idx].step || (page.expanded[rows[idx].key] = !rows[idx].unfolded)
+        return true
+    elseif evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) && evt.action == Tachikoma.mouse_press
         Base.contains(page.rect, evt.x, evt.y) || return false
         rows = progress_rows(page, prog)
         idx = sync_cursor!(page, rows)
@@ -251,14 +261,12 @@ end
 
 function render_steps(page::ProgressPage, prog, area, buf)
     page.rect = area
+    page.list = Tachikoma.Rect(area.x, area.y, 0, 0)
     page.height = 1
-    block = Tachikoma.Block(
-        title = page.follow ? "Steps (following)" : "Steps",
-        border_style = Tachikoma.tstyle(:border),
-        title_style = Tachikoma.tstyle(:title),
-    )
+    block = pane_block(page.follow ? "Steps (following)" : "Steps", true)
     (area.width < 3 || area.height < 3) && return nothing
     inner = Tachikoma.render(block, area, buf)
+    page.list = inner
     page.height = max(1, inner.height)
     rows = progress_rows(page, prog)
     if isempty(rows)

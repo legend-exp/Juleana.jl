@@ -314,6 +314,13 @@ function Tachikoma.handle_mouse!(w::Checklist, evt::Tachikoma.MouseEvent)::Bool
     return false
 end
 
+# Border of a pane: the focused pane has a heavy border in the focus color and a title
+# marked with `▶`, the others a thin border and a dim title.
+pane_block(title, focused::Bool) = focused ?
+    Tachikoma.Block(; title = "▶ " * title, box = Tachikoma.BOX_HEAVY,
+        border_style = Tachikoma.tstyle(:border_focus, bold = true)) :
+    Tachikoma.Block(; title, title_style = Tachikoma.tstyle(:text_dim), border_style = Tachikoma.tstyle(:border))
+
 """
     Tachikoma.render(w::Juleana.Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
@@ -323,11 +330,7 @@ if they would leave less than a short label.
 """
 function Tachikoma.render(w::Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buffer)
     n_all = length(w.keys)
-    title = strip("$(w.title)  $(length(w.selected))/$n_all selected")
-    block = Tachikoma.Block(
-        title = title,
-        border_style = Tachikoma.tstyle(w.focused ? :border_focus : :border),
-    )
+    block = pane_block(strip("$(w.title)  $(length(w.selected))/$n_all selected"), w.focused)
     w.rect = rect
     w.list = Tachikoma.Rect(rect.x, rect.y, 0, 0)
     w.page = 1
