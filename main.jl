@@ -42,5 +42,9 @@ end
 
 using Juleana
 
-# in an interactive session, `main` returns the session for `menu(session)`
-session = Juleana.main(ARGS)
+# in an interactive session, the session is left for `menu(session)`
+session = Juleana.setup_session(ARGS)
+if !isinteractive()
+    run_processing(session)
+    @info "# Processing Done"
+end

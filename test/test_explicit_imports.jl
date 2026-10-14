@@ -14,6 +14,8 @@ Test.@testset "ExplicitImports" begin
             :kwarg_decl,
             # Evaluated in `Main` on every process by `@always_everywhere` in `main`.
             :init_process,
+            # Tachikoma's model interface: documented extension points, not marked public.
+            :should_quit, :update!, :view,
             # Non-public names of the LEGEND and utility packages used by the processors.
             :fast_flatten, :set_timelimit, :_fix_vov, :AchatBlue, :BEGeOrange, :CoaxGreen,
             :add_watermarks!, :parameterplot!, :tottime, :totallocated, :format_bytes,

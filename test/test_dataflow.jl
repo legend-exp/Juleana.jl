@@ -62,7 +62,7 @@ const REPORT = """
         @test args["runs"] == [[1, 2]]
         @test args["reprocess"]
         @test !args["only_runs"] && !args["only_partitions"] && !args["submit_jobs"]
-        @test !args["analysis_runs_only"] && !args["ignore_config"]
+        @test !args["analysis_runs_only"] && !args["ignore_config"] && !args["no_tui"]
         @test isnothing(args["runmode"])
         @test args["log_path"] == ""
 
@@ -71,6 +71,9 @@ const REPORT = """
         @test isempty(args["runs"])
         @test args["runmode"] == "slurm"
         @test args["only_partitions"]
+
+        @test Juleana.parse_commandline(["-c", "x.json", "--no-tui"])["no_tui"]
+        @test Juleana.parse_commandline(["-c", "x.json", "--no_tui"])["no_tui"]
     end
 
     @testset "run_processing" begin

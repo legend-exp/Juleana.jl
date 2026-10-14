@@ -96,8 +96,8 @@ end
 
 Prepare the current process for processing: set the `LegendSpecFits` fit time limit to
 180 s, pin threads, and install an [`UnderscoreSafeLogger`](@ref) around a
-`TerminalLogger` as the global logger. [`main`](@ref) runs it on the head and on every
-worker.
+`TerminalLogger` as the global logger. [`setup_session`](@ref) runs it on the head and on
+every worker.
 """
 function init_process()
     set_timelimit(180.0)
@@ -107,9 +107,11 @@ function init_process()
 end
 
 """
-    main(args::AbstractVector{<:AbstractString} = ARGS)
+    setup_session(args::AbstractVector{<:AbstractString})
+    setup_session(parsed_args::AbstractDict)
 
-Run the dataflow with the command line options `args` (see `julia main.jl --help`).
+Set up a dataflow session from the command line options `args` (see `juleana --help`)
+or from their parsed form, as returned by [`parse_commandline`](@ref).
 
 Build the processing config and `LegendData(:l200)`, run [`init_process`](@ref) on
 this process and register it for every worker, and start the workers of the configured
@@ -118,21 +120,24 @@ run mode: `local` workers are always started; `slurm` workers only with
 manual submission. Then check the processor keyword arguments with
 [`check_processor_kwargs`](@ref) and build the dependency graph for the enabled steps.
 
-In an interactive session, return the [`DataflowSession`](@ref) to pass to
-[`menu`](@ref). Otherwise run all enabled steps with [`run_processing`](@ref) and
-return the session afterwards. Return `nothing` when `args` asks for `--help` or
-`--version` in an interactive session.
+Return the [`DataflowSession`](@ref), ready for [`run_processing`](@ref) or
+[`menu`](@ref). Return `nothing` when `args` asks for `--help` or `--version` in an
+interactive session.
 
 # Examples
 ```julia
 using Juleana
-session = Juleana.main(["--config", "config/processing_config.json", "--periods", "3"])
+session = Juleana.setup_session(["--config", "config/processing_config.json", "--periods", "3"])
 menu(session)
 ```
 """
-function main(args::AbstractVector{<:AbstractString} = ARGS)
+function setup_session(args::AbstractVector{<:AbstractString})
     parsed_args = parse_commandline(args)
     isnothing(parsed_args) && return nothing
+    return setup_session(parsed_args)
+end
+
+function setup_session(parsed_args::AbstractDict)
     l200, config, periods = setup_processing(parsed_args)
     # a config reload from the menu writes to the same log directory
     parsed_args["log_path"] = config.log_path
@@ -161,13 +166,31 @@ function main(args::AbstractVector{<:AbstractString} = ARGS)
     session = DataflowSession(; args = parsed_args, l200, config, periods,
         run_steps, partition_steps, run_status, partition_status)
     flush(stdout)
-
-    if isinteractive()
-        Base.exit_on_sigint(false)
-        @info "Dataflow session ready, call `menu(session)` to select an action"
-    else
-        run_processing(session)
-        @info "# Processing Done"
-    end
     return session
+end
+
+"""
+    main(args::AbstractVector{<:AbstractString})
+
+Entry point of the `juleana` app and of `julia -m Juleana`: parse the command line
+options `args` (see `juleana --help`) and return the process exit code.
+
+With `--no-tui`, set up the session with [`setup_session`](@ref) and run all enabled
+steps with [`run_processing`](@ref). Otherwise open the terminal user interface with
+[`run_tui`](@ref).
+
+Install the app with `Pkg.Apps.add(path = "<path to Juleana.jl>")`; the `juleana`
+command then starts Julia with `--threads=8,1`. Julia options placed before a `--`
+replace these defaults, e.g. `juleana --threads=16,1 -- -c config.json`.
+"""
+function (@main)(args::AbstractVector{<:AbstractString})
+    parsed_args = parse_commandline(args)
+    isnothing(parsed_args) && return 0
+    if parsed_args["no_tui"]
+        run_processing(setup_session(parsed_args))
+        @info "# Processing Done"
+    else
+        run_tui(parsed_args)
+    end
+    return 0
 end

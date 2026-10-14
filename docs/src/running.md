@@ -10,15 +10,15 @@ julia main.jl -c config/processing_config.json
 
 When `julia` runs in the default environment, `main.jl` activates the repository
 environment (`Project.toml` and `Manifest.toml` in the repository root); otherwise it
-uses the active project. It then calls [`Juleana.main`](@ref) with the command line
-arguments, which reads the [processing config](@ref Configuration), starts the workers
-and runs all enabled processors.
+uses the active project. It then calls [`Juleana.setup_session`](@ref) with the command
+line arguments, which reads the [processing config](@ref Configuration) and starts the
+workers, and runs all enabled processors unless the session is interactive.
 
-The same entry point is available from any Julia session:
+The same setup is available from any Julia session:
 
 ```julia
 using Juleana
-session = Juleana.main(["-c", "config/processing_config.json"])
+session = Juleana.setup_session(["-c", "config/processing_config.json"])
 ```
 
 ## Command line options

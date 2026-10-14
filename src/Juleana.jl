@@ -5,10 +5,11 @@
 
 The Julia LEGEND Analysis dataflow.
 
-[`Juleana.main`](@ref) is the entry point: it reads the processing config
-([`ProcessingConfig`](@ref)), starts the workers, and runs the enabled processors with
-[`run_processing`](@ref), or returns a [`DataflowSession`](@ref) for the interactive
-[`menu`](@ref). The processors are the functions in `src/processors/`, registered by
+[`Juleana.main`](@ref) is the entry point of the `juleana` app: it opens the terminal
+user interface ([`Juleana.run_tui`](@ref)) or, with `--no-tui`, runs the enabled
+processors with [`run_processing`](@ref). [`Juleana.setup_session`](@ref) reads the
+processing config ([`ProcessingConfig`](@ref)), starts the workers, and returns a
+[`DataflowSession`](@ref), which the interactive [`menu`](@ref) also works on. The processors are the functions in `src/processors/`, registered by
 name in [`Juleana.PROCESSORS`](@ref). The module also provides the helpers processors
 share: distributing work over the worker pool with per-item failure logging
 ([`parallel`](@ref)), combining per-item log rows into a processor status
@@ -64,6 +65,7 @@ using PropertyFunctions: PropertyFunctions, @pf, filterby
 using REPL.TerminalMenus: MultiSelectMenu, RadioMenu, request
 using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, std
 using StructArrays: StructArray
+using Tachikoma: Tachikoma
 using TerminalLoggers: TerminalLogger
 using TimerOutputs: TimerOutputs, @timeit, TimerOutput
 using TypedTables: Table, columnnames, columns
@@ -80,6 +82,7 @@ include("registry.jl")
 include("session.jl")
 include("config.jl")
 include("interactive.jl")
+include("tui.jl")
 
 include("processors/p_process_aoe_calibration_cut.jl")
 include("processors/p_process_aoe_cut.jl")
@@ -121,6 +124,6 @@ export run_processing
 export DataflowSession, menu
 
 public escape_log_underscores, wait_for, PROCESSORS, register_processor!, init_process,
-    main, parse_commandline, check_reports
+    main, setup_session, run_tui, parse_commandline, check_reports
 
 end # module

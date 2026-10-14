@@ -24,7 +24,7 @@ return `nothing`. Call `menu` again for the next action. The actions are:
 
 # Examples
 ```julia
-session = Juleana.main(["--config", "config/processing_config.json"])
+session = Juleana.setup_session(["--config", "config/processing_config.json"])
 menu(session)
 ```
 """

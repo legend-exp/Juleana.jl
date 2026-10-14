@@ -8,13 +8,13 @@ Parse the command line options of the dataflow driver and return them as a
 ArgParse prints the text and exits the process in a non-interactive session; in an
 interactive session it returns `nothing`.
 
-Options (see `julia main.jl --help` for the full text):
+Options (see `juleana --help` for the full text):
 - `--config`, `-c` (required): path of the processing config file.
 - `--periods`, `-p` and `--runs`, `-r`: period and run numbers. Each occurrence gives
   one vector, so `-p 3 4 -p 6` gives `[[3, 4], [6]]`.
 - `--runmode`, `--rm`: `local` or `slurm`, replacing the config's run mode.
 - `--log_path`, `-o`: log directory; `""` when not given.
-- Flags, `false` when not given: `--reprocess`, `--only_runs` (`--or`),
+- Flags, `false` when not given: `--no-tui`, `--reprocess`, `--only_runs` (`--or`),
   `--only_partitions` (`--op`), `--submit_jobs`, `--ignore_config`,
   `--analysis_runs_only`.
 
@@ -46,6 +46,10 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
         "--only_partitions", "--op"
             help = "process only partitions ignoring periods and runs"
             dest_name = "only_partitions"
+            action = :store_true
+        "--no-tui", "--no_tui"
+            help = "run all enabled processors without the terminal user interface and exit"
+            dest_name = "no_tui"
             action = :store_true
         "--submit_jobs"
             help = "submit slurm jobs to the selected run mode"

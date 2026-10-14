@@ -8,6 +8,8 @@ Juleana
 
 ```@docs
 Juleana.main
+Juleana.setup_session
+Juleana.run_tui
 Juleana.parse_commandline
 Juleana.init_process
 DataflowSession
