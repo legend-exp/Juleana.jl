@@ -35,8 +35,8 @@ mutable struct SetupPage
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
-    Checklist(ChecklistItem[]; title = "Run processors", focused = false),
-    Checklist(ChecklistItem[]; title = "Partition processors", focused = false), 1, 1, nothing,
+    Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
+    Checklist(ChecklistItem[]; title = "Partition processors", focused = false, tag_style = setup_tag_style), 1, 1, nothing,
     nothing, nothing, Tachikoma.Rect(1, 1, 0, 0))
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
@@ -46,6 +46,16 @@ function selected_period_runs(snap)
     return Dict(p => (snap.runs isa AbstractDict ? intersect(snap.available_runs[p], get(snap.runs, p, snap.available_runs[p])) :
         isnothing(snap.runs) ? snap.available_runs[p] : intersect(snap.available_runs[p], snap.runs))
         for p in snap.periods if haskey(snap.available_runs, p))
+end
+
+# Style of a processor tag in the checklists: category, rank, dependencies, disabled.
+function setup_tag_style(tag)
+    tag == "cal" && return Tachikoma.tstyle(:primary)
+    tag == "phy" && return Tachikoma.tstyle(:secondary)
+    startswith(tag, "rank ") && return Tachikoma.tstyle(:text_dim)
+    startswith(tag, "deps: ") && return Tachikoma.tstyle(:warning)
+    tag == "disabled" && return Tachikoma.tstyle(:error)
+    return nothing
 end
 
 processor_tags(p) = vcat(string(p.category), "rank $(p.rank)",
@@ -74,8 +84,9 @@ function sync_setup!(page::SetupPage, snap; pending::Bool = false)
             for p in snap.processors if p.level === level]
         focused = page.focus
         page.periods = Checklist(groups; title = "Periods / runs", focused = focused == 1)
-        page.run_procs = Checklist(items(:run); title = "Run processors", focused = focused == 2)
-        page.part_procs = Checklist(items(:partition); title = "Partition processors", focused = focused == 3)
+        page.run_procs = Checklist(items(:run); title = "Run processors", focused = focused == 2, tag_style = setup_tag_style)
+        page.part_procs = Checklist(items(:partition); title = "Partition processors", focused = focused == 3,
+            tag_style = setup_tag_style)
         page.layout = layout
         pending = false
     end
@@ -301,23 +312,30 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     block = pane_block("Options", page.focus == 4)
     inner = Tachikoma.render(block, right, buf)
     page.options = inner
-    lines = Tuple{String,Any}[]
+    text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
+    lines = Vector{Tuple{String,Tachikoma.Style}}[]
     if isnothing(snap) || isempty(snap.processors)
-        push!(lines, ("Loading the session…", Tachikoma.tstyle(:text_dim)))
+        push!(lines, [("Loading the session…", dim)])
     else
         for (i, (key, label, _)) in pairs(SETUP_OPTIONS)
-            style = page.focus == 4 && i == page.option ? Tachikoma.tstyle(:accent, bold = true) : Tachikoma.tstyle(:text)
-            push!(lines, ("$label: $(format_option(option_value(snap, key)))", style))
+            value = option_value(snap, key)
+            chosen = page.focus == 4 && i == page.option
+            value_color = value === true ? :success : value === false ? :error : :text_dim
+            push!(lines, [("$label: ", chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
+                (format_option(value), Tachikoma.tstyle(value_color, bold = chosen))])
         end
-        push!(lines, ("", Tachikoma.tstyle(:text)))
-        append!(lines, ((l, Tachikoma.tstyle(:text)) for l in setup_summary(snap)))
+        push!(lines, [("", text)])
+        for line in setup_summary(snap)
+            head, tail = split(line, ": "; limit = 2)
+            push!(lines, [(head * ": ", dim), (tail, Tachikoma.tstyle(:text_bright))])
+        end
     end
-    push!(lines, ("", Tachikoma.tstyle(:text)))
-    append!(lines, ((l, Tachikoma.tstyle(:text_dim)) for l in SETUP_KEYS))
-    for (i, (text, style)) in pairs(lines)
+    push!(lines, [("", text)])
+    append!(lines, [[(l, dim)] for l in SETUP_KEYS])
+    for (i, spans) in pairs(lines)
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
-        Tachikoma.set_string!(buf, inner.x, y, text, style; max_x = Tachikoma.right(inner))
+        put_spans!(buf, inner.x, y, Tachikoma.right(inner), spans)
     end
     isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
     if page.confirm === :write && !isnothing(snap)

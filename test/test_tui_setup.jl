@@ -32,6 +32,16 @@ render_setup_page(m, width = 140, height = 30) =
 press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
 @testset "Setup page" begin
+    @testset "tag colors" begin
+        style(tag) = Juleana.setup_tag_style(tag)
+        @test style("cal").fg == Tachikoma.tstyle(:primary).fg
+        @test style("phy").fg == Tachikoma.tstyle(:secondary).fg
+        @test style("rank 3").fg == Tachikoma.tstyle(:text_dim).fg
+        @test style("deps: a, b").fg == Tachikoma.tstyle(:warning).fg
+        @test style("disabled").fg == Tachikoma.tstyle(:error).fg
+        @test isnothing(style("2 runs"))
+    end
+
     root = mktempdir()
     l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
     p2, p3 = DataPeriod.((2, 3))

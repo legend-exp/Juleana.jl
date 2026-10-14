@@ -2,6 +2,38 @@
 
 const TUI_PAGES = ("Setup", "Workers", "Reports", "Progress")
 
+# Colors of the interface, from the colors of the logo (red `#cb3c33`, green `#389826`,
+# purple `#9558b2`): `border` and `secondary` muted purple, `border_focus`, `primary` and
+# `success` green, `accent` light purple for the cursor and running items, `title` salmon
+# red, `error` pure red so that the two reds differ; text and warning as in Tachikoma's
+# default theme.
+const JULEANA_THEME = Tachikoma.Theme(
+    "juleana",
+    Tachikoma.Color256(234),  # bg
+    Tachikoma.Color256(96),   # border
+    Tachikoma.Color256(77),   # border_focus
+    Tachikoma.Color256(252),  # text
+    Tachikoma.Color256(242),  # text_dim
+    Tachikoma.Color256(159),  # text_bright
+    Tachikoma.Color256(71),   # primary
+    Tachikoma.Color256(133),  # secondary
+    Tachikoma.Color256(140),  # accent
+    Tachikoma.Color256(77),   # success
+    Tachikoma.Color256(214),  # warning
+    Tachikoma.Color256(196),  # error
+    Tachikoma.Color256(167),   # title
+)
+
+# Colors of the letters of the logo title, in the order of the letters of `JuLeAna`.
+const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
+    Tachikoma.ColorRGB(0x95, 0x58, 0xb2))
+
+# Keys shown below the status row, as `(key, description)` per page: Setup, Progress, others.
+const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
+    ("W", "workers"), ("e", "settings"), ("w", "write"))
+const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("f", "follow"))
+const COMMON_HINTS = (("1-4", "page"), ("q", "quit"))
+
 # Seconds a new warning or error stays in the status bar.
 const ALERT_SECONDS = 10.0
 
@@ -126,12 +158,24 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     progress::Any
     busy::Vector{BusyItem}
     command_error::Union{Nothing,String}
+    # number of `:tick` events, which advances the spinner
+    ticks::Int
 end
+
+# Tab bar of the pages, each tab labeled with its number and name.
+tab_bar() = Tachikoma.TabBar(
+    [[Tachikoma.Span(string(i), Tachikoma.tstyle(:warning)), Tachikoma.Span(" " * name, Tachikoma.tstyle(:text))]
+        for (i, name) in pairs(TUI_PAGES)];
+    focused = true,
+    tab_style = Tachikoma.TabBarStyle(;
+        decoration = Tachikoma.BoxTabs(; box = Tachikoma.BOX_ROUNDED),
+        active = Tachikoma.tstyle(:accent, bold = true),
+        inactive = Tachikoma.tstyle(:text_dim)),
+)
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())
     m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(),
-        Tachikoma.TabBar(collect(TUI_PAGES); focused = true), 0, 0,
-        1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing)
+        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing, 0)
     errormonitor(Threads.@spawn run_commands(m))
     return m
 end
@@ -195,6 +239,7 @@ processing(m::JuleanaTUI) = !isnothing(m.snap) && m.snap.state in (:running, :st
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     if evt.id === :tick
+        m.ticks += 1
         refresh!(m)
     elseif evt.id === :refresh
         m.refreshing = false
@@ -250,22 +295,32 @@ end
 
 format_duration(seconds::Real) = (s = round(Int, seconds); join(lpad.((s ÷ 3600, (s % 3600) ÷ 60, s % 60), 2, '0'), ":"))
 
-# Spans of the status bar: controller state, last run, workers, progress and elapsed time
-# on the left; on the right a rejected command, else the latest alert, else the error of
-# the last load or run.
+# Spans of the status row: spinner while the controller works, controller state, last run,
+# workers, progress and elapsed time on the left, separated by dots; on the right a
+# rejected command, else the latest alert, else the error of the last load or run.
 function status_spans(m::JuleanaTUI)
-    left = Tachikoma.Span[]
-    push!(left, Tachikoma.Span(" " * (isnothing(m.snap) ? "starting" : string(m.snap.state)) * " ", Tachikoma.tstyle(:accent, bold = true)))
-    if !isnothing(m.snap)
-        snap = m.snap
-        isnothing(snap.outcome) || push!(left, Tachikoma.Span(" last run: $(snap.outcome) ", Tachikoma.tstyle(:text)))
+    sep = Tachikoma.Span("  · ", Tachikoma.tstyle(:border))
+    snap = m.snap
+    state = isnothing(snap) ? :starting : snap.state
+    state_style = state === :ready ? Tachikoma.tstyle(:success) : state === :running ? Tachikoma.tstyle(:accent, bold = true) :
+        state === :stopping ? Tachikoma.tstyle(:warning, bold = true) : Tachikoma.tstyle(:warning)
+    left = Tachikoma.Span[Tachikoma.Span(" ")]
+    state in (:loading, :running, :stopping) &&
+        push!(left, Tachikoma.Span(string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))]) * " ", state_style))
+    push!(left, Tachikoma.Span(string(state), state_style))
+    if !isnothing(snap)
+        if !isnothing(snap.outcome)
+            outcome_color = snap.outcome === :finished ? :success : snap.outcome === :failed ? :error : :warning
+            push!(left, sep, Tachikoma.Span("last run: ", Tachikoma.tstyle(:text)), Tachikoma.Span(string(snap.outcome), Tachikoma.tstyle(outcome_color)))
+        end
         abandoned = count(b -> b.abandoned, m.busy)
-        workers = " workers: $(snap.nworkers), $(length(m.busy)) busy" * (abandoned > 0 ? ", $abandoned abandoned" : "") * " "
-        push!(left, Tachikoma.Span(workers, Tachikoma.tstyle(:text)))
+        push!(left, sep, Tachikoma.Span("workers $(snap.nworkers)", Tachikoma.tstyle(:primary)))
+        isempty(m.busy) || push!(left, Tachikoma.Span(", $(length(m.busy)) busy", Tachikoma.tstyle(:secondary)))
+        abandoned > 0 && push!(left, Tachikoma.Span(", $abandoned abandoned", Tachikoma.tstyle(:warning)))
         if !isnothing(snap.started) && !isnothing(m.progress)
-            push!(left, Tachikoma.Span(" $(round(Int, 100 * m.progress.fraction))% ", Tachikoma.tstyle(:text)))
+            push!(left, sep, Tachikoma.Span("$(round(Int, 100 * m.progress.fraction))%", Tachikoma.tstyle(:accent)))
             stop_time = something(snap.finished, now(UTC))
-            push!(left, Tachikoma.Span(" " * format_duration((stop_time - snap.started) / Millisecond(1000)) * " ", Tachikoma.tstyle(:text_dim)))
+            push!(left, sep, Tachikoma.Span(format_duration((stop_time - snap.started) / Millisecond(1000)), Tachikoma.tstyle(:text_dim)))
         end
     end
     right = Tachikoma.Span[]
@@ -276,12 +331,29 @@ function status_spans(m::JuleanaTUI)
         if !isnothing(alert) && time() - alert.time < ALERT_SECONDS
             style = alert.level >= Logging.Error ? Tachikoma.tstyle(:error, bold = true) : Tachikoma.tstyle(:warning)
             push!(right, Tachikoma.Span(" " * alert.text * " ", style))
-        elseif !isnothing(m.snap) && !isnothing(m.snap.last_error)
+        elseif !isnothing(snap) && !isnothing(snap.last_error)
             # stays until the next load or run, so that a failed load does not look like a hang
-            push!(right, Tachikoma.Span(" " * first(split(m.snap.last_error, '\n')) * " ", Tachikoma.tstyle(:error, bold = true)))
+            push!(right, Tachikoma.Span(" " * first(split(snap.last_error, '\n')) * " ", Tachikoma.tstyle(:error, bold = true)))
         end
     end
     return left, right
+end
+
+# Draw the frame of the screen into `area` and return the area inside it: a rounded box
+# whose title `JuLeAna` has one logo color per letter, with `LEGEND-200` on the right.
+function render_frame(area, buf)
+    title = "JuLeAna"
+    block = Tachikoma.Block(; title = " "^textwidth(title), title_right = "LEGEND-200",
+        title_right_style = Tachikoma.tstyle(:text_dim), border_style = Tachikoma.tstyle(:border))
+    inner = Tachikoma.render(block, area, buf)
+    area.width > 4 || return inner
+    # the block pads the title with `title_padding` cells on each side
+    x = area.x + 1 + 2 * block.title_padding
+    for (i, letter) in enumerate(title)
+        Tachikoma.set_string!(buf, x + i - 1, area.y, string(letter),
+            Tachikoma.Style(; fg = TITLE_COLORS[mod1(i, length(TITLE_COLORS))], bold = true))
+    end
+    return inner
 end
 
 function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
@@ -291,7 +363,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     layout = Tachikoma.Layout(
         Tachikoma.Vertical, [Tachikoma.Fixed(tab_h), Tachikoma.Fill(), Tachikoma.Fixed(1), Tachikoma.Fixed(1)]
     )
-    tab_area, body_area, help_area, status_area = Tachikoma.split_layout(layout, f.area)
+    tab_area, body_area, status_area, keys_area = Tachikoma.split_layout(layout, render_frame(f.area, f.buffer))
 
     Tachikoma.render(tabs, tab_area, f.buffer)
     if m.page == 1
@@ -309,13 +381,14 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
         )
         Tachikoma.render(body, body_area, f.buffer)
     end
-    Tachikoma.set_string!(
-        f.buffer, help_area.x, help_area.y,
-        m.page == 4 ? "↑↓ PgUp PgDn: move   Enter ←→: fold   f: follow   1-4: switch page   q: quit" :
-            "1-4: switch page   q: quit", Tachikoma.tstyle(:text_dim),
-    )
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
+    hints = (m.page == 1 ? SETUP_HINTS : m.page == 4 ? PROGRESS_HINTS : ())
+    spans = Tuple{String,Tachikoma.Style}[]
+    for (key, description) in (hints..., COMMON_HINTS...)
+        push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
+    end
+    put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)
 
     if m.dialog === :quit
         modal = Tachikoma.Modal(;
@@ -360,11 +433,24 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
     # a logger made before the interface writes to the terminal and would garble it
     previous = global_logger(messages)
     try
-        Tachikoma.app(JuleanaTUI(ctrl, messages);
-            on_stdout = text -> append_output!(messages, :stdout, text),
-            on_stderr = text -> append_output!(messages, :stderr, text))
+        with_theme(JULEANA_THEME) do
+            Tachikoma.app(JuleanaTUI(ctrl, messages);
+                on_stdout = text -> append_output!(messages, :stdout, text),
+                on_stderr = text -> append_output!(messages, :stderr, text))
+        end
     finally
         global_logger(previous)
     end
     return nothing
+end
+
+# Call `f()` with `theme` as the active Tachikoma theme and restore the previous theme afterwards.
+function with_theme(f, theme::Tachikoma.Theme)
+    previous = Tachikoma.theme()
+    Tachikoma.set_theme!(theme)
+    try
+        return f()
+    finally
+        Tachikoma.set_theme!(previous)
+    end
 end

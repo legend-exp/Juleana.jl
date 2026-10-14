@@ -201,7 +201,7 @@ function group_spans(g, label_width, expanded)
     text = "$done/$(g.nsteps) done" * (c.failed > 0 ? ", $(c.failed) failed" : "") *
         (c.stopped > 0 ? ", $(c.stopped) stopped" : "") * (c.cancelled > 0 ? ", $(c.cancelled) cancelled" : "")
     return [
-        ((expanded ? "▾ " : "▸ ") * rpad(clip_text(group_label(g), label_width), label_width) * " ", Tachikoma.tstyle(:text, bold = true)),
+        ((expanded ? "▾ " : "▸ ") * rpad(clip_text(group_label(g), label_width), label_width) * " ", Tachikoma.tstyle(:primary, bold = true)),
         bar_spans(counts, cells, GROUP_BAR_WIDTH)...,
         (" " * lpad(round(Int, 100 * g.fraction), 3) * "%  ", Tachikoma.tstyle(:text)),
         (text, Tachikoma.tstyle(:text_dim)),
@@ -211,7 +211,7 @@ end
 function step_spans(e, name_width)
     color = STATE_COLORS[e.state]
     spans = [("  ", Tachikoma.tstyle(:text)), (STATE_ICONS[e.state] * " ", Tachikoma.tstyle(color)),
-        (rpad(clip_text(string(e.step), name_width), name_width) * " ", Tachikoma.tstyle(:text))]
+        (rpad(clip_text(string(e.step), name_width), name_width) * " ", Tachikoma.tstyle(:text_bright))]
     if e.total == 0
         push!(spans, (rpad(string(e.state), STEP_BAR_WIDTH), Tachikoma.tstyle(color)))
     else

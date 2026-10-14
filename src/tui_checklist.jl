@@ -38,7 +38,7 @@ mutable struct ChecklistGroup
 end
 
 """
-    Checklist(entries; title = "", checked = (), focused = true)
+    Checklist(entries; title = "", checked = (), focused = true, tag_style = tag -> nothing)
 
 Terminal widget that displays a list of items with checkboxes and lets the user select
 any number of them.
@@ -47,8 +47,10 @@ any number of them.
 of [`Juleana.ChecklistGroup`](@ref) (two-level list). Item keys must be unique;
 `checked` is an iterable of the keys of the initially selected items and must only
 contain keys of items of the checklist. Only items are selected, never groups. The
-cursor row is highlighted only while `focused` is `true`.
+cursor row is highlighted only while `focused` is `true`. `tag_style(tag::String)`
+returns the `Tachikoma.Style` of a tag, or `nothing` for the dimmed default.
 
+Selected boxes are drawn in the success color and group labels in bold primary color.
 A group row shows `[x]` if all of its visible items are selected, `[~]` if some are, and
 `[ ]` if none are. The title shows the number of selected items out of all items.
 
@@ -87,6 +89,7 @@ mutable struct Checklist
     const title::String
     const keys::Set{Any}
     const selected::Set{Any}
+    const tag_style::Function
     focused::Bool
     filter::String
     editing::Bool
@@ -101,7 +104,7 @@ mutable struct Checklist
     list::Tachikoma.Rect
 end
 
-function Checklist(entries; title = "", checked = (), focused = true)
+function Checklist(entries; title = "", checked = (), focused = true, tag_style = tag -> nothing)
     if all(e -> e isa ChecklistItem, entries)
         groups = [ChecklistGroup(nothing, "", collect(ChecklistItem, entries))]
         grouped = false
@@ -117,7 +120,7 @@ function Checklist(entries; title = "", checked = (), focused = true)
         push!(keys, item.key)
     end
     empty_rect = Tachikoma.Rect(1, 1, 0, 0)
-    w = Checklist(groups, grouped, String(title), keys, Set{Any}(), focused, "", false, 1, 1, 1,
+    w = Checklist(groups, grouped, String(title), keys, Set{Any}(), tag_style, focused, "", false, 1, 1, 1,
         empty_rect, empty_rect)
     return set_checked!(w, checked)
 end
@@ -330,7 +333,10 @@ if they would leave less than a short label.
 """
 function Tachikoma.render(w::Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buffer)
     n_all = length(w.keys)
-    block = pane_block(strip("$(w.title)  $(length(w.selected))/$n_all selected"), w.focused)
+    title = strip("$(w.title)  $(length(w.selected))/$n_all selected")
+    # the title with its padding and focus marker must fit between the corners
+    title_room = rect.width - 5 - 2 * w.focused
+    block = pane_block(textwidth(title) <= title_room ? title : first(title, max(0, title_room - 1)) * "…", w.focused)
     w.rect = rect
     w.list = Tachikoma.Rect(rect.x, rect.y, 0, 0)
     w.page = 1
@@ -364,25 +370,34 @@ function Tachikoma.render(w::Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buf
             idxs = entries[g]
             n_sel = selected_in(g, idxs)
             box = n_sel == 0 ? "[ ]" : n_sel == length(idxs) ? "[x]" : "[~]"
-            prefix = (group.expanded ? "▾ " : "▸ ") * box * " "
+            indent = group.expanded ? "▾ " : "▸ "
             label, tags = group.label, group.tags
+            label_style = Tachikoma.tstyle(:primary, bold = true)
         else
             item = w.groups[g].items[i]
             box = item.key in w.selected ? "[x]" : "[ ]"
-            prefix = (w.grouped ? "  " : "") * box * " "
+            indent = w.grouped ? "  " : ""
             label, tags = item.label, item.tags
+            label_style = text
         end
+        box_style = box == "[x]" ? Tachikoma.tstyle(:success) : box == "[~]" ? Tachikoma.tstyle(:warning) : dim
+        at_cursor = w.focused && row == w.cursor
+        at_cursor && (label_style = highlight)
         tag_text = join(tags, "  ")
-        room = area.width - textwidth(prefix)
+        room = area.width - textwidth(indent) - 4
         tag_room = room - textwidth(tag_text) - 2
         if !isempty(tag_text) && tag_room >= min(textwidth(label), 8)
             label = clip(label, tag_room)
-            Tachikoma.set_string!(buf, x_max - textwidth(tag_text) + 1, y, tag_text, dim; max_x = x_max)
+            tx = x_max - textwidth(tag_text) + 1
+            for tag in tags
+                tx = Tachikoma.set_string!(buf, tx, y, tag, something(w.tag_style(tag), dim); max_x = x_max) + 2
+            end
         else
             label = clip(label, room)
         end
-        style = w.focused && row == w.cursor ? highlight : text
-        Tachikoma.set_string!(buf, area.x, y, prefix * label, style; max_x = x_max)
+        x = Tachikoma.set_string!(buf, area.x, y, indent, label_style; max_x = x_max)
+        x = Tachikoma.set_string!(buf, x, y, box, at_cursor ? Tachikoma.Style(; fg = box_style.fg, bold = true) : box_style; max_x = x_max)
+        Tachikoma.set_string!(buf, x, y, " " * label, label_style; max_x = x_max)
     end
     if show_filter && area.height >= 1
         Tachikoma.set_string!(buf, area.x, Tachikoma.bottom(area), clip("/" * w.filter * (w.editing ? "▏" : ""), area.width),

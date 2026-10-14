@@ -229,7 +229,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test m.page == 4
         text = page_text(render_model(m))
         @test occursin("Steps (following)", text) && occursin("Busy workers (2)", text)
-        @test occursin("↑↓ PgUp PgDn: move", text)
+        @test occursin("↑↓ PgUp PgDn move", text)
         Tachikoma.update!(m, KeyEvent(:down))
         @test !m.progress_page.follow
         Tachikoma.update!(m, KeyEvent('f'))

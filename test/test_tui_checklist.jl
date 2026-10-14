@@ -1,7 +1,7 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 using Juleana
-using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Rect, find_text, row_text
+using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Rect, find_text, row_text, style_at
 using Test
 
 function render_checklist(w, width = 40, height = 12)
@@ -49,6 +49,22 @@ grouped_items() = [
         item = Juleana.ChecklistItem(:k, "label"; tags = ("t1", "t2"))
         @test item.tags == ["t1", "t2"]
         @test isempty(Juleana.ChecklistItem(:k, "label").tags)
+    end
+
+    @testset "colors" begin
+        marked = Tachikoma.Style(; fg = Tachikoma.ColorRGB(1, 2, 3), bold = true)
+        w = Juleana.Checklist(flat_items(); checked = [:a], tag_style = tag -> tag == "cal" ? marked : nothing)
+        tb = render_checklist(w)
+        # tags are right-aligned in the last three cells inside the border
+        @test style_at(tb, 38, 2) == marked
+        # a tag without a style is dim
+        dim = Tachikoma.tstyle(:text_dim)
+        @test style_at(tb, 38, 3) == dim
+        @test style_at(tb, 3, 2).fg == Tachikoma.tstyle(:success).fg
+        @test style_at(tb, 3, 3).fg == dim.fg
+        g = Juleana.Checklist(grouped_items(); title = "G", focused = false)
+        tb = render_checklist(g)
+        @test style_at(tb, 9, 2) == Tachikoma.tstyle(:primary, bold = true)
     end
 
     @testset "rendering" begin

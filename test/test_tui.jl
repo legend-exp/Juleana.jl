@@ -2,7 +2,7 @@
 
 using Juleana
 using Tachikoma: Tachikoma, KeyEvent, TestBackend, Frame, Rect, GraphicsRegion,
-    PixelSnapshot, find_text, row_text
+    PixelSnapshot, find_text, row_text, style_at
 using Logging: Logging, with_logger
 using LegendDataManagement: DataPeriod, DataRun, FileKey, ProcessStatus
 using ProgressLogging: ProgressLogging
@@ -66,10 +66,61 @@ end
             @test find_text(tb, name) !== nothing
         end
         @test find_text(tb, "Loading the session") !== nothing
-        @test find_text(tb, "1-4: switch page   q: quit") !== nothing
+        @test find_text(tb, "W workers") !== nothing
         @test find_text(tb, "starting") !== nothing
         Tachikoma.update!(m, KeyEvent('2'))
         @test find_text(render_tui(m), "This page is not available yet.") !== nothing
+    end
+
+    @testset "frame, tabs, status and key rows" begin
+        m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
+        tb = render_tui(m, 120, 32)
+        @test find_text(tb, "JuLeAna").y == 1 && find_text(tb, "LEGEND-200").y == 1
+        # the letters of the title have the colors of the logo; the frame's corner and edge precede them
+        @test [style_at(tb, 4 + i, 1).fg for i in 0:6] ==
+            [Juleana.TITLE_COLORS[mod1(i, 3)] for i in 1:7]
+        @test find_text(tb, "1 Setup") !== nothing && find_text(tb, "4 Progress") !== nothing
+        @test find_text(tb, "starting") !== nothing
+        @test refreshed!(m)
+        tb = render_tui(m, 120, 32)
+        @test find_text(tb, "ready") !== nothing && find_text(tb, "workers 0") !== nothing
+        keys_row = row_text(tb, 31)
+        @test occursin("W workers", keys_row) && occursin("q quit", keys_row)
+        Tachikoma.update!(m, KeyEvent('4'))
+        @test occursin("f follow", row_text(render_tui(m, 120, 32), 31))
+        Tachikoma.update!(m, KeyEvent('3'))
+        keys_row = row_text(render_tui(m, 120, 32), 31)
+        @test occursin("1-4 page  q quit", keys_row) && !occursin("follow", keys_row)
+        # a narrow screen cuts the key row at the frame
+        @test !occursin("quit", row_text(render_tui(m, 12, 32), 31))
+    end
+
+    @testset "spinner" begin
+        m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
+        @test refreshed!(m)
+        spinner = join(Tachikoma.SPINNER_BRAILLE)
+        has_spinner(m) = any(c -> c in spinner, screen_text(render_tui(m, 120, 32)))
+        Tachikoma.update!(m, Tachikoma.TaskEvent(:tick, nothing))
+        @test m.ticks == 1 && !has_spinner(m)
+        m.snap = merge(m.snap, (; state = :running))
+        @test has_spinner(m)
+        first_frame = screen_text(render_tui(m, 120, 32))
+        Tachikoma.update!(m, Tachikoma.TaskEvent(:tick, nothing))
+        @test screen_text(render_tui(m, 120, 32)) != first_frame
+        m.snap = merge(m.snap, (; state = :stopping))
+        @test has_spinner(m)
+        m.snap = merge(m.snap, (; state = :ready))
+        @test !has_spinner(m)
+        Tachikoma.cleanup!(m)
+    end
+
+    @testset "theme" begin
+        @test Juleana.JULEANA_THEME isa Tachikoma.Theme
+        before = Tachikoma.theme()
+        @test Juleana.with_theme(() -> Tachikoma.theme(), Juleana.JULEANA_THEME) === Juleana.JULEANA_THEME
+        @test Tachikoma.theme() === before
+        @test_throws "boom" Juleana.with_theme(() -> error("boom"), Juleana.JULEANA_THEME)
+        @test Tachikoma.theme() === before
     end
 
     @testset "page switching" begin
@@ -89,7 +140,9 @@ end
         # a click on a tab opens its page
         tb = render_tui(m)
         y = findfirst(r -> occursin("Progress", row_text(tb, r)), 1:30)
-        x = findfirst("Progress", row_text(tb, y)).start
+        row = row_text(tb, y)
+        # `findfirst` gives a byte index and the row holds box characters
+        x = length(row, 1, findfirst("Progress", row).start - 1) + 1
         Tachikoma.update!(m, Tachikoma.MouseEvent(x + 1, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test m.page == 4
         @test find_text(render_tui(m), "No processing run yet.") !== nothing
@@ -111,8 +164,8 @@ end
         @test settle!(() -> !isnothing(m.snap) && m.snap.state === :ready, m)
         @test loaded[]
         tb = render_tui(m)
-        @test find_text(tb, " ready ") !== nothing
-        @test find_text(tb, "workers: 0, 0 busy") !== nothing
+        @test find_text(tb, " ready") !== nothing
+        @test find_text(tb, "workers 0") !== nothing
         Tachikoma.cleanup!(m)
         @test m.timer.cancelled[]
         # the app calls `start!` through Tachikoma's `init!`
