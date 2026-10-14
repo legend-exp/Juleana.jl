@@ -91,6 +91,7 @@ include("config.jl")
 include("interactive.jl")
 include("controller.jl")
 include("no_tui.jl")
+include("tui_checklist.jl")
 include("tui.jl")
 
 include("processors/p_process_aoe_calibration_cut.jl")

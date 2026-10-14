@@ -16,6 +16,15 @@ Juleana.send_command!
 Juleana.MessageBuffer
 Juleana.append_output!
 Juleana.message_lines
+Juleana.Checklist
+Juleana.ChecklistItem
+Juleana.ChecklistGroup
+Juleana.Tachikoma.handle_key!(::Juleana.Checklist, ::Juleana.Tachikoma.KeyEvent)
+Juleana.Tachikoma.handle_mouse!(::Juleana.Checklist, ::Juleana.Tachikoma.MouseEvent)
+Juleana.Tachikoma.render(::Juleana.Checklist, ::Juleana.Tachikoma.Rect, ::Juleana.Tachikoma.Buffer)
+Juleana.checked
+Juleana.set_checked!
+Juleana.current
 Juleana.parse_commandline
 Juleana.init_process
 DataflowSession
