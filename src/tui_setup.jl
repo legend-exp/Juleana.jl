@@ -138,7 +138,8 @@ the selected steps wait for and `e` opens the kwargs editor for the processor un
 cursor; in the options pane Up and Down choose a row and Space or
 Enter cycles its value; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
-dependency graph and `w` asks to write the current settings to the config file.
+dependency graph, `W` starts workers with [`SubmitWorkers`](@ref) and `w` asks to write
+the current settings to the config file.
 """
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
@@ -199,6 +200,8 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         send(ReloadConfig())
     elseif key == :char && char == 'g'
         send(ResetDependencyGraph())
+    elseif key == :char && char == 'W'
+        send(SubmitWorkers())
     else
         return false
     end
@@ -248,7 +251,7 @@ const SETUP_KEYS = [
     "c/p: cal/phy   d: add deps",
     "e: settings   w: write config",
     "s: start   x/X: stop/force",
-    "r: reload config",
+    "r: reload config   W: start workers",
     "g: rebuild dependency graph",
 ]
 

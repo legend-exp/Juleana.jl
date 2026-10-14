@@ -147,7 +147,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         page = Juleana.SetupPage()
         sent = ControllerCommand[]
         for (key, expected) in (('s', StartProcessing), ('x', StopProcessing), ('X', StopProcessing),
-                ('r', ReloadConfig), ('g', ResetDependencyGraph))
+                ('r', ReloadConfig), ('g', ResetDependencyGraph), ('W', SubmitWorkers))
             @test Juleana.setup_key!(page, KeyEvent(key), nothing, cmd -> push!(sent, cmd))
             @test last(sent) isa expected
         end
@@ -155,7 +155,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         # keys the page does not use go to the interface
         @test !Juleana.setup_key!(page, KeyEvent('q'), nothing, cmd -> push!(sent, cmd))
         @test !Juleana.setup_key!(page, KeyEvent('2'), nothing, cmd -> push!(sent, cmd))
-        @test length(sent) == 5
+        @test length(sent) == 6
     end
 
     @testset "pending commands keep the local selection" begin
