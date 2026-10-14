@@ -1,4 +1,47 @@
 """
+    ProcessingStopped()
+
+Exception thrown by [`parallel`](@ref) when processing was stopped while the batch ran:
+items that had not started are not run, and the processor that called `parallel` ends
+without writing results.
+"""
+struct ProcessingStopped <: Exception end
+
+Base.showerror(io::IO, ::ProcessingStopped) = print(io, "ProcessingStopped: processing was stopped")
+
+# Stop flag of the current processing run, set by `run_processing`; `nothing` outside of it.
+const PROCESSING_STOP = ScopedValue{Union{Nothing,Threads.Atomic{Bool}}}(nothing)
+
+# Worker pool that hands out no worker once `stop` is set: `take!` throws
+# `ProcessingStopped` instead, also while it waits for a free worker. That keeps a stop
+# from hanging when no worker will become free, e.g. after all workers were stopped.
+struct StoppablePool{P<:AbstractWorkerPool} <: AbstractWorkerPool
+    pool::P
+    stop::Threads.Atomic{Bool}
+end
+
+function Base.take!(p::StoppablePool)
+    p.stop[] && throw(ProcessingStopped())
+    taker = Threads.@spawn take!(p.pool)
+    while !istaskdone(taker)
+        if p.stop[]
+            # the worker the taker gets later goes back to the pool
+            errormonitor(Threads.@spawn put!(p.pool, fetch(taker)))
+            throw(ProcessingStopped())
+        end
+        sleep(0.2)
+    end
+    worker = fetch(taker)
+    if p.stop[]
+        put!(p.pool, worker)
+        throw(ProcessingStopped())
+    end
+    return worker
+end
+
+Base.put!(p::StoppablePool, worker::Int) = put!(p.pool, worker)
+
+"""
     failure_log(log_nt, itr, message::AbstractString)
 
 Build the report row for an item of `parallel` that threw. `log_nt` is the processor's
@@ -65,6 +108,10 @@ attempts after a worker loss or a timeout; an error thrown by `f` is not retried
 Element types without a [`failure_log`](@ref) method for `log_nt` are rejected with an
 `ArgumentError` before any work starts.
 
+Inside [`run_processing`](@ref), a stop of the processing run takes effect here: items that
+have not been handed to a worker are not run, items already running finish, and `parallel`
+then throws [`ProcessingStopped`](@ref) instead of returning.
+
 # Examples
 ```julia
 using LegendDataManagement: FileKey, ProcessStatus
@@ -81,44 +128,40 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
         hasmethod(failure_log, Tuple{Type{log_nt}, T, String}) ||
             throw(ArgumentError("parallel: no failure_log method for items of type $T"))
     end
-    # prevent crash from Base
-    Base.exit_on_sigint(false)
-    try
-
-        flush(stdout)
-        # assign tasks to workers 
-        # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
-        failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_string(string(e))))
-        tasks = broadcast(iterator) do itr
-            Threads.@spawn try
-                # Past `maxtime`, onworker terminates the worker (never the main process) and
-                # counts the timeout as a failed try; the last failure lands in the catch below.
-                onworker(; tries=retry ? 3 : 1, label="$itr", maxtime=timeout) do
-                    try
-                        return itr => f(itr)
-                    catch e
-                        # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
-                        @debug "Write Error log for $(itr): $e"
-                        return failure_row(itr, e)
-                    end
+    stop = PROCESSING_STOP[]
+    pool = isnothing(stop) ? ppt_worker_pool() : StoppablePool(ppt_worker_pool(), stop)
+    flush(stdout)
+    # assign tasks to workers
+    # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
+    failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_string(string(e))))
+    tasks = broadcast(iterator) do itr
+        Threads.@spawn try
+            # Past `maxtime`, onworker terminates the worker (never the main process) and
+            # counts the timeout as a failed try; the last failure lands in the catch below.
+            onworker(; pool, tries=retry ? 3 : 1, label="$itr", maxtime=timeout) do
+                try
+                    return itr => f(itr)
+                catch e
+                    # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
+                    @debug "Write Error log for $(itr): $e"
+                    return failure_row(itr, e)
                 end
-            catch e
-                e isa TaskFailedException && (e = e.task.exception)
-                @debug "Worker call failed for $(itr): $e"
-                failure_row(itr, e)
             end
+        catch e
+            e isa TaskFailedException && (e = e.task.exception)
+            @debug "Worker call failed for $(itr): $e"
+            failure_row(itr, e)
         end
-        # set up Porgressbar
-        p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
-        update!(p)
-    
-        errormonitor(Threads.@spawn watch_tasks(() -> next!(p), tasks))
-        # fetch results
-        result = fetch.(tasks)
-
-        flush(stdout)
-        return result
-    finally
-        Base.exit_on_sigint(true)
     end
+    # set up Porgressbar
+    p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
+    update!(p)
+
+    errormonitor(Threads.@spawn watch_tasks(() -> next!(p), tasks))
+    # fetch results
+    result = fetch.(tasks)
+
+    flush(stdout)
+    !isnothing(stop) && stop[] && throw(ProcessingStopped())
+    return result
 end

@@ -21,7 +21,7 @@ module Juleana
 using ArgParse: @add_arg_table!, ArgParseSettings, parse_args
 import CairoMakie
 using ConcurrentCollections: ConcurrentDict
-using Dates: Dates, UTC, canonicalize, now, @dateformat_str
+using Dates: Dates, DateTime, UTC, canonicalize, now, @dateformat_str
 using Format: format
 using HDF5: h5open
 using IntervalSets: (..), leftendpoint, rightendpoint
@@ -52,7 +52,8 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
     get_continuum_survival_fraction, get_low_aoe_cut, get_peak_survival_fraction,
     get_peaks_survival_fractions, lq_ctc_correction, lq_norm, peakhists_gamma,
     set_timelimit, simple_calibration, sipm_simple_calibration
-using Distributed: myid
+using Base.ScopedValues: ScopedValue, with
+using Distributed: AbstractWorkerPool, myid, nprocs, nworkers
 using Logging: Logging, AbstractLogger, LogLevel, global_logger
 using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
 import Makie
@@ -60,7 +61,7 @@ using Measurements: value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
     onlyfirst_exception, onworker, original_exception, pinthreads_auto,
-    ppt_worker_pool!, runworkers, write_files, write_worker_start_script
+    ppt_worker_pool!, ppt_worker_pool, runworkers, stopworkers, write_files, write_worker_start_script
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
 using PropertyFunctions: PropertyFunctions, @pf, filterby
@@ -85,6 +86,7 @@ include("registry.jl")
 include("session.jl")
 include("config.jl")
 include("interactive.jl")
+include("controller.jl")
 include("tui.jl")
 
 include("processors/p_process_aoe_calibration_cut.jl")
@@ -123,10 +125,13 @@ export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
-export run_processing
+export run_processing, ProcessingStopped
 export DataflowSession, menu
+export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
+    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetCheckDependencies, SetKwarg,
+    ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, SubmitWorkers
 
-public escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, init_process,
+public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, init_process,
     main, setup_session, run_tui, parse_commandline, check_reports
 
 end # module

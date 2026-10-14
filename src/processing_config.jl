@@ -357,6 +357,19 @@ included.
 """
 partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.p_processors, enabled_only)
 
+# Describe why the processor function of `spec` cannot be called with its kwargs, or
+# return `nothing` when it can.
+function processor_kwargs_problem(spec::ProcessorSpec, processors::AbstractDict{Symbol})
+    haskey(processors, spec.name) || return "`$(spec.name)` is not a registered processor"
+    declared = reduce(vcat, (Base.kwarg_decl(m) for m in methods(processors[spec.name])); init = Symbol[])
+    # A method with `kwargs...` accepts every keyword.
+    any(k -> endswith(string(k), "..."), declared) && return nothing
+    implicit = spec.level === :partition ? (:reprocess, :only_first_period) : (:reprocess,)
+    unsupported = sort!(collect(setdiff(union(keys(spec.kwargs), implicit), declared)))
+    isempty(unsupported) && return nothing
+    return "`$(spec.name)` does not accept keyword(s) $(join(unsupported, ", "))"
+end
+
 """
     check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol} = PROCESSORS)
 
@@ -370,17 +383,8 @@ function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{
     problems = String[]
     for specs in (cfg.processors, cfg.p_processors), spec in values(specs)
         spec.enabled || continue
-        if !haskey(processors, spec.name)
-            push!(problems, "`$(spec.name)` is not a registered processor")
-            continue
-        end
-        declared = reduce(vcat, (Base.kwarg_decl(m) for m in methods(processors[spec.name])); init = Symbol[])
-        # A method with `kwargs...` accepts every keyword.
-        any(k -> endswith(string(k), "..."), declared) && continue
-        implicit = spec.level === :partition ? (:reprocess, :only_first_period) : (:reprocess,)
-        unsupported = sort!(collect(setdiff(union(keys(spec.kwargs), implicit), declared)))
-        isempty(unsupported) ||
-            push!(problems, "`$(spec.name)` does not accept keyword(s) $(join(unsupported, ", "))")
+        problem = processor_kwargs_problem(spec, processors)
+        isnothing(problem) || push!(problems, problem)
     end
     isempty(problems) ||
         throw(ArgumentError("processing_config: processor kwargs mismatch:\n  " * join(problems, "\n  ")))

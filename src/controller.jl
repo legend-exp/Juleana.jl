@@ -1,0 +1,515 @@
+# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+
+"""
+    abstract type ControllerCommand
+
+Supertype of the commands that [`dispatch!`](@ref) applies to a [`DataflowController`](@ref).
+"""
+abstract type ControllerCommand end
+
+"""
+    LoadSession()
+
+Set up the session from the controller's command line options with
+[`setup_session`](@ref): read the config and the LEGEND data and start the workers. Runs
+in the background; the controller is `:loading` until it is `:ready`. Allowed when the
+controller is `:idle`.
+"""
+struct LoadSession <: ControllerCommand end
+
+"""
+    ReloadConfig()
+
+Read the processing config file again with the original command line options, keeping
+the log directory, and reset the selection to the config's periods, runs and enabled
+processors. Drops all kwarg overrides. Runs in the background like [`LoadSession`](@ref).
+"""
+struct ReloadConfig <: ControllerCommand end
+
+"""
+    SelectPeriods(periods)
+
+Select the periods to process, given as `DataPeriod`s or anything `DataPeriod` accepts.
+Every period must be available on disk.
+"""
+struct SelectPeriods <: ControllerCommand
+    periods::Vector{DataPeriod}
+    SelectPeriods(periods) = new(DataPeriod[DataPeriod(p) for p in periods])
+end
+
+"""
+    SelectRuns(runs)
+
+Select the runs to process within the selected periods, given as `DataRun`s or anything
+`DataRun` accepts; `nothing` selects all runs. Every run must be available in at least
+one selected period.
+"""
+struct SelectRuns <: ControllerCommand
+    runs::Union{Nothing,Vector{DataRun}}
+    SelectRuns(runs) = new(isnothing(runs) ? nothing : DataRun[DataRun(r) for r in runs])
+end
+
+"""
+    SelectSteps(run_steps, partition_steps)
+
+Select the run-level and partition-level processors to run, by name. Every name must be
+a processor of that level in the config, enabled or not. The steps run in rank order.
+"""
+struct SelectSteps <: ControllerCommand
+    run_steps::Vector{Symbol}
+    partition_steps::Vector{Symbol}
+    SelectSteps(run_steps, partition_steps) = new(Symbol.(run_steps), Symbol.(partition_steps))
+end
+
+"""
+    SetReprocess(reprocess::Union{Nothing,Bool})
+
+Set the `reprocess` keyword passed to every processor: `true` or `false` override the
+config, `nothing` keeps the configured values.
+"""
+struct SetReprocess <: ControllerCommand
+    reprocess::Union{Nothing,Bool}
+end
+
+"""
+    SetCheckDependencies(check::Bool)
+
+Choose whether a processing run rebuilds the dependency graph for the selected steps and
+waits for their dependencies (`true`), or runs the selected steps on the current graph
+without waiting (`false`).
+"""
+struct SetCheckDependencies <: ControllerCommand
+    check::Bool
+end
+
+"""
+    SetKwarg(step, key, value)
+
+Override the keyword argument `key` of the processor `step` for this session. The
+processor function must accept `key`.
+"""
+struct SetKwarg <: ControllerCommand
+    step::Symbol
+    key::Symbol
+    value::Any
+    SetKwarg(step, key, value) = new(Symbol(step), Symbol(key), value)
+end
+
+"""
+    ResetKwargs(step = nothing)
+
+Drop the kwarg overrides of the processor `step`, or of all processors for `nothing`.
+"""
+struct ResetKwargs <: ControllerCommand
+    step::Union{Nothing,Symbol}
+    ResetKwargs(step = nothing) = new(isnothing(step) ? nothing : Symbol(step))
+end
+
+"""
+    ResetDependencyGraph()
+
+Mark the selected steps as unfinished for the selected periods and runs.
+"""
+struct ResetDependencyGraph <: ControllerCommand end
+
+"""
+    StartProcessing()
+
+Run the selected steps over the selected periods and runs in the background with
+[`run_processing`](@ref), using the config with the session's kwarg overrides. The
+controller is `:running` until the run ends; the outcome is `:finished`, `:failed` or
+`:stopped`. Throws an `ArgumentError` when no step is selected or a selected processor
+does not accept its keyword arguments.
+"""
+struct StartProcessing <: ControllerCommand end
+
+"""
+    StopProcessing(; force::Bool = false)
+
+Stop the processing run: no further step or item starts, items running on workers
+finish, and the run ends as `:stopped`. With `force = true`, also stop all workers, so
+that items on unresponsive workers fail and the run ends without waiting for them; start
+new workers with [`SubmitWorkers`](@ref) afterwards.
+"""
+struct StopProcessing <: ControllerCommand
+    force::Bool
+end
+StopProcessing(; force::Bool = false) = StopProcessing(force)
+
+"""
+    WriteConfig(path::AbstractString)
+
+Write the processing config file of the session to `path`, with the kwarg overrides of
+the session applied to the processor entries. The format follows the file extension
+(`.json` or `.yaml`).
+"""
+struct WriteConfig <: ControllerCommand
+    path::String
+end
+
+"""
+    SubmitWorkers()
+
+Start workers for the configured run mode and add them to the worker pool.
+"""
+struct SubmitWorkers <: ControllerCommand end
+
+"""
+    mutable struct DataflowController
+
+Headless state of an interactive dataflow session. All changes go through
+[`dispatch!`](@ref) with a [`ControllerCommand`](@ref); [`snapshot`](@ref) returns a
+read-only view of the state. Commands may be sent from any task; long-running ones
+(loading the session, reloading the config, processing) run in the background.
+
+The controller is in one of the states
+- `:idle`: no session loaded yet,
+- `:loading`: the session or config is being loaded,
+- `:ready`: a session is loaded and no processing runs,
+- `:running`: processing runs,
+- `:stopping`: processing was asked to stop and runs until the running items finish.
+
+Constructors:
+- `DataflowController(args::AbstractDict; processors = PROCESSORS, console = true)`
+  starts `:idle` with the parsed command line options `args`; [`LoadSession`](@ref)
+  sets up the session, with terminal log output of this process only if `console`.
+- `DataflowController(session::DataflowSession; processors = PROCESSORS)` starts
+  `:ready` with an existing session.
+
+`processors` maps processor names to their functions.
+"""
+mutable struct DataflowController
+    const args::Dict{String,Any}
+    const processors::AbstractDict{Symbol}
+    const loader::Any
+    const lock::ReentrantLock
+    const stop::Threads.Atomic{Bool}
+    state::Symbol
+    session::Union{Nothing,DataflowSession}
+    available_periods::Vector{DataPeriod}
+    available_runs::Dict{DataPeriod,Vector{DataRun}}
+    reprocess::Union{Nothing,Bool}
+    check_dependencies::Bool
+    kwarg_overrides::Dict{Symbol,Dict{Symbol,Any}}
+    task::Union{Nothing,Task}
+    outcome::Union{Nothing,Symbol}
+    last_error::Union{Nothing,String}
+    started::Union{Nothing,DateTime}
+    finished::Union{Nothing,DateTime}
+end
+
+function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
+        console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console))
+    return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
+        Threads.Atomic{Bool}(false), :idle, nothing, DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(),
+        nothing, true, Dict{Symbol,Dict{Symbol,Any}}(), nothing, nothing, nothing, nothing, nothing)
+end
+
+function DataflowController(session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS)
+    ctrl = DataflowController(session.args; processors, loader = nothing)
+    install_session!(ctrl, session)
+    return ctrl
+end
+
+function Base.show(io::IO, ctrl::DataflowController)
+    print(io, "DataflowController(", repr(ctrl.state))
+    isnothing(ctrl.session) || print(io, ", ", ctrl.session)
+    print(io, ")")
+end
+
+# Take over `session` and scan the periods and runs on disk; the caller holds the lock.
+function install_session!(ctrl::DataflowController, session::DataflowSession)
+    ctrl.session = session
+    ctrl.available_periods = available_periods(session.l200)
+    ctrl.available_runs = Dict(p => available_runs(session.l200, p) for p in ctrl.available_periods)
+    ctrl.state = :ready
+    return ctrl
+end
+
+# Run `f` in the background with the controller `:loading`; an error is kept as
+# `last_error` and the controller returns to `fallback`.
+function load_in_background!(f, ctrl::DataflowController, fallback::Symbol)
+    ctrl.state = :loading
+    ctrl.last_error = nothing
+    ctrl.task = Threads.@spawn try
+        f()
+    catch e
+        @error "Loading the session failed" exception = (e, catch_backtrace())
+        @lock ctrl.lock begin
+            ctrl.last_error = truncate_error(e)
+            ctrl.state = fallback
+        end
+    end
+    return nothing
+end
+
+function require_state(ctrl::DataflowController, cmd::ControllerCommand, states::Symbol...)
+    ctrl.state in states ||
+        throw(ArgumentError("$(nameof(typeof(cmd))) is not possible while the controller is $(repr(ctrl.state))"))
+    return nothing
+end
+
+# Processor specs of `specs` with the session's kwarg overrides merged into their kwargs.
+function with_overrides(specs::AbstractDict{Symbol,ProcessorSpec}, overrides::AbstractDict)
+    return Dict{Symbol,ProcessorSpec}(name => !haskey(overrides, name) ? spec :
+        ProcessorSpec(spec.name, spec.level, spec.enabled, spec.category, spec.rank,
+            spec.dependencies, merge(spec.kwargs, overrides[name])) for (name, spec) in specs)
+end
+
+"""
+    effective_config(ctrl::DataflowController)
+
+Return the session's [`ProcessingConfig`](@ref) with the kwarg overrides of the
+controller merged into the processor kwargs.
+"""
+function effective_config(ctrl::DataflowController)
+    cfg = ctrl.session.config
+    return ProcessingConfig(cfg.runmode, cfg.submit_jobs, cfg.local_n, cfg.local_julia_settings,
+        cfg.slurm_flags, cfg.slurm_julia_settings, cfg.env_variables, cfg.periods, cfg.runs,
+        cfg.analysis_runs_only, cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level,
+        with_overrides(cfg.processors, ctrl.kwarg_overrides), with_overrides(cfg.p_processors, ctrl.kwarg_overrides))
+end
+
+processor_spec(cfg::ProcessingConfig, step::Symbol) =
+    haskey(cfg.processors, step) ? cfg.processors[step] :
+    haskey(cfg.p_processors, step) ? cfg.p_processors[step] :
+    throw(ArgumentError("unknown processor `$step`"))
+
+"""
+    dispatch!(ctrl::DataflowController, cmd::ControllerCommand)
+
+Apply `cmd` to `ctrl` and return `nothing`. Throw an `ArgumentError` that explains why
+when the command is not possible in the controller's state or its arguments are invalid;
+the controller is then unchanged. Commands that run in the background return as soon as
+they are started; see [`snapshot`](@ref) for their state and `wait(ctrl)` to block
+until they are done.
+"""
+function dispatch! end
+
+dispatch!(ctrl::DataflowController, cmd::ControllerCommand) = @lock ctrl.lock apply!(ctrl, cmd)
+
+function apply!(ctrl::DataflowController, cmd::LoadSession)
+    require_state(ctrl, cmd, :idle)
+    load_in_background!(ctrl, :idle) do
+        session = ctrl.loader(ctrl.args)
+        @lock ctrl.lock install_session!(ctrl, session)
+    end
+end
+
+function apply!(ctrl::DataflowController, cmd::ReloadConfig)
+    require_state(ctrl, cmd, :ready)
+    load_in_background!(ctrl, :ready) do
+        session = ctrl.session
+        l200, config, periods = setup_processing(session.args)
+        check_processor_kwargs(config; ctrl.processors)
+        @lock ctrl.lock begin
+            session.l200, session.config, session.periods, session.runs = l200, config, periods, config.runs
+            session.run_steps, session.partition_steps = selected_steps(config)
+            empty!(ctrl.kwarg_overrides)
+            reset_dependency_graph!(session)
+            install_session!(ctrl, session)
+        end
+        @info "Reloaded processing config"
+    end
+end
+
+function apply!(ctrl::DataflowController, cmd::SelectPeriods)
+    require_state(ctrl, cmd, :ready)
+    unknown = setdiff(cmd.periods, ctrl.available_periods)
+    isempty(unknown) ||
+        throw(ArgumentError("periods not available on disk: $(join(string.(unknown), ", "))"))
+    ctrl.session.periods = sort(unique(cmd.periods))
+    reset_dependency_graph!(ctrl.session)
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SelectRuns)
+    require_state(ctrl, cmd, :ready)
+    if !isnothing(cmd.runs)
+        selectable = reduce(union, (ctrl.available_runs[p] for p in ctrl.session.periods); init = DataRun[])
+        unknown = setdiff(cmd.runs, selectable)
+        isempty(unknown) ||
+            throw(ArgumentError("runs not available in the selected periods: $(join(string.(unknown), ", "))"))
+    end
+    ctrl.session.runs = isnothing(cmd.runs) ? nothing : sort(unique(cmd.runs))
+    reset_dependency_graph!(ctrl.session)
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SelectSteps)
+    require_state(ctrl, cmd, :ready)
+    cfg = ctrl.session.config
+    for (steps, specs, section) in ((cmd.run_steps, cfg.processors, "processors"), (cmd.partition_steps, cfg.p_processors, "p_processors"))
+        unknown = filter(!in(keys(specs)), steps)
+        isempty(unknown) ||
+            throw(ArgumentError("not in `$section` of the config: $(join(unknown, ", "))"))
+    end
+    ctrl.session.run_steps = filter(in(cmd.run_steps), run_steps(cfg; enabled_only = false))
+    ctrl.session.partition_steps = filter(in(cmd.partition_steps), partition_steps(cfg; enabled_only = false))
+    reset_dependency_graph!(ctrl.session)
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SetReprocess)
+    require_state(ctrl, cmd, :idle, :ready)
+    ctrl.reprocess = cmd.reprocess
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SetCheckDependencies)
+    require_state(ctrl, cmd, :idle, :ready)
+    ctrl.check_dependencies = cmd.check
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SetKwarg)
+    require_state(ctrl, cmd, :ready)
+    spec = processor_spec(ctrl.session.config, cmd.step)
+    overrides = merge(get(ctrl.kwarg_overrides, cmd.step, Dict{Symbol,Any}()), Dict{Symbol,Any}(cmd.key => cmd.value))
+    candidate = ProcessorSpec(spec.name, spec.level, spec.enabled, spec.category, spec.rank,
+        spec.dependencies, merge(spec.kwargs, overrides))
+    problem = processor_kwargs_problem(candidate, ctrl.processors)
+    isnothing(problem) || throw(ArgumentError(problem))
+    ctrl.kwarg_overrides[cmd.step] = overrides
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::ResetKwargs)
+    require_state(ctrl, cmd, :ready)
+    isnothing(cmd.step) ? empty!(ctrl.kwarg_overrides) : delete!(ctrl.kwarg_overrides, cmd.step)
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::ResetDependencyGraph)
+    require_state(ctrl, cmd, :ready)
+    reset_dependency_graph!(ctrl.session)
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::StartProcessing)
+    require_state(ctrl, cmd, :ready)
+    session = ctrl.session
+    steps, p_steps = copy(session.run_steps), copy(session.partition_steps)
+    isempty(steps) && isempty(p_steps) && throw(ArgumentError("no processing steps selected"))
+    cfg = effective_config(ctrl)
+    problems = filter(!isnothing, [processor_kwargs_problem(processor_spec(cfg, step), ctrl.processors) for step in vcat(steps, p_steps)])
+    isempty(problems) || throw(ArgumentError("processor kwargs mismatch:\n  " * join(problems, "\n  ")))
+    if ctrl.check_dependencies
+        session.periods, session.run_status, session.partition_status = setup_dependency_graph(
+            session.l200, cfg, session.periods, session.runs, steps, p_steps)
+    end
+    ctrl.stop[] = false
+    ctrl.state, ctrl.outcome, ctrl.last_error = :running, nothing, nothing
+    ctrl.started, ctrl.finished = now(UTC), nothing
+    (; l200, periods, run_status, partition_status) = session
+    check_dependencies, reprocess = ctrl.check_dependencies, ctrl.reprocess
+    ctrl.task = Threads.@spawn begin
+        outcome, err = try
+            run_processing(cfg, l200, periods, steps, p_steps, run_status, partition_status;
+                processors = ctrl.processors, check_dependencies, reprocess, ctrl.stop)
+            :finished, nothing
+        catch e
+            ctrl.stop[] ? (:stopped, nothing) : (:failed, e)
+        end
+        isnothing(err) || @error "Processing failed" exception = err
+        @info "Processing $outcome"
+        @lock ctrl.lock begin
+            ctrl.state, ctrl.outcome, ctrl.finished = :ready, outcome, now(UTC)
+            ctrl.last_error = isnothing(err) ? nothing : truncate_error(err)
+        end
+    end
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::StopProcessing)
+    require_state(ctrl, cmd, :running, :stopping)
+    ctrl.stop[] = true
+    ctrl.state = :stopping
+    if cmd.force
+        @warn "Stopping all workers"
+        errormonitor(Threads.@spawn stopworkers())
+    end
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::WriteConfig)
+    require_state(ctrl, cmd, :ready, :running, :stopping)
+    props = readlprops(ctrl.args["config"])
+    for (step, overrides) in ctrl.kwarg_overrides
+        spec = processor_spec(ctrl.session.config, step)
+        entry = props[spec.level === :run ? :processors : :p_processors][step]
+        for (key, value) in overrides
+            # the config stores symbol lists as strings
+            entry.kwargs[key] = value isa AbstractVector{Symbol} ? string.(value) : value
+        end
+    end
+    writelprops(cmd.path, props)
+    @info "Wrote processing config to $(cmd.path)"
+    return nothing
+end
+
+function apply!(ctrl::DataflowController, cmd::SubmitWorkers)
+    require_state(ctrl, cmd, :ready, :running, :stopping)
+    errormonitor(Threads.@spawn runworkers(runprocs_mode(ctrl.session.config)))
+    @info "Submitted workers"
+    return nothing
+end
+
+"""
+    wait(ctrl::DataflowController)
+
+Block until the background task of the last loading or processing command has ended.
+"""
+function Base.wait(ctrl::DataflowController)
+    task = @lock ctrl.lock ctrl.task
+    isnothing(task) || wait(task)
+    return nothing
+end
+
+"""
+    snapshot(ctrl::DataflowController)
+
+Return a `NamedTuple` with a copy of the controller state:
+
+- `state`, `outcome` (`:finished`, `:failed`, `:stopped` or `nothing` of the last
+  processing run), `last_error` (message or `nothing`), `started`, `finished` (UTC
+  times of the last processing run or `nothing`);
+- `config_file`, `log_path`;
+- `available_periods`, `available_runs` (`Dict` period => runs on disk), `periods`,
+  `runs` (`nothing` for all runs), `run_steps`, `partition_steps` (selected steps in
+  processing order);
+- `processors`: one `NamedTuple` per configured processor, run level first and then by
+  rank, with `name`, `level`, `category`, `rank`, `enabled`, `selected`,
+  `dependencies`, `kwargs` (with the overrides applied) and `overridden` (names of the
+  overridden kwargs);
+- `reprocess`, `check_dependencies`, `nworkers` (workers in the pool).
+"""
+function snapshot(ctrl::DataflowController)
+    @lock ctrl.lock begin
+        session = ctrl.session
+        processors = if isnothing(session)
+            NamedTuple[]
+        else
+            cfg = effective_config(ctrl)
+            selected = union(session.run_steps, session.partition_steps)
+            [(; name, spec.level, spec.category, spec.rank, spec.enabled, selected = name in selected,
+                    dependencies = copy(spec.dependencies), kwargs = copy(spec.kwargs),
+                    overridden = sort!(collect(keys(get(ctrl.kwarg_overrides, name, Dict{Symbol,Any}())))))
+                for name in vcat(run_steps(cfg; enabled_only = false), partition_steps(cfg; enabled_only = false))
+                for spec in (processor_spec(cfg, name),)]
+        end
+        return (;
+            ctrl.state, ctrl.outcome, ctrl.last_error, ctrl.started, ctrl.finished,
+            config_file = get(ctrl.args, "config", nothing),
+            log_path = isnothing(session) ? nothing : session.config.log_path,
+            available_periods = copy(ctrl.available_periods),
+            available_runs = Dict(p => copy(r) for (p, r) in ctrl.available_runs),
+            periods = isnothing(session) ? DataPeriod[] : copy(session.periods),
+            runs = isnothing(session) || isnothing(session.runs) ? nothing : copy(session.runs),
+            run_steps = isnothing(session) ? Symbol[] : copy(session.run_steps),
+            partition_steps = isnothing(session) ? Symbol[] : copy(session.partition_steps),
+            processors, ctrl.reprocess, ctrl.check_dependencies,
+            nworkers = nprocs() > 1 ? nworkers() : 0,
+        )
+    end
+end

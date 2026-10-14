@@ -1,12 +1,14 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 """
-    wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, timeout::Real, poll::Real=10)
+    wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, timeout::Real, poll::Real=10,
+        stop::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false))
 
 Block until the zero-argument function `ready()` returns `true`, checking every `poll`
 seconds, and return `nothing`. When `ready()` is `false` on the first check, log a
-warning `"Waiting for \$what"`. Throw an `ErrorException` that names `what` as soon as
-`abort[]` is `true` or after `timeout` seconds.
+warning `"Waiting for \$what"`. Throw [`ProcessingStopped`](@ref) as soon as `stop[]` is
+`true`, and an `ErrorException` that names `what` as soon as `abort[]` is `true` or after
+`timeout` seconds.
 
 # Examples
 ```julia
@@ -16,11 +18,13 @@ Juleana.wait_for("energy calibration of p03"; abort, timeout = 3600) do
 end
 ```
 """
-function wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, timeout::Real, poll::Real = 10)
+function wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, timeout::Real, poll::Real = 10,
+        stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false))
     ready() && return nothing
     @warn "Waiting for $what"
     t_end = time() + timeout
     while !ready()
+        stop[] && throw(ProcessingStopped())
         abort[] && error("Stopped waiting for $what: another processing task failed")
         time() > t_end && error("Timed out after $timeout s waiting for $what")
         sleep(poll)
@@ -32,7 +36,7 @@ end
     run_processing(cfg::ProcessingConfig, l200, periods, run_steps, partition_steps,
         run_status, partition_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
-        dependency_timeout::Real=24*3600)
+        dependency_timeout::Real=24*3600, stop::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false))
 
 Run the partition-level steps `partition_steps` for every period in `periods` and the
 run-level steps `run_steps` for every period and every run listed in
@@ -59,7 +63,12 @@ With `check_dependencies`:
 
 A wait that exceeds `dependency_timeout` seconds throws. When any task throws, the other
 tasks stop at their next wait, and the exceptions are rethrown once all tasks have
-stopped. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
+stopped.
+
+Setting `stop[]` to `true` stops the run: no further step starts, waiting steps stop
+waiting, and [`parallel`](@ref) hands no further items to workers and throws
+[`ProcessingStopped`](@ref) once its running items have finished. The run then ends with
+the resulting exceptions as above. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
 processor. A step without an entry in `processors` throws an `ArgumentError` before any
 work starts. Return `nothing`.
 """
@@ -68,7 +77,7 @@ function run_processing(
         run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol},
         run_status::AbstractDict, partition_status::AbstractDict;
         processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
-        dependency_timeout::Real = 24 * 3600
+        dependency_timeout::Real = 24 * 3600, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false)
     )
     unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((run_steps, partition_steps))))
     isempty(unregistered) ||
@@ -84,11 +93,12 @@ function run_processing(
     function partition_chain(period)
         @info "Process partitions in $period"
         for process in partition_steps
+            stop[] && throw(ProcessingStopped())
             @info "$process"
             spec = cfg.p_processors[process]
             if check_dependencies
                 deps = ranked_upto(possible_steps, spec.dependencies)
-                wait_for("run steps $(join(deps, ", ")) of $period before $process"; abort, timeout = dependency_timeout) do
+                wait_for("run steps $(join(deps, ", ")) of $period before $process"; abort, stop, timeout = dependency_timeout) do
                     all(dep -> all(values(run_status[period][dep])), deps)
                 end
             end
@@ -97,7 +107,7 @@ function run_processing(
             has_lower_period_dependency = processors[process](cfg, l200, period; kwargs...)
             if has_lower_period_dependency && check_dependencies
                 previous = DataPeriod(period.no - 1)
-                wait_for("$process of $previous before finishing $period"; abort, timeout = dependency_timeout) do
+                wait_for("$process of $previous before finishing $period"; abort, stop, timeout = dependency_timeout) do
                     partition_status[previous][process]
                 end
             end
@@ -109,6 +119,7 @@ function run_processing(
     function run_chain(period, run)
         @info "Process run $period-$run"
         for process in run_steps
+            stop[] && throw(ProcessingStopped())
             @info "$process"
             flush(stdout)
             spec = cfg.processors[process]
@@ -120,7 +131,7 @@ function run_processing(
             else
                 if check_dependencies
                     deps = ranked_upto(possible_p_steps, spec.dependencies)
-                    wait_for("partition steps $(join(deps, ", ")) of $period before $process"; abort, timeout = dependency_timeout) do
+                    wait_for("partition steps $(join(deps, ", ")) of $period before $process"; abort, stop, timeout = dependency_timeout) do
                         all(dep -> partition_status[period][dep], deps)
                     end
                 end
@@ -140,17 +151,20 @@ function run_processing(
         rethrow()
     end
 
-    @sync begin
-        if !isempty(partition_steps)
-            for period in periods
-                Threads.@spawn guarded(partition_chain, period)
+    # `parallel` reads the stop flag from the scope; spawned tasks inherit it.
+    with(PROCESSING_STOP => stop) do
+        @sync begin
+            if !isempty(partition_steps)
+                for period in periods
+                    Threads.@spawn guarded(partition_chain, period)
+                end
             end
-        end
-        if !isempty(run_steps)
-            for period in periods
-                # every step lists the same runs of the period
-                for run in sort!(collect(keys(last(first(run_status[period])))))
-                    Threads.@spawn guarded(run_chain, period, run)
+            if !isempty(run_steps)
+                for period in periods
+                    # every step lists the same runs of the period
+                    for run in sort!(collect(keys(last(first(run_status[period])))))
+                        Threads.@spawn guarded(run_chain, period, run)
+                    end
                 end
             end
         end

@@ -16,7 +16,33 @@ DataflowSession
 menu
 Juleana.check_reports
 run_processing
+ProcessingStopped
 Juleana.wait_for
+```
+
+## Controller
+
+```@docs
+DataflowController
+dispatch!
+snapshot
+wait(::DataflowController)
+Juleana.effective_config
+ControllerCommand
+LoadSession
+ReloadConfig
+SelectPeriods
+SelectRuns
+SelectSteps
+SetReprocess
+SetCheckDependencies
+SetKwarg
+ResetKwargs
+ResetDependencyGraph
+StartProcessing
+StopProcessing
+WriteConfig
+SubmitWorkers
 ```
 
 ## Processing config
