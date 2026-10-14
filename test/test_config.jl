@@ -3,6 +3,9 @@
 using Juleana
 using Test
 using LegendTestData: legend_test_data_path
+using Distributed: nprocs
+using Logging: global_logger
+using ParallelProcessingTools: ppt_worker_pool, ppt_worker_pool!
 using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, LegendData, readlprops,
     start_filekey, writelprops
 using LegendDataManagement.LDMUtils: get_preportfilename, get_rreportfilename
@@ -184,5 +187,26 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test config.log_path == log_path
         @test isdir(log_path)
         @test config.env_variables == Dict("LEGEND_DATA_CONFIG" => data_config)
+
+        # the session of the terminal interface: no terminal output and no workers
+        n, logger, pool = nprocs(), global_logger(), ppt_worker_pool()
+        workdir = mktempdir()
+        session = try
+            cd(workdir) do
+                withenv("LEGEND_DATA_CONFIG" => nothing) do
+                    Juleana.setup_session(args; console = false, start_workers = false)
+                end
+            end
+        finally
+            global_logger(logger)
+            ppt_worker_pool!(pool)
+        end
+        @test session isa DataflowSession
+        # only p02 has run r006 to process; `--or` schedules no partition steps
+        @test session.periods == [p2]
+        @test session.run_steps == run_steps(session.config) && isempty(session.partition_steps)
+        @test nprocs() == n
+        @test isempty(readdir(workdir))
+        @test isfile(joinpath(log_path, "head.log"))
     end
 end

@@ -114,7 +114,7 @@ end
 
 """
     setup_session(args::AbstractVector{<:AbstractString})
-    setup_session(parsed_args::AbstractDict; console::Bool = true)
+    setup_session(parsed_args::AbstractDict; console::Bool = true, start_workers::Bool = true)
 
 Set up a dataflow session from the command line options `args` (see `juleana --help`)
 or from their parsed form, as returned by [`parse_commandline`](@ref).
@@ -122,10 +122,10 @@ or from their parsed form, as returned by [`parse_commandline`](@ref).
 Build the processing config and `LegendData(:l200)`, run [`init_process`](@ref) on
 this process and register it for every worker, so that every process logs to its file in
 the config's log directory at the config's `log_level` (`console = false` turns off the
-terminal output of this process), and start the workers of the configured
-run mode: `local` workers are always started; `slurm` workers only with
+terminal output of this process), and with `start_workers` start the workers of the
+configured run mode: `local` workers are always started; `slurm` workers only with
 `submit_jobs`, otherwise `startjlworkers.sh` is written to the current directory for
-manual submission. Then check the processor keyword arguments with
+manual submission. Without `start_workers` the worker pool starts empty. Then check the processor keyword arguments with
 [`check_processor_kwargs`](@ref) and build the dependency graph for the enabled steps.
 
 Return the [`DataflowSession`](@ref), ready for [`run_processing`](@ref) or
@@ -145,7 +145,7 @@ function setup_session(args::AbstractVector{<:AbstractString})
     return setup_session(parsed_args)
 end
 
-function setup_session(parsed_args::AbstractDict; console::Bool = true)
+function setup_session(parsed_args::AbstractDict; console::Bool = true, start_workers::Bool = true)
     l200, config, periods = setup_processing(parsed_args)
     # a config reload from the menu writes to the same log directory
     parsed_args["log_path"] = config.log_path
@@ -159,14 +159,16 @@ function setup_session(parsed_args::AbstractDict; console::Bool = true)
     end
     @info "Start Data processing with config $(parsed_args["config"]), logging to $log_path"
 
-    mode = runprocs_mode(config)
-    if config.runmode == :local
-        errormonitor(@async runworkers(mode))
-    else
-        script = joinpath(pwd(), "startjlworkers.sh")
-        @info "Write worker start script to $script"
-        write_worker_start_script(script, mode)
-        config.submit_jobs && errormonitor(@async runworkers(mode))
+    if start_workers
+        mode = runprocs_mode(config)
+        if config.runmode == :local
+            errormonitor(@async runworkers(mode))
+        else
+            script = joinpath(pwd(), "startjlworkers.sh")
+            @info "Write worker start script to $script"
+            write_worker_start_script(script, mode)
+            config.submit_jobs && errormonitor(@async runworkers(mode))
+        end
     end
     ppt_worker_pool!(FlexWorkerPool(withmyid = false, label = "juleana"; maxoccupancy = 1))
 

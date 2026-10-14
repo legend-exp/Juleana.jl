@@ -15,7 +15,7 @@ Test.@testset "ExplicitImports" begin
             # Evaluated in `Main` on every process by `@always_everywhere` in `main`.
             :init_process,
             # Tachikoma's model interface: documented extension points, not marked public.
-            :should_quit, :update!, :view,
+            :should_quit, :update!, :view, :init!, :cleanup!, :task_queue,
             # ProgressLogging's progress record, documented for logging bars but not marked public.
             :Progress,
             # Non-public names of the LEGEND and utility packages used by the processors.

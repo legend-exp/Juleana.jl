@@ -11,6 +11,11 @@ Juleana.main
 Juleana.setup_session
 Juleana.run_no_tui
 Juleana.run_tui
+Juleana.JuleanaTUI
+Juleana.send_command!
+Juleana.MessageBuffer
+Juleana.append_output!
+Juleana.message_lines
 Juleana.parse_commandline
 Juleana.init_process
 DataflowSession
