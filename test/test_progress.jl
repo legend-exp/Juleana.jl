@@ -41,7 +41,7 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         Juleana.reset_progress!(store, [a, b])
         p = progress(store)
         @test [(e.period, e.run, e.step) for e in p.steps] == [a, b]
-        @test all(e -> e.state === :waiting && e.fraction == 0, p.steps)
+        @test all(e -> e.state === :waiting && e.fraction == 0 && isnothing(e.rate), p.steps)
         @test p.counts.waiting == 2 && p.counts.running == 0
         @test !isnothing(p.started) && isnothing(p.finished)
 
@@ -59,7 +59,7 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test (e.state, e.total, e.done, e.failed, e.notrun, e.workers) == (:running, 3, 1, 1, 0, [5])
         @test e.fraction ≈ 2 / 4
         @test [(b.worker, b.item) for b in busy_workers(store)] == [(5, "fk3")]
-        @test !isnothing(e.started) && !isnothing(e.eta)
+        @test !isnothing(e.started) && !isnothing(e.eta) && e.rate > 0
         Juleana.item_finished!(store, a, first_id + 2, :notrun)
         p = progress(store)
         # all items finished, but the step still runs: neither the step nor the run is complete
@@ -81,6 +81,10 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         p = progress(store)
         @test [e.state for e in p.steps] == [:done, :cancelled]
         @test p.fraction == 1 && isnothing(p.eta) && !isnothing(p.finished)
+        # a finished step keeps its rate up to its end and has no eta
+        @test first(p.steps).rate > 0 && isnothing(first(p.steps).eta)
+        @test first(p.steps).rate == first(progress(store).steps).rate
+        @test isnothing(last(p.steps).rate)
         @test p.counts.done == 1 && p.counts.cancelled == 1
         @test [(g.period, g.run, g.nsteps) for g in p.groups] == [(p3, r1, 1), (p3, nothing, 1)]
     end

@@ -30,6 +30,11 @@ Juleana.sync_setup!
 Juleana.setup_key!
 Juleana.setup_mouse!
 Juleana.render_setup
+Juleana.ProgressPage
+Juleana.progress_key!
+Juleana.progress_mouse!
+Juleana.render_progress
+Juleana.bar_segments
 Juleana.KwargsEditor
 Juleana.kwargs_key!
 Juleana.render_kwargs

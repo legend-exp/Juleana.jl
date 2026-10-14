@@ -198,8 +198,10 @@ Return a copy of the progress of the current or last processing run as a `NamedT
   (`waiting`, `running`, `done`, `failed`, `skipped`, `stopped`, `cancelled`).
 - `steps`: one `NamedTuple` per step in schedule order with `period`, `run` (`nothing`
   for partition-level steps), `step`, `state`, `total`, `done`, `failed`, `notrun`,
-  `workers` (sorted workers of the running items), `started`, `finished`, `fraction`
-  and `eta` (seconds for the remaining items at the step's item rate, or `nothing`).
+  `workers` (sorted workers of the running items), `started`, `finished`, `fraction`,
+  `rate` (items done or failed per second since the step queued its first item, up to
+  the step's end; `nothing` before the first item ended) and `eta` (seconds for the
+  remaining items of a running step at that rate, or `nothing`).
 - `groups`: one `NamedTuple` per period (partition level) and per run, in schedule
   order, with `period`, `run`, `nsteps`, `counts` and `fraction` over its steps.
 """
@@ -209,15 +211,15 @@ function progress(store::ProgressStore)
         steps = map(store.keys) do key
             s = store.steps[key]
             finished_items = s.done + s.failed + s.notrun
-            eta = if s.state === :running && !isnothing(s.items_started) && s.done + s.failed > 0
-                rate = (s.done + s.failed) / max(seconds_between(s.items_started, t), 1e-3)
-                (s.total - finished_items) / rate
+            rate = if !isnothing(s.items_started) && s.done + s.failed > 0
+                (s.done + s.failed) / max(seconds_between(s.items_started, something(s.finished, t)), 1e-3)
             else
                 nothing
             end
+            eta = s.state === :running && !isnothing(rate) ? (s.total - finished_items) / rate : nothing
             (; period = key[1], run = key[2], step = key[3], s.state, s.total, s.done, s.failed, s.notrun,
                 workers = sort!(collect(values(s.running))), s.started, s.finished,
-                fraction = step_fraction(s), eta)
+                fraction = step_fraction(s), rate, eta)
         end
         count_states(entries) = NamedTuple{STEP_STATES}(map(st -> count(e -> e.state === st, entries), STEP_STATES))
         fraction = isempty(steps) ? 0.0 : sum(e -> e.fraction, steps) / length(steps)

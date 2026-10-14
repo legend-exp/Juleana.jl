@@ -94,6 +94,7 @@ include("no_tui.jl")
 include("tui_checklist.jl")
 include("tui_kwargs.jl")
 include("tui_setup.jl")
+include("tui_progress.jl")
 include("tui.jl")
 
 include("processors/p_process_aoe_calibration_cut.jl")

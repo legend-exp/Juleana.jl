@@ -97,8 +97,8 @@ in the order they were sent, and state reads run in background tasks of the inte
 state read from it is kept in the fields `snap`, `progress` and `busy`.
 
 Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
-Setup page); otherwise `1` to `4` switch pages and `q` or Ctrl-C quits. While processing
-runs, quitting asks first: `s` stops processing after the running items and quits when the
+Setup page and [`Juleana.progress_key!`](@ref) for the Progress page); otherwise `1` to
+`4` switch pages and `q` or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after the running items and quits when the
 run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
 """
@@ -108,6 +108,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const queue::Tachikoma.TaskQueue
     const commands::Channel{ControllerCommand}
     const setup::SetupPage
+    const progress_page::ProgressPage
     # commands sent and not yet answered, and commands answered so far
     pending::Int
     answered::Int
@@ -125,7 +126,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
 end
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), 0, 0,
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(), 0, 0,
         1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing)
     errormonitor(Threads.@spawn run_commands(m))
     return m
@@ -222,6 +223,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     end
     n = length(TUI_PAGES)
     m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
+    m.page == 4 && !ctrl_c && progress_key!(m.progress_page, evt, m.progress) && return nothing
     if ctrl_c || (evt.key == :char && evt.char == 'q')
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
     elseif evt.key == :char && '1' <= evt.char <= '0' + n
@@ -231,7 +233,10 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
 end
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
-    isnothing(m.dialog) && m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
+    if isnothing(m.dialog)
+        m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
+        m.page == 4 && progress_mouse!(m.progress_page, evt, m.progress)
+    end
     return nothing
 end
 
@@ -282,6 +287,8 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     Tachikoma.render(tabs, tab_area, f.buffer)
     if m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
+    elseif m.page == 4
+        render_progress(m.progress_page, m.progress, m.busy, body_area, f.buffer)
     else
         body = Tachikoma.Paragraph(
             "This page is not available yet.";
@@ -295,7 +302,8 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     end
     Tachikoma.set_string!(
         f.buffer, help_area.x, help_area.y,
-        "1-4: switch page   q: quit", Tachikoma.tstyle(:text_dim),
+        m.page == 4 ? "↑↓ PgUp PgDn: move   Enter ←→: fold   f: follow   1-4: switch page   q: quit" :
+            "1-4: switch page   q: quit", Tachikoma.tstyle(:text_dim),
     )
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
