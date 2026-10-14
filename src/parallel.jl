@@ -12,6 +12,12 @@ Base.showerror(io::IO, ::ProcessingStopped) = print(io, "ProcessingStopped: proc
 # Stop flag of the current processing run, set by `run_processing`; `nothing` outside of it.
 const PROCESSING_STOP = ScopedValue{Union{Nothing,Threads.Atomic{Bool}}}(nothing)
 
+# Progress entry of the current processing step, set by `run_processing`; `nothing` outside of it.
+const PROGRESS_STEP = ScopedValue{Union{Nothing,Tuple{ProgressStore,ProgressKey}}}(nothing)
+
+# Called by `StoppablePool` with each worker it hands out to the current item of `parallel`.
+const ITEM_STARTED = ScopedValue{Any}(nothing)
+
 # Worker pool that hands out no worker once `stop` is set: `take!` throws
 # `ProcessingStopped` instead, also while it waits for a free worker. That keeps a stop
 # from hanging when no worker will become free, e.g. after all workers were stopped.
@@ -36,6 +42,8 @@ function Base.take!(p::StoppablePool)
         put!(p.pool, worker)
         throw(ProcessingStopped())
     end
+    started = ITEM_STARTED[]
+    isnothing(started) || started(worker)
     return worker
 end
 
@@ -91,8 +99,10 @@ end
 
 Apply `f` to every element of `iterator` on the ParallelProcessingTools worker pool and
 return an array of `itr => f(itr)` pairs with the same shape and axes as `iterator`.
-The function comes first, as in `map`, so a `do`-block can supply it. A progress bar
-labeled `process_name` shows the finished items.
+The function comes first, as in `map`, so a `do`-block can supply it. Inside
+[`run_processing`](@ref) with a [`ProgressStore`](@ref), each item's start, worker and
+outcome are recorded for the current step; otherwise a progress bar labeled
+`process_name` shows the finished items.
 
 `log_nt` is the `NamedTuple` type of the processor's report rows. On success `f` returns a
 `NamedTuple` with at least the fields `processed::Bool` and `log`, a row of type `log_nt`
@@ -130,34 +140,45 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     end
     stop = PROCESSING_STOP[]
     pool = isnothing(stop) ? ppt_worker_pool() : StoppablePool(ppt_worker_pool(), stop)
+    step = PROGRESS_STEP[]
+    first_id = isnothing(step) ? 0 : items_queued!(step..., length(iterator))
     flush(stdout)
     # assign tasks to workers
     # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
     failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_string(string(e))))
-    tasks = broadcast(iterator) do itr
-        Threads.@spawn try
-            # Past `maxtime`, onworker terminates the worker (never the main process) and
-            # counts the timeout as a failed try; the last failure lands in the catch below.
-            onworker(; pool, tries=retry ? 3 : 1, label="$itr", maxtime=timeout) do
-                try
-                    return itr => f(itr)
-                catch e
-                    # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
-                    @debug "Write Error log for $(itr): $e"
-                    return failure_row(itr, e)
+    # one progress id per item, with the axes of `iterator`
+    ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
+    tasks = broadcast(iterator, ids) do itr, id
+        Threads.@spawn begin
+            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker)
+            result, outcome = try
+                # Past `maxtime`, onworker terminates the worker (never the main process) and
+                # counts the timeout as a failed try; the last failure lands in the catch below.
+                with(ITEM_STARTED => started) do
+                    onworker(; pool, tries=retry ? 3 : 1, label="$itr", maxtime=timeout) do
+                        try
+                            return itr => f(itr), :done
+                        catch e
+                            # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
+                            @debug "Write Error log for $(itr): $e"
+                            return failure_row(itr, e), :failed
+                        end
+                    end
                 end
+            catch e
+                e isa TaskFailedException && (e = e.task.exception)
+                @debug "Worker call failed for $(itr): $e"
+                failure_row(itr, e), e isa ProcessingStopped ? :notrun : :failed
             end
-        catch e
-            e isa TaskFailedException && (e = e.task.exception)
-            @debug "Worker call failed for $(itr): $e"
-            failure_row(itr, e)
+            isnothing(step) || item_finished!(step..., id, outcome)
+            result
         end
     end
-    # set up Porgressbar
-    p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
-    update!(p)
-
-    errormonitor(Threads.@spawn watch_tasks(() -> next!(p), tasks))
+    if isnothing(step)
+        p = Progress(length(iterator); desc=process_name, showspeed=true, dt=0.5)
+        update!(p)
+        errormonitor(Threads.@spawn watch_tasks(() -> next!(p), tasks))
+    end
     # fetch results
     result = fetch.(tasks)
 

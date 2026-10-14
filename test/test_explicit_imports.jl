@@ -16,6 +16,8 @@ Test.@testset "ExplicitImports" begin
             :init_process,
             # Tachikoma's model interface: documented extension points, not marked public.
             :should_quit, :update!, :view,
+            # ProgressLogging's progress record, documented for logging bars but not marked public.
+            :Progress,
             # Non-public names of the LEGEND and utility packages used by the processors.
             :fast_flatten, :set_timelimit, :_fix_vov, :AchatBlue, :BEGeOrange, :CoaxGreen,
             :add_watermarks!, :parameterplot!, :tottime, :totallocated, :format_bytes,

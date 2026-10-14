@@ -10,6 +10,7 @@ Test.@testset "Package Juleana" begin
     include("test_dataflow.jl")
     include("test_config.jl")
     include("test_controller.jl")
+    include("test_progress.jl")
     include("test_generic_axes.jl")
     include("test_docs.jl")
     include("test_tui.jl")

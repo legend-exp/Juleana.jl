@@ -21,7 +21,7 @@ module Juleana
 using ArgParse: @add_arg_table!, ArgParseSettings, parse_args
 import CairoMakie
 using ConcurrentCollections: ConcurrentDict
-using Dates: Dates, DateTime, UTC, canonicalize, now, @dateformat_str
+using Dates: Dates, DateTime, Millisecond, UTC, canonicalize, now, @dateformat_str
 using Format: format
 using HDF5: h5open
 using IntervalSets: (..), leftendpoint, rightendpoint
@@ -62,6 +62,7 @@ using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
     onlyfirst_exception, onworker, original_exception, pinthreads_auto,
     ppt_worker_pool!, ppt_worker_pool, runworkers, stopworkers, write_files, write_worker_start_script
+using ProgressLogging: ProgressLogging
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
 using PropertyFunctions: PropertyFunctions, @pf, filterby
@@ -74,10 +75,12 @@ using TimerOutputs: TimerOutputs, @timeit, TimerOutput
 using TypedTables: Table, columnnames, columns
 using Unitful: Unitful, @u_str, uconvert, unit, ustrip
 import UnitfulAtomic
+using UUIDs: UUID, uuid4
 
 include("markdown_logging.jl")
 include("file_logging.jl")
 include("log_texts.jl")
+include("progress.jl")
 include("parallel.jl")
 include("qc.jl")
 include("processing_config.jl")
@@ -125,7 +128,7 @@ export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
-export run_processing, ProcessingStopped
+export run_processing, ProcessingStopped, ProgressStore, progress, show_progress
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetCheckDependencies, SetKwarg,

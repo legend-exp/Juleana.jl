@@ -27,6 +27,9 @@ DataflowController
 dispatch!
 snapshot
 wait(::DataflowController)
+progress
+ProgressStore
+show_progress
 Juleana.effective_config
 ControllerCommand
 LoadSession

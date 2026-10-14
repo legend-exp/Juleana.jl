@@ -118,7 +118,7 @@ struct ResetDependencyGraph <: ControllerCommand end
 Run the selected steps over the selected periods and runs in the background with
 [`run_processing`](@ref), using the config with the session's kwarg overrides. The
 controller is `:running` until the run ends; the outcome is `:finished`, `:failed` or
-`:stopped`. Throws an `ArgumentError` when no step is selected or a selected processor
+`:stopped`. [`progress`](@ref) shows the progress of the run. Throws an `ArgumentError` when no step is selected or a selected processor
 does not accept its keyword arguments.
 """
 struct StartProcessing <: ControllerCommand end
@@ -159,7 +159,8 @@ struct SubmitWorkers <: ControllerCommand end
 
 Headless state of an interactive dataflow session. All changes go through
 [`dispatch!`](@ref) with a [`ControllerCommand`](@ref); [`snapshot`](@ref) returns a
-read-only view of the state. Commands may be sent from any task; long-running ones
+read-only view of the state and [`progress`](@ref) the progress of the current or last
+processing run. Commands may be sent from any task; long-running ones
 (loading the session, reloading the config, processing) run in the background.
 
 The controller is in one of the states
@@ -184,6 +185,7 @@ mutable struct DataflowController
     const loader::Any
     const lock::ReentrantLock
     const stop::Threads.Atomic{Bool}
+    const progress::ProgressStore
     state::Symbol
     session::Union{Nothing,DataflowSession}
     available_periods::Vector{DataPeriod}
@@ -201,7 +203,7 @@ end
 function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console))
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
-        Threads.Atomic{Bool}(false), :idle, nothing, DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(),
+        Threads.Atomic{Bool}(false), ProgressStore(), :idle, nothing, DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(),
         nothing, true, Dict{Symbol,Dict{Symbol,Any}}(), nothing, nothing, nothing, nothing, nothing)
 end
 
@@ -399,6 +401,8 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
             session.l200, cfg, session.periods, session.runs, steps, p_steps)
     end
     ctrl.stop[] = false
+    # no progress of the last run is shown until `run_processing` registers the new steps
+    reset_progress!(ctrl.progress, ProgressKey[])
     ctrl.state, ctrl.outcome, ctrl.last_error = :running, nothing, nothing
     ctrl.started, ctrl.finished = now(UTC), nothing
     (; l200, periods, run_status, partition_status) = session
@@ -406,7 +410,7 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     ctrl.task = Threads.@spawn begin
         outcome, err = try
             run_processing(cfg, l200, periods, steps, p_steps, run_status, partition_status;
-                processors = ctrl.processors, check_dependencies, reprocess, ctrl.stop)
+                processors = ctrl.processors, check_dependencies, reprocess, ctrl.stop, progress_store = ctrl.progress)
             :finished, nothing
         catch e
             ctrl.stop[] ? (:stopped, nothing) : (:failed, e)
@@ -513,3 +517,5 @@ function snapshot(ctrl::DataflowController)
         )
     end
 end
+
+progress(ctrl::DataflowController) = progress(ctrl.progress)

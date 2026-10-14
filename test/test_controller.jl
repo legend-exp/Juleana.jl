@@ -163,12 +163,19 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # without workers the items run one at a time on the main process
         @test started[] < length(filekeys)
         @test finished_batches[] == 0
+        step = only(progress(ctrl).steps)
+        @test step.state === :stopped && step.total == length(filekeys)
+        @test step.notrun > 0 && step.done + step.notrun == length(filekeys)
 
         # the next run starts with the stop flag cleared
         dispatch!(ctrl, StartProcessing())
+        # the progress of the last run is gone as soon as the next one starts
+        @test progress(ctrl).fraction < 1
         wait(ctrl)
         @test snapshot(ctrl).outcome === :finished
         @test finished_batches[] == 1
+        @test only(progress(ctrl).steps).state === :done
+        @test progress(ctrl).fraction == 1
     end
 
     @testset "force stop" begin

@@ -45,7 +45,8 @@ end
 Build the logger that [`init_process`](@ref) installs.
 
 - With `log_file`, records are appended to that file, one timestamped entry per record,
-  and the file is flushed after every record. `log_level = Logging.Debug` writes the
+  and the file is flushed after every record. Progress bar records of ProgressLogging
+  (see [`show_progress`](@ref)) are not written. `log_level = Logging.Debug` writes the
   records of level `Info` and above plus the debug records of the modules listed in the
   `JULIA_DEBUG` environment variable; any other level writes only the records at or above
   it.
@@ -70,7 +71,9 @@ function processing_logger(; log_file::Union{Nothing,AbstractString} = nothing,
     end
     if !isnothing(log_file)
         file = MinLevelLogger(FormatLogger(format_log_record, log_file; append = true), Logging.Info)
-        push!(sinks, at_least(log_level, file))
+        # progress bars are for the terminal only
+        no_bars = ActiveFilteredLogger(log -> !(log.message isa ProgressLogging.Progress), file)
+        push!(sinks, at_least(log_level, no_bars))
     end
     return length(sinks) == 1 ? only(sinks) : TeeLogger(sinks...)
 end

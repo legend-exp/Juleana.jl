@@ -67,6 +67,15 @@ end
         @test !any(contains("info record"), logged_lines(log_all; log_level = Logging.Warn, debug_modules = "LogTestModule"))
     end
 
+    @testset "progress records" begin
+        lines = logged_lines(; log_level = Logging.Debug) do
+            id = Juleana.uuid4()
+            @info Juleana.ProgressLogging.Progress(id, 0.5; name = "bar")
+            @info "after the bar"
+        end
+        @test length(lines) == 1 && occursin("after the bar", only(lines))
+    end
+
     @testset "sinks" begin
         @test_throws "no log file and no console output" Juleana.processing_logger(; console_level = nothing)
         @test Juleana.process_log_file("logs") == joinpath("logs", "head.log")
