@@ -12,4 +12,5 @@ Test.@testset "Package Juleana" begin
     include("test_generic_axes.jl")
     include("test_docs.jl")
     include("test_tui.jl")
+    include("test_logging.jl")
 end # testset

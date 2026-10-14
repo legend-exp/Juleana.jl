@@ -28,6 +28,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test json.local_julia_settings == String[]
         @test "--nodes=4" in json.slurm_flags
         @test json.env_variables["JULIA_WORKER_TIMEOUT"] == "240"
+        @test json.log_level == yaml.log_level == Juleana.parse_log_level("info")
         @test json.periods == DataPeriod.([3, 4, 6, 7, 8, 9])
         @test isnothing(json.runs)
         @test json.analysis_runs_only && !json.only_partitions && !json.only_runs
@@ -94,6 +95,8 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
 
         @test_throws "missing key `processors.process_dsp_cal.rank`" ProcessingConfig(edited(d -> delete!(d["processors"]["process_dsp_cal"], "rank")))
         @test_throws "missing key `config.runmode_settings.local.n`" ProcessingConfig(edited(d -> delete!(d["config"]["runmode_settings"]["local"], "n")))
+        @test_throws "missing key `config.log_level`" ProcessingConfig(edited(d -> delete!(d["config"], "log_level")))
+        @test_throws "`config.log_level` must be one of" ProcessingConfig(edited(d -> d["config"]["log_level"] = "verbose"))
         @test_throws "missing key `processing.only_runs`" ProcessingConfig(edited(d -> delete!(d["processing"], "only_runs")))
         @test_throws "unknown key `processors.process_dsp_cal.n_workers`" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["n_workers"] = "all"))
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))

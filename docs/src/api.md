@@ -46,6 +46,9 @@ load_qc_evaluator
 ## Logging
 
 ```@docs
+Juleana.processing_logger
+Juleana.process_log_file
+Juleana.parse_log_level
 UnderscoreSafeLogger
 Juleana.escape_log_underscores
 ```

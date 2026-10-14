@@ -12,7 +12,7 @@ with an error that names the key.
 
 ## `config`
 
-The run mode, the worker settings and environment variables:
+The run mode, the worker settings, environment variables and logging:
 
 1. **`runmode`**: `"local"` or `"slurm"`.
 2. **`submit_jobs`**: start the workers of the selected run mode automatically.
@@ -28,6 +28,10 @@ The run mode, the worker settings and environment variables:
    for example to select a data set. Set `JULIA_WORKER_TIMEOUT` for a stable connection
    of the ParallelProcessingTools workers; `JULIA_DEBUG` enables debug messages of the
    listed packages.
+5. **`log_level`**: `"debug"`, `"info"`, `"warn"` or `"error"`, the level of the records
+   that every process writes to its log file in the log directory (`head.log` for the
+   main process, `worker-<id>-<host>.log` for each worker). `"debug"` adds the debug
+   records of the packages listed in `JULIA_DEBUG`.
 
 ## `processing`
 

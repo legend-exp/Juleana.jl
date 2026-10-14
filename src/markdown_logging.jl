@@ -1,4 +1,4 @@
-import Logging: AbstractLogger, min_enabled_level, shouldlog, catch_exceptions, handle_message
+import Logging: min_enabled_level, shouldlog, catch_exceptions, handle_message
 
 """
     escape_log_underscores(message::AbstractString)

@@ -92,29 +92,37 @@ function runprocs_mode(cfg::ProcessingConfig)
 end
 
 """
-    init_process()
+    init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
 
 Prepare the current process for processing: set the `LegendSpecFits` fit time limit to
-180 s, pin threads, and install an [`UnderscoreSafeLogger`](@ref) around a
-`TerminalLogger` as the global logger. [`setup_session`](@ref) runs it on the head and on
-every worker.
+180 s, pin threads, and install the global logger built by [`processing_logger`](@ref).
+
+With a non-empty `log_path`, the process appends its records of level `log_level` to its
+file in that directory (see [`process_log_file`](@ref)). The main process shows records
+of level `Info` and above on the terminal unless `console = false`; a worker shows only
+warnings and errors there. [`setup_session`](@ref) runs it on the head and on every
+worker.
 """
-function init_process()
+function init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
     set_timelimit(180.0)
     pinthreads_auto()
-    global_logger(UnderscoreSafeLogger(TerminalLogger()))
+    log_file = isempty(log_path) ? nothing : process_log_file(log_path)
+    console_level = myid() == 1 ? (console ? Logging.Info : nothing) : Logging.Warn
+    global_logger(processing_logger(; log_file, log_level, console_level))
     return nothing
 end
 
 """
     setup_session(args::AbstractVector{<:AbstractString})
-    setup_session(parsed_args::AbstractDict)
+    setup_session(parsed_args::AbstractDict; console::Bool = true)
 
 Set up a dataflow session from the command line options `args` (see `juleana --help`)
 or from their parsed form, as returned by [`parse_commandline`](@ref).
 
 Build the processing config and `LegendData(:l200)`, run [`init_process`](@ref) on
-this process and register it for every worker, and start the workers of the configured
+this process and register it for every worker, so that every process logs to its file in
+the config's log directory at the config's `log_level` (`console = false` turns off the
+terminal output of this process), and start the workers of the configured
 run mode: `local` workers are always started; `slurm` workers only with
 `submit_jobs`, otherwise `startjlworkers.sh` is written to the current directory for
 manual submission. Then check the processor keyword arguments with
@@ -137,18 +145,19 @@ function setup_session(args::AbstractVector{<:AbstractString})
     return setup_session(parsed_args)
 end
 
-function setup_session(parsed_args::AbstractDict)
+function setup_session(parsed_args::AbstractDict; console::Bool = true)
     l200, config, periods = setup_processing(parsed_args)
     # a config reload from the menu writes to the same log directory
     parsed_args["log_path"] = config.log_path
     check_processor_kwargs(config)
-    @info "Start Data processing"
 
     # runs `init_process` on this process now and on every worker when it starts
+    log_path, log_level = config.log_path, config.log_level
     @always_everywhere begin
         using Juleana: Juleana
-        Juleana.init_process()
+        Juleana.init_process($log_path, $log_level; console = $console)
     end
+    @info "Start Data processing with config $(parsed_args["config"]), logging to $log_path"
 
     mode = runprocs_mode(config)
     if config.runmode == :local

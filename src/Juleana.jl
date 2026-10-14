@@ -52,7 +52,9 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
     get_continuum_survival_fraction, get_low_aoe_cut, get_peak_survival_fraction,
     get_peaks_survival_fractions, lq_ctc_correction, lq_norm, peakhists_gamma,
     set_timelimit, simple_calibration, sipm_simple_calibration
-using Logging: global_logger
+using Distributed: myid
+using Logging: Logging, AbstractLogger, LogLevel, global_logger
+using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
 import Makie
 using Measurements: value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
@@ -73,6 +75,7 @@ using Unitful: Unitful, @u_str, uconvert, unit, ustrip
 import UnitfulAtomic
 
 include("markdown_logging.jl")
+include("file_logging.jl")
 include("log_texts.jl")
 include("parallel.jl")
 include("qc.jl")
@@ -123,7 +126,7 @@ export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_proces
 export run_processing
 export DataflowSession, menu
 
-public escape_log_underscores, wait_for, PROCESSORS, register_processor!, init_process,
+public escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, init_process,
     main, setup_session, run_tui, parse_commandline, check_reports
 
 end # module

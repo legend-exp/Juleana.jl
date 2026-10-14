@@ -67,6 +67,7 @@ Fields:
 - `only_partitions::Bool`: process only partition-level processors.
 - `only_runs::Bool`: process only run-level processors.
 - `log_path::String`: directory for log files; `""` when not resolved.
+- `log_level::LogLevel`: level of the records written to the log files.
 - `processors::Dict{Symbol,ProcessorSpec}`: run-level processors.
 - `p_processors::Dict{Symbol,ProcessorSpec}`: partition-level processors.
 
@@ -74,7 +75,8 @@ Besides the positional constructor and the config-file constructors documented b
 `ProcessingConfig(; processors, p_processors, runmode=:local, ...)` builds a config from
 keywords named like the fields. Every field except the two processor tables has a
 default: empty flag and settings lists, no environment variables, `periods` and `runs`
-of `nothing`, all `Bool` fields `false`, `local_n = 1` and `log_path = ""`. Every
+of `nothing`, all `Bool` fields `false`, `local_n = 1`, `log_path = ""` and
+`log_level = Logging.Info`. Every
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
 `local_n < 1`, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
@@ -96,15 +98,16 @@ struct ProcessingConfig
     only_partitions::Bool
     only_runs::Bool
     log_path::String
+    log_level::LogLevel
     processors::Dict{Symbol,ProcessorSpec}
     p_processors::Dict{Symbol,ProcessorSpec}
 
     function ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, log_path, processors, p_processors)
+            only_partitions, only_runs, log_path, log_level, processors, p_processors)
         cfg = new(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, log_path, processors, p_processors)
+            only_partitions, only_runs, log_path, log_level, processors, p_processors)
         cfg.runmode in (:local, :slurm) ||
             throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(cfg.runmode))"))
         cfg.local_n > 0 ||
@@ -138,10 +141,11 @@ ProcessingConfig(;
         processors, p_processors, runmode = :local, submit_jobs = false, local_n = 1,
         local_julia_settings = String[], slurm_flags = String[], slurm_julia_settings = String[],
         env_variables = Dict{String,String}(), periods = nothing, runs = nothing,
-        analysis_runs_only = false, only_partitions = false, only_runs = false, log_path = ""
+        analysis_runs_only = false, only_partitions = false, only_runs = false, log_path = "",
+        log_level = Logging.Info
     ) = ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
         slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-        only_partitions, only_runs, log_path, processors, p_processors)
+        only_partitions, only_runs, log_path, log_level, processors, p_processors)
 
 # Recursively convert nested dictionaries to `Dict{Symbol,Any}`.
 _symbolkeys(x) = x
@@ -218,7 +222,8 @@ The config must contain exactly these keys; a missing or unknown key throws an
 
 - `config`: `runmode` (`"local"` or `"slurm"`), `submit_jobs::Bool`,
   `runmode_settings.local.{n, julia_settings}`,
-  `runmode_settings.slurm.{flags, julia_settings}`, `env_variables`
+  `runmode_settings.slurm.{flags, julia_settings}`, `env_variables`, `log_level`
+  (`"debug"`, `"info"`, `"warn"` or `"error"`)
 - `processing`: `periods` and `runs` (each `"all"` or a list), `analysis_runs_only`,
   `only_partitions`, `only_runs` (all `Bool`)
 - `processors`, `p_processors`: tables of processor name to
@@ -247,7 +252,7 @@ julia> config = Dict(
                "runmode_settings" => Dict(
                    "local" => Dict("n" => 4, "julia_settings" => []),
                    "slurm" => Dict("flags" => [], "julia_settings" => [])),
-               "env_variables" => Dict()),
+               "env_variables" => Dict(), "log_level" => "info"),
            "processing" => Dict("periods" => [3], "runs" => "all", "analysis_runs_only" => false,
                "only_partitions" => false, "only_runs" => false),
            "processors" => Dict("process_energy_calibration" => Dict("enabled" => true,
@@ -279,7 +284,7 @@ function ProcessingConfig(
     d = _symbolkeys(dict)
     _check_keys(d, (:config, :processing, :processors, :p_processors), "")
     config = _typed(d, :config, AbstractDict, "")
-    _check_keys(config, (:runmode, :submit_jobs, :runmode_settings, :env_variables), "config.")
+    _check_keys(config, (:runmode, :submit_jobs, :runmode_settings, :env_variables, :log_level), "config.")
     settings = _typed(config, :runmode_settings, AbstractDict, "config.")
     _check_keys(settings, (:local, :slurm), "config.runmode_settings.")
     local_settings = _typed(settings, :local, AbstractDict, "config.runmode_settings.")
@@ -325,6 +330,7 @@ function ProcessingConfig(
         _strings(slurm_settings, :julia_settings, "config.runmode_settings.slurm."),
         env_variables, sel_periods, sel_runs,
         sel_analysis_runs_only, sel_only_partitions, sel_only_runs, log_path,
+        parse_log_level(_typed(config, :log_level, AbstractString, "config.")),
         processors, p_processors
     )
 end
