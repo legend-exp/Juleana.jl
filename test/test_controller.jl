@@ -310,12 +310,37 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "WriteConfig" begin
         ctrl = DataflowController(new_session(); processors)
         dispatch!(ctrl, SetKwarg(:process_energy_calibration, :max_wvfs, 5))
+        dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
+        dispatch!(ctrl, SetAnalysisRunsOnly(true))
         written = joinpath(root, "written_config.json")
+        write(written, "previous")
         dispatch!(ctrl, WriteConfig(written))
+        @test read(written * ".bak", String) == "previous"
         original, props = readlprops(shipped_config), readlprops(written)
         @test props.processors.process_energy_calibration.kwargs.max_wvfs == 5
-        @test props.p_processors == original.p_processors
+        # every processor is enabled exactly when it is selected
+        @test props.processors.process_energy_calibration.enabled
+        @test !any(e -> e.enabled, values(props.p_processors))
+        @test !any(e -> e.enabled, (e for (n, e) in props.processors if n != :process_energy_calibration))
+        @test props.processing.analysis_runs_only
         @test props.config == original.config
-        @test ProcessingConfig(written).processors[:process_energy_calibration].kwargs[:max_wvfs] == 5
+        written_cfg = ProcessingConfig(written)
+        @test written_cfg.processors[:process_energy_calibration].kwargs[:max_wvfs] == 5
+        @test run_steps(written_cfg) == [:process_energy_calibration] && isempty(partition_steps(written_cfg))
+    end
+
+    @testset "kwarg resets and snapshot kwargs" begin
+        ctrl = DataflowController(new_session(); processors)
+        energy() = only(filter(p -> p.name === :process_energy_calibration, snapshot(ctrl).processors))
+        @test energy().accepted == [:max_wvfs]
+        @test isempty(energy().config_kwargs)
+        dispatch!(ctrl, SetKwarg(:process_energy_calibration, :max_wvfs, 5))
+        @test energy().kwargs[:max_wvfs] == 5 && isempty(energy().config_kwargs)
+        dispatch!(ctrl, ResetKwargs(:process_energy_calibration, :max_wvfs))
+        @test isempty(energy().overridden) && !haskey(energy().kwargs, :max_wvfs)
+        @test isempty(ctrl.kwarg_overrides)
+        # resetting a key that is not overridden changes nothing
+        dispatch!(ctrl, ResetKwargs(:process_energy_calibration, :max_wvfs))
+        @test_throws "ResetKwargs: a key needs a processor" ResetKwargs(nothing, :max_wvfs)
     end
 end

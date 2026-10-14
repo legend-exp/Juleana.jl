@@ -30,6 +30,10 @@ Juleana.sync_setup!
 Juleana.setup_key!
 Juleana.setup_mouse!
 Juleana.render_setup
+Juleana.KwargsEditor
+Juleana.kwargs_key!
+Juleana.render_kwargs
+Juleana.parse_kwarg_value
 Juleana.parse_commandline
 Juleana.parse_period_runs
 Juleana.init_process

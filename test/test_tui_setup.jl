@@ -51,9 +51,10 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     end
     run_stub(cfg, l200, period, run; reprocess = false) = nothing
     part_stub(cfg, l200, period; reprocess = false, only_first_period = false) = false
-    processors = Dict{Symbol,Any}(:process_energy_calibration => run_stub, :process_dsp_cal => run_stub,
+    energy_stub(cfg, l200, period, run; reprocess = false, max_wvfs = 10, channels = Symbol[]) = nothing
+    processors = Dict{Symbol,Any}(:process_energy_calibration => energy_stub, :process_dsp_cal => run_stub,
         :p_process_aoe_cut => part_stub)
-    new_tui() = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
+    new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(session; processors))
 
     @testset "checklists follow the controller" begin
         m = new_tui()
@@ -190,6 +191,100 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         m = Juleana.JuleanaTUI(DataflowController(session; processors))
         @test setup_refreshed!(m)
         @test Juleana.checked(m.setup.periods) == [(p2, r6), (p3, r0)]
+    end
+
+    @testset "parse_kwarg_value" begin
+        @test Juleana.parse_kwarg_value(" 12 ", 10) === 12
+        @test Juleana.parse_kwarg_value("0.5", 1.0) === 0.5
+        @test Juleana.parse_kwarg_value("3", 1.0) === 3.0
+        @test Juleana.parse_kwarg_value("false", true) === false
+        @test Juleana.parse_kwarg_value("some text", "old") == "some text"
+        @test Juleana.parse_kwarg_value("V01, V02,", [:V00]) == [:V01, :V02]
+        @test Juleana.parse_kwarg_value("", Symbol[]) == Symbol[]
+        @test Juleana.parse_kwarg_value("[1, 2]", nothing) == [1, 2]
+        @test Juleana.parse_kwarg_value("[:a, :b]", nothing) == [:a, :b]
+        @test Juleana.parse_kwarg_value("\"x\"", nothing) == "x"
+        @test Juleana.parse_kwarg_value(":x", nothing) === :x
+        @test Juleana.parse_kwarg_value("[]", nothing) == []
+        @test_throws "expected an integer, got `abc`" Juleana.parse_kwarg_value("abc", 3)
+        @test_throws "expected true or false, got `1`" Juleana.parse_kwarg_value("1", true)
+        @test_throws "expected a Julia literal" Juleana.parse_kwarg_value("rm(\"x\")", nothing)
+        @test_throws "expected a Julia literal" Juleana.parse_kwarg_value("[1,", nothing)
+        @test_throws "expected a Julia literal" Juleana.parse_kwarg_value("x", nothing)
+    end
+
+    @testset "kwargs editor" begin
+        m = new_tui()
+        @test setup_refreshed!(m)
+        press!(m, :tab)
+        # `e` on a processor opens its editor; the editor takes every key
+        press!(m, 'e')
+        @test m.setup.editor isa Juleana.KwargsEditor && m.setup.editor.step === :process_energy_calibration
+        text = join(row_text(render_setup_page(m), r) for r in 1:30)
+        @test occursin("Settings of process_energy_calibration", text)
+        @test occursin("channels", text) && occursin("max_wvfs", text)
+        press!(m, 'q', '2')
+        @test !m.quit && m.page == 1
+
+        # rows in alphabetical order: channels, max_wvfs (both accepted, not set)
+        press!(m, :down, :enter)
+        @test m.setup.editor.text == ""
+        press!(m, '5', 'x', :backspace, :enter)
+        @test setup_refreshed!(m)
+        energy = only(filter(p -> p.name === :process_energy_calibration, m.snap.processors))
+        @test energy.kwargs[:max_wvfs] == 5 && energy.overridden == [:max_wvfs]
+        @test occursin("* max_wvfs = 5   (config: not set)", join(row_text(render_setup_page(m), r) for r in 1:30))
+
+        # a set value is edited in its own type
+        Juleana.kwargs_key!(m.setup.editor, KeyEvent(:enter), m.snap, cmd -> nothing)
+        @test m.setup.editor.text == "5"
+        press!(m, :backspace, 'a', :enter)
+        @test m.setup.editor.error == "expected an integer, got `a`"
+        @test occursin("expected an integer", join(row_text(render_setup_page(m), r) for r in 1:30))
+        press!(m, :escape)
+        @test isnothing(m.setup.editor.text) && isnothing(m.setup.editor.error)
+
+        # a kwarg that is not set takes a Julia literal
+        press!(m, :up, :enter, 'V', '1', :enter)
+        @test startswith(m.setup.editor.error, "expected a Julia literal")
+        press!(m, :escape, :enter, '[', ':', 'V', '1', ',', ':', 'V', '2', ']', :enter)
+        @test setup_refreshed!(m)
+        energy = only(filter(p -> p.name === :process_energy_calibration, m.snap.processors))
+        @test energy.kwargs[:channels] == [:V1, :V2]
+
+        press!(m, 'u')
+        @test setup_refreshed!(m)
+        energy = only(filter(p -> p.name === :process_energy_calibration, m.snap.processors))
+        @test energy.overridden == [:max_wvfs]
+        press!(m, 'U')
+        @test setup_refreshed!(m)
+        @test isempty(only(filter(p -> p.name === :process_energy_calibration, m.snap.processors)).overridden)
+        press!(m, :escape)
+        @test isnothing(m.setup.editor)
+        @test isnothing(m.command_error)
+    end
+
+    @testset "write the config" begin
+        config_file = joinpath(mktempdir(), "processing_config.json")
+        cp(args["config"], config_file)
+        session = new_session()
+        session.args["config"] = config_file
+        m = new_tui(session)
+        @test setup_refreshed!(m)
+        # any key but `y` cancels
+        press!(m, 'w')
+        @test m.setup.confirm === :write
+        @test occursin("Write the current settings to", join(row_text(render_setup_page(m), r) for r in 1:30))
+        press!(m, 'n')
+        @test isnothing(m.setup.confirm)
+        @test setup_refreshed!(m)
+        @test !isfile(config_file * ".bak")
+
+        press!(m, :tab, 'e', :down, :enter, '7', :enter, :escape, 'w', 'y')
+        @test setup_refreshed!(m)
+        @test isnothing(m.command_error)
+        @test isfile(config_file * ".bak")
+        @test ProcessingConfig(config_file).processors[:process_energy_calibration].kwargs[:max_wvfs] == 7
     end
 
     @testset "mouse" begin

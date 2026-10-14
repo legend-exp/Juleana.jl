@@ -357,6 +357,16 @@ included.
 """
 partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.p_processors, enabled_only)
 
+# Keyword arguments the processor function of `spec` declares besides those the dataflow
+# passes itself, sorted; `nothing` when a method takes `kwargs...` or the processor is
+# not registered.
+function accepted_kwargs(processors::AbstractDict{Symbol}, spec::ProcessorSpec)
+    haskey(processors, spec.name) || return nothing
+    declared = reduce(vcat, (Base.kwarg_decl(m) for m in methods(processors[spec.name])); init = Symbol[])
+    any(k -> endswith(string(k), "..."), declared) && return nothing
+    return sort!(collect(setdiff(declared, (:reprocess, :only_first_period))))
+end
+
 # Describe why the processor function of `spec` cannot be called with its kwargs, or
 # return `nothing` when it can.
 function processor_kwargs_problem(spec::ProcessorSpec, processors::AbstractDict{Symbol})

@@ -17,7 +17,8 @@ snapshots by [`Juleana.sync_setup!`](@ref); keys are handled by
 [`Juleana.setup_key!`](@ref).
 
 `focus` is the focused pane: 1 periods, 2 run processors, 3 partition processors,
-4 options.
+4 options. `editor` is the open [`Juleana.KwargsEditor`](@ref) and `confirm` is `:write`
+while writing the config waits for confirmation.
 """
 mutable struct SetupPage
     periods::Checklist
@@ -27,11 +28,14 @@ mutable struct SetupPage
     option::Int
     # available periods, runs and processors the checklists were built for
     layout::Any
+    editor::Union{Nothing,KwargsEditor}
+    confirm::Union{Nothing,Symbol}
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
     Checklist(ChecklistItem[]; title = "Run processors", focused = false),
-    Checklist(ChecklistItem[]; title = "Partition processors", focused = false), 1, 1, nothing)
+    Checklist(ChecklistItem[]; title = "Partition processors", focused = false), 1, 1, nothing,
+    nothing, nothing)
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
@@ -125,16 +129,28 @@ end
 Handle the key `evt` on the Setup page and return whether it was used. `snap` is the
 latest controller snapshot (or `nothing`) and `send(cmd)` sends a controller command.
 
-The focused checklist gets the key first; a change of its selection sends `SelectRuns`
-or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
-`c` and `p` select the `cal` and `phy` processors of the pane and `d` adds the steps
-the selected steps wait for; in the options pane Up and Down choose a row and Space or
+An open kwargs editor gets every key (see [`Juleana.kwargs_key!`](@ref)); while writing
+the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config file
+of the session and any other key cancels. Otherwise the focused checklist gets the key
+first; a change of its selection sends `SelectRuns` or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
+`c` and `p` select the `cal` and `phy` processors of the pane, `d` adds the steps
+the selected steps wait for and `e` opens the kwargs editor for the processor under the
+cursor; in the options pane Up and Down choose a row and Space or
 Enter cycles its value; `s` starts processing, `x` stops it after the running items, `X`
-stops it without waiting for them, `r` reloads the config and `g` rebuilds the
-dependency graph.
+stops it without waiting for them, `r` reloads the config, `g` rebuilds the
+dependency graph and `w` asks to write the current settings to the config file.
 """
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
+    if !isnothing(page.editor)
+        kwargs_key!(page.editor, evt, snap, send) === :close && (page.editor = nothing)
+        return true
+    end
+    if page.confirm === :write
+        evt.key == :char && evt.char == 'y' && !isnothing(snap) && send(WriteConfig(snap.config_file))
+        page.confirm = nothing
+        return true
+    end
     panes = setup_panes(page)
     if page.focus <= length(panes)
         list = panes[page.focus]
@@ -163,6 +179,10 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         set_checked!(item -> item.key in chosen, page.run_procs)
         set_checked!(item -> item.key in chosen, page.part_procs)
         send(steps_selection(page))
+    elseif page.focus in (2, 3) && key == :char && char == 'e' && !isnothing(current(panes[page.focus]))
+        page.editor = KwargsEditor(current(panes[page.focus]).key)
+    elseif key == :char && char == 'w' && !isnothing(snap) && !isnothing(snap.config_file)
+        page.confirm = :write
     elseif page.focus == 4 && key in (:up, :down)
         page.option = clamp(page.option + (key == :up ? -1 : 1), 1, length(SETUP_OPTIONS))
     elseif page.focus == 4 && (key == :enter || (key == :char && char == ' ')) && !isnothing(snap)
@@ -226,6 +246,7 @@ const SETUP_KEYS = [
     "Tab: next pane   Space: toggle",
     "/: filter   a/n: all/none",
     "c/p: cal/phy   d: add deps",
+    "e: settings   w: write config",
     "s: start   x/X: stop/force",
     "r: reload config",
     "g: rebuild dependency graph",
@@ -270,6 +291,13 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
         Tachikoma.set_string!(buf, inner.x, y, text, style; max_x = Tachikoma.right(inner))
+    end
+    isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
+    if page.confirm === :write && !isnothing(snap)
+        file = snap.config_file
+        Tachikoma.render(Tachikoma.Modal(; title = "Write config",
+            message = "Write the current settings to\n$file?\nThe current file is kept as $(basename(file)).bak.\n\ny: write   any other key: cancel",
+            confirm_label = "", cancel_label = ""), area, buf)
     end
     return nothing
 end

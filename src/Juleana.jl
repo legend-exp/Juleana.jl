@@ -92,6 +92,7 @@ include("interactive.jl")
 include("controller.jl")
 include("no_tui.jl")
 include("tui_checklist.jl")
+include("tui_kwargs.jl")
 include("tui_setup.jl")
 include("tui.jl")
 

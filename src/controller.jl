@@ -114,13 +114,18 @@ struct SetKwarg <: ControllerCommand
 end
 
 """
-    ResetKwargs(step = nothing)
+    ResetKwargs(step = nothing, key = nothing)
 
-Drop the kwarg overrides of the processor `step`, or of all processors for `nothing`.
+Drop the kwarg overrides of all processors, of the processor `step`, or only the override
+of `key` of the processor `step`.
 """
 struct ResetKwargs <: ControllerCommand
     step::Union{Nothing,Symbol}
-    ResetKwargs(step = nothing) = new(isnothing(step) ? nothing : Symbol(step))
+    key::Union{Nothing,Symbol}
+    function ResetKwargs(step = nothing, key = nothing)
+        isnothing(step) && !isnothing(key) && throw(ArgumentError("ResetKwargs: a key needs a processor"))
+        return new(isnothing(step) ? nothing : Symbol(step), isnothing(key) ? nothing : Symbol(key))
+    end
 end
 
 """
@@ -158,9 +163,11 @@ StopProcessing(; force::Bool = false) = StopProcessing(force)
 """
     WriteConfig(path::AbstractString)
 
-Write the processing config file of the session to `path`, with the kwarg overrides of
-the session applied to the processor entries. The format follows the file extension
-(`.json` or `.yaml`).
+Write the processing config file of the session to `path` with the current settings of
+the session: the kwarg overrides are applied to the processor entries, every processor
+is `enabled` exactly when it is selected, and `processing.analysis_runs_only` is the
+setting in effect. An existing file at `path` is first copied to `path * ".bak"`. The
+format follows the file extension (`.json` or `.yaml`).
 """
 struct WriteConfig <: ControllerCommand
     path::String
@@ -438,7 +445,15 @@ end
 
 function apply!(ctrl::DataflowController, cmd::ResetKwargs)
     require_state(ctrl, cmd, :ready)
-    isnothing(cmd.step) ? empty!(ctrl.kwarg_overrides) : delete!(ctrl.kwarg_overrides, cmd.step)
+    if isnothing(cmd.step)
+        empty!(ctrl.kwarg_overrides)
+    elseif isnothing(cmd.key)
+        delete!(ctrl.kwarg_overrides, cmd.step)
+    elseif haskey(ctrl.kwarg_overrides, cmd.step)
+        overrides = ctrl.kwarg_overrides[cmd.step]
+        delete!(overrides, cmd.key)
+        isempty(overrides) && delete!(ctrl.kwarg_overrides, cmd.step)
+    end
     return nothing
 end
 
@@ -497,15 +512,22 @@ end
 
 function apply!(ctrl::DataflowController, cmd::WriteConfig)
     require_state(ctrl, cmd, :ready, :running, :stopping)
+    session = ctrl.session
     props = readlprops(ctrl.args["config"])
     for (step, overrides) in ctrl.kwarg_overrides
-        spec = processor_spec(ctrl.session.config, step)
+        spec = processor_spec(session.config, step)
         entry = props[spec.level === :run ? :processors : :p_processors][step]
         for (key, value) in overrides
             # the config stores symbol lists as strings
             entry.kwargs[key] = value isa AbstractVector{Symbol} ? string.(value) : value
         end
     end
+    selected = union(session.run_steps, session.partition_steps)
+    for section in (:processors, :p_processors), (name, entry) in props[section]
+        entry.enabled = name in selected
+    end
+    props.processing.analysis_runs_only = effective_config(ctrl).analysis_runs_only
+    isfile(cmd.path) && cp(cmd.path, cmd.path * ".bak"; force = true)
     writelprops(cmd.path, props)
     @info "Wrote processing config to $(cmd.path)"
     return nothing
@@ -545,8 +567,10 @@ Return a `NamedTuple` with a copy of the controller state:
   processing order);
 - `processors`: one `NamedTuple` per configured processor, run level first and then by
   rank, with `name`, `level`, `category`, `rank`, `enabled`, `selected`,
-  `dependencies`, `kwargs` (with the overrides applied) and `overridden` (names of the
-  overridden kwargs);
+  `dependencies`, `kwargs` (with the overrides applied), `config_kwargs` (as in the
+  config), `accepted` (the keyword arguments the processor function accepts besides the
+  ones the dataflow passes itself, `nothing` if it accepts any) and `overridden` (names of
+  the overridden kwargs);
 - `reprocess`, `analysis_runs_only` (the setting in effect), `check_dependencies`,
   `nworkers` (workers in the pool).
 """
@@ -560,6 +584,8 @@ function snapshot(ctrl::DataflowController)
             selected = union(session.run_steps, session.partition_steps)
             [(; name, spec.level, spec.category, spec.rank, spec.enabled, selected = name in selected,
                     dependencies = copy(spec.dependencies), kwargs = copy(spec.kwargs),
+                    config_kwargs = copy(processor_spec(session.config, name).kwargs),
+                    accepted = accepted_kwargs(ctrl.processors, spec),
                     overridden = sort!(collect(keys(get(ctrl.kwarg_overrides, name, Dict{Symbol,Any}())))))
                 for name in vcat(run_steps(cfg; enabled_only = false), partition_steps(cfg; enabled_only = false))
                 for spec in (processor_spec(cfg, name),)]
