@@ -83,14 +83,17 @@ function session_runs(parsed_args::AbstractDict, config::ProcessingConfig)
     return runs isa AbstractDict ? runs : config.runs
 end
 
-# ParallelProcessingTools run mode that starts the workers configured in `cfg`.
+# ParallelProcessingTools run mode that starts the workers configured in `cfg`. Workers
+# start without the user's `startup.jl`, whose packages need not be in the workers'
+# environment; the configured Julia flags come after it and can override it.
 function runprocs_mode(cfg::ProcessingConfig)
     if cfg.runmode == :local
-        return OnLocalhost(n = cfg.local_n, env = cfg.env_variables)
+        return OnLocalhost(n = cfg.local_n, julia_flags = `--startup-file=no $(cfg.local_julia_settings)`,
+            env = cfg.env_variables)
     elseif cfg.runmode == :slurm
         return OnSlurm(
             slurm_flags = Cmd(cfg.slurm_flags),
-            julia_flags = Cmd(cfg.slurm_julia_settings),
+            julia_flags = `--startup-file=no $(cfg.slurm_julia_settings)`,
             redirect_output = false,
             env = cfg.env_variables
         )

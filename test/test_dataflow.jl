@@ -167,14 +167,17 @@ const REPORT = """
         @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors, only_partitions = true)) == (Symbol[], [:p_part_b])
 
         env_variables = Dict("A" => "1")
-        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, env_variables))
+        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, env_variables,
+            local_julia_settings = ["--heap-size-hint=2G"]))
         @test mode isa Juleana.ParallelProcessingTools.OnLocalhost
         @test mode.n == 3
+        @test mode.julia_flags == `--startup-file=no --heap-size-hint=2G`
         @test mode.env == env_variables
         mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, runmode = :slurm,
             slurm_flags = ["--nodes=2"], env_variables))
         @test mode isa Juleana.ParallelProcessingTools.OnSlurm
         @test mode.slurm_flags == `--nodes=2`
+        @test mode.julia_flags == `--startup-file=no`
         @test mode.env == env_variables
     end
 
