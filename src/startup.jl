@@ -20,6 +20,9 @@ using ParallelProcessingTools: getlabel
     # pin threads
     pinthreads_auto()
 
+    # use the node-local shared-memory directory of the SLURM job for tempdir()
+    haskey(ENV, "JOB_SHMTMPDIR") && (ENV["TMPDIR"] = ENV["JOB_SHMTMPDIR"])
+
     using HDF5
     using LegendDataTypes: fast_flatten, flatten_by_key, map_chunked
     using Base.Iterators, StructArrays
