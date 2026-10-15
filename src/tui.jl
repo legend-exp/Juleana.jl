@@ -35,7 +35,7 @@ const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add require
 const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("Enter on step", "messages"), ("f", "follow"))
 const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"), ("End", "newest"), ("Esc", "close"), ("f", "follow"))
 const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
-const REPORTS_HINTS = (("↑↓", "move"), ("Enter", "open"), ("a", "all/selection"), ("r", "reload"), ("Tab", "pane"))
+const REPORTS_HINTS = (("↑↓", "move"), ("Enter", "open"), ("a", "all/run"), ("r", "reload"), ("Tab", "pane"))
 const REPORTS_OPEN_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("Esc", "close"))
 const COMMON_HINTS = (("1-6", "page"), ("q", "quit"), ("?", "help"))
 

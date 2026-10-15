@@ -351,6 +351,11 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         write(failed, RUN_REPORT)
         before = sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs])
 
+        # the reports of the steps of the current or last run, none before the first run
+        @test isempty(Juleana.report_index(ctrl))
+        dispatch!(ctrl, StartProcessing())
+        wait(ctrl)
+        @test snapshot(ctrl).outcome === :finished
         rows = Juleana.report_index(ctrl)
         energy = filter(r -> r.process === :process_energy_calibration, rows)
         @test [(r.period, r.run, r.state) for r in energy] ==
@@ -359,13 +364,10 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         partition = filter(r -> r.level === :partition, rows)
         @test [(r.process, r.period, r.run, r.state) for r in partition] ==
               [(:p_process_aoe_cut, p2, nothing, :missing), (:p_process_aoe_cut, p3, nothing, :missing)]
-        # only the selected steps and periods
+        # a later change of the selection does not change the rows
         dispatch!(ctrl, SelectSteps(Symbol[], [:p_process_aoe_cut]))
         dispatch!(ctrl, SelectPeriods([p3]))
-        @test [(r.process, r.period) for r in Juleana.report_index(ctrl)] == [(:p_process_aoe_cut, p3)]
-        dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
-        dispatch!(ctrl, SelectRuns(Dict(p2 => [DataRun(7)], p3 => nothing)))
-        @test [(r.period, r.run) for r in Juleana.report_index(ctrl)] == [(p2, DataRun(7)), (p3, DataRun(0))]
+        @test [(r.process, r.period, r.run) for r in Juleana.report_index(ctrl)] == [(r.process, r.period, r.run) for r in rows]
 
         overview = Juleana.report_overview(ctrl)
         @test [(o.name, o.level, o.category, o.nreports) for o in overview] == [("energy_calibration", :run, "cal", 1)]

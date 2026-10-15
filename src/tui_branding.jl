@@ -53,7 +53,7 @@ const HELP_KEYS = (
         ("Enter  ← →", "fold, unfold a group"),
         ("Enter on a report", "open the report"),
         ("Tab", "switch between the reports and the failures"),
-        ("a", "reports of the selection or all on disk"),
+        ("a", "all reports on disk or those of the current run"),
         ("r", "read the reports again"),
         ("↑ ↓ PgUp PgDn Home End", "scroll an open report"),
         ("Esc  q", "close the open report"),

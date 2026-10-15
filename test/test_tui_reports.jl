@@ -4,7 +4,7 @@ using Juleana
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Frame, Rect, GraphicsRegion,
     PixelSnapshot, find_text, row_text, style_at
 using LegendDataManagement: DataPeriod, DataRun
-using Dates: DateTime
+using Dates: DateTime, Hour
 using Test
 
 # `legend_test_setup`, `legend_test_data`, `TEST_DIRS` and `spec`
@@ -56,7 +56,7 @@ const OVERVIEW_ROWS = [
 ]
 
 # A page that has read `rows` for `source`, as the interface does it.
-function loaded_page(rows = INDEX_ROWS; source = :selection)
+function loaded_page(rows = INDEX_ROWS; source = :run)
     page = Juleana.ReportsPage()
     Juleana.reports_visit!(page, nothing)
     page.source = source
@@ -88,7 +88,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test [g.name for g in page.groups] == ["energy_calibration", "dsp_cal", "aoe_cut"]
         @test page.groups[1].counts == (; ok = 1, warning = 0, failed = 2, missing = 1)
         tb = render_reports_page(page)
-        @test find_text(tb, "Reports (selection)") !== nothing
+        @test find_text(tb, "Reports (current run)") !== nothing
         @test find_text(tb, "ok 1  warn 0  fail 2  miss 1") !== nothing
         @test find_text(tb, "ok 1  warn 1  fail 0  miss 0") !== nothing
         @test find_text(tb, "partition") !== nothing && find_text(tb, "run") !== nothing
@@ -116,7 +116,8 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
     @testset "empty and pending states" begin
         page = Juleana.ReportsPage()
         @test find_text(render_reports_page(page), "Reading reports…") !== nothing
-        @test find_text(render_reports_page(loaded_page(INDEX_ROWS[1:0])), "No reports.") !== nothing
+        @test find_text(render_reports_page(loaded_page(INDEX_ROWS[1:0])), "No processing run yet.") !== nothing
+        @test find_text(render_reports_page(loaded_page(Any[]; source = :all)), "No reports.") !== nothing
         page = loaded_page()
         page.reading = true
         @test find_text(render_reports_page(page), "Reading reports…") !== nothing
@@ -181,8 +182,8 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         press(page, 'r'); press(page, 'r')
         @test length(Juleana.take_requests!(page)) == 1
         @test press(page, 'a')
-        @test page.source === :selection
-        @test only(Juleana.take_requests!(page)).source === :selection
+        @test page.source === :run
+        @test only(Juleana.take_requests!(page)).source === :run
     end
 
     @testset "failures of the processor under the cursor" begin
@@ -272,9 +273,9 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test page.viewer_path == path && isnothing(page.viewer)
         tb = render_reports_page(page)
         @test find_text(tb, basename(path)) !== nothing && find_text(tb, "Reading report…") !== nothing
-        @test find_text(tb, "Reports (selection)") === nothing
+        @test find_text(tb, "Reports (current run)") === nothing
         # keys go to the viewer, `q` and `1` do not reach the interface
-        @test press(page, '1') && press(page, 'a') && page.source === :selection && isempty(Juleana.take_requests!(page))
+        @test press(page, '1') && press(page, 'a') && page.source === :run && isempty(Juleana.take_requests!(page))
         text = """
             # Main Log
             Time of processing: 2026-10-01T10:00:00
@@ -299,7 +300,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         # `q` closes the viewer; afterwards `q` is not used
         @test press(page, 'q')
         @test isnothing(page.viewer_path) && isnothing(page.viewer)
-        @test find_text(render_reports_page(page), "Reports (selection)") !== nothing
+        @test find_text(render_reports_page(page), "Reports (current run)") !== nothing
         @test !press(page, 'q')
 
         # Escape closes it, and an answer that arrives later is dropped
@@ -326,8 +327,8 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
 
     @testset "reads follow the controller state" begin
         page = Juleana.ReportsPage()
-        snap(; outcome = nothing, finished = nothing, state = :ready, periods = [2], run_steps = [:a]) =
-            (; state, outcome, finished, periods, runs = nothing, run_steps, partition_steps = Symbol[])
+        snap(; outcome = nothing, started = nothing, finished = nothing, state = :ready, periods = [2], run_steps = [:a]) =
+            (; state, outcome, started, finished, periods, runs = nothing, run_steps, partition_steps = Symbol[])
         Juleana.reports_visit!(page, nothing)
         @test length(Juleana.take_requests!(page)) == 1
         # visible with no change: no read
@@ -338,12 +339,15 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test length(Juleana.take_requests!(page)) == 1
         Juleana.reports_visit!(page, snap())
         @test isempty(Juleana.take_requests!(page))
-        # a run finished
-        Juleana.reports_visit!(page, snap(; outcome = :finished, finished = DateTime(2026, 10, 3)))
+        # a run started, then finished
+        start = DateTime(2026, 10, 3)
+        Juleana.reports_visit!(page, snap(; started = start))
         @test length(Juleana.take_requests!(page)) == 1
-        # other selection
-        Juleana.reports_visit!(page, snap(; outcome = :finished, finished = DateTime(2026, 10, 3), run_steps = [:a, :b]))
+        Juleana.reports_visit!(page, snap(; outcome = :finished, started = start, finished = start + Hour(1)))
         @test length(Juleana.take_requests!(page)) == 1
+        # another selection does not change the reports of the run
+        Juleana.reports_visit!(page, snap(; outcome = :finished, started = start, finished = start + Hour(1), run_steps = [:a, :b]))
+        @test isempty(Juleana.take_requests!(page))
         # while loading, the state of the session is not known
         Juleana.reports_visit!(page, snap(; state = :loading))
         @test length(Juleana.take_requests!(page)) == 1
@@ -388,21 +392,27 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
 
         m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
         page = m.reports_page
+        # a processing run whose steps the page lists with `a`
+        dispatch!(m.ctrl, StartProcessing())
+        wait(m.ctrl)
         Juleana.refresh!(m)
         @test settle!(() -> !m.refreshing && !isnothing(m.snap), m)
-        # the page reads nothing before it is visible
+        # the page reads nothing before it is visible, then starts with all reports on disk
         @test !page.visited && !page.reading
         Tachikoma.update!(m, KeyEvent('6'))
-        @test m.page == 6 && page.reading
+        @test m.page == 6 && page.reading && page.source === :all
         @test find_text(render_model(m), "Reading reports…") !== nothing
         @test settle!(() -> page.loaded && !page.reading, m)
+        @test find_text(render_model(m), "Reports (all on disk)") !== nothing
+        Tachikoma.update!(m, KeyEvent('a'))
+        @test settle!(() -> page.loaded && !page.reading && page.source === :run, m)
         tb = render_model(m)
-        @test find_text(tb, "Reports (selection)") !== nothing && find_text(tb, "▾ energy_calibration") !== nothing
+        @test find_text(tb, "Reports (current run)") !== nothing && find_text(tb, "▾ energy_calibration") !== nothing
         @test find_text(tb, "p02-r006  ✗ failed   10-03 12:00Z") !== nothing && find_text(tb, "p02-r007  – missing") !== nothing
         @test find_text(tb, "ok 0  warn 0  fail 1  miss 1") !== nothing
         @test find_text(tb, "V02  1 run: p02-r006") !== nothing && find_text(tb, "fit failed") !== nothing
         keys_row = row_text(tb, 31)
-        @test occursin("↑↓ move  Enter open  a all/selection  r reload  Tab pane", keys_row)
+        @test occursin("↑↓ move  Enter open  a all/run  r reload  Tab pane", keys_row)
         @test occursin("1-6 page  q quit", keys_row)
 
         # `r` reads the reports again
@@ -422,7 +432,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test settle!(() -> haskey(page.summaries, page.groups[1].key), m)
         @test find_text(render_model(m), "V02  1 run: p02-r006") !== nothing
         Tachikoma.update!(m, KeyEvent('a'))
-        @test settle!(() -> page.loaded && !page.reading && page.source === :selection, m)
+        @test settle!(() -> page.loaded && !page.reading && page.source === :run, m)
 
         # open a report; `q` closes it and does not quit
         Tachikoma.update!(m, KeyEvent(:down))
@@ -455,7 +465,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         idle = Juleana.JuleanaTUI(DataflowController(args; processors, loader = _ -> new_session()))
         Tachikoma.update!(idle, KeyEvent('6'))
         @test settle!(() -> !idle.reports_page.reading, idle)
-        @test find_text(render_model(idle), "report_index: no session is loaded") !== nothing
+        @test find_text(render_model(idle), "report_overview: no session") !== nothing
         Tachikoma.cleanup!(idle)
     end
 end

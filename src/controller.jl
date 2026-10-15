@@ -615,20 +615,23 @@ step_messages(ctrl::DataflowController, key) = step_messages(ctrl.progress, key)
 """
     report_index(ctrl::DataflowController)
 
-Return the rows of the reports, as `report_index(l200, processors, periods, runs)` returns them, for the current selection of `ctrl`: the reports of the selected run-level and
-partition-level steps for the selected periods and runs, with the processor specs of
-[`effective_config`](@ref). Reports that do not exist have `state = :missing`. Throws an
-`ArgumentError` when no session is loaded. The file system is read but not changed.
+Return the reports of the steps of the current or last processing run of `ctrl`: one row
+per step, in schedule order, with the fields of the rows of
+`report_index(jlrep, processors, period_runs)`. A step whose report does not exist has
+the state `:missing`. Returns an empty vector before the first run. Throws an
+`ArgumentError` when no session is loaded.
 """
 function report_index(ctrl::DataflowController)
-    l200, processors, periods, runs = @lock ctrl.lock begin
-        session = ctrl.session
-        isnothing(session) && throw(ArgumentError("report_index: no session is loaded"))
-        cfg = effective_config(ctrl)
-        specs = [processor_spec(cfg, step) for step in vcat(session.run_steps, session.partition_steps)]
-        session.l200, specs, copy(ctrl.periods), deepcopy(session.runs)
+    l200, cfg = @lock ctrl.lock begin
+        isnothing(ctrl.session) && throw(ArgumentError("report_index: no session is loaded"))
+        ctrl.session.l200, effective_config(ctrl)
     end
-    return report_index(l200, processors, periods, runs)
+    jlrep = l200.tier[:jlrep]
+    return map(progress(ctrl).steps) do e
+        (; level, category) = processor_spec(cfg, e.step)
+        (; process = e.step, level, category, e.period, e.run,
+            read_report(report_path(jlrep, e.step, level, e.period, e.run, category))...)
+    end
 end
 
 """

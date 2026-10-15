@@ -15,9 +15,10 @@ const REPORT_WHEEL_LINES = 3
 
 State of the Reports page of the terminal user interface: the reports grouped by processor,
 the row under the cursor, which groups the user folded or unfolded, the open report and the
-requests for reading the file system. The page lists the reports of the current selection
-(`source` is `:selection`, rows of [`report_index`](@ref)) or all reports on disk
-(`:all`, [`report_overview`](@ref)), and the failures of the processor under the cursor.
+requests for reading the file system. The page lists all reports on disk (`source` is
+`:all`, [`report_overview`](@ref)), which it starts with, or the reports of the steps of the
+current or last processing run (`:run`, rows of [`report_index`](@ref)), and the failures
+of the processor under the cursor.
 Keys are handled by [`Juleana.reports_key!`](@ref) and [`Juleana.reports_mouse!`](@ref), the
 page is drawn by [`Juleana.render_reports`](@ref).
 
@@ -29,7 +30,7 @@ when the list is read anew. `expanded` holds the group keys the user folded (`fa
 unfolded (`true`); the other groups are unfolded if one of their reports failed.
 """
 mutable struct ReportsPage
-    # `:selection` or `:all`
+    # `:all` or `:run`
     source::Symbol
     groups::Vector{Any}
     # whether `groups` holds the result of a read of `source`
@@ -71,7 +72,7 @@ mutable struct ReportsPage
     fail_rect::Tachikoma.Rect
 end
 
-ReportsPage() = ReportsPage(:selection, Any[], false, false, nothing, 0, false, nothing, nothing, 1, 1, 1,
+ReportsPage() = ReportsPage(:all, Any[], false, false, nothing, 0, false, nothing, nothing, 1, 1, 1,
     Dict{Any,Bool}(), 1, 1, 1, 0, nothing, Dict{Any,Any}(), Set{Any}(), nothing, nothing, nothing, Any[],
     Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
@@ -123,7 +124,7 @@ report_counts(reports) = (; (s => count(r -> r.state === s, reports) for s in (:
 
 # Groups of the rows of `report_index` by processor, in order of first appearance. Each group
 # keeps its rows for `failure_summary`.
-function selection_groups(rows)
+function run_groups(rows)
     keys = unique((report_name(r.process), r.level, string(r.category)) for r in rows)
     return Any[
         let rs = [r for r in rows if (report_name(r.process), r.level, string(r.category)) == key]
@@ -229,7 +230,7 @@ request the text of the file, or `nothing` if there is no such file.
 function read_reports(ctrl::DataflowController, request)
     value = try
         if request.kind === :index
-            request.source === :selection ? report_index(ctrl) : report_overview(ctrl)
+            request.source === :run ? report_index(ctrl) : report_overview(ctrl)
         elseif request.kind === :failures
             [(; process = request.group, period, run, read_report(path).failures) for (period, run, path) in request.reports]
         else
@@ -269,7 +270,7 @@ function reports_result!(page::ReportsPage, answer)
         page.reading = false
         page.error = failed ? answer.error : nothing
         failed && return nothing
-        page.groups = request.source === :selection ? selection_groups(answer.value) : overview_groups(answer.value)
+        page.groups = request.source === :run ? run_groups(answer.value) : overview_groups(answer.value)
         page.loaded = true
         request_failures!(page)
     elseif request.kind === :failures
@@ -294,16 +295,16 @@ function reports_result!(page::ReportsPage, answer)
 end
 
 # What the data of the page was read for: `nothing` while no session is loaded, else the
-# end of the last processing run and the selection.
+# start and end of the last processing run.
 reports_mark(snap) = isnothing(snap) || snap.state in (:idle, :loading) ? nothing :
-    (snap.outcome, snap.finished, snap.periods, snap.runs, snap.run_steps, snap.partition_steps)
+    (snap.outcome, snap.started, snap.finished)
 
 """
     Juleana.reports_visit!(page::ReportsPage, snap)
 
 Queue a read of the reports if the page is visible for the first time or the controller
-snapshot `snap` (or `nothing`) shows a loaded session, a finished processing run or a
-selection of periods, runs or steps other than those the shown reports were read for.
+snapshot `snap` (or `nothing`) shows a loaded session or a processing run that started or
+finished since the shown reports were read.
 """
 function reports_visit!(page::ReportsPage, snap)
     mark = reports_mark(snap)
@@ -343,7 +344,8 @@ Otherwise:
     or scroll the failures while the failures have the focus. Tab and Shift-Tab switch the focus.
   - Enter on a group row toggles the group, on a report row opens the report. Left folds the
     group of the cursor row and moves the cursor to it, Right unfolds it.
-  - `a` switches between the reports of the selection and all reports on disk, and reads them.
+  - `a` switches between all reports on disk and the reports of the steps of the current or
+    last processing run, and reads them.
   - `r` reads the reports anew.
   - Other keys, such as `1` to `6` and `q`, are not used.
 """
@@ -368,7 +370,7 @@ function handle_reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)
     if key in (:tab, :backtab)
         page.focus = 3 - page.focus
     elseif key == :char && evt.char == 'a'
-        page.source = page.source === :selection ? :all : :selection
+        page.source = page.source === :all ? :run : :all
         page.groups, page.loaded, page.error = Any[], false, nothing
         page.cursor, page.index, page.top = nothing, 1, 1
         request_reports!(page)
@@ -474,15 +476,15 @@ end
 # Widths of the name and the counts of the group rows.
 report_columns(page::ReportsPage) = (;
     name = maximum(textwidth(g.name) for g in page.groups),
-    counts = maximum(textwidth(report_counts_text(g.counts, page.source === :selection)) for g in page.groups))
+    counts = maximum(textwidth(report_counts_text(g.counts, page.source === :run)) for g in page.groups))
 
 function render_report_list(page::ReportsPage, area, buf)
     page.rect = area
     page.list = Tachikoma.Rect(area.x, area.y, 0, 0)
     page.height = 1
     (area.width < 3 || area.height < 3) && return nothing
-    with_missing = page.source === :selection
-    inner = Tachikoma.render(pane_block(with_missing ? "Reports (selection)" : "Reports (all on disk)", page.focus == 1), area, buf)
+    with_missing = page.source === :run
+    inner = Tachikoma.render(pane_block(with_missing ? "Reports (current run)" : "Reports (all on disk)", page.focus == 1), area, buf)
     x_max = Tachikoma.right(inner)
     dim = Tachikoma.tstyle(:text_dim)
     if !isnothing(page.error)
@@ -495,7 +497,7 @@ function render_report_list(page::ReportsPage, area, buf)
     end
     rows = reports_rows(page)
     if isempty(rows)
-        Tachikoma.set_string!(buf, inner.x, inner.y, "No reports.", dim; max_x = x_max)
+        Tachikoma.set_string!(buf, inner.x, inner.y, with_missing ? "No processing run yet." : "No reports.", dim; max_x = x_max)
         return nothing
     end
     height = max(1, inner.height - (inner.height >= 3))
@@ -529,7 +531,7 @@ function failure_lines(page::ReportsPage, g)
     g.counts.failed == 0 && return [[("No failures.", dim)]]
     detectors = if haskey(page.summaries, g.key)
         page.summaries[g.key]
-    elseif page.source === :selection
+    elseif page.source === :run
         page.summaries[g.key] = only(failure_summary(g.rows)).detectors
     else
         return [[("Reading failures…", dim)]]
@@ -587,7 +589,7 @@ end
 
 Draw the Reports page into `area` of `buf`. The left block, about 45% of the width, lists the
 reports grouped by processor: a group row shows the fold arrow, the name, the level and the
-number of reports that are ok, have warnings, failed and (for the selection) are missing; the
+number of reports that are ok, have warnings, failed and (for the current run) are missing; the
 rows of an unfolded group show the period and run, the state and the processing date in UTC. The
 right block shows the failures of the processor under the cursor, per detector the runs it
 failed in and its distinct errors. The block with the focus has a heavy border. While a read is
