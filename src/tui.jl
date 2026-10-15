@@ -1,6 +1,6 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
-const TUI_PAGES = ("Setup", "Graph", "Workers", "Progress", "Log", "Reports")
+const TUI_PAGES = ("Setup", "Graph", "Workers", "Progress", "Log", "Reports", "History")
 
 # Colors of the interface, from the colors of the logo (red `#cb3c33`, green `#389826`,
 # purple `#9558b2`): `border` and `secondary` muted purple, `border_focus`, `primary` and
@@ -37,7 +37,9 @@ const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"
 const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
 const REPORTS_HINTS = (("↑↓", "move"), ("Enter", "open"), ("a", "all/run"), ("r", "reload"), ("Tab", "pane"))
 const REPORTS_OPEN_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("Esc", "close"))
-const COMMON_HINTS = (("1-6", "page"), ("q", "quit"), ("?", "help"))
+const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"))
+const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
+const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "help"))
 
 # Seconds a new warning or error stays in the status bar.
 const ALERT_SECONDS = 10.0
@@ -180,7 +182,7 @@ A left click on a page's tab opens the page; other mouse events go to the visibl
 
 Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
 Setup page, [`Juleana.graph_key!`](@ref) for the Graph page,
-[`Juleana.progress_key!`](@ref) for the Progress page and [`Juleana.log_key!`](@ref) for the Log page, [`Juleana.reports_key!`](@ref) for the Reports page); otherwise `1` to `6` switch pages and `q`
+[`Juleana.progress_key!`](@ref) for the Progress page and [`Juleana.log_key!`](@ref) for the Log page, [`Juleana.reports_key!`](@ref) for the Reports page and [`Juleana.history_key!`](@ref) for the History page); otherwise `1` to `7` switch pages and `q`
 or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after
 the running items and quits when the run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
@@ -201,6 +203,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const progress_page::ProgressPage
     const log_page::LogPage
     const reports_page::ReportsPage
+    const history_page::HistoryPage
     const tabs::Tachikoma.TabBar
     # commands sent and not yet answered, and commands answered so far
     pending::Int
@@ -239,7 +242,7 @@ tab_bar() = Tachikoma.TabBar(
 )
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(),
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(), HistoryPage(),
         tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
         false, 0.0, false, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
@@ -324,6 +327,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         m.splash = splash_active(m)
         m.quit_after_stop && !processing(m) && (m.quit = true)
         reports_sync!(m)
+        history_sync!(m)
         dataset_sync!(m)
     elseif evt.id === :dataset
         m.setup.dataset = evt.value
@@ -331,6 +335,10 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         evt.value isa Exception && throw(evt.value)
         reports_result!(m.reports_page, evt.value)
         reports_sync!(m)
+    elseif evt.id === :history
+        evt.value isa Exception && throw(evt.value)
+        history_result!(m.history_page, evt.value)
+        history_sync!(m)
     elseif evt.id === :command
         m.pending -= 1
         m.answered += 1
@@ -343,6 +351,7 @@ end
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     update_key!(m, evt)
     reports_sync!(m)
+    history_sync!(m)
     return nothing
 end
 
@@ -381,6 +390,7 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     end
     m.page == 5 && !ctrl_c && log_key!(m.log_page, evt, message_entries(m.messages)) && return nothing
     m.page == 6 && !ctrl_c && reports_key!(m.reports_page, evt) && return nothing
+    m.page == 7 && !ctrl_c && history_key!(m.history_page, evt) && return nothing
     if ctrl_c || (evt.key == :char && evt.char == 'q')
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
     elseif evt.key == :char && evt.char == '?'
@@ -394,6 +404,7 @@ end
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
     update_mouse!(m, evt)
     reports_sync!(m)
+    history_sync!(m)
     return nothing
 end
 
@@ -412,6 +423,7 @@ function update_mouse!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
         end
         m.page == 5 && log_mouse!(m.log_page, evt, message_entries(m.messages))
         m.page == 6 && reports_mouse!(m.reports_page, evt)
+        m.page == 7 && history_mouse!(m.history_page, evt)
     end
     return nothing
 end
@@ -423,6 +435,17 @@ function reports_sync!(m::JuleanaTUI)
     m.page == 6 && reports_visit!(page, m.snap)
     for request in take_requests!(page)
         Tachikoma.spawn_task!(() -> read_reports(ctrl, request), m.queue, :reports)
+    end
+    return nothing
+end
+
+# Queue a read of the history grid if the History page is visible and its data is out of date,
+# and carry out the queued requests of the page in background tasks.
+function history_sync!(m::JuleanaTUI)
+    page, ctrl = m.history_page, m.ctrl
+    m.page == 7 && history_visit!(page, m.snap)
+    for request in take_requests!(page)
+        Tachikoma.spawn_task!(() -> read_history_page(ctrl, request), m.queue, :history)
     end
     return nothing
 end
@@ -534,6 +557,8 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
             capacity = m.messages.capacity, log_path = isnothing(m.snap) ? nothing : m.snap.log_path)
     elseif m.page == 6
         render_reports(m.reports_page, body_area, f.buffer)
+    elseif m.page == 7
+        render_history(m.history_page, body_area, f.buffer)
     else
         body = Tachikoma.Paragraph(
             "This page is not available yet.";
@@ -548,10 +573,11 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
     hints = (m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
-        m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) : ())
+        m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
+        m.page == 7 ? (isnothing(m.history_page.viewer_path) ? HISTORY_HINTS : HISTORY_OPEN_HINTS) : ())
     spans = Tuple{String,Tachikoma.Style}[]
     # `q` closes an open report instead of quitting
-    for (key, description) in (hints..., (m.page == 6 && !isnothing(m.reports_page.viewer_path) ? () : COMMON_HINTS)...)
+    for (key, description) in (hints..., (m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
     end
     put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)
@@ -573,7 +599,7 @@ end
 """
     Juleana.run_tui(parsed_args::AbstractDict; processors = PROCESSORS, loader)
 
-Open the terminal user interface with the pages Setup, Graph, Workers, Progress, Log and Reports on
+Open the terminal user interface with the pages Setup, Graph, Workers, Progress, Log, Reports and History on
 a [`DataflowController`](@ref) for the parsed command line options `parsed_args`, as
 returned by [`Juleana.parse_commandline`](@ref). Returns `nothing` when the user quits.
 

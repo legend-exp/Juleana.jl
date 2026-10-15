@@ -105,6 +105,7 @@ include("tui_progress.jl")
 include("tui_log.jl")
 include("tui_graph.jl")
 include("tui_reports.jl")
+include("tui_history.jl")
 include("tui.jl")
 include("tui_logo.jl")
 include("tui_branding.jl")
@@ -155,6 +156,6 @@ export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
     main, setup_session, run_no_tui, run_tui, parse_commandline, check_reports,
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
-    history_path, append_history, read_history
+    history_path, append_history, read_history, history_grid
 
 end # module

@@ -36,3 +36,45 @@ using Test
     write(bad, "some text\n")
     @test_throws "line 1 of $bad" Juleana.read_history(bad)
 end
+
+@testset "history grid" begin
+    p2, p3 = DataPeriod(2), DataPeriod(3)
+    r6, r7, r0 = DataRun(6), DataRun(7), DataRun(0)
+    t(h) = DateTime(2026, 10, 15, h)
+    processors = [(; name = :process_dsp_cal, level = :run, category = :cal),
+        (; name = :p_process_energy_cal, level = :partition, category = :cal)]
+    period_runs = [p2 => [r6, r7], p3 => [r0]]
+    report(period, run, state, date) = (; period, run, path = "/rep/$period-$(something(run, "")).md", state, date)
+    overview = [(; name = "dsp_cal", level = :run, category = "cal",
+            reports = [report("p02", "r006", :ok, t(10)), report("p02", "r007", :warning, t(10)), report("p03", "r000", :ok, nothing),
+                report("p09", "r000", :ok, t(10))]),
+        (; name = "energy", level = :partition, category = "cal", reports = [report("p02", nothing, :ok, t(10))])]
+    step(process, level, period, run, outcome, started, finished) = (; process, level, category = :cal, period, run, outcome,
+        started, finished, done = 0, failed = 0, notrun = 0)
+    history = [(; started = t(11), finished = t(13), user = "u", host = "h", outcome = :failed, log_path = "/log/a",
+            steps = [step(:process_dsp_cal, :run, p2, r6, :failed, t(11), t(12)),
+                step(:process_dsp_cal, :run, p2, r7, :failed, t(9), t(9)),
+                step(:process_dsp_cal, :run, p3, r0, :stopped, t(11), t(12)),
+                step(:p_process_energy_cal, :partition, p2, nothing, :cancelled, nothing, nothing),
+                step(:p_process_energy_cal, :partition, p3, nothing, :stopped, nothing, nothing)]),
+        (; started = t(14), finished = t(15), user = "u", host = "h", outcome = :finished, log_path = "/log/b",
+            steps = [step(:process_dsp_cal, :run, p3, r0, :done, t(14), t(15))])]
+
+    grid = Juleana.history_grid(processors, period_runs, overview, history)
+    @test grid.periods == [(; period = p2, runs = [r6, r7]), (; period = p3, runs = [r0])]
+    @test [(r.process, r.level, r.category) for r in grid.rows] ==
+        [(:process_dsp_cal, :run, :cal), (:p_process_energy_cal, :partition, :cal)]
+    dsp, energy = grid.rows
+    # a failed step after the report replaces it
+    @test dsp.cells[(p2, r6)] == (; state = :failed, date = t(12), source = :history, path = "/log/a")
+    # a step before the report does not
+    @test dsp.cells[(p2, r7)] == (; state = :warning, date = t(10), source = :report, path = "/rep/p02-r007.md")
+    # an undated report is replaced; a later done step does not change the cell
+    @test dsp.cells[(p3, r0)] == (; state = :stopped, date = t(12), source = :history, path = "/log/a")
+    # reports of periods not in the grid are ignored
+    @test length(dsp.cells) == 3
+    # a step that never started keeps the report and fills a cell without one
+    @test energy.cells[(p2, nothing)].source == :report
+    @test energy.cells[(p3, nothing)] == (; state = :stopped, date = t(13), source = :history, path = "/log/a")
+    @test Juleana.history_grid(processors, period_runs, [], []).rows[1].cells == Dict()
+end

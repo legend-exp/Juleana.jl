@@ -382,8 +382,16 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test overview[1].counts == (; ok = 0, warning = 0, failed = 1)
         @test sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs]) == before
 
+        # all processors of the config against all runs of the runinfo
+        grid = Juleana.history_grid(ctrl)
+        @test [(r.process, r.level) for r in grid.rows] ==
+              [(:process_energy_calibration_cal, :run), (:process_dsp_cal, :run), (:p_process_aoe_cut_cal, :partition)]
+        @test [p.period for p in grid.periods] ⊇ [p2, p3]
+        @test haskey(grid.rows[1].cells, (p2, DataRun(6)))
+
         idle = DataflowController(Dict{String,Any}("config" => shipped_config); processors, loader = _ -> new_session())
         @test_throws "report_index: no session is loaded" Juleana.report_index(idle)
         @test_throws "report_overview: no session is loaded" Juleana.report_overview(idle)
+        @test_throws "history_grid: no session is loaded" Juleana.history_grid(idle)
     end
 end

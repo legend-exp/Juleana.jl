@@ -91,7 +91,7 @@ end
         @test occursin("f follow", row_text(render_tui(m, 120, 32), 31))
         Tachikoma.update!(m, KeyEvent('3'))
         keys_row = row_text(render_tui(m, 120, 32), 31)
-        @test occursin("1-6 page  q quit", keys_row) && !occursin("follow", keys_row)
+        @test occursin("1-7 page  q quit", keys_row) && !occursin("follow", keys_row)
         # a narrow screen cuts the key row at the frame
         @test !occursin("quit", row_text(render_tui(m, 12, 32), 31))
     end
@@ -128,8 +128,14 @@ end
         m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
         Tachikoma.update!(m, KeyEvent('6'))
         @test m.page == 6
-        Tachikoma.update!(m, KeyEvent('7'))
+        Tachikoma.update!(m, KeyEvent('8'))
         @test m.page == 6
+        Tachikoma.update!(m, KeyEvent('7'))
+        @test m.page == 7
+        tb = render_tui(m)
+        @test count(r -> occursin("History", row_text(tb, r)), 1:30) >= 2 && find_text(tb, "7 History") !== nothing
+        @test find_text(tb, "r reload") !== nothing
+        Tachikoma.update!(m, KeyEvent('6'))
         # Tab moves between the panes of a page, not between pages
         Tachikoma.update!(m, KeyEvent(:tab))
         @test m.page == 6

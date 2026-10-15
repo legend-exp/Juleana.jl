@@ -25,6 +25,7 @@ Test.@testset "Package Juleana" begin
     include("test_tui_log.jl")
     include("test_tui_graph.jl")
     include("test_tui_reports.jl")
+    include("test_tui_history.jl")
     include("test_tui_branding.jl")
     include("test_logging.jl")
 end # testset

@@ -51,6 +51,14 @@ Juleana.reports_result!
 Juleana.reports_visit!
 Juleana.take_requests!
 Juleana.read_reports
+Juleana.HistoryPage
+Juleana.history_key!
+Juleana.history_mouse!
+Juleana.render_history
+Juleana.history_result!
+Juleana.history_visit!
+Juleana.history_selection
+Juleana.read_history_page
 Juleana.strip_span_tags
 Juleana.tables_as_code
 Juleana.logo_size
@@ -77,6 +85,7 @@ Juleana.history_path
 Juleana.history_section
 Juleana.append_history
 Juleana.read_history
+Juleana.history_grid
 run_processing
 ProcessingStopped
 Juleana.wait_for

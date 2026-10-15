@@ -105,3 +105,64 @@ function read_history(path::AbstractString)
     flush!()
     return entries
 end
+
+# History outcomes of a step that show on the grid: the step did not leave a report of its own.
+const HISTORY_GRID_OUTCOMES = (:failed, :stopped, :cancelled)
+
+"""
+    Juleana.history_grid(processors, period_runs, overview, history)
+
+Combine the reports on disk and the processing history into one cell per processor and
+run (run level) or period (partition level).
+
+`processors` are anything with the fields `name`, `level` and `category`, such as
+[`ProcessorSpec`](@ref), in the order of the rows. `period_runs` is a vector of
+`period => runs` pairs with `DataPeriod`s and vectors of `DataRun`s, the columns.
+`overview` is the result of [`Juleana.report_overview`](@ref), `history` that of
+[`Juleana.read_history`](@ref).
+
+Return `(; periods, rows)` with `periods` the vector of `(; period, runs)` and `rows` one
+`(; process, level, category, cells)` per processor. `cells` is a `Dict` from
+`(period, run)`, with `run = nothing` for the partition level, to
+`(; state, date, source, path)`:
+
+- `source = :report`: the report on disk, `state` `:ok`, `:warning` or `:failed`, `date`
+  its processing date (or `nothing`) and `path` the report file.
+- `source = :history`: a step of the history that failed, was stopped or was cancelled,
+  `state` its outcome, `date` the end of the step (or, for a step that never started, the
+  end of its processing run) and `path` the log folder of its processing run. The last
+  such step in the history replaces the report when it ended after the report's
+  processing date or there is no dated report; a step that never started only fills a
+  cell without a report.
+
+A cell without a report and without such a step is missing from `cells`. Reports and steps
+of processors, periods or runs that are not in the arguments are ignored.
+"""
+function history_grid(processors, period_runs, overview, history)
+    reports = Dict{Any,Any}()
+    for group in overview, r in group.reports
+        reports[(group.name, group.level, group.category, r.period, r.run)] = r
+    end
+    latest = Dict{Any,Any}()
+    for entry in history, s in entry.steps
+        s.outcome in HISTORY_GRID_OUTCOMES || continue
+        # the history is in chronological order, so a later step replaces an earlier one
+        date = something(s.finished, s.started, entry.finished, Some(nothing))
+        latest[(s.process, s.level, s.category, s.period, s.run)] = (; state = s.outcome, date, source = :history, path = entry.log_path, ran = !isnothing(s.started))
+    end
+    rows = map(processors) do spec
+        (; name, level, category) = spec
+        cells = Dict{Any,Any}()
+        for (period, runs) in period_runs, run in (level == :partition ? (nothing,) : runs)
+            r = get(reports, (report_name(name), level, string(category), string(period), isnothing(run) ? nothing : string(run)), nothing)
+            report = isnothing(r) ? nothing : (; r.state, r.date, source = :report, r.path)
+            h = get(latest, (name, level, category, period, run), nothing)
+            newer = !isnothing(h) && (isnothing(report) || (h.ran && (isnothing(report.date) ||
+                (!isnothing(h.date) && h.date > report.date))))
+            cell = newer ? (; h.state, h.date, h.source, h.path) : report
+            isnothing(cell) || (cells[(period, run)] = cell)
+        end
+        (; process = name, level, category, cells)
+    end
+    return (; periods = [(; period, runs = collect(runs)) for (period, runs) in period_runs], rows)
+end

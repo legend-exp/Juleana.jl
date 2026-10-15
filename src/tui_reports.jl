@@ -571,7 +571,7 @@ function render_failures(page::ReportsPage, area, buf)
     return nothing
 end
 
-function render_viewer(page::ReportsPage, area, buf)
+function render_viewer(page, area, buf)
     if !isnothing(page.viewer)
         Tachikoma.render(page.viewer, area, buf)
         return nothing

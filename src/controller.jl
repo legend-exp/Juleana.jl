@@ -679,3 +679,23 @@ function dataset_summary(ctrl::DataflowController)
     isnothing(session) && throw(ArgumentError("dataset_summary: no session is loaded"))
     return dataset_summary(session.l200)
 end
+
+"""
+    history_grid(ctrl::DataflowController)
+
+Return the [`Juleana.history_grid`](@ref) of the session of `ctrl`: every processor of the
+processing config (run level, then partition level, each in rank order) against every
+period and run of the runinfo, from all reports on disk and the processing history of the
+data production. Throws an `ArgumentError` when no session is loaded.
+"""
+function history_grid(ctrl::DataflowController)
+    l200, config = @lock ctrl.lock begin
+        isnothing(ctrl.session) && throw(ArgumentError("history_grid: no session is loaded"))
+        ctrl.session.l200, ctrl.session.config
+    end
+    processors = vcat(sort!(collect(values(config.processors)); by = s -> (s.rank, s.name)),
+        sort!(collect(values(config.p_processors)); by = s -> (s.rank, s.name)))
+    info = runinfo(l200)
+    period_runs = [period => sort!(unique(info.run[info.period .== period])) for period in sort!(unique(info.period))]
+    return history_grid(processors, period_runs, report_overview(l200), read_history(history_path(l200)))
+end
