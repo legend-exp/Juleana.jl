@@ -138,6 +138,7 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         end
 
         split_timer = TimerOutput()
+        calibration_warnings = String[]
 
         @info "Generating output file \"$output_filename\""
         @timeit split_timer "$det" begin
@@ -158,6 +159,20 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
                 @info "Auto calibrating $det ($ch)"
                 result_autocal, report_autocal = autocal_energy(e_raw, raw_config_det.th228_cal_lines; mode=:ratio, min_e=raw_config_det.min_e, max_e=raw_config_det.max_e, max_e_binning_quantile=raw_config_det.max_e_binning_quantile, σ=raw_config_det.σ, threshold=raw_config_det.threshold, min_n_peaks=raw_config_det.min_n_peaks, max_n_peaks=raw_config_det.max_n_peaks, α=raw_config_det.α, rtol=raw_config_det.rtol)
                 f_calib = result_autocal.f_calib
+                h_cal = result_autocal.h_cal
+                cal_edges = first(h_cal.edges)
+                for energy in (583.191, 860.564, 2614.511)
+                    first_bin = searchsortedfirst(cal_edges, energy - 25)
+                    last_bin = searchsortedlast(cal_edges, energy + 25) - 1
+                    h_peak = StatsBase.Histogram((cal_edges[first_bin:last_bin + 1],), h_cal.weights[first_bin:last_bin])
+                    ps = estimate_single_peak_stats(h_peak)
+                    weights = h_peak.weights
+                    background = max(StatsBase.mean(weights[1:10]), StatsBase.mean(weights[end - 9:end]))
+                    prominence = maximum(weights) - background
+                    if !(isfinite(ps.peak_pos) && isfinite(ps.peak_fwhm) && 0 < ps.peak_fwhm <= 20 && prominence >= 5 * sqrt(max(background, 1)) && abs(ps.peak_pos - energy) <= max(2, ps.peak_fwhm / 2))
+                        push!(calibration_warnings, "$(round(energy, digits=1)) keV: centre=$(round(ps.peak_pos, digits=2)) keV, FWHM=$(round(ps.peak_fwhm, digits=2)) keV, prominence=$(round(prominence, digits=1)) counts/bin; no clear aligned peak.")
+                    end
+                end
                 p = LegendMakie.lplot(report_autocal, raw_config_det.th228_cal_lines, figsize = (650,400), title = get_plottitle(first(filekeys), det, "Calibrated DAQ Online Energy"))
                 savelfig(LegendMakie.lsavefig, p, l200, first(filekeys), det, Symbol("daq_energy"))
             end
@@ -186,7 +201,10 @@ function process_peak_split(processing_config::PropDict, l200::LegendData, perio
         total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(split_timer)))
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(split_timer))
 
-        log_det = log_peaksplit((det, detector_status(chinfo_det.usability), ProcessStatus(1), n_fep, n_sep, "$total_time", total_allocated, ""))
+        status = isempty(calibration_warnings) ? process_succeeded : process_warning
+        message = isempty(calibration_warnings) ? "" : "DAQ calibration check: " * join(calibration_warnings, " ")
+        status == process_warning && @warn "$det ($ch): $message"
+        log_det = log_peaksplit((det, detector_status(chinfo_det.usability), status, n_fep, n_sep, "$total_time", total_allocated, message))
 
         @info "Finished processing detector $det ($ch) in $total_time"
 
