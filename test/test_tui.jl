@@ -68,7 +68,7 @@ end
         @test find_text(tb, "Loading the session") !== nothing
         @test find_text(tb, "W workers") !== nothing
         @test find_text(tb, "starting") !== nothing
-        Tachikoma.update!(m, KeyEvent('2'))
+        Tachikoma.update!(m, KeyEvent('3'))
         @test find_text(render_tui(m), "This page is not available yet.") !== nothing
     end
 
@@ -135,13 +135,15 @@ end
         @test m.page == 6
         tb = render_tui(m)
         @test count(r -> occursin("Reports", row_text(tb, r)), 1:30) == 2
-        for (key, name) in (('2', "Graph"), ('3', "Workers"))
+        for (key, name) in (('3', "Workers"),)
             Tachikoma.update!(m, KeyEvent(key))
             @test m.page == parse(Int, key)
             tb = render_tui(m)
             @test count(r -> occursin(name, row_text(tb, r)), 1:30) == 2
             @test find_text(tb, "This page is not available yet.") !== nothing
         end
+        Tachikoma.update!(m, KeyEvent('2'))
+        @test m.page == 2 && find_text(render_tui(m), "Loading the session…") !== nothing
         Tachikoma.update!(m, KeyEvent('5'))
         @test m.page == 5 && find_text(render_tui(m), "No messages yet.") !== nothing
         Tachikoma.update!(m, KeyEvent('1'))

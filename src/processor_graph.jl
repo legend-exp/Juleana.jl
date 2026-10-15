@@ -136,6 +136,29 @@ function required_processors(g::ProcessorGraph, names)
 end
 
 """
+    dependent_processors(g::ProcessorGraph, names)
+
+Return the set of the processors in `names` together with all processors that require
+one of them, directly or through other processors: the targets of `:declared` and
+`:implied` edges, followed transitively. This is the reverse of
+[`required_processors`](@ref): `b` is in `required_processors(g, [a])` exactly if `a` is
+in `dependent_processors(g, [b])`.
+"""
+function dependent_processors(g::ProcessorGraph, names)
+    index = Dict(n => i for (i, n) in pairs(g.names))
+    chosen = Set{Symbol}(Symbol.(names))
+    todo = [index[n] for n in chosen]
+    while !isempty(todo)
+        u = pop!(todo)
+        for v in Graphs.outneighbors(g.graph, u)
+            g.kinds[(u, v)] === :order && continue
+            g.names[v] in chosen || (push!(chosen, g.names[v]); push!(todo, v))
+        end
+    end
+    return chosen
+end
+
+"""
     layered_layout(g::ProcessorGraph; kinds = (:declared, :order))
 
 Place the processors of `g` in layers for drawing: return a vector with one `(layer,

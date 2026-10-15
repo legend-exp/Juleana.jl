@@ -28,9 +28,10 @@ const JULEANA_THEME = Tachikoma.Theme(
 const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
     Tachikoma.ColorRGB(0x95, 0x58, 0xb2))
 
-# Keys shown below the status row, as `(key, description)` per page: Setup, Progress, Log, others.
+# Keys shown below the status row, as `(key, description)` per page: Setup, Graph, Progress, Log, others.
 const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
+const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add required"), ("h", "disabled"))
 const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("Enter on step", "messages"), ("f", "follow"))
 const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"), ("End", "newest"), ("Esc", "close"), ("f", "follow"))
 const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
@@ -159,8 +160,8 @@ messages of the step open on the Progress page, with the step's key).
 A left click on a page's tab opens the page; other mouse events go to the visible page.
 
 Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
-Setup page, [`Juleana.progress_key!`](@ref) for the Progress page and
-[`Juleana.log_key!`](@ref) for the Log page); otherwise `1` to `6` switch pages and `q`
+Setup page, [`Juleana.graph_key!`](@ref) for the Graph page,
+[`Juleana.progress_key!`](@ref) for the Progress page and [`Juleana.log_key!`](@ref) for the Log page); otherwise `1` to `6` switch pages and `q`
 or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after
 the running items and quits when the run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
@@ -177,6 +178,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const queue::Tachikoma.TaskQueue
     const commands::Channel{ControllerCommand}
     const setup::SetupPage
+    const graph_page::GraphPage
     const progress_page::ProgressPage
     const log_page::LogPage
     const tabs::Tachikoma.TabBar
@@ -217,7 +219,7 @@ tab_bar() = Tachikoma.TabBar(
 )
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(), LogPage(),
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(),
         tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
         false, 0.0, false, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
@@ -336,6 +338,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     end
     n = length(TUI_PAGES)
     m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
+    m.page == 2 && !ctrl_c && graph_key!(m.graph_page, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
     if m.page == 4 && !ctrl_c
         open = m.progress_page.open
         used = progress_key!(m.progress_page, evt, m.progress)
@@ -360,6 +363,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
             return nothing
         end
         m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
+        m.page == 2 && graph_mouse!(m.graph_page, evt, m.snap)
         if m.page == 4
             open = m.progress_page.open
             progress_mouse!(m.progress_page, evt, m.progress)
@@ -448,6 +452,8 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
         render_splash(m, body_area, f.buffer)
     elseif m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
+    elseif m.page == 2
+        render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer)
     elseif m.page == 4
         render_progress(m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
     elseif m.page == 5
@@ -466,7 +472,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     end
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
-    hints = (m.page == 1 ? SETUP_HINTS : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS : ())
+    hints = (m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS : ())
     spans = Tuple{String,Tachikoma.Style}[]
     for (key, description) in (hints..., COMMON_HINTS...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))

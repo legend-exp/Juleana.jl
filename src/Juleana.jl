@@ -98,6 +98,7 @@ include("tui_kwargs.jl")
 include("tui_setup.jl")
 include("tui_progress.jl")
 include("tui_log.jl")
+include("tui_graph.jl")
 include("tui.jl")
 include("tui_logo.jl")
 include("tui_branding.jl")
@@ -138,7 +139,7 @@ export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
-export ProcessorGraph, processor_graph, topological_order, required_processors, layered_layout
+export ProcessorGraph, processor_graph, topological_order, required_processors, dependent_processors, layered_layout
 export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,

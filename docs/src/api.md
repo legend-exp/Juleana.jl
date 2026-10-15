@@ -39,6 +39,10 @@ Juleana.LogPage
 Juleana.log_key!
 Juleana.log_mouse!
 Juleana.render_log
+Juleana.GraphPage
+Juleana.graph_key!
+Juleana.graph_mouse!
+Juleana.render_graph
 Juleana.logo_size
 Juleana.render_logo
 Juleana.bar_segments
@@ -98,6 +102,7 @@ ProcessorGraph
 processor_graph
 topological_order
 required_processors
+dependent_processors
 layered_layout
 partition_steps
 check_processor_kwargs

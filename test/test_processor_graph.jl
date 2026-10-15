@@ -40,6 +40,10 @@ using Test
         @test kind(g, :p1, :p2) === :order
         @test required_processors(g, [:r3]) == Set([:r3, :p2, :p1, :r2, :r1])
         @test required_processors(g, [:p2]) == Set([:p2])
+        @test dependent_processors(g, [:r2]) == Set([:r2, :p1, :r3])
+        @test dependent_processors(g, [:p2]) == Set([:p2, :r3])
+        @test dependent_processors(g, [:r3]) == Set([:r3])
+        @test all(a -> all(b -> (b in required_processors(g, [a])) == (a in dependent_processors(g, [b])), g.names), g.names)
         order = topological_order(g)
         for ((u, v), _) in g.kinds
             @test findfirst(==(g.names[u]), order) < findfirst(==(g.names[v]), order)

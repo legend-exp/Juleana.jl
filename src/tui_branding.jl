@@ -2,7 +2,7 @@
 
 const DOCS_URL = "https://legend-exp.github.io/Juleana.jl/stable/"
 
-# Keys listed by the help overlay as `(keys, description)`: Setup page, Progress page, Log page, all pages.
+# Keys listed by the help overlay as `(keys, description)`: Setup page, Graph page, Progress page, Log page, all pages.
 const HELP_KEYS = (
     setup = (
         ("Tab  Shift-Tab", "next, previous pane"),
@@ -22,6 +22,13 @@ const HELP_KEYS = (
         ("W", "start workers"),
         ("w", "write the settings to the config file"),
         ("Mouse", "click to check, fold or focus; wheel scrolls"),
+    ),
+    graph = (
+        ("↑ ↓ PgUp PgDn Home End", "move the cursor"),
+        ("Space", "select or deselect the processor"),
+        ("d", "add the steps that selected steps wait for"),
+        ("h", "show or hide disabled processors"),
+        ("Mouse", "click a row, wheel moves the cursor"),
     ),
     progress = (
         ("↑ ↓ PgUp PgDn Home End", "move the cursor"),
@@ -169,6 +176,7 @@ end
 function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     sections = Tuple{String,Any}[]
     m.page == 1 && push!(sections, ("Setup page", HELP_KEYS.setup))
+    m.page == 2 && push!(sections, ("Graph page", HELP_KEYS.graph))
     m.page == 4 && push!(sections, ("Progress page", HELP_KEYS.progress))
     m.page == 5 && push!(sections, ("Log page", HELP_KEYS.log))
     push!(sections, ("All pages", HELP_KEYS.common))
