@@ -98,92 +98,66 @@ function juleana_version()
     return VERSION_TEXT[]
 end
 
-# Color of a palette character of the logo art: the outline takes the text color of the theme.
-function logo_color(char::Char)
-    char == 'k' && return Tachikoma.theme().text
-    char == 'r' && return TITLE_COLORS[1]
-    char == 'g' && return TITLE_COLORS[2]
-    char == 'p' && return TITLE_COLORS[3]
-    throw(ArgumentError("logo art: unknown palette character $(repr(char))"))
+# Color of a logo color name: the outline takes the text color of the theme.
+function logo_color(name::Symbol)
+    name === :outline && return Tachikoma.theme().text
+    name === :red && return TITLE_COLORS[1]
+    name === :green && return TITLE_COLORS[2]
+    name === :purple && return TITLE_COLORS[3]
+    throw(ArgumentError("logo: unknown color $(repr(name))"))
 end
 
-"""
-    Juleana.logo_size(art)
+# Row of a logo as a vector of `(text, color name)` segments.
+logo_segments(row::AbstractString) = [(row, :outline)]
+logo_segments(row) = row
 
-Width and height in terminal cells of the logo `art`, which is a size name (`:large`,
-`:medium`, `:mark`, `:mark_small` or `:corner`) or the rows of an art as in
+"""
+    Juleana.logo_size(rows)
+
+Width in terminal cells and number of rows of the logo `rows`, as in
 [`Juleana.render_logo`](@ref).
 """
-logo_size(rows::AbstractVector{<:AbstractString}) = (maximum(textwidth, rows; init = 0), cld(length(rows), 2))
-logo_size(name::Symbol) = logo_size(LOGO_ART[name])
+logo_size(rows) = (maximum(row -> sum(s -> textwidth(s[1]), logo_segments(row); init = 0), rows; init = 0), length(rows))
 
 """
-    Juleana.render_logo(art, x, y, buf::Tachikoma.Buffer; max_x, max_y)
+    Juleana.render_logo(rows, x, y, buf::Tachikoma.Buffer; max_x, max_y)
 
-Draw the logo `art` with its top left cell at column `x` and row `y` of `buf`, clipped at
-column `max_x` and row `max_y` (default: the edges of `buf`). `art` is a size name
-(`:large`, `:medium`, `:mark`, `:mark_small` or `:corner`) or a vector of rows of palette
-characters, one per pixel:
-a space is transparent, `k` is the outline in the text color of the theme, and `r`, `g`
-and `p` are the red, green and purple of the logo. Two pixel rows make one row of cells,
-drawn with half-block characters; transparent pixels leave the cell as it is.
+Draw the logo `rows` with its top left cell at column `x` and row `y` of `buf`, clipped at
+column `max_x` and row `max_y` (default: the edges of `buf`). Each row is a string in the
+text color of the theme or a vector of `(text, color)` segments with the color `:outline`
+(the text color of the theme), `:red`, `:green` or `:purple`. Spaces are transparent: they
+leave the cell as it is.
 """
-function render_logo(rows::AbstractVector{<:AbstractString}, x::Integer, y::Integer, buf::Tachikoma.Buffer;
+function render_logo(rows, x::Integer, y::Integer, buf::Tachikoma.Buffer;
         max_x::Integer = Tachikoma.right(buf.area), max_y::Integer = Tachikoma.bottom(buf.area))
-    pixel(j, i) = j <= length(rows) && i <= ncodeunits(rows[j]) ? rows[j][i] : ' '
-    width, height = logo_size(rows)
-    for cj in 1:height, ci in 1:width
-        cx, cy = x + ci - 1, y + cj - 1
-        (cx <= max_x && cy <= max_y) || continue
-        top, bottom = pixel(2cj - 1, ci), pixel(2cj, ci)
-        if top == ' ' && bottom == ' '
-            continue
-        elseif bottom == ' '
-            Tachikoma.set_char!(buf, cx, cy, '▀', Tachikoma.Style(; fg = logo_color(top)))
-        elseif top == ' '
-            Tachikoma.set_char!(buf, cx, cy, '▄', Tachikoma.Style(; fg = logo_color(bottom)))
-        elseif top == bottom
-            Tachikoma.set_char!(buf, cx, cy, '█', Tachikoma.Style(; fg = logo_color(top)))
-        else
-            Tachikoma.set_char!(buf, cx, cy, '▀', Tachikoma.Style(; fg = logo_color(top), bg = logo_color(bottom)))
+    for (j, row) in enumerate(rows)
+        cy = y + j - 1
+        cx = x
+        for (text, name) in logo_segments(row)
+            style = Tachikoma.Style(; fg = logo_color(name))
+            for char in text
+                if char != ' ' && cx <= max_x && cy <= max_y && cx >= buf.area.x && cy >= buf.area.y
+                    Tachikoma.set_char!(buf, cx, cy, char, style)
+                end
+                cx += textwidth(char)
+            end
         end
     end
     return nothing
 end
 
-render_logo(name::Symbol, x::Integer, y::Integer, buf::Tachikoma.Buffer; kwargs...) =
-    render_logo(LOGO_ART[name], x, y, buf; kwargs...)
-
-# Logos in the order of preference for a free area: the full logos, then the circles alone
-# with the name below them.
-const LOGO_CHOICES = (:large, :medium, :mark, :mark_small)
-const LOGO_CAPTION = "Juleana"
-
-# Width and height in cells of the logo `name` of `LOGO_CHOICES` with its caption.
-function logo_block_size(name::Symbol)
-    w, h = logo_size(name)
-    return (w, name in (:mark, :mark_small) ? h + 1 : h)
-end
-
-# The first of `LOGO_CHOICES` whose block fits `width` x `height` cells, or `nothing`.
+# The full logo if it fits `width` x `height` cells, else the name in block letters, else `nothing`.
 function fitting_logo(width::Integer, height::Integer)
-    for name in LOGO_CHOICES
-        w, h = logo_block_size(name)
-        w <= width && h <= height && return name
+    for rows in (TEXT_LOGO, LOGO_LETTERS)
+        w, h = logo_size(rows)
+        w <= width && h <= height && return rows
     end
     return nothing
 end
 
-# Draw the logo `name` of `LOGO_CHOICES` with its caption, with the top left cell of the
-# block at `(x, y)`.
-function render_logo_block(name::Symbol, x::Integer, y::Integer, buf::Tachikoma.Buffer; max_x::Integer, max_y::Integer)
-    render_logo(name, x, y, buf; max_x, max_y)
-    w, h = logo_size(name)
-    if name in (:mark, :mark_small)
-        Tachikoma.set_string!(buf, x + (w - textwidth(LOGO_CAPTION)) ÷ 2, y + h, LOGO_CAPTION, Tachikoma.tstyle(:text, bold = true); max_x)
-    end
-    return nothing
-end
+# The name `JuLeAna` in the colors of the logo.
+logo_name_spans() = [(part, Tachikoma.Style(; fg = TITLE_COLORS[i], bold = true)) for (i, part) in enumerate(("Ju", "Le", "Ana"))]
+
 
 # `nothing` while the session loads, `:loaded` once it is loaded and `:failed` if loading failed.
 function load_outcome(snap)
@@ -202,7 +176,8 @@ function splash_active(m::JuleanaTUI)
 end
 
 # Draw the startup screen into `area`: the logo, version, docs link and load state, centered.
-# The logo is the largest one that fits above the text.
+# The logo is the full logo or the name in block letters, whichever fits above the text; with
+# neither, the name is a line of text.
 function render_splash(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     dim = Tachikoma.tstyle(:text_dim)
     outcome = load_outcome(m.snap)
@@ -211,12 +186,13 @@ function render_splash(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffe
         outcome === :loaded ? [("Session loaded", Tachikoma.tstyle(:success))] :
         [("Loading the session failed", Tachikoma.tstyle(:error, bold = true))]
     lines = [[(juleana_version(), dim)], [(DOCS_URL, Tachikoma.tstyle(:accent; underline = true, hyperlink = DOCS_URL))], [("", dim)], state]
-    name = fitting_logo(area.width, area.height - 1 - length(lines))
-    logo_h = isnothing(name) ? 0 : logo_block_size(name)[2] + 1
+    logo = fitting_logo(area.width, area.height - 1 - length(lines))
+    isnothing(logo) && pushfirst!(lines, logo_name_spans(), [("", dim)])
+    logo_h = isnothing(logo) ? 0 : logo_size(logo)[2] + 1
     y = area.y + max(0, (area.height - logo_h - length(lines)) ÷ 2)
-    if !isnothing(name)
-        w, h = logo_block_size(name)
-        render_logo_block(name, area.x + (area.width - w) ÷ 2, y, buf; max_x = Tachikoma.right(area), max_y = Tachikoma.bottom(area))
+    if !isnothing(logo)
+        w, h = logo_size(logo)
+        render_logo(logo, area.x + (area.width - w) ÷ 2, y, buf; max_x = Tachikoma.right(area), max_y = Tachikoma.bottom(area))
         y += h + 1
     end
     for spans in lines
@@ -228,19 +204,40 @@ function render_splash(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffe
     return nothing
 end
 
-# Draw the corner logo and the version at the right end of the tab row `area`, if they fit
-# right of the tabs. The bottom line of the tab bar ends one cell before the logo.
+# Name and root of the data production named by `LEGEND_DATA_CONFIG` (the first file if
+# several are given): the folder that holds the config file, and its parent. `nothing` if
+# the variable is not set.
+function current_production()
+    haskey(ENV, "LEGEND_DATA_CONFIG") || return nothing
+    folder = dirname(abspath(first(split(ENV["LEGEND_DATA_CONFIG"], r":(?!\\)"))))
+    return (basename(folder), dirname(folder))
+end
+
+# Draw the name `JuLeAna` with the version, and below it the current data production, right
+# aligned at the right end of the tab row `area`. Both lines need to fit right of the tabs;
+# the root path of the production is clipped from the left, and nothing is drawn if even the
+# first line does not fit.
 function render_corner_logo(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     used = isempty(m.tabs._tab_rects) ? area.x - 1 : maximum(Tachikoma.right, m.tabs._tab_rects)
-    w, h = logo_size(:corner)
-    version = juleana_version()
-    x = Tachikoma.right(area) - (w + 1 + textwidth(version))
-    (x > used + 1 && h <= area.height) || return nothing
-    for col in (x - 1):Tachikoma.right(area)
-        Tachikoma.set_char!(buf, col, Tachikoma.bottom(area), ' ', Tachikoma.RESET)
+    right = Tachikoma.right(area)
+    available = right - used - 1
+    title = vcat(logo_name_spans(), [(" " * juleana_version(), Tachikoma.tstyle(:text_dim))])
+    title_width = sum(s -> textwidth(s[1]), title)
+    title_width <= available || return nothing
+    put_spans!(buf, right - title_width + 1, area.y, right, title)
+    area.height >= 2 || return nothing
+    production = current_production()
+    spans = if isnothing(production)
+        [("no data production", Tachikoma.tstyle(:text_dim))]
+    else
+        name, root = production
+        room = available - textwidth(name) - 2
+        root = textwidth(root) <= room ? root : room >= 2 ? "…" * last(root, room - 1) : ""
+        isempty(root) ? [(name, Tachikoma.tstyle(:text))] :
+            [(name, Tachikoma.tstyle(:text)), ("  " * root, Tachikoma.tstyle(:text_dim))]
     end
-    render_logo(:corner, x, area.y, buf; max_x = Tachikoma.right(area), max_y = Tachikoma.bottom(area))
-    Tachikoma.set_string!(buf, x + w + 1, area.y + (h - 1) ÷ 2, version, Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(area))
+    width = sum(s -> textwidth(s[1]), spans)
+    width <= available && put_spans!(buf, right - width + 1, area.y + 1, right, spans)
     return nothing
 end
 

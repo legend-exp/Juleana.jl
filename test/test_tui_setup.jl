@@ -85,8 +85,10 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         end
         # the keys are in the key row and the help panel, not in the options pane
         @test find_text(tb, "s: start") === nothing
-        # the logo fills the free space of the options pane
-        @test any(r -> occursin("▀", row_text(tb, r)), 1:30)
+        # the logo is drawn only where the options pane has room for it
+        letters_bottom = strip(Juleana.LOGO_LETTERS[end])
+        @test find_text(tb, letters_bottom) === nothing
+        @test find_text(render_setup_page(m, 280, 50), letters_bottom) !== nothing
 
         # a change in the controller shows up in the checklists
         dispatch!(m.ctrl, SelectRuns(Dict(2 => [7])))

@@ -16,6 +16,12 @@ function branding_render(m, width = 120, height = 36)
     return tb
 end
 
+# Column of the first occurrence of `text` in row `row`.
+function branding_column(tb, row, text)
+    line = row_text(tb, row)
+    return textwidth(line[1:prevind(line, first(findfirst(text, line)))]) + 1
+end
+
 branding_text(tb, height = 36) = join((row_text(tb, r) for r in 1:height), "\n")
 
 function branding_settle!(cond, m; timeout = 60)
@@ -39,67 +45,59 @@ end
 # keep it in a temporary one.
 withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
     @testset "Branding" begin
-        @testset "logo art" begin
-            # `(width, height)` in cells
-            sizes = Dict(:large => (64, 16), :medium => (48, 12), :mark => (32, 14), :mark_small => (24, 10), :corner => (9, 3))
-            for (name, size) in sizes
-                rows = Juleana.LOGO_ART[name]
-                @test Juleana.logo_size(name) == size
-                @test length(rows) == 2 * size[2] && all(r -> length(r) == size[1], rows)
-                @test all(r -> all(c -> c in " kgpr", r), rows)
-            end
-            @test sort(collect(keys(Juleana.LOGO_ART))) == sort(collect(keys(sizes)))
-            @test_throws KeyError Juleana.logo_size(:huge)
+        @testset "logo" begin
+            @test Juleana.logo_size(Juleana.TEXT_LOGO) == (102, 22)
+            @test Juleana.logo_size(Juleana.LOGO_LETTERS) == (73, 8)
+            @test Juleana.logo_size(["ab", "abcd", ""]) == (4, 3)
+            @test Juleana.logo_size([[("ab", :red), ("cd", :green)], [("e", :outline)]]) == (4, 2)
+            @test Juleana.logo_size(String[]) == (0, 0)
+            colors = Set(name for row in Juleana.TEXT_LOGO for (_, name) in row)
+            @test colors == Set([:outline, :red, :green, :purple])
+            text = Tachikoma.theme().text
+            red, green, purple = Juleana.TITLE_COLORS
+            @test Juleana.logo_color(:outline) == text && Juleana.logo_color(:red) == red
+            @test Juleana.logo_color(:green) == green && Juleana.logo_color(:purple) == purple
+            @test_throws "unknown color" Juleana.logo_color(:blue)
         end
 
         @testset "fitting logo" begin
-            @test Juleana.fitting_logo(64, 16) == :large
-            @test Juleana.fitting_logo(63, 16) == :medium
-            @test Juleana.fitting_logo(64, 15) == :medium
-            @test Juleana.fitting_logo(48, 11) == :mark_small
-            @test Juleana.fitting_logo(47, 15) == :mark
-            @test Juleana.fitting_logo(47, 30) == :mark
-            @test Juleana.fitting_logo(32, 15) == :mark
-            @test Juleana.fitting_logo(32, 14) == :mark_small
-            @test Juleana.fitting_logo(31, 30) == :mark_small
-            @test Juleana.fitting_logo(24, 11) == :mark_small
-            @test isnothing(Juleana.fitting_logo(24, 10)) && isnothing(Juleana.fitting_logo(23, 30))
-            @test Juleana.logo_block_size(:medium) == (48, 12) && Juleana.logo_block_size(:mark) == (32, 15)
-            tb = TestBackend(40, 20)
-            Juleana.render_logo_block(:mark, 3, 2, tb.buf; max_x = 40, max_y = 20)
-            @test find_text(tb, "Juleana") == (; x = 3 + (32 - 7) ÷ 2, y = 2 + 14)
-            tb = TestBackend(60, 20)
-            Juleana.render_logo_block(:medium, 3, 2, tb.buf; max_x = 60, max_y = 20)
-            @test find_text(tb, "Juleana") === nothing
+            @test Juleana.fitting_logo(102, 22) === Juleana.TEXT_LOGO
+            @test Juleana.fitting_logo(200, 40) === Juleana.TEXT_LOGO
+            @test Juleana.fitting_logo(101, 22) === Juleana.LOGO_LETTERS
+            @test Juleana.fitting_logo(102, 21) === Juleana.LOGO_LETTERS
+            @test Juleana.fitting_logo(73, 8) === Juleana.LOGO_LETTERS
+            @test isnothing(Juleana.fitting_logo(72, 30)) && isnothing(Juleana.fitting_logo(200, 7))
         end
 
-        @testset "half-block mapping" begin
-            art = ["k r ", "  rg", "kp  ", " k  "]
-            @test Juleana.logo_size(art) == (4, 2)
-            tb = TestBackend(10, 5)
-            Juleana.render_logo(art, 2, 2, tb.buf)
+        @testset "render logo" begin
+            rows = [[("a", :outline), (" ", :outline), ("b", :red)], "  c", [("d", :green), ("ef", :purple)]]
+            tb = TestBackend(10, 6)
+            Juleana.render_logo(rows, 2, 2, tb.buf)
             text = Tachikoma.theme().text
             red, green, purple = Juleana.TITLE_COLORS
-            # cells from (top, bottom) pixels: outline over nothing, nothing, red over red, nothing over green
-            @test rstrip(row_text(tb, 2)) == " ▀ █▄"
-            @test style_at(tb, 2, 2).fg == text
-            @test style_at(tb, 4, 2).fg == red
-            @test style_at(tb, 5, 2).fg == green
-            # outline over nothing, purple over outline
-            @test rstrip(row_text(tb, 3)) == " ▀▀"
-            @test style_at(tb, 2, 3).fg == text
-            @test style_at(tb, 3, 3).fg == purple && style_at(tb, 3, 3).bg == text
-            # cells without pixels stay empty
-            @test isempty(strip(row_text(tb, 1))) && isempty(strip(row_text(tb, 4)))
+            @test rstrip(row_text(tb, 2)) == " a b"
+            @test rstrip(row_text(tb, 3)) == "   c"
+            @test rstrip(row_text(tb, 4)) == " def"
+            @test style_at(tb, 2, 2).fg == text && style_at(tb, 4, 2).fg == red
+            @test style_at(tb, 4, 3).fg == text
+            @test style_at(tb, 2, 4).fg == green && style_at(tb, 3, 4).fg == purple && style_at(tb, 4, 4).fg == purple
+            # spaces are transparent
+            tb = TestBackend(10, 6)
+            Tachikoma.set_string!(tb.buf, 1, 2, "xxxxxx", Tachikoma.Style())
+            Juleana.render_logo(rows, 2, 2, tb.buf)
+            @test rstrip(row_text(tb, 2)) == "xaxbxx"
             # clipping at `max_x` and `max_y`
-            tb = TestBackend(10, 5)
-            Juleana.render_logo(art, 2, 2, tb.buf; max_x = 3, max_y = 2)
-            @test rstrip(row_text(tb, 2)) == " ▀" && isempty(strip(row_text(tb, 3)))
-            @test_throws "unknown palette character" Juleana.render_logo(["x"], 1, 1, TestBackend(3, 3).buf)
+            tb = TestBackend(10, 6)
+            Juleana.render_logo(rows, 2, 2, tb.buf; max_x = 3, max_y = 3)
+            @test rstrip(row_text(tb, 2)) == " a" && isempty(strip(row_text(tb, 3))) && isempty(strip(row_text(tb, 4)))
             # parts outside of the buffer are dropped
             tb = TestBackend(5, 3)
-            Juleana.render_logo(:large, -24, -4, tb.buf)
+            Juleana.render_logo(Juleana.TEXT_LOGO, -30, -5, tb.buf)
             @test any(r -> !isempty(strip(row_text(tb, r))), 1:3)
+            tb = TestBackend(110, 24)
+            Juleana.render_logo(Juleana.TEXT_LOGO, 5, 1, tb.buf)
+            @test find_text(tb, strip(Juleana.TEXT_LOGO[1][1][1])) == (; x = 5 + 34, y = 1)
+            @test style_at(tb, 5 + 41, 2).fg == red
         end
 
         root = mktempdir()
@@ -137,8 +135,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             # the link carries the hyperlink
             link = find_text(tb, docs_url)
             @test style_at(tb, link.x, link.y).hyperlink == docs_url
-            # the large logo is drawn
-            @test count(r -> occursin("█", row_text(tb, r)) || occursin("▀", row_text(tb, r)), 1:36) >= 16
+            # the full logo is drawn
+            @test find_text(tb, strip(Juleana.TEXT_LOGO[1][1][1])) !== nothing
             @test branding_settle!(() -> !isnothing(m.snap) && m.snap.state === :ready, m)
             # loaded, but the minimum time has not passed
             @test find_text(branding_render(m), "Session loaded") !== nothing
@@ -183,63 +181,101 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         @testset "startup screen sizes" begin
             m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = new_session); splash_seconds = 60.0)
             m.splash, m.started_at = true, time()
-            count_logo(tb, h) = count(r -> any(c -> c in "▀▄█", row_text(tb, r)), 5:h)
-            # large logo (16 rows), medium (12 rows), the mark (14 rows and a caption), text only
-            @test count_logo(branding_render(m, 120, 36), 36) == 16
-            @test count_logo(branding_render(m, 70, 26), 26) == 12
-            @test count_logo(branding_render(m, 70, 20), 20) == 0
-            @test count_logo(branding_render(m, 40, 28), 28) == 14 && find_text(branding_render(m, 40, 28), "Juleana") !== nothing
-            @test count_logo(branding_render(m, 40, 25), 25) == 10
-            @test find_text(branding_render(m, 70, 20), docs_url) !== nothing
-            text_only = branding_render(m, 70, 10)
-            @test find_text(text_only, docs_url) !== nothing && count_logo(text_only, 10) == 0
+            full_top = strip(Juleana.TEXT_LOGO[1][1][1])
+            letters_bottom = strip(Juleana.LOGO_LETTERS[end])
+            body_name(tb, h) = [r for r in 5:h if occursin("JuLeAna", row_text(tb, r))]
+            # the full logo, the letters, the name as text
+            tb = branding_render(m, 120, 36)
+            @test find_text(tb, full_top) !== nothing && find_text(tb, letters_bottom) !== nothing && isempty(body_name(tb, 36))
+            tb = branding_render(m, 120, 30)
+            @test find_text(tb, full_top) === nothing && find_text(tb, letters_bottom) !== nothing && isempty(body_name(tb, 30))
+            tb = branding_render(m, 90, 36)
+            @test find_text(tb, full_top) === nothing && find_text(tb, letters_bottom) !== nothing
+            tb = branding_render(m, 70, 26)
+            @test find_text(tb, letters_bottom) === nothing && find_text(tb, full_top) === nothing
+            rows = body_name(tb, 26)
+            @test length(rows) == 1
+            x = branding_column(tb, only(rows), "JuLeAna")
+            red, green, purple = Juleana.TITLE_COLORS
+            @test [style_at(tb, x + i, only(rows)).fg for i in (0, 2, 4)] == [red, green, purple]
+            @test all(i -> style_at(tb, x + i, only(rows)).bold, 0:6)
+            @test find_text(tb, docs_url) !== nothing
+            tb = branding_render(m, 120, 14)
+            @test find_text(tb, letters_bottom) === nothing && length(body_name(tb, 14)) == 1
+            text_only = branding_render(m, 70, 14)
+            @test find_text(text_only, docs_url) !== nothing
             Tachikoma.cleanup!(m)
         end
 
         @testset "corner logo" begin
             m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
             version = Juleana.juleana_version()
-            wide = branding_render(m, 120, 36)
-            @test find_text(wide, version) !== nothing
-            pos = find_text(wide, version)
-            @test pos.y == 3 && pos.x > 80
-            @test any(c -> c in "▀▄█", row_text(wide, 2)) && any(c -> c in "▀▄█", row_text(wide, 4))
-            # the tab bar line ends one cell before the logo and leaves nothing under its cells
-            w, h = Juleana.logo_size(:corner)
-            version_col = length(SubString(row_text(wide, 3), 1, pos.x - 1)) + 1
-            left = version_col - 1 - w
-            bottom = collect(row_text(wide, 4))
-            @test h == 3 && !any(c -> c in "─╯╰", bottom[(left - 1):(end - 1)])
-            @test bottom[left - 2] == '─'
-            @test all(c -> !(c in "─╯╰"), collect(row_text(wide, 2))[left:(end - 1)])
-            narrow = branding_render(m, 60, 36)
-            @test find_text(narrow, version) === nothing
-            @test find_text(narrow, "4 Progress") !== nothing
-            @test count(==('─'), row_text(narrow, 4)) > 40 && !any(c -> c in "▀▄█", row_text(narrow, 4))
+            red, green, purple = Juleana.TITLE_COLORS
+            dim = Tachikoma.tstyle(:text_dim).fg
+            text = Tachikoma.tstyle(:text).fg
+            config = "/data/l200/jl-v9.9.9/config.json"
+            withenv("LEGEND_DATA_CONFIG" => config) do
+                wide = branding_render(m, 120, 36)
+                @test endswith(rstrip(row_text(wide, 2), '│'), "JuLeAna " * version)
+                @test endswith(row_text(wide, 3), "jl-v9.9.9  /data/l200│")
+                # the name in the logo colors, bold; the version dim
+                x = branding_column(wide, 2, "JuLeAna " * version)
+                @test [style_at(wide, x + i, 2).fg for i in (0, 1, 2, 3, 4, 6)] == [red, red, green, green, purple, purple]
+                @test all(i -> style_at(wide, x + i, 2).bold, 0:6)
+                @test style_at(wide, x + 8, 2).fg == dim
+                # the production name and the dimmer root
+                y = branding_column(wide, 3, "jl-v9.9.9")
+                @test style_at(wide, y, 3).fg == text && style_at(wide, y + 11, 3).fg == dim
+                # the tab bar's bottom line is not touched
+                @test count(==('─'), row_text(wide, 4)) > 100
+                # the root is clipped from the left
+                clipped = branding_render(m, 104, 36)
+                @test endswith(row_text(clipped, 3), "jl-v9.9.9  …/l200│") && endswith(rstrip(row_text(clipped, 2), '│'), "JuLeAna " * version)
+                # no room right of the tabs: nothing
+                narrow = branding_render(m, 100, 36)
+                @test find_text(narrow, version) === nothing && find_text(narrow, "jl-v9.9.9") === nothing
+                @test find_text(narrow, "7 History") !== nothing
+            end
+            # a root that is longer than the free space
+            long_root = "/" * join(("dir$i" for i in 1:30), "/")
+            withenv("LEGEND_DATA_CONFIG" => long_root * "/jl-v1/config.json") do
+                tb = branding_render(m, 120, 36)
+                @test occursin(r"jl-v1  …[^│]*dir30│$", row_text(tb, 3))
+            end
+            # the first of several config files names the production
+            withenv("LEGEND_DATA_CONFIG" => "/a/b/jl-v1/config.json:/c/d/jl-v2/config.json") do
+                tb = branding_render(m, 120, 36)
+                @test endswith(row_text(tb, 3), "jl-v1  /a/b│") && find_text(tb, "jl-v2") === nothing
+            end
+            withenv("LEGEND_DATA_CONFIG" => nothing) do
+                tb = branding_render(m, 120, 36)
+                @test endswith(row_text(tb, 3), "no data production│")
+                @test endswith(rstrip(row_text(tb, 2), '│'), "JuLeAna " * version)
+            end
             Tachikoma.cleanup!(m)
         end
 
         @testset "Setup page logo" begin
             m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
             @test branding_refreshed!(m)
-            logo_rows(tb, h = 36) = [r for r in 6:h if any(c -> c in "▀▄█", row_text(tb, r))]
-            # the mark with its caption ends on the last row inside the pane
-            tall = branding_render(m, 120, 36)
-            @test find_text(tall, "s: start") === nothing && find_text(tall, "Runs: ") !== nothing
-            rows = logo_rows(tall)
-            @test length(rows) == 14 && last(rows) == 31 && find_text(tall, "Juleana").y == 32
-            # a wider pane takes the medium logo, which has the lettering in its art
-            wide = branding_render(m, 180, 44)
-            rows = logo_rows(wide, 44)
-            @test length(rows) == 12 && last(rows) == 40 && find_text(wide, "Juleana") === nothing
-            # a narrower pane takes the small mark
-            small = branding_render(m, 100, 30)
-            @test length(logo_rows(small, 30)) == 10 && find_text(small, "Juleana").y == 26
-            # a pane without room for the logo gets none
-            short = branding_render(m, 120, 20)
-            @test isempty(logo_rows(short, 20))
-            narrow = branding_render(m, 80, 36)
-            @test isempty(logo_rows(narrow))
+            full_top = strip(Juleana.TEXT_LOGO[1][1][1])
+            letters_bottom = strip(Juleana.LOGO_LETTERS[end])
+            # the Options pane is too narrow for the logo on common screens
+            for (w, h) in ((120, 36), (220, 50))
+                tb = branding_render(m, w, h)
+                @test find_text(tb, letters_bottom) === nothing && find_text(tb, "Runs: ") !== nothing
+            end
+            # a wide pane takes the letters, which end on the last row inside the pane
+            tb = branding_render(m, 260, 50)
+            @test find_text(tb, full_top) === nothing
+            pos = find_text(tb, letters_bottom)
+            @test !isnothing(pos) && occursin('╯', row_text(tb, pos.y + 1)) && find_text(tb, "Runs: ") !== nothing
+            # a wider and taller one the full logo
+            tb = branding_render(m, 360, 50)
+            @test find_text(tb, full_top) !== nothing
+            # without height for the letters, no logo
+            tb = branding_render(m, 260, 20)
+            @test find_text(tb, letters_bottom) === nothing
             Tachikoma.cleanup!(m)
         end
 

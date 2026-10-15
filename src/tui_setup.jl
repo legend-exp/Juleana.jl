@@ -381,8 +381,8 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     end
     logo = fitting_logo(inner.width, inner.height - length(lines) - 1)
     if !isnothing(logo)
-        w, h = logo_block_size(logo)
-        render_logo_block(logo, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf;
+        w, h = logo_size(logo)
+        render_logo(logo, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf;
             max_x = Tachikoma.right(inner), max_y = Tachikoma.bottom(inner))
     end
     isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
