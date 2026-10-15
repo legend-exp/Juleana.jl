@@ -66,6 +66,7 @@ snapshot
 wait(::DataflowController)
 progress
 busy_workers
+step_messages
 ProgressStore
 show_progress
 Juleana.effective_config

@@ -107,14 +107,14 @@ function run_processing(
             ProgressKey[(period, nothing, step) for period in periods for step in partition_steps],
             ProgressKey[(period, run, step) for period in periods for run in get(period_runs, period, DataRun[]) for step in run_steps]))
     end
-    mark(key, state) = isnothing(progress_store) || set_step_state!(progress_store, key, state)
+    mark(key, state; error = nothing) = isnothing(progress_store) || set_step_state!(progress_store, key, state; error)
     # Run the step `key` with `f`, recording its state and making it the progress entry of `parallel`.
     function tracked(f, key)
         mark(key, :running)
         try
             isnothing(progress_store) ? f() : with(f, PROGRESS_STEP => (progress_store, key))
         catch e
-            mark(key, e isa ProcessingStopped ? :stopped : :failed)
+            e isa ProcessingStopped ? mark(key, :stopped) : mark(key, :failed; error = sprint(showerror, e))
             rethrow()
         end
         mark(key, :done)

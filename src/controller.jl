@@ -610,3 +610,4 @@ end
 
 progress(ctrl::DataflowController) = progress(ctrl.progress)
 busy_workers(ctrl::DataflowController) = busy_workers(ctrl.progress)
+step_messages(ctrl::DataflowController, key) = step_messages(ctrl.progress, key)

@@ -191,7 +191,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         # a command was answered after this read had started
         m.answered += 1
         m.refreshing = true
-        Tachikoma.update!(m, Tachikoma.TaskEvent(:refresh, (m.answered - 1, snap, prog, busy)))
+        Tachikoma.update!(m, Tachikoma.TaskEvent(:refresh, (m.answered - 1, snap, prog, busy, m.step_msgs)))
         @test Juleana.checked(m.setup.periods) == [(p3, r0)]
         # and the page reads again
         @test m.refreshing

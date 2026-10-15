@@ -26,6 +26,10 @@ const HELP_KEYS = (
     progress = (
         ("↑ ↓ PgUp PgDn Home End", "move the cursor"),
         ("Enter  ← →", "fold, unfold a group"),
+        ("Enter on a step", "messages of the step (again: close)"),
+        ("PgUp PgDn", "scroll the messages while they are open"),
+        ("End", "newest message while they are open"),
+        ("Esc", "close the messages"),
         ("f", "follow the running step"),
         ("Mouse", "click a row, wheel moves the cursor"),
     ),

@@ -136,7 +136,7 @@ export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
-export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, show_progress
+export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetCheckDependencies, SetKwarg,

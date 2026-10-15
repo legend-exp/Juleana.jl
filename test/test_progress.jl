@@ -87,6 +87,35 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test isnothing(last(p.steps).rate)
         @test p.counts.done == 1 && p.counts.cancelled == 1
         @test [(g.period, g.run, g.nsteps) for g in p.groups] == [(p3, r1, 1), (p3, nothing, 1)]
+        @test all(e -> isnothing(e.error) && e.nmessages == 0, p.steps)
+    end
+
+    @testset "step messages and errors" begin
+        store = ProgressStore()
+        a, b = (p3, r1, :run_a), (p3, nothing, :p_part_b)
+        Juleana.reset_progress!(store, [a, b])
+        Juleana.step_message!(store, a, Logging.Info, "first")
+        Juleana.step_message!(store, a, Logging.Warn, "second\n  detail")
+        # a step of another run is ignored
+        Juleana.step_message!(store, (p3, r2, :run_a), Logging.Info, "elsewhere")
+        msgs = step_messages(store, a)
+        @test [(m.level, m.text) for m in msgs] == [(Logging.Info, "first"), (Logging.Warn, "second\n  detail")]
+        @test isempty(step_messages(store, b)) && isempty(step_messages(store, (p3, r2, :run_a)))
+        # a copy: later messages do not change it
+        Juleana.step_message!(store, a, Logging.Info, "third")
+        @test length(msgs) == 2
+        for i in 1:Juleana.STEP_MESSAGE_CAPACITY
+            Juleana.step_message!(store, a, Logging.Info, "m$i")
+        end
+        msgs = step_messages(store, a)
+        @test length(msgs) == Juleana.STEP_MESSAGE_CAPACITY && last(msgs).text == "m$(Juleana.STEP_MESSAGE_CAPACITY)"
+        @test first(progress(store).steps).nmessages == Juleana.STEP_MESSAGE_CAPACITY
+
+        Juleana.set_step_state!(store, b, :failed; error = "fit failed")
+        @test [e.error for e in progress(store).steps] == [nothing, "fit failed"]
+        # a new run starts without messages and errors
+        Juleana.reset_progress!(store, [a, b])
+        @test isempty(step_messages(store, a)) && all(e -> isnothing(e.error), progress(store).steps)
     end
 
     @testset "busy workers and abandoned items" begin
@@ -174,6 +203,28 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         states = Dict(e.step => e.state for e in progress(store).steps)
         # the partition step waited for the failed run step and never started
         @test states == Dict(:run_a => :failed, :p_part_b => :cancelled)
+        failed = only(filter(e -> e.step === :run_a, progress(store).steps))
+        @test occursin("run failure", failed.error)
+
+        # the interface's logger keeps the messages of a step with the step
+        function run_logging(cfg, l200, period, run; reprocess = false)
+            @info "fitting $run"
+            @warn "low statistics" channel = 7
+            error("run failure")
+        end
+        buf = Juleana.MessageBuffer()
+        Logging.with_logger(buf) do
+            @test_throws CompositeException run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
+                progress_status([p3], [r1], [:run_a], [:p_part_b])...;
+                processors = Dict{Symbol,Any}(:run_a => run_logging, :p_part_b => p_part_b), dependency_timeout = 60,
+                progress_store = store)
+        end
+        msgs = step_messages(store, (p3, r1, :run_a))
+        @test [m.text for m in msgs] == ["fitting r001", "low statistics\n  channel = 7"]
+        @test [m.level for m in msgs] == [Logging.Info, Logging.Warn]
+        @test isempty(step_messages(store, (p3, nothing, :p_part_b)))
+        # the messages also stay in the buffer
+        @test any(l -> occursin("fitting r001", l), Juleana.message_lines(buf))
 
         cfg_runs = ProcessingConfig(; processors = cfg.processors, p_processors = Dict{Symbol,ProcessorSpec}(), analysis_runs_only = true)
         @test_logs (:warn, r"not an analysis run") match_mode = :any run_processing(cfg_runs, ProgressNoAnalysisData(),

@@ -31,7 +31,8 @@ const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0
 # Keys shown below the status row, as `(key, description)` per page: Setup, Progress, Log, others.
 const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
-const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("f", "follow"))
+const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("Enter on step", "messages"), ("f", "follow"))
+const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"), ("End", "newest"), ("Esc", "close"), ("f", "follow"))
 const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
 const COMMON_HINTS = (("1-6", "page"), ("q", "quit"), ("?", "help"))
 
@@ -49,7 +50,9 @@ output as text, for the terminal user interface. Each line has the log level of 
 message and the number of its record: the lines of one log message share a record, each
 line of captured output is a record of its own. Output lines containing `Warning:` or
 `Error:` get the level `Warn` or `Error`, other output lines `Info`. Records below `Info`
-and progress bar records of ProgressLogging are dropped. The newest warning or error, from
+and progress bar records of ProgressLogging are dropped. A log message of a processing
+step (inside the step's scope set by [`run_processing`](@ref)) is also kept with the step
+in its `ProgressStore` (see [`step_messages`](@ref)). The newest warning or error, from
 a log record or from an output line containing `Warning:` or `Error:`, is kept as the
 alert of the buffer.
 
@@ -98,6 +101,8 @@ function handle_message(buf::MessageBuffer, level, message, _module, group, id, 
         end
         level >= Logging.Warn && (buf.alert = (; level = LogLevel(level), text = first(split(text, '\n')), time = time()))
     end
+    step = PROGRESS_STEP[]
+    isnothing(step) || step_message!(step..., LogLevel(level), text)
     return nothing
 end
 
@@ -148,7 +153,8 @@ State of the terminal user interface opened by [`Juleana.run_tui`](@ref).
 the dataflow of `ctrl`. Controller commands run one after another in a background task,
 in the order they were sent, and state reads run in background tasks of the interface's
 `Tachikoma.TaskQueue`, so the interface never waits for the controller; the latest
-state read from it is kept in the fields `snap`, `progress` and `busy`.
+state read from it is kept in the fields `snap`, `progress`, `busy` and `step_msgs` (the
+messages of the step open on the Progress page, with the step's key).
 
 A left click on a page's tab opens the page; other mouse events go to the visible page.
 
@@ -187,6 +193,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     snap::Any
     progress::Any
     busy::Vector{BusyItem}
+    step_msgs::NamedTuple{(:key, :messages),Tuple{Any,Vector{StepMessage}}}
     command_error::Union{Nothing,String}
     # number of `:tick` events, which advances the spinner
     ticks::Int
@@ -211,7 +218,7 @@ tab_bar() = Tachikoma.TabBar(
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
     m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(), LogPage(),
-        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing, 0,
+        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
         false, 0.0, false, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
     return m
@@ -251,8 +258,11 @@ end
 function refresh!(m::JuleanaTUI)
     m.refreshing && return nothing
     m.refreshing = true
-    ctrl, answered = m.ctrl, m.answered
-    Tachikoma.spawn_task!(() -> (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl)), m.queue, :refresh)
+    ctrl, answered, key = m.ctrl, m.answered, m.progress_page.open
+    Tachikoma.spawn_task!(m.queue, :refresh) do
+        messages = isnothing(key) ? StepMessage[] : step_messages(ctrl, key)
+        return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), (; key, messages))
+    end
     return nothing
 end
 
@@ -284,9 +294,11 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     elseif evt.id === :refresh
         m.refreshing = false
         evt.value isa Exception && throw(evt.value)
-        answered, m.snap, m.progress, m.busy = evt.value
+        answered, m.snap, m.progress, m.busy, m.step_msgs = evt.value
         # a read from before the last answer may miss its command: keep the page, read again
         answered == m.answered ? sync_setup!(m.setup, m.snap; pending = m.pending > 0) : refresh!(m)
+        # the pane switched to another step while the read ran
+        m.step_msgs.key == m.progress_page.open || refresh!(m)
         m.splash = splash_active(m)
         m.quit_after_stop && !processing(m) && (m.quit = true)
     elseif evt.id === :command
@@ -324,7 +336,12 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     end
     n = length(TUI_PAGES)
     m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
-    m.page == 4 && !ctrl_c && progress_key!(m.progress_page, evt, m.progress) && return nothing
+    if m.page == 4 && !ctrl_c
+        open = m.progress_page.open
+        used = progress_key!(m.progress_page, evt, m.progress)
+        m.progress_page.open == open || refresh!(m)
+        used && return nothing
+    end
     m.page == 5 && !ctrl_c && log_key!(m.log_page, evt, message_entries(m.messages)) && return nothing
     if ctrl_c || (evt.key == :char && evt.char == 'q')
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
@@ -343,7 +360,11 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
             return nothing
         end
         m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
-        m.page == 4 && progress_mouse!(m.progress_page, evt, m.progress)
+        if m.page == 4
+            open = m.progress_page.open
+            progress_mouse!(m.progress_page, evt, m.progress)
+            m.progress_page.open == open || refresh!(m)
+        end
         m.page == 5 && log_mouse!(m.log_page, evt, message_entries(m.messages))
     end
     return nothing
@@ -428,7 +449,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     elseif m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 4
-        render_progress(m.progress_page, m.progress, m.busy, body_area, f.buffer)
+        render_progress(m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
     elseif m.page == 5
         render_log(m.log_page, message_entries(m.messages), body_area, f.buffer;
             capacity = m.messages.capacity, log_path = isnothing(m.snap) ? nothing : m.snap.log_path)
@@ -445,7 +466,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     end
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
-    hints = (m.page == 1 ? SETUP_HINTS : m.page == 4 ? PROGRESS_HINTS : m.page == 5 ? LOG_HINTS : ())
+    hints = (m.page == 1 ? SETUP_HINTS : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS : ())
     spans = Tuple{String,Tachikoma.Style}[]
     for (key, description) in (hints..., COMMON_HINTS...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))

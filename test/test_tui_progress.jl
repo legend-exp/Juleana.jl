@@ -4,6 +4,8 @@ using Juleana
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Frame, Rect, GraphicsRegion,
     PixelSnapshot, find_text, row_text
 using LegendDataManagement: DataPeriod, DataRun
+using Dates: DateTime
+using Logging: Logging
 using Test
 
 # `legend_test_setup`, `legend_test_data`, `TEST_DIRS` and `spec`
@@ -16,10 +18,13 @@ function render_model(m, width = 120, height = 30)
     return tb
 end
 
+# Messages of no step.
+const NO_MESSAGES = (; key = nothing, messages = Juleana.StepMessage[])
+
 # Render the Progress page of `page` into a `width` x `height` test backend.
-function render_page(page, prog, busy, width = 120, height = 30)
+function render_page(page, prog, busy, width = 120, height = 30; msgs = NO_MESSAGES)
     tb = TestBackend(width, height)
-    Juleana.render_progress(page, prog, busy, Rect(1, 1, width, height), tb.buf)
+    Juleana.render_progress(page, prog, busy, msgs, Rect(1, 1, width, height), tb.buf)
     return tb
 end
 
@@ -123,12 +128,17 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         render_page(page, prog, Juleana.BusyItem[])
         @test page.cursor == run_key
 
-        # Enter folds the group of the cursor row and moves the cursor to it; the choice outlives new reads
-        @test Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        # Left folds the group of the cursor row and moves the cursor to it; the choice outlives new reads
+        @test Juleana.progress_key!(page, KeyEvent(:left), prog)
         @test !page.follow && page.cursor == (p3, r1) && page.expanded[(p3, r1)] === false
         prog2 = progress(store)
         text = page_text(render_page(page, prog2, Juleana.BusyItem[]))
         @test occursin("▸ p03-r001", text) && !occursin("run_b", text)
+        # Enter on a group row unfolds and folds it
+        @test Juleana.progress_key!(page, KeyEvent(:enter), prog2)
+        @test occursin("▾ p03-r001", page_text(render_page(page, prog2, Juleana.BusyItem[])))
+        @test Juleana.progress_key!(page, KeyEvent(:enter), prog2)
+        @test occursin("▸ p03-r001", page_text(render_page(page, prog2, Juleana.BusyItem[])))
         @test Juleana.progress_key!(page, KeyEvent(:enter), prog2)
         @test occursin("▾ p03-r001", page_text(render_page(page, prog2, Juleana.BusyItem[])))
         @test Juleana.progress_key!(page, KeyEvent(:left), prog2)
@@ -144,7 +154,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test Juleana.progress_key!(page, KeyEvent(:pageup), prog2)
 
         # keys the page does not use, and key releases
-        for evt in (KeyEvent('1'), KeyEvent('q'), KeyEvent(:escape))
+        for evt in (KeyEvent('1'), KeyEvent('q'), KeyEvent(:escape), KeyEvent(:pageup, Tachikoma.key_release))
             @test !Juleana.progress_key!(page, evt, prog2)
         end
         @test !Juleana.progress_key!(page, KeyEvent(:down, Tachikoma.key_release), prog2)
@@ -203,6 +213,115 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test occursin("p03-r026", page_text(render_page(page, prog, Juleana.BusyItem[], 120, 14), 14))
     end
 
+    @testset "messages pane" begin
+        # run_a is failed with three messages, one of them with a second line; run_b waits
+        store = ProgressStore()
+        Juleana.reset_progress!(store, [done_key, run_key])
+        Juleana.set_step_state!(store, done_key, :running)
+        t0 = DateTime(2026, 1, 2, 3, 4, 5)
+        Juleana.step_message!(store, done_key, Logging.Info, "loading")
+        Juleana.step_message!(store, done_key, Logging.Warn, "low statistics\n  channel = 7")
+        Juleana.step_message!(store, done_key, Logging.Error, "fit failed")
+        Juleana.set_step_state!(store, done_key, :failed; error = "BoundsError: bad index\nstacktrace line")
+        prog = progress(store)
+        msgs = (; key = done_key, messages = step_messages(store, done_key))
+        none = Juleana.BusyItem[]
+        render(page, msgs = msgs, h = 30) = page_text(render_page(page, prog, none, 120, h; msgs), h)
+        row_y(page, key) = page.list.y + findfirst(r -> r.key == key, Juleana.progress_rows(page, prog)) - page.top
+
+        page = Juleana.ProgressPage()
+        text = render(page)
+        @test isnothing(page.open) && !occursin("messages", text)
+        @test page.cursor != done_key
+        Juleana.sync_cursor!(page, Juleana.progress_rows(page, prog))
+        # Enter on a step row opens the pane and turns following off; Enter again closes it
+        page.cursor = done_key
+        @test Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        @test page.open == done_key && !page.follow
+        text = render(page)
+        @test occursin("p03-r001 run_a: 3 messages", text)
+        @test occursin("Info  loading", text) && occursin("Warn  low statistics", text) && occursin("Error fit failed", text)
+        # continuation lines are indented under the level column
+        @test occursin(" "^15 * "  channel = 7", text)
+        # the error of a failed step comes first, before the first message
+        lines = split(text, '\n')
+        i_error = findfirst(l -> occursin("BoundsError: bad index", l), lines)
+        @test !isnothing(i_error) && occursin("stacktrace line", lines[i_error + 1])
+        @test i_error < findfirst(l -> occursin("loading", l), lines)
+        # message lines start with a local time stamp
+        @test occursin(r"\d\d:\d\d:\d\d Info  loading", text)
+        @test Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        @test isnothing(page.open)
+        @test !occursin("3 messages", render(page))
+        # Escape closes the pane, and is not used without one
+        Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        @test !isnothing(page.open)
+        @test Juleana.progress_key!(page, KeyEvent(:escape), prog) && isnothing(page.open)
+        @test !Juleana.progress_key!(page, KeyEvent(:escape), prog)
+
+        # moving the cursor to another step row switches the pane; a group row keeps the step
+        Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        @test Juleana.progress_key!(page, KeyEvent(:down), prog)
+        @test page.cursor == run_key && page.open == run_key
+        text = render(page, (; key = run_key, messages = Juleana.StepMessage[]))
+        @test occursin("p03-r001 run_b: 0 messages", text) && occursin("No messages from this step.", text)
+        # messages read for another step are not shown
+        @test occursin("Reading messages", render(page, msgs))
+        @test Juleana.progress_key!(page, KeyEvent(:home), prog)
+        @test page.cursor == (p3, r1) && page.open == run_key
+        # Enter on a group row folds it and keeps the pane
+        @test Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        @test page.open == run_key && page.expanded[(p3, r1)] === false
+
+        # a click on a step row opens the pane, a click on a group row folds
+        page = Juleana.ProgressPage()
+        render_page(page, prog, none)
+        click(y) = MouseEvent(5, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
+        @test Juleana.progress_mouse!(page, click(row_y(page, done_key)), prog)
+        @test page.open == done_key && page.cursor == done_key && !page.follow
+        @test Juleana.progress_mouse!(page, click(row_y(page, (p3, r1))), prog)
+        @test page.open == done_key && page.expanded[(p3, r1)] === false
+
+        # follow turns on again: the pane follows the cursor's step
+        page = Juleana.ProgressPage()
+        page.cursor, page.open = done_key, done_key
+        Juleana.progress_key!(page, KeyEvent('f'), prog)
+        @test page.follow
+        render(page, msgs)
+        @test page.open == done_key
+
+        # a long message list: the newest messages are shown, PgUp scrolls, End goes back
+        Juleana.reset_progress!(store, [done_key])
+        Juleana.set_step_state!(store, done_key, :running)
+        for i in 1:40
+            Juleana.step_message!(store, done_key, Logging.Info, "message $i")
+        end
+        prog = progress(store)
+        msgs = (; key = done_key, messages = step_messages(store, done_key))
+        page = Juleana.ProgressPage()
+        render_page(page, prog, none; msgs)
+        page.cursor = done_key
+        Juleana.progress_key!(page, KeyEvent(:enter), prog)
+        text = render(page, msgs)
+        @test occursin("40 messages", text) && occursin("message 40", text) && !occursin("message 1 ", text * " ")
+        @test page.pane_follow && page.pane_lines == 40
+        bottom_top = page.pane_top
+        @test Juleana.progress_key!(page, KeyEvent(:pageup), prog)
+        @test !page.pane_follow && page.cursor == done_key
+        text = render(page, msgs)
+        @test page.pane_top == bottom_top - page.pane_height && !occursin("message 40", text)
+        @test Juleana.progress_key!(page, KeyEvent(:pagedown), prog)
+        @test page.pane_follow && occursin("message 40", render(page, msgs))
+        Juleana.progress_key!(page, KeyEvent(:pageup), prog)
+        Juleana.progress_key!(page, KeyEvent(:end_key), prog)
+        @test page.pane_follow && occursin("message 40", render(page, msgs))
+
+        # no room for the pane: it is not drawn
+        text = render(page, msgs, 12)
+        @test !occursin("40 messages", text)
+        @test render_page(page, prog, none, 20, 12; msgs) isa TestBackend
+    end
+
     @testset "small areas" begin
         store = running_store()
         prog, busy = progress(store), busy_workers(store)
@@ -229,7 +348,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test m.page == 4
         text = page_text(render_model(m))
         @test occursin("Steps (following)", text) && occursin("Busy workers (2)", text)
-        @test occursin("↑↓ PgUp PgDn move", text)
+        @test occursin("↑↓ PgUp PgDn move", text) && occursin("Enter on step messages", text)
         Tachikoma.update!(m, KeyEvent(:down))
         @test !m.progress_page.follow
         Tachikoma.update!(m, KeyEvent('f'))
@@ -242,6 +361,36 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         Tachikoma.update!(m, KeyEvent('4'))
         Tachikoma.update!(m, KeyEvent('q'))
         @test m.quit
+
+        # opening a step on the Progress page reads its messages in the background
+        key = (DataPeriod(2), DataRun(6), :process_energy_calibration)
+        Juleana.reset_progress!(m.ctrl.progress, [key])
+        Juleana.set_step_state!(m.ctrl.progress, key, :running)
+        Juleana.step_message!(m.ctrl.progress, key, Logging.Warn, "low statistics")
+        Juleana.set_step_state!(m.ctrl.progress, key, :failed; error = "fit failed")
+        Tachikoma.update!(m, KeyEvent('4'))
+        refresh_done() = (t = time() + 60; while m.refreshing && time() < t
+            Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue); sleep(0.02)
+        end; !m.refreshing)
+        @test refresh_done()
+        Juleana.refresh!(m)
+        @test refresh_done()
+        render_model(m)
+        @test m.progress_page.cursor == key
+        @test isempty(m.step_msgs.messages) && isnothing(m.step_msgs.key)
+        Tachikoma.update!(m, KeyEvent(:enter))
+        @test m.progress_page.open == key
+        @test refresh_done()
+        t_end = time() + 60
+        while m.step_msgs.key != key && time() < t_end
+            Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue); sleep(0.02)
+        end
+        @test m.step_msgs.key == key && [e.text for e in m.step_msgs.messages] == ["low statistics"]
+        text = page_text(render_model(m))
+        @test occursin("1 message", text) && occursin("low statistics", text) && occursin("fit failed", text)
+        @test occursin("Esc close", text) && !occursin("PgUp PgDn move", text)
+        Tachikoma.update!(m, KeyEvent(:escape))
+        @test isnothing(m.progress_page.open)
         Tachikoma.cleanup!(m)
     end
 end # testset

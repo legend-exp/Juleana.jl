@@ -9,6 +9,12 @@ const FINAL_STEP_STATES = STEP_STATES[3:end]
 # a partition-level step.
 const ProgressKey = Tuple{DataPeriod,Union{Nothing,DataRun},Symbol}
 
+# A message logged on this process while a step ran: `text` may span several lines.
+const StepMessage = NamedTuple{(:level, :time, :text),Tuple{LogLevel,DateTime,String}}
+
+# Number of messages kept per step; older ones are dropped.
+const STEP_MESSAGE_CAPACITY = 500
+
 const BusyItem = NamedTuple{(:worker, :item, :period, :run, :step, :since, :abandoned),
     Tuple{Int,String,DataPeriod,Union{Nothing,DataRun},Symbol,DateTime,Bool}}
 
@@ -25,9 +31,13 @@ mutable struct StepProgress
     started::Union{Nothing,DateTime}
     items_started::Union{Nothing,DateTime}
     finished::Union{Nothing,DateTime}
+    const messages::Vector{StepMessage}
+    # error message of a failed step
+    error::Union{Nothing,String}
 end
 
-StepProgress() = StepProgress(:waiting, 0, 0, 0, 0, Dict{Int,Int}(), Set{Int}(), nothing, nothing, nothing)
+StepProgress() = StepProgress(:waiting, 0, 0, 0, 0, Dict{Int,Int}(), Set{Int}(), nothing, nothing, nothing,
+    StepMessage[], nothing)
 
 """
     ProgressStore()
@@ -37,6 +47,9 @@ Thread-safe record of the progress of a processing run, filled by
 as `progress_store`. It holds one entry per scheduled step of a period (partition level)
 or of a run (run level) with the step's state, the number of items handed to `parallel`
 and how many of them finished, failed, were not run or are running on which worker.
+Messages logged on this process while a step runs are kept with the step (see
+[`step_messages`](@ref)) when the logger in use passes them to the store, as
+[`Juleana.MessageBuffer`](@ref), the logger of the terminal user interface, does.
 
 The store also records the busy workers: every item that a worker runs, from the moment
 the item is handed to the worker until its call returns. This record is kept across
@@ -75,15 +88,47 @@ function reset_progress!(store::ProgressStore, keys)
     return store
 end
 
-function set_step_state!(store::ProgressStore, key::ProgressKey, state::Symbol)
+# Set the state of step `key`; `error` is the error message of a failed step.
+function set_step_state!(store::ProgressStore, key::ProgressKey, state::Symbol; error::Union{Nothing,AbstractString} = nothing)
     state in STEP_STATES || throw(ArgumentError("progress: unknown step state $(repr(state))"))
     @lock store.lock begin
         step = store.steps[key]
         state === :running && (step.started = now(UTC))
         state in FINAL_STEP_STATES && (step.finished = now(UTC))
         step.state = state
+        isnothing(error) || (step.error = String(error))
     end
     return nothing
+end
+
+# Keep the message `text` of level `level` with step `key`; a step of an earlier run is
+# ignored.
+function step_message!(store::ProgressStore, key::ProgressKey, level::LogLevel, text::AbstractString)
+    @lock store.lock begin
+        step = get(store.steps, key, nothing)
+        isnothing(step) && return nothing
+        push!(step.messages, (; level, time = now(UTC), text = String(text)))
+        length(step.messages) > STEP_MESSAGE_CAPACITY && popfirst!(step.messages)
+    end
+    return nothing
+end
+
+"""
+    step_messages(store::ProgressStore, key)
+    step_messages(ctrl::DataflowController, key)
+
+Return a copy of the messages logged on this process while step `key` of the current or
+last processing run ran, oldest first, as `NamedTuple`s with `level` (a
+`Logging.LogLevel`), `time` (UTC) and `text` (possibly several lines). `key` is
+`(period, run, step)` with `run = nothing` for a partition-level step. Only the last
+$STEP_MESSAGE_CAPACITY messages of a step are kept. Returns an empty vector for a step
+that is not part of the run.
+"""
+function step_messages(store::ProgressStore, key)
+    @lock store.lock begin
+        step = get(store.steps, key, nothing)
+        return isnothing(step) ? StepMessage[] : copy(step.messages)
+    end
 end
 
 # Set every step that has not reached a final state to `state` and close the run.
@@ -198,7 +243,9 @@ Return a copy of the progress of the current or last processing run as a `NamedT
   (`waiting`, `running`, `done`, `failed`, `skipped`, `stopped`, `cancelled`).
 - `steps`: one `NamedTuple` per step in schedule order with `period`, `run` (`nothing`
   for partition-level steps), `step`, `state`, `total`, `done`, `failed`, `notrun`,
-  `workers` (sorted workers of the running items), `started`, `finished`, `fraction`,
+  `workers` (sorted workers of the running items), `started`, `finished`, `error` (the
+  error message of a failed step, else `nothing`), `nmessages` (number of messages kept
+  for the step, see [`step_messages`](@ref)), `fraction`,
   `rate` (items done or failed per second since the step queued its first item, up to
   the step's end; `nothing` before the first item ended) and `eta` (seconds for the
   remaining items of a running step at that rate, or `nothing`).
@@ -218,8 +265,8 @@ function progress(store::ProgressStore)
             end
             eta = s.state === :running && !isnothing(rate) ? (s.total - finished_items) / rate : nothing
             (; period = key[1], run = key[2], step = key[3], s.state, s.total, s.done, s.failed, s.notrun,
-                workers = sort!(collect(values(s.running))), s.started, s.finished,
-                fraction = step_fraction(s), rate, eta)
+                workers = sort!(collect(values(s.running))), s.started, s.finished, s.error,
+                nmessages = length(s.messages), fraction = step_fraction(s), rate, eta)
         end
         count_states(entries) = NamedTuple{STEP_STATES}(map(st -> count(e -> e.state === st, entries), STEP_STATES))
         fraction = isempty(steps) ? 0.0 : sum(e -> e.fraction, steps) / length(steps)

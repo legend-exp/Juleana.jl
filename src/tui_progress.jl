@@ -24,6 +24,11 @@ A row is identified by its key: `(period, run)` for a group and `(period, run, s
 a step, so that the cursor stays on its row when the list changes. `expanded` holds the
 group keys the user folded (`false`) or unfolded (`true`); the other groups are unfolded
 if a step runs, failed or stopped, or has items that were not run.
+
+`open` is the key of the step whose messages pane is shown (`nothing` if closed). The pane
+lists the messages that [`step_messages`](@ref) returns for that step; while `pane_follow`
+is `true` it shows the newest lines, else it starts at line `pane_top`. While the pane is
+open, the cursor moving to another step row switches the pane to that step.
 """
 mutable struct ProgressPage
     cursor::Any
@@ -38,9 +43,16 @@ mutable struct ProgressPage
     # area of the steps block and the part of it that holds the rows at the last render
     rect::Tachikoma.Rect
     list::Tachikoma.Rect
+    open::Any
+    pane_follow::Bool
+    pane_top::Int
+    # rows of the pane and number of lines it holds at the last render
+    pane_height::Int
+    pane_lines::Int
 end
 
-ProgressPage() = ProgressPage(nothing, 1, 1, 1, true, Dict{Any,Bool}(), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+ProgressPage() = ProgressPage(nothing, 1, 1, 1, true, Dict{Any,Bool}(), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0),
+    nothing, true, 1, 1, 0)
 
 # Displayed rows: a group row followed by the rows of its steps if it is unfolded. A group
 # is unfolded as the user left it, else if a step runs, failed, stopped or has items that
@@ -80,10 +92,16 @@ Apply the key event `evt` to `page` for the progress `prog` (as returned by
 [`progress`](@ref), or `nothing`). Return `true` if the key was used and `false` otherwise.
 
   - Up, Down, PageUp, PageDown, Home and End move the cursor and turn following off.
-  - Enter toggles the group of the cursor row. Left folds it and Right unfolds it. Folding
-    a group moves the cursor to the group row. These keys turn following off.
+  - Enter on a group row toggles the group. Left folds the group of the cursor row and
+    Right unfolds it. Folding a group moves the cursor to the group row. These keys turn
+    following off.
+  - Enter on a step row opens the messages pane for the step and turns following off;
+    Enter on the open step's row closes the pane. Escape closes the pane.
+  - While the pane is open, PageUp and PageDown scroll it instead of moving the cursor
+    and End shows the newest line. Moving the cursor to another step row switches the
+    pane to that step.
   - `f` turns following on: the cursor goes to the first running step and the view scrolls
-    to keep it visible.
+    to keep it visible. An open pane follows the cursor's step.
   - Other keys are not used.
 """
 function progress_key!(page::ProgressPage, evt::Tachikoma.KeyEvent, prog)::Bool
@@ -93,12 +111,27 @@ function progress_key!(page::ProgressPage, evt::Tachikoma.KeyEvent, prog)::Bool
         page.follow = true
         return true
     end
+    if !isnothing(page.open)
+        if key == :escape
+            page.open = nothing
+            return true
+        elseif key in (:pageup, :pagedown)
+            scroll_pane!(page, key == :pageup ? -page.pane_height : page.pane_height)
+            return true
+        elseif key == :end_key
+            page.pane_follow = true
+            return true
+        end
+    end
     rows = progress_rows(page, prog)
     idx = sync_cursor!(page, rows)
     delta = key == :up ? -1 : key == :down ? 1 : key == :pageup ? -page.height :
         key == :pagedown ? page.height : key == :home ? -length(rows) : key == :end_key ? length(rows) : nothing
     if !isnothing(delta)
         move_cursor!(page, rows, idx + delta)
+    elseif key == :enter && idx > 0 && rows[idx].step
+        page.open == rows[idx].key ? (page.open = nothing) : switch_pane!(page, rows[idx].key)
+        page.follow = false
     elseif key in (:left, :right, :enter)
         if idx > 0
             gkey = rows[idx].key[1:2]
@@ -120,6 +153,27 @@ function move_cursor!(page::ProgressPage, rows, idx)
     isempty(rows) && return nothing
     page.index = clamp(idx, 1, length(rows))
     page.cursor = rows[page.index].key
+    sync_open!(page, rows[page.index])
+    return nothing
+end
+
+# Show the messages of the step `key` in the pane, starting at the newest line.
+function switch_pane!(page::ProgressPage, key)
+    page.open, page.pane_follow, page.pane_top = key, true, 1
+    return nothing
+end
+
+# Switch an open pane to the step of `row` if it is a step row of another step.
+function sync_open!(page::ProgressPage, row)
+    isnothing(page.open) || !row.step || row.key == page.open || switch_pane!(page, row.key)
+    return nothing
+end
+
+# Scroll the pane by `delta` lines; it follows the newest line again at the end.
+function scroll_pane!(page::ProgressPage, delta)
+    last = last_top(page.pane_lines, page.pane_height)
+    top = clamp((page.pane_follow ? last : page.pane_top) + delta, 1, last)
+    page.pane_top, page.pane_follow = top, top == last
     return nothing
 end
 
@@ -128,8 +182,8 @@ end
 
 Apply the mouse event `evt` to `page`: the scroll wheel moves the cursor by one row while
 the pointer is inside the steps block of the last render, and a left click on a row moves
-the cursor to it and folds or unfolds a group row. Both turn following off. Return `true`
-if the event was used.
+the cursor to it, folds or unfolds a group row and opens the messages pane for a step row.
+Both turn following off. Return `true` if the event was used.
 """
 function progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::Bool
     if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press
@@ -138,7 +192,11 @@ function progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::B
         idx = page.top + evt.y - page.list.y
         idx in eachindex(rows) || return false
         move_cursor!(page, rows, idx)
-        rows[idx].step || (page.expanded[rows[idx].key] = !rows[idx].unfolded)
+        if rows[idx].step
+            page.open == rows[idx].key || switch_pane!(page, rows[idx].key)
+        else
+            page.expanded[rows[idx].key] = !rows[idx].unfolded
+        end
         return true
     elseif evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) && evt.action == Tachikoma.mouse_press
         Base.contains(page.rect, evt.x, evt.y) || return false
@@ -283,6 +341,7 @@ function render_steps(page::ProgressPage, prog, area, buf)
         end
     end
     idx = sync_cursor!(page, rows)
+    sync_open!(page, rows[idx])
     height = inner.height
     page.top = clamp(page.top, 1, max(1, length(rows) - height + 1))
     idx < page.top && (page.top = idx)
@@ -332,21 +391,73 @@ function render_busy(busy, area, buf)
     return nothing
 end
 
+# Local time of the UTC time `t`.
+local_time(t::DateTime) = t + round(now() - now(UTC), Dates.Minute)
+
+# The messages pane of the open step `page.open`: the error of a failed step, then its
+# messages with time and level, colored by level. `msgs` holds the messages read for a step key.
+function render_pane(page::ProgressPage, prog, msgs, area, buf)
+    key = page.open
+    page.pane_height, page.pane_lines = 1, 0
+    (area.width < 3 || area.height < 3) && return nothing
+    messages = msgs.key == key ? msgs.messages : nothing
+    count = isnothing(messages) ? "" : ": $(length(messages)) " * (length(messages) == 1 ? "message" : "messages")
+    label = step_label((; period = key[1], run = key[2], step = key[3]))
+    inner = Tachikoma.render(pane_block(clip_text(label * count, max(0, area.width - 6)), false), area, buf)
+    index = isnothing(prog) ? nothing : findfirst(e -> (e.period, e.run, e.step) == key, prog.steps)
+    entry = isnothing(index) ? nothing : prog.steps[index]
+    lines = Vector{Tuple{String,Tachikoma.Style}}[]
+    if !isnothing(entry) && entry.state === :failed && !isnothing(entry.error)
+        append!(lines, [(String(l), Tachikoma.tstyle(:error))] for l in first(split(entry.error, '\n'), 3))
+    end
+    for msg in something(messages, ()), (i, l) in enumerate(split(msg.text, '\n'))
+        stamp = i == 1 ? Dates.format(local_time(msg.time), dateformat"HH:MM:SS") * " " * rpad(string(msg.level), 5) * " " : " "^15
+        push!(lines, log_line_spans(stamp * l, msg.level, ""))
+    end
+    if isempty(lines)
+        text = isnothing(messages) ? "Reading messages…" : "No messages from this step."
+        push!(lines, [(text, Tachikoma.tstyle(:text_dim))])
+    end
+    page.pane_height, page.pane_lines = inner.height, length(lines)
+    last = last_top(length(lines), inner.height)
+    page.pane_top = page.pane_follow ? last : clamp(page.pane_top, 1, last)
+    for r in 0:(inner.height - 1)
+        page.pane_top + r <= length(lines) || break
+        put_spans!(buf, inner.x, inner.y + r, Tachikoma.right(inner), lines[page.pane_top + r])
+    end
+    return nothing
+end
+
 """
-    Juleana.render_progress(page::ProgressPage, prog, busy, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    Juleana.render_progress(page::ProgressPage, prog, busy, msgs, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the Progress page into `area` of `buf` from the progress `prog` (as returned by
-[`progress`](@ref), or `nothing`) and the busy workers `busy` (see [`busy_workers`](@ref)).
-The page shows the overall progress and the step counts, a block with the steps grouped by
-period and run, and a block with the busy workers. While `page` follows, the cursor moves
-to the first running step. The view scrolls to keep the cursor row visible.
+[`progress`](@ref), or `nothing`), the busy workers `busy` (see [`busy_workers`](@ref)) and
+`msgs`, a named tuple with the step `key` and the `messages` that [`step_messages`](@ref)
+returned for it. The page shows the overall progress and the step counts, a block with the
+steps grouped by period and run, and a block with the busy workers. While `page` follows,
+the cursor moves to the first running step. The view scrolls to keep the cursor row visible.
+
+While `page.open` is a step key, the lower half of the space between the overview and the
+busy workers (if at least 5 rows) shows the messages pane of that step: the error of a
+failed step, then the messages oldest first with local time and level, colored by level.
+It shows the newest lines while `page.pane_follow` is `true`. `msgs` is used only if its
+`key` is `page.open`, else the pane says that the messages are being read.
 """
-function render_progress(page::ProgressPage, prog, busy, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_progress(page::ProgressPage, prog, busy, msgs, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     busy_height = max(3, min(length(busy), 8) + 2)
     layout = Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Fixed(2), Tachikoma.Fill(), Tachikoma.Fixed(busy_height)])
     top, middle, bottom = Tachikoma.split_layout(layout, area)
+    pane_height = isnothing(page.open) ? 0 : middle.height ÷ 2
+    pane_height >= 5 || (pane_height = 0)
+    steps_height = middle.height - pane_height
     render_overview(prog, top, buf)
-    render_steps(page, prog, middle, buf)
+    render_steps(page, prog, Tachikoma.Rect(middle.x, middle.y, middle.width, steps_height), buf)
+    if pane_height > 0
+        render_pane(page, prog, msgs, Tachikoma.Rect(middle.x, middle.y + steps_height, middle.width, pane_height), buf)
+    else
+        page.pane_height, page.pane_lines = 1, 0
+    end
     render_busy(busy, bottom, buf)
     return nothing
 end
