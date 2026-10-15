@@ -166,3 +166,33 @@ function history_grid(processors, period_runs, overview, history)
     end
     return (; periods = [(; period, runs = collect(runs)) for (period, runs) in period_runs], rows)
 end
+
+"""
+    Juleana.disk_counts(row, period_runs)
+
+Count the cells of `row`, a row of [`Juleana.history_grid`](@ref), in the runs of
+`period_runs` (pairs or a `Dict` of `period => runs`); a partition-level row has one cell
+per period. Return `(; ok, warning, failed, missing, total)`: `failed` counts the cells in
+state `:failed`, from a report or the history, `missing` the cells without a report and
+those of a stopped or cancelled step, `total` all counted cells.
+"""
+function disk_counts(row, period_runs)
+    counts = Dict(:ok => 0, :warning => 0, :failed => 0, :missing => 0)
+    for (period, runs) in period_runs, run in (row.level === :partition ? (nothing,) : runs)
+        cell = get(row.cells, (period, run), nothing)
+        state = isnothing(cell) || cell.state in (:stopped, :cancelled) ? :missing : cell.state
+        counts[state] += 1
+    end
+    return (; ok = counts[:ok], warning = counts[:warning], failed = counts[:failed], missing = counts[:missing],
+        total = sum(values(counts)))
+end
+
+"""
+    Juleana.disk_state(counts)
+
+Return the state of a processor on disk from its [`Juleana.disk_counts`](@ref): `:failed`
+if a cell failed, else `:missing` if a cell is missing, else `:warning` if a cell has a
+warning, else `:ok`; `nothing` if there are no cells.
+"""
+disk_state(counts) = counts.total == 0 ? nothing : counts.failed > 0 ? :failed : counts.missing > 0 ? :missing :
+    counts.warning > 0 ? :warning : :ok

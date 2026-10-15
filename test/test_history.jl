@@ -77,4 +77,14 @@ end
     @test energy.cells[(p2, nothing)].source == :report
     @test energy.cells[(p3, nothing)] == (; state = :stopped, date = t(13), source = :history, path = "/log/a")
     @test Juleana.history_grid(processors, period_runs, [], []).rows[1].cells == Dict()
+
+    # the state on disk of a processor over a selection of runs
+    @test Juleana.disk_counts(dsp, period_runs) == (; ok = 0, warning = 1, failed = 1, missing = 1, total = 3)
+    @test Juleana.disk_counts(dsp, [p2 => [r7]]) == (; ok = 0, warning = 1, failed = 0, missing = 0, total = 1)
+    @test Juleana.disk_counts(energy, Dict(p2 => [r6, r7], p3 => [r0])) == (; ok = 1, warning = 0, failed = 0, missing = 1, total = 2)
+    @test Juleana.disk_state(Juleana.disk_counts(dsp, period_runs)) === :failed
+    @test Juleana.disk_state(Juleana.disk_counts(dsp, [p2 => [r7], p3 => [r0]])) === :missing
+    @test Juleana.disk_state(Juleana.disk_counts(dsp, [p2 => [r7]])) === :warning
+    @test Juleana.disk_state(Juleana.disk_counts(energy, [p2 => [r6]])) === :ok
+    @test isnothing(Juleana.disk_state(Juleana.disk_counts(dsp, [p2 => DataRun[]])))
 end

@@ -3,6 +3,7 @@
 using Juleana
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Frame, Rect, GraphicsRegion,
     PixelSnapshot, row_text, style_at
+using LegendDataManagement: DataPeriod, DataRun
 using Test
 
 # Render the Graph page of `page` into an `area` of a `width` x `height` test backend.
@@ -359,5 +360,38 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         Tachikoma.update!(m, MouseEvent(pos.x, pos.y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test m.graph_page.cursor == :p_y
         Tachikoma.cleanup!(m)
+    end
+
+    @testset "state on disk" begin
+        p2, p3 = DataPeriod(2), DataPeriod(3)
+        r6, r7, r0 = DataRun(6), DataRun(7), DataRun(0)
+        # p03 is not selected; of p02 only r006 is
+        snap4 = merge(graph_snapshot(; run_steps = [:r_a, :r_b], partition_steps = [:p_x]),
+            (; periods = [p2], runs = Dict(p2 => [r6]), available_runs = Dict(p2 => [r6, r7], p3 => [r0])))
+        cell(state) = (; state, date = nothing, source = :report, path = "")
+        grid = (; periods = [], rows = [
+            (; process = :r_a, level = :run, category = :cal, cells = Dict((p2, r6) => cell(:warning), (p2, r7) => cell(:failed))),
+            (; process = :r_b, level = :run, category = :cal, cells = Dict((p3, r0) => cell(:ok))),
+            (; process = :p_x, level = :partition, category = :phy, cells = Dict((p2, nothing) => cell(:ok))),
+            (; process = :p_y, level = :partition, category = :cal,
+                cells = Dict((p2, nothing) => (; state = :failed, date = nothing, source = :history, path = "")))])
+        prog = (; steps = [(; step = :r_a, state = :done)])
+        page = Juleana.GraphPage()
+        @test occursin("[x] ✓", row_text(render_graph_page(page, snap4, prog), locate(render_graph_page(page, snap4, prog), "r_a ").y))
+        @test graph_press(page, snap4, [], 'v') && page.disk
+        tb = TestBackend(120, 30)
+        Juleana.render_graph(page, snap4, prog, Rect(1, 1, 120, 30), tb.buf; grid)
+        y(n) = locate(tb, string(n) * " ").y
+        @test occursin("[x] !", row_text(tb, y(:r_a)))
+        @test occursin("[x] –", row_text(tb, y(:r_b)))
+        @test occursin("[x] ✓", row_text(tb, y(:p_x)))
+        @test occursin("[ ] ✗", row_text(tb, y(:p_y)))
+        @test !occursin(r"[✓!✗–]", row_text(tb, y(:r_c))[1:30])
+        @test occursin("on disk", row_text(tb, 1))
+        # the cursor is on r_a: its counts are on the last line
+        @test occursin("on disk: 1 warning of 1", row_text(tb, 29))
+        # without a grid the page says that it is read
+        @test locate(render_graph_page(page, snap4, prog), "on disk (reading…)") !== nothing
+        @test graph_press(page, snap4, [], 'v') && !page.disk
     end
 end

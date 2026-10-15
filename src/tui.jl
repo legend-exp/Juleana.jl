@@ -31,7 +31,7 @@ const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0
 # Keys shown below the status row, as `(key, description)` per page: Setup, Graph, Progress, Log, others.
 const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
-const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add required"), ("h", "unselected"))
+const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add required"), ("h", "unselected"), ("v", "last run/disk"))
 const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("Enter on step", "messages"), ("f", "follow"))
 const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"), ("End", "newest"), ("Esc", "close"), ("f", "follow"))
 const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
@@ -439,11 +439,12 @@ function reports_sync!(m::JuleanaTUI)
     return nothing
 end
 
-# Queue a read of the history grid if the History page is visible and its data is out of date,
-# and carry out the queued requests of the page in background tasks.
+# Queue a read of the history grid if the History page, or the Graph page with the state on
+# disk, is visible and the grid is out of date, and carry out the queued requests of the
+# History page in background tasks.
 function history_sync!(m::JuleanaTUI)
     page, ctrl = m.history_page, m.ctrl
-    m.page == 7 && history_visit!(page, m.snap)
+    (m.page == 7 || (m.page == 2 && m.graph_page.disk)) && history_visit!(page, m.snap)
     for request in take_requests!(page)
         Tachikoma.spawn_task!(() -> read_history_page(ctrl, request), m.queue, :history)
     end
@@ -549,7 +550,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     elseif m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 2
-        render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer)
+        render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer; grid = m.graph_page.disk ? m.history_page.grid : nothing)
     elseif m.page == 4
         render_progress(m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
     elseif m.page == 5

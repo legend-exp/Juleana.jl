@@ -19,6 +19,9 @@ processor in the order [`topological_order`](@ref) gives. Keys are handled by
 [`Juleana.graph_key!`](@ref) and [`Juleana.graph_mouse!`](@ref), the page is drawn by
 [`Juleana.render_graph`](@ref).
 
+The state icon of a processor is that of the last processing run, or, while `disk` is
+`true`, that of its reports and processing history on disk.
+
 The cursor is identified by the processor name, so that it stays on its processor when the
 rows change. The graph is rebuilt only when the names, levels, ranks or dependencies of the
 processors change.
@@ -32,6 +35,8 @@ mutable struct GraphPage
     # rows displayed per page at the last render
     height::Int
     show_unselected::Bool
+    # whether the state icons show the state on disk instead of the last run
+    disk::Bool
     # `(key, graph)` of the processors the graph was built for
     cached::Any
     # area of the block and the part of it that holds the rows at the last render
@@ -39,7 +44,7 @@ mutable struct GraphPage
     list::Tachikoma.Rect
 end
 
-GraphPage() = GraphPage(nothing, 1, 1, 1, true, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+GraphPage() = GraphPage(nothing, 1, 1, 1, true, false, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
 # The `ProcessorGraph` of the processors in `snap`, rebuilt when their layout changed.
 function page_graph!(page::GraphPage, snap)
@@ -90,6 +95,7 @@ otherwise.
     sends the new selection as [`SelectSteps`](@ref).
   - `d` adds the processors that the selected steps require, as the Setup page does.
   - `h` hides or shows the processors that are not selected.
+  - `v` switches the state icons between the last run and the state on disk.
   - Other keys and key releases are not used.
 """
 function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
@@ -103,6 +109,8 @@ function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
         move_graph_cursor!(page, rows, idx + delta)
     elseif key == :char && evt.char == 'h'
         page.show_unselected = !page.show_unselected
+    elseif key == :char && evt.char == 'v'
+        page.disk = !page.disk
     elseif key == :char && evt.char == ' '
         if idx > 0
             chosen = Set(vcat(snap.run_steps, snap.partition_steps))
@@ -226,15 +234,20 @@ function put_cells!(chars, styles, r, c, text, style)
 end
 
 """
-    Juleana.render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    Juleana.render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer; grid = nothing)
 
-Draw the Graph page into `area` of `buf` from the controller snapshot `snap` and the
-progress `prog` (as returned by [`progress`](@ref), or `nothing`).
+Draw the Graph page into `area` of `buf` from the controller snapshot `snap`, the
+progress `prog` (as returned by [`progress`](@ref), or `nothing`) and the grid of the
+reports and the processing history `grid` (as returned by [`Juleana.history_grid`](@ref),
+or `nothing` while it is not read).
 
 Run-level processors are in the left lane and partition-level processors in the right
 lane, one row per processor in topological order, labeled with its [`display_name`](@ref) and category. A processor shows `[x]` if it is a
 selected step, else `[ ]`, and the icon of its state in the last run: running, failed,
-done, or stopped. Unselected processors are dim, and are left out while `page.show_unselected`
+done, or stopped. While `page.disk` is `true` the icon is instead the
+[`Juleana.disk_state`](@ref) of the processor over the selected periods and runs of `snap`:
+`✗` failed, `–` missing, `!` warning or `✓` ok, and the last line also shows the counts of
+the processor under the cursor. Unselected processors are dim, and are left out while `page.show_unselected`
 is `false`. Each declared dependency is an edge from the required processor down to
 the one that waits for it, in the space between the lanes; every processor with edges
 to later processors has a vertical track there, and tracks with overlapping spans have
@@ -246,13 +259,15 @@ the cursor row visible, and the last line shows the number of required and requi
 processors and the tags of the processor under the cursor. Names are cut with `…` if the
 area is too narrow.
 """
-function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer; grid = nothing)
     page.rect = area
     page.list = Tachikoma.Rect(area.x, area.y, 0, 0)
     page.height = 1
     (area.width < 3 || area.height < 3) && return nothing
     dim = Tachikoma.tstyle(:text_dim)
-    inner = Tachikoma.render(pane_block(page.show_unselected ? "Processor graph" : "Processor graph (unselected hidden)", true), area, buf)
+    title = "Processor graph" * (page.disk ? (isnothing(grid) ? ", on disk (reading…)" : ", on disk") : "") *
+        (page.show_unselected ? "" : " (unselected hidden)")
+    inner = Tachikoma.render(pane_block(title, true), area, buf)
     x_max = Tachikoma.right(inner)
     if isnothing(snap) || isempty(snap.processors)
         Tachikoma.set_string!(buf, inner.x, inner.y, "Loading the session…", dim; max_x = x_max)
@@ -283,7 +298,15 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
     required = setdiff(required_processors(g, [cursor]), [cursor])
     dependents = setdiff(dependent_processors(g, [cursor]), [cursor])
     selected = Set(vcat(snap.run_steps, snap.partition_steps))
-    states = processor_states(prog)
+    counts = Dict{Symbol,Any}()
+    if page.disk && !isnothing(grid)
+        period_runs = selected_period_runs(snap)
+        for row in grid.rows
+            counts[row.process] = disk_counts(row, period_runs)
+        end
+    end
+    states = page.disk ? Dict(n => s for (n, c) in counts for s in (disk_state(c),) if !isnothing(s)) : processor_states(prog)
+    icons, colors = page.disk ? (REPORT_ICONS, REPORT_COLORS) : (STATE_ICONS, STATE_COLORS)
 
     label = Dict(r => "$(display_name(r)) $(spec[r].category)" for r in rows)
     nl = maximum((textwidth(label[r]) for r in rows if lane_left(r)); init = 0)
@@ -359,7 +382,7 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
         label_x = x + 2 + (left ? nl : nr)
         put_cells!(chars, styles, r, label_x, checked ? " [x]" : " [ ]", Tachikoma.tstyle(checked ? :text : :text_dim))
         state = get(states, name, nothing)
-        isnothing(state) || put_cells!(chars, styles, r, label_x + 4, " " * STATE_ICONS[state], Tachikoma.tstyle(STATE_COLORS[state]))
+        isnothing(state) || put_cells!(chars, styles, r, label_x + 4, " " * icons[state], Tachikoma.tstyle(colors[state]))
     end
 
     Tachikoma.set_string!(buf, inner.x, inner.y, "Run processors", dim; max_x = min(x_max, inner.x + xr - 3))
@@ -380,6 +403,14 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
         spans = Tuple{String,Tachikoma.Style}[("$(display_name(cursor)): requires $(length(required)), required by $(length(dependents))", dim)]
         for tag in processor_tags(p)
             push!(spans, ("  ", dim), (tag, something(setup_tag_style(tag), dim)))
+        end
+        if haskey(counts, cursor)
+            c = counts[cursor]
+            push!(spans, ("  on disk:", dim))
+            for state in (:ok, :warning, :failed, :missing)
+                getproperty(c, state) > 0 && push!(spans, (" $(getproperty(c, state)) $state", Tachikoma.tstyle(REPORT_COLORS[state])))
+            end
+            push!(spans, (" of $(c.total)", dim))
         end
         put_spans!(buf, inner.x, Tachikoma.bottom(inner), x_max, spans)
     end

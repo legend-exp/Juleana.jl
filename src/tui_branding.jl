@@ -28,6 +28,7 @@ const HELP_KEYS = (
         ("Space", "select or deselect the processor"),
         ("d", "add the steps that selected steps wait for"),
         ("h", "show or hide unselected processors"),
+        ("v", "state icons of the last run or on disk"),
         ("Mouse", "click a row, wheel moves the cursor"),
     ),
     progress = (

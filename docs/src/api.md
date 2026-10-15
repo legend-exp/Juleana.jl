@@ -86,6 +86,8 @@ Juleana.history_section
 Juleana.append_history
 Juleana.read_history
 Juleana.history_grid
+Juleana.disk_counts
+Juleana.disk_state
 run_processing
 ProcessingStopped
 Juleana.wait_for
