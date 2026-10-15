@@ -137,8 +137,8 @@ this process and register it for every worker, so that every process logs to its
 the config's log directory at the config's `log_level` (`console = false` turns off the
 terminal output of this process), and with `start_workers` start the workers of the
 configured run mode: `local` workers are always started; `slurm` workers only with
-`submit_jobs`, otherwise `startjlworkers.sh` is written to the current directory for
-manual submission. Without `start_workers` the worker pool starts empty. Then check the processor keyword arguments with
+`submit_jobs`, otherwise `startjlworkers.sh` is written to the
+[`Juleana.production_config_dir`](@ref) for manual submission. Without `start_workers` the worker pool starts empty. Then check the processor keyword arguments with
 [`check_processor_kwargs`](@ref) and build the dependency graph for the enabled steps.
 
 Return the [`DataflowSession`](@ref), ready for [`run_processing`](@ref). Return `nothing` when `args` asks for `--help` or `--version` in an
@@ -176,7 +176,7 @@ function setup_session(parsed_args::AbstractDict; console::Bool = true, start_wo
         if config.runmode == :local
             errormonitor(@async runworkers(mode))
         else
-            script = joinpath(pwd(), "startjlworkers.sh")
+            script = joinpath(mkpath(production_config_dir()), "startjlworkers.sh")
             @info "Write worker start script to $script"
             write_worker_start_script(script, mode)
             config.submit_jobs && errormonitor(@async runworkers(mode))

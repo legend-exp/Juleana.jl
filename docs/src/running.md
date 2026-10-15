@@ -40,7 +40,9 @@ Processing starts with `s`. The interface never starts workers on its own, see
 and exits. The exit code is `0` when processing finished, `1` when it failed and `2` when
 it was stopped. The first `Ctrl+C` stops after the running items, the second stops at
 once. Unlike the interface, `--no-tui` starts the configured workers itself: local
-workers always, SLURM workers when `submit_jobs` is set.
+workers always, SLURM workers when `submit_jobs` is set. Without `submit_jobs` it writes
+the SLURM start script `startjlworkers.sh` to the `config` folder of the data production
+for submission by hand.
 
 The same session is available from any Julia session:
 

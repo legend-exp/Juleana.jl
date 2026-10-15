@@ -184,5 +184,21 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test nprocs() == n
         @test isempty(readdir(workdir))
         @test isfile(joinpath(log_path, "head.log"))
+
+        # SLURM without `submit_jobs`: the start script goes to the config folder of the data
+        # production, which LEGEND_DATA_CONFIG of the config names, and nothing is started
+        slurm_args = merge(args, Dict{String,Any}("runmode" => "slurm", "submit_jobs" => false))
+        try
+            cd(workdir) do
+                withenv("LEGEND_DATA_CONFIG" => nothing, "SLURM_NTASKS" => "2") do
+                    Juleana.setup_session(slurm_args; console = false)
+                end
+            end
+        finally
+            global_logger(logger)
+            ppt_worker_pool!(pool)
+        end
+        @test occursin("srun --job-name=julia-", read(joinpath(dirname(data_config), "config", "startjlworkers.sh"), String))
+        @test isempty(readdir(workdir)) && nprocs() == n
     end
 end
