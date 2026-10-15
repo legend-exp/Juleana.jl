@@ -10,11 +10,11 @@ using Test
     step(process, level, run, outcome, started, finished, counts) = (; process, level, category = :cal, period = p2, run, outcome,
         started, finished, done = counts[1], failed = counts[2], notrun = counts[3])
     first_run = (; started = DateTime(2026, 10, 15, 12, 0, 2), finished = DateTime(2026, 10, 15, 13, 1, 5), user = "someone",
-        host = "node1", outcome = :stopped, log_path = "/data/jllog/20261015T115958Z",
+        host = "node1", outcome = :stopped, log_path = "/data/jllog/20261015T115958Z", software = "Juleana 0.2.0 (abc1234, modified), Julia 1.12.7",
         steps = [step(:process_dsp_cal, :run, DataRun(6), :done, DateTime(2026, 10, 15, 12, 0, 2), DateTime(2026, 10, 15, 12, 3, 11), (12, 0, 0)),
             step(:p_process_energy_cal, :partition, nothing, :stopped, nothing, nothing, (0, 0, 0))])
     second_run = (; started = DateTime(2026, 10, 16, 8, 0, 0), finished = DateTime(2026, 10, 16, 8, 30, 0), user = "someone",
-        host = "node1", outcome = :failed, log_path = "/data/jllog/20261016T080000Z",
+        host = "node1", outcome = :failed, log_path = "/data/jllog/20261016T080000Z", software = nothing,
         steps = [step(:process_dsp_cal, :run, DataRun(7), :failed, DateTime(2026, 10, 16, 8, 0, 0), DateTime(2026, 10, 16, 8, 30, 0), (3, 1, 2))])
 
     path = joinpath(mktempdir(), "jllog", "history.md")
@@ -24,6 +24,8 @@ using Test
     text = read(path, String)
     @test startswith(text, "# Processing history\n\n## 2026-10-15 12:00:02 UTC, someone@node1: stopped\n")
     @test count("# Processing history", text) == 1
+    @test occursin("Log folder: /data/jllog/20261015T115958Z  \nSoftware: Juleana 0.2.0 (abc1234, modified), Julia 1.12.7\n", text)
+    @test occursin("Log folder: /data/jllog/20261016T080000Z\n\n", text)
     @test occursin("| process_dsp_cal | run | cal | p02 | r006 | done | 2026-10-15 12:00:02 | 2026-10-15 12:03:11 | 12/0/0 |", text)
     @test occursin("| p_process_energy_cal | partition | cal | p02 | – | stopped | – | – | 0/0/0 |", text)
     # the file reads back as written
@@ -32,7 +34,7 @@ using Test
     # a line that does not follow the format names the file and the line
     bad = joinpath(mktempdir(), "history.md")
     write(bad, replace(text, "| 12/0/0 |" => "| 12/0 |"))
-    @test_throws "line 10 of $bad does not follow the history format" Juleana.read_history(bad)
+    @test_throws "line 11 of $bad does not follow the history format" Juleana.read_history(bad)
     write(bad, "some text\n")
     @test_throws "line 1 of $bad" Juleana.read_history(bad)
 end
@@ -51,13 +53,13 @@ end
         (; name = "energy", level = :partition, category = "cal", reports = [report("p02", nothing, :ok, t(10))])]
     step(process, level, period, run, outcome, started, finished) = (; process, level, category = :cal, period, run, outcome,
         started, finished, done = 0, failed = 0, notrun = 0)
-    history = [(; started = t(11), finished = t(13), user = "u", host = "h", outcome = :failed, log_path = "/log/a",
+    history = [(; started = t(11), finished = t(13), user = "u", host = "h", outcome = :failed, log_path = "/log/a", software = nothing,
             steps = [step(:process_dsp_cal, :run, p2, r6, :failed, t(11), t(12)),
                 step(:process_dsp_cal, :run, p2, r7, :failed, t(9), t(9)),
                 step(:process_dsp_cal, :run, p3, r0, :stopped, t(11), t(12)),
                 step(:p_process_energy_cal, :partition, p2, nothing, :cancelled, nothing, nothing),
                 step(:p_process_energy_cal, :partition, p3, nothing, :stopped, nothing, nothing)]),
-        (; started = t(14), finished = t(15), user = "u", host = "h", outcome = :finished, log_path = "/log/b",
+        (; started = t(14), finished = t(15), user = "u", host = "h", outcome = :finished, log_path = "/log/b", software = nothing,
             steps = [step(:process_dsp_cal, :run, p3, r0, :done, t(14), t(15))])]
 
     grid = Juleana.history_grid(processors, period_runs, overview, history)

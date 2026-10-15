@@ -562,7 +562,7 @@ function write_history(ctrl::DataflowController, cfg::ProcessingConfig, l200, ou
             (; process = e.step, level, category, e.period, e.run, outcome = e.state, e.started, e.finished, e.done, e.failed, e.notrun)
         end
         path = append_history(history_path(l200), (; ctrl.started, finished, user = get(ENV, "USER", "unknown"),
-            host = gethostname(), outcome, cfg.log_path, steps))
+            host = gethostname(), outcome, cfg.log_path, software = software_version(), steps))
         @info "Added the processing run to the history in $path"
     catch e
         @error "Writing the processing history failed" exception = (e, catch_backtrace())

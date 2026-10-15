@@ -27,7 +27,8 @@ function history_section(entry)
     println(io, "## ", format_history_time(entry.started), " UTC, ", entry.user, "@", entry.host, ": ", entry.outcome)
     println(io)
     println(io, "Finished: ", format_history_time(entry.finished), " UTC  ")
-    println(io, "Log folder: ", entry.log_path)
+    println(io, "Log folder: ", entry.log_path, isnothing(entry.software) ? "" : "  ")
+    isnothing(entry.software) || println(io, "Software: ", entry.software)
     println(io)
     println(io, "| ", join(HISTORY_COLUMNS, " | "), " |")
     println(io, "|", repeat("---|", length(HISTORY_COLUMNS)))
@@ -60,7 +61,8 @@ end
 Read the processing history file `path` written by [`Juleana.append_history`](@ref) and
 return its processing runs in the order they were written, an empty vector if the file
 does not exist. Each run is a `NamedTuple` `(; started, finished, user, host, outcome,
-log_path, steps)` with `outcome` a `Symbol`, the times as `DateTime` (UTC, to the second)
+log_path, software, steps)` with `outcome` a `Symbol`, `software` the description of the
+software (see [`Juleana.software_version`](@ref)) or `nothing` for a section without one, the times as `DateTime` (UTC, to the second)
 or `nothing`,
 and `steps` a vector of `(; process, level, category, period, run, outcome, started,
 finished, done, failed, notrun)` with `period` a `DataPeriod` and `run` a `DataRun`, or
@@ -81,13 +83,15 @@ function read_history(path::AbstractString)
             m = match(r"^## (.+) UTC, (.+)@(.+): (\w+)$", line)
             isnothing(m) && malformed(i, line)
             current = (; started = parse_history_time(m[1]), finished = nothing, user = String(m[2]), host = String(m[3]),
-                outcome = Symbol(m[4]), log_path = "", steps = NamedTuple[])
+                outcome = Symbol(m[4]), log_path = "", software = nothing, steps = NamedTuple[])
         elseif isnothing(current) || isempty(strip(line)) || line == HISTORY_TITLE
             isnothing(current) && !isempty(strip(line)) && line != HISTORY_TITLE && malformed(i, line)
         elseif startswith(line, "Finished: ")
             current = merge(current, (; finished = parse_history_time(strip(chopsuffix(chopprefix(line, "Finished: "), "UTC  ")))))
         elseif startswith(line, "Log folder: ")
-            current = merge(current, (; log_path = String(chopprefix(line, "Log folder: "))))
+            current = merge(current, (; log_path = String(chopsuffix(chopprefix(line, "Log folder: "), "  "))))
+        elseif startswith(line, "Software: ")
+            current = merge(current, (; software = String(chopprefix(line, "Software: "))))
         elseif startswith(line, "|")
             cells = strip.(split(strip(line, '|'), '|'))
             length(cells) == length(HISTORY_COLUMNS) || malformed(i, line)

@@ -73,6 +73,7 @@ using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, std
 using StructArrays: StructArray
 using Tachikoma: Tachikoma
 using TerminalLoggers: TerminalLogger
+import TOML
 using TimerOutputs: TimerOutputs, @timeit, TimerOutput
 using TypedTables: Table, columnnames, columns
 using Unitful: Unitful, @u_str, uconvert, unit, ustrip
@@ -95,6 +96,7 @@ include("reports.jl")
 include("dataset_info.jl")
 include("history.jl")
 include("workers.jl")
+include("production.jl")
 include("controller.jl")
 include("no_tui.jl")
 include("tui_checklist.jl")
@@ -159,6 +161,7 @@ public effective_config, escape_log_underscores, processing_logger, process_log_
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
     history_path, append_history, read_history, history_grid,
     WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations,
-    mark_activity!, idle_deadline, check_idle!, workers_overview
+    mark_activity!, idle_deadline, check_idle!, workers_overview,
+    ProductionSpec, check_production, create_production, data_config_text, running_manifest, snapshot_software, software_version
 
 end # module

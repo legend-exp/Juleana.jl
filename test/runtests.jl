@@ -16,6 +16,7 @@ Test.@testset "Package Juleana" begin
     include("test_dataset_info.jl")
     include("test_history.jl")
     include("test_workers.jl")
+    include("test_production.jl")
     include("test_config.jl")
     include("test_controller.jl")
     include("test_progress.jl")

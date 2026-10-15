@@ -117,6 +117,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         entry = last(Juleana.read_history(Juleana.history_path(l200)))
         @test entry.outcome === :finished && entry.started == floor(snap.started, Juleana.Second) && entry.finished == floor(snap.finished, Juleana.Second)
         @test entry.host == gethostname()
+        @test entry.software == Juleana.software_version() && startswith(entry.software, "Juleana ")
         @test Set((s.process, s.level, s.category, s.period, s.run, s.outcome) for s in entry.steps) ==
             Set([(:process_energy_calibration_cal, :run, :cal, p2, DataRun(6), :done), (:p_process_aoe_cut_cal, :partition, :cal, p2, nothing, :done)])
 

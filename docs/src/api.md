@@ -91,6 +91,18 @@ Juleana.check_idle!(::Juleana.WorkerManager)
 Juleana.workers_overview
 ```
 
+## Data productions
+
+```@docs
+Juleana.ProductionSpec
+Juleana.check_production
+Juleana.create_production
+Juleana.data_config_text
+Juleana.running_manifest
+Juleana.snapshot_software
+Juleana.software_version
+```
+
 ## Processing config
 
 ```@docs
