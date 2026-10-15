@@ -149,7 +149,7 @@ processors:
   process_sipm_optimization_phy:
     enabled: true
     category: phy
-    rank: 13
+    rank: 12
     kwargs:
       reprocess: false
       timeout: 0
