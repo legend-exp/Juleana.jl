@@ -324,6 +324,9 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         m.splash = splash_active(m)
         m.quit_after_stop && !processing(m) && (m.quit = true)
         reports_sync!(m)
+        dataset_sync!(m)
+    elseif evt.id === :dataset
+        m.setup.dataset = evt.value
     elseif evt.id === :reports
         evt.value isa Exception && throw(evt.value)
         reports_result!(m.reports_page, evt.value)
@@ -420,6 +423,26 @@ function reports_sync!(m::JuleanaTUI)
     m.page == 6 && reports_visit!(page, m.snap)
     for request in take_requests!(page)
         Tachikoma.spawn_task!(() -> read_reports(ctrl, request), m.queue, :reports)
+    end
+    return nothing
+end
+
+# Read the runinfo of a newly loaded session in a background task; the value is the
+# summary or the message of the read error.
+function dataset_sync!(m::JuleanaTUI)
+    page, ctrl = m.setup, m.ctrl
+    if m.snap.state in (:idle, :loading)
+        page.dataset, page.dataset_requested = nothing, false
+    elseif !page.dataset_requested
+        page.dataset_requested = true
+        Tachikoma.spawn_task!(m.queue, :dataset) do
+            try
+                dataset_summary(ctrl)
+            catch e
+                @error "Reading the runinfo failed" exception = (e, catch_backtrace())
+                first(split(sprint(showerror, e), '\n'))
+            end
+        end
     end
     return nothing
 end

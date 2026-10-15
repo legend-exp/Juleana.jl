@@ -646,3 +646,15 @@ function report_overview(ctrl::DataflowController)
     isnothing(session) && throw(ArgumentError("report_overview: no session is loaded"))
     return report_overview(session.l200)
 end
+
+"""
+    dataset_summary(ctrl::DataflowController)
+
+Return the [`Juleana.dataset_summary`](@ref) of the runinfo of the session of `ctrl`.
+Throws an `ArgumentError` when no session is loaded.
+"""
+function dataset_summary(ctrl::DataflowController)
+    session = @lock ctrl.lock ctrl.session
+    isnothing(session) && throw(ArgumentError("dataset_summary: no session is loaded"))
+    return dataset_summary(session.l200)
+end

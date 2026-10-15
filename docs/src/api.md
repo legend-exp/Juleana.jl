@@ -71,6 +71,8 @@ Juleana.read_report
 Juleana.report_index
 Juleana.failure_summary
 Juleana.report_overview
+Juleana.dataset_summary
+Juleana.period_summary
 run_processing
 ProcessingStopped
 Juleana.wait_for

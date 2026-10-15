@@ -11,8 +11,8 @@ const SETUP_OPTIONS = (
     SetupPage()
 
 State of the Setup page of the terminal user interface: a [`Juleana.Checklist`](@ref)
-of periods with their runs, one of the run-level and one of the partition-level
-processors, and the options pane. The checklists are built from the controller
+of periods with their runs, the runinfo of the period or run under its cursor, one of
+the run-level and one of the partition-level processors, and the options pane. The checklists are built from the controller
 snapshots by [`Juleana.sync_setup!`](@ref); keys are handled by
 [`Juleana.setup_key!`](@ref).
 
@@ -32,12 +32,16 @@ mutable struct SetupPage
     confirm::Union{Nothing,Symbol}
     # inside of the options pane at the last render
     options::Tachikoma.Rect
+    # runinfo summary (see `dataset_summary`), the message of its read error, or
+    # `nothing` before it is read; whether it is read or being read for the loaded session
+    dataset::Any
+    dataset_requested::Bool
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
     Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
     Checklist(ChecklistItem[]; title = "Partition processors", focused = false, tag_style = setup_tag_style), 1, 1, nothing,
-    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0))
+    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false)
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
@@ -261,9 +265,64 @@ function setup_summary(snap)
 end
 
 """
+    Juleana.dataset_lines(page::SetupPage)
+
+Return the title and the lines, as vectors of `(text, style)` spans, of the box with the
+runinfo of the period or run under the cursor of the periods of `page`. A run shows one
+line per category with file keys: the number of file keys, the livetime, and `no
+analysis` if it is not an analysis run of the category. A period shows the totals of its
+runs per category (see [`Juleana.period_summary`](@ref)) with the number of runs. The
+first line is the earliest start time. The box has as many lines as the period with the
+most categories needs.
+"""
+function dataset_lines(page::SetupPage)
+    dim, text, bright = Tachikoma.tstyle(:text_dim), Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_bright)
+    summary, entry = page.dataset, current(page.periods)
+    summary isa AbstractString && return (; title = "Dataset", lines = [[("runinfo: " * summary, Tachikoma.tstyle(:error))]])
+    isnothing(summary) && return (; title = "Dataset", lines = [[("Reading the runinfo…", dim)]])
+    # a period has at least as many categories as any of its runs
+    ncategories = maximum(p -> length(unique(c.category for ((q, _), run) in summary if q == p for c in run)),
+        unique(first.(keys(summary))); init = 1)
+    # lines of a box with one line per category plus the start line
+    padded(lines) = vcat(lines, fill([("", text)], max(0, ncategories + 1 - length(lines))))
+    isnothing(entry) && return (; title = "Dataset", lines = padded(Vector{Tuple{String,Tachikoma.Style}}[]))
+    category_span(c) = (rpad(string(c), 4), Tachikoma.tstyle(c === :cal ? :primary : c === :phy ? :secondary : :accent))
+    livetime(seconds) = isnan(seconds) ? "–" : format_duration(seconds)
+    count_text(n, what) = n == 1 ? "1 $what" : "$n $(what)s"
+    function start_line(entries)
+        starts = [e.start for e in entries if !isnothing(e.start)]
+        return [("Start ", dim), (isempty(starts) ? "–" : Dates.format(minimum(starts), dateformat"yyyy-mm-dd HH:MM") * " UTC", bright)]
+    end
+    if entry isa ChecklistGroup
+        period = entry.key
+        totals = period_summary(summary, period)
+        isempty(totals) && return (; title = "Dataset $period", lines = padded([[("not in the runinfo", Tachikoma.tstyle(:warning))]]))
+        nruns = count(((p, _),) -> p == period, keys(summary))
+        lines = [vcat(start_line(totals),
+            [("  " * count_text(nruns, "run"), dim)])]
+        for t in totals
+            push!(lines, [category_span(t.category), (lpad(count_text(t.nruns, "run"), 8), text), (lpad(count_text(t.nkeys, "key"), 10), text),
+                ("  " * livetime(t.livetime), bright),
+                (t.nanalysis == t.nruns ? "" : "  $(t.nanalysis) analysis", Tachikoma.tstyle(:warning))])
+        end
+        return (; title = "Dataset $period", lines = padded(lines))
+    end
+    period, run = entry.key
+    categories = get(summary, (period, run), nothing)
+    isnothing(categories) && return (; title = "Dataset $period-$run", lines = padded([[("not in the runinfo", Tachikoma.tstyle(:warning))]]))
+    lines = [start_line(categories)]
+    for c in categories
+        push!(lines, [category_span(c.category), (lpad(count_text(c.nkeys, "key"), 8), text), ("  " * livetime(c.livetime), bright),
+            (c.analysis ? "" : "  no analysis", Tachikoma.tstyle(:warning))])
+    end
+    return (; title = "Dataset $period-$run", lines = padded(lines))
+end
+
+"""
     Juleana.render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
-Draw the Setup page into `area`: periods and runs on the left, the run and partition
+Draw the Setup page into `area`: periods and runs on the left with the runinfo of the
+period or run under the cursor below them (see [`Juleana.dataset_lines`](@ref)), the run and partition
 processors in the middle, and the options and a summary of what a start would process on
 the right, with the largest logo that fits below them, centered at the bottom of the pane.
 """
@@ -271,7 +330,16 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     columns = Tachikoma.Layout(Tachikoma.Horizontal,
         [Tachikoma.Percent(28), Tachikoma.Percent(42), Tachikoma.Fill()])
     left, middle, right = Tachikoma.split_layout(columns, area)
-    Tachikoma.render(page.periods, left, buf)
+    info = dataset_lines(page)
+    tree, below = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical,
+        [Tachikoma.Fill(), Tachikoma.Fixed(min(length(info.lines) + 2, left.height ÷ 2))]), left)
+    Tachikoma.render(page.periods, tree, buf)
+    inner = Tachikoma.render(pane_block(info.title, false), below, buf)
+    for (i, spans) in pairs(info.lines)
+        y = inner.y + i - 1
+        y > Tachikoma.bottom(inner) && break
+        put_spans!(buf, inner.x, y, Tachikoma.right(inner), spans)
+    end
     nrun, npart = length(page.run_procs.keys), length(page.part_procs.keys)
     procs = Tachikoma.Layout(Tachikoma.Vertical,
         [Tachikoma.Fill(max(1, nrun + 2)), Tachikoma.Fill(max(1, npart + 2))])

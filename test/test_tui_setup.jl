@@ -94,6 +94,45 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test Juleana.checked(page.periods) == [(p2, r7)]
     end
 
+    @testset "dataset info" begin
+        m = new_tui()
+        @test setup_refreshed!(m)
+        @test setup_settle!(() -> m.setup.dataset isa AbstractDict, m)
+        # the cursor is on the p02 group: the totals of the period
+        tb = render_setup_page(m)
+        for text in ("Dataset p02", "Start 2022-01-01 00:00 UTC", "8 runs", "32 keys", "22:13:20")
+            @test find_text(tb, text) !== nothing
+        end
+        press!(m, :down)
+        tb = render_setup_page(m)
+        for text in ("Dataset p02-r006", "Start 2022-07-01 00:00 UTC", "4 keys", "02:46:40")
+            @test find_text(tb, text) !== nothing
+        end
+        @test find_text(tb, "no analysis") === nothing
+
+        page = Juleana.SetupPage()
+        page.dataset = m.setup.dataset
+        p16, p99 = DataPeriod.((16, 99))
+        page.periods = Juleana.Checklist([Juleana.ChecklistGroup(p16, "p16", [Juleana.ChecklistItem((p16, r6), "r006"),
+            Juleana.ChecklistItem((p16, DataRun(99)), "r099")]), Juleana.ChecklistGroup(p99, "p99", Juleana.ChecklistItem[])])
+        text(page) = join(join(first.(spans)) for spans in Juleana.dataset_lines(page).lines)
+        @test occursin("4 runs", text(page)) && occursin("0 analysis", text(page))
+        page.periods.cursor = 2
+        @test Juleana.dataset_lines(page).title == "Dataset p16-r006"
+        @test occursin("no analysis", text(page)) && occursin("00:01:09", text(page))
+        # a run or period that is not in the runinfo
+        page.periods.cursor = 3
+        @test occursin("not in the runinfo", text(page))
+        page.periods.cursor = 4
+        @test occursin("not in the runinfo", text(page))
+        # every run and period has a box of the same height
+        @test length(unique(length(Juleana.dataset_lines((page.periods.cursor = i; page)).lines) for i in 1:4)) == 1
+        page.dataset = "no runinfo file"
+        @test Juleana.dataset_lines(page).lines == [[("runinfo: no runinfo file", Tachikoma.tstyle(:error))]]
+        page.dataset = nothing
+        @test occursin("Reading the runinfo", text(page))
+    end
+
     @testset "selections become controller commands" begin
         m = new_tui()
         @test setup_refreshed!(m)
