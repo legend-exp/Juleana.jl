@@ -5,7 +5,8 @@
 # key help of an interface without a session into a test buffer. Nothing reads data or
 # writes files, and no task outlives the workload.
 @setup_workload begin
-    @compile_workload begin
+    # the interface logs on its first frame; nothing is printed while precompiling
+    @compile_workload Logging.with_logger(Logging.NullLogger()) do
         ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
         m = JuleanaTUI(ctrl; splash_seconds = 0.0)
         # ends the task that runs the commands of the interface
