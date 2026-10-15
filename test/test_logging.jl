@@ -93,6 +93,32 @@ end
         @test any(l -> occursin("fit did not converge", l), Juleana.message_lines(buf))
     end
 
+    @testset "reports" begin
+        # a report as the processors build and log it
+        LDM = Juleana.LegendDataManagement
+        report = LDM.lreport()
+        LDM.lreport!(report, "# Main Log")
+        LDM.lreport!(report, Juleana.StructArray(var"Processor Status" = [LDM.process_failed]))
+        LDM.lreport!(report, "Date of processing: 2026-10-15T02:41:28Z")
+        LDM.lreport!(report, "## Decay Time Extraction")
+        LDM.lreport!(report, Juleana.StructArray(Detector = ["V$(lpad(i, 5, '0'))A" for i in 1:30], Error = fill("-", 30)))
+        markdown = sprint(show, MIME"text/markdown"(), report)
+        text = join(logged_lines(; log_level = Logging.Info) do
+            @info report
+        end, "\n")
+        @test !occursin("NamedTuple", text)
+        @test occursin("## Decay Time Extraction", text) && occursin("V00030A", text)
+        @test count(==('\n'), text) >= count(==('\n'), markdown)
+
+        buf = Juleana.MessageBuffer()
+        with_logger(() -> (@info report), buf)
+        line = only(Juleana.message_lines(buf))
+        @test occursin("Decay Time Extraction: Failure, ", line) && occursin("lines, full text in head.log", line)
+        # a short Markdown message is kept as it is
+        @test Juleana.markdown_summary("# Title\nsome text") == "# Title\nsome text"
+        @test Juleana.markdown_summary(join(["# Head"; ["row $i" for i in 1:25]], '\n')) == "Head: 26 lines, full text in head.log"
+    end
+
     @testset "sinks" begin
         @test_throws "no log file and no console output" Juleana.processing_logger(; console_level = nothing)
         @test Juleana.process_log_file("logs") == joinpath("logs", "head.log")

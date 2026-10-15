@@ -20,13 +20,18 @@ function parse_log_level(level::AbstractString)
     return LOG_LEVELS[level]
 end
 
+# Text of a log message: a message that can be shown as Markdown, such as a processor's
+# report, is written as that Markdown.
+log_text(message::AbstractString) = String(message)
+log_text(message) = showable(MIME"text/markdown"(), message) ? sprint(show, MIME"text/markdown"(), message) : string(message)
+
 # One record per entry: `<UTC time> <level> [<module>] <message>`, further message lines
 # and `key = value` pairs indented below, and the source location for warnings and errors.
-# An `exception = (exception, backtrace)` pair is shown with its backtrace.
+# An exception is shown with `showerror`, with its backtrace if one is given.
 function format_log_record(io::IO, log)
     print(io, Dates.format(now(UTC), dateformat"yyyy-mm-ddTHH:MM:SS.sss\Z"), " ",
         rpad(string(log.level), 5), " [", log._module, "] ")
-    lines = split(string(log.message), '\n')
+    lines = split(log_text(log.message), '\n')
     println(io, first(lines))
     for line in lines[2:end]
         println(io, "    ", line)

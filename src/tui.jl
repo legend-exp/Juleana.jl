@@ -53,7 +53,10 @@ output as text, for the terminal user interface. Each line has the log level of 
 message and the number of its record: the lines of one log message share a record, each
 line of captured output is a record of its own. Output lines containing `Warning:` or
 `Error:` get the level `Warn` or `Error`, other output lines `Info`. Records below `Info`
-and progress bar records of ProgressLogging are dropped. A log message of a processing
+and progress bar records of ProgressLogging are dropped. A message that is not a string
+but can be shown as Markdown, such as a processor's report, is kept as that Markdown if it
+has at most 20 lines, else as one line with its section heading, processor status and
+length. A log message of a processing
 step (inside the step's scope set by [`run_processing`](@ref)) is also kept with the step
 in its `ProgressStore` (see [`step_messages`](@ref)). The newest warning or error, from
 a log record or from an output line containing `Warning:` or `Error:`, is kept as the
@@ -88,10 +91,23 @@ function push_line!(buf::MessageBuffer, level::LogLevel, record::Integer, line::
     return nothing
 end
 
+# Markdown of a logged object, such as a processor's report, as kept by a `MessageBuffer`:
+# up to 20 lines as they are; a longer text as one line with its first section heading,
+# its processor status if it has one, and its length.
+function markdown_summary(markdown::AbstractString)
+    lines = split(chomp(markdown), '\n')
+    length(lines) <= 20 && return join(lines, '\n')
+    i_heading = something(findfirst(startswith("## "), lines), findfirst(startswith('#'), lines), Some(nothing))
+    title = isnothing(i_heading) ? strip(first(lines)) : strip(lstrip(lines[i_heading], '#'))
+    i_status = findfirst(contains("Processor Status"), lines)
+    m = isnothing(i_status) ? nothing : match(r"Success|Warning|Failure", join(lines[i_status:min(i_status + 3, end)], " "))
+    return "$title: " * (isnothing(m) ? "" : "$(m.match), ") * "$(length(lines)) lines, full text in head.log"
+end
+
 function handle_message(buf::MessageBuffer, level, message, _module, group, id, file, line; kwargs...)
     message isa ProgressLogging.Progress && return nothing
     level < Logging.Info && return nothing
-    text = string(message)
+    text = message isa AbstractString ? String(message) : markdown_summary(log_text(message))
     for (key, value) in kwargs
         key === :exception && value isa Tuple{Exception,Any} && (value = sprint(showerror, first(value)))
         key === :exception && value isa Exception && (value = sprint(showerror, value))
