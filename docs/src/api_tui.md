@@ -79,4 +79,11 @@ Juleana.KwargsEditor
 Juleana.kwargs_key!
 Juleana.render_kwargs
 Juleana.parse_kwarg_value
+Juleana.InterfaceTiming
+Juleana.TIMING_COLUMNS
+Juleana.timing_view_begin!
+Juleana.timing_view_end!
+Juleana.timing_update_begin!
+Juleana.timing_update_end!
+Juleana.timing_flush!
 ```

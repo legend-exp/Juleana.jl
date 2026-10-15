@@ -203,6 +203,10 @@ Escape, `?` or `q` closes it. The Setup page's filter and the kwargs editor rece
 The form replaces the visible page and takes every key (see [`Juleana.production_key!`](@ref)).
 It is also open when the interface starts without a session: when the parsed
 options have no `config` or `new_production` is set, `start!` does not load a session.
+
+The field `timing` is the [`Juleana.InterfaceTiming`](@ref) that records the times of the
+`view` and `Tachikoma.update!` calls; once a session is loaded it appends a row every 10
+seconds to `interface_timing.tsv` in the log folder.
 """
 mutable struct JuleanaTUI <: Tachikoma.Model
     const ctrl::DataflowController
@@ -242,6 +246,8 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     production::Union{Nothing,ProductionForm}
     # minimum seconds of the startup screen
     const splash_seconds::Float64
+    # frame, `update!` and garbage collection times, see `InterfaceTiming`
+    const timing::InterfaceTiming
 end
 
 # Tab bar of the pages, each tab labeled with its number and name.
@@ -258,7 +264,7 @@ tab_bar() = Tachikoma.TabBar(
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
     m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(), HistoryPage(), WorkersPage(),
         tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
-        false, 0.0, false, nothing, splash_seconds)
+        false, 0.0, false, nothing, splash_seconds, InterfaceTiming())
     errormonitor(Threads.@spawn run_commands(m))
     return m
 end
@@ -335,6 +341,16 @@ end
 processing(m::JuleanaTUI) = !isnothing(m.snap) && m.snap.state in (:running, :stopping)
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
+    start = timing_update_begin!(m.timing, evt)
+    try
+        update_task!(m, evt)
+    finally
+        timing_update_end!(m.timing, start, evt)
+    end
+    return nothing
+end
+
+function update_task!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     if evt.id === :tick
         m.ticks += 1
         m.splash = splash_active(m)
@@ -385,10 +401,15 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
 end
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
-    update_key!(m, evt)
-    reports_sync!(m)
-    history_sync!(m)
-    workers_sync!(m)
+    start = timing_update_begin!(m.timing, evt)
+    try
+        update_key!(m, evt)
+        reports_sync!(m)
+        history_sync!(m)
+        workers_sync!(m)
+    finally
+        timing_update_end!(m.timing, start, evt)
+    end
     return nothing
 end
 
@@ -458,10 +479,15 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
 end
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
-    update_mouse!(m, evt)
-    reports_sync!(m)
-    history_sync!(m)
-    workers_sync!(m)
+    start = timing_update_begin!(m.timing, evt)
+    try
+        update_mouse!(m, evt)
+        reports_sync!(m)
+        history_sync!(m)
+        workers_sync!(m)
+    finally
+        timing_update_end!(m.timing, start, evt)
+    end
     return nothing
 end
 
@@ -609,6 +635,13 @@ function render_frame(area, buf)
 end
 
 function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
+    timing_view_begin!(m.timing)
+    draw_interface!(m, f)
+    timing_view_end!(m.timing, m.snap)
+    return nothing
+end
+
+function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     tabs = m.tabs
     tabs.active = m.page
     tab_h = Tachikoma.tab_height(tabs.tab_style.decoration)
@@ -684,14 +717,19 @@ its log file as in [`setup_session`](@ref). The previous global logger is restor
 the interface closes, and every worker allocation started from the interface is
 cancelled (see [`CancelAll`](@ref)). A startup screen with the logo is shown until the session has loaded;
 `?` lists the keys of the visible page. See [`Juleana.JuleanaTUI`](@ref) for the keys.
+The log file records the thread setup (`Interface threads`) after the session has loaded.
 """
 function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         loader = args -> setup_session(args; console = false, start_workers = false))
     messages = MessageBuffer()
+    # The log file exists only once the session has loaded: log the thread setup then.
+    default_threads, interactive_threads = Threads.nthreads(:default), Threads.nthreads(:interactive)
+    loop_thread, loop_pool = Threads.threadid(), Threads.threadpool()
     function load(args)
         session = loader(args)
         # `setup_session` installs the file logger; keep the messages for the interface too
         global_logger() === messages || global_logger(TeeLogger(global_logger(), messages))
+        @info "Interface threads" default_threads interactive_threads loop_thread loop_pool
         return session
     end
     ctrl = DataflowController(parsed_args; processors, loader = load)

@@ -33,6 +33,7 @@ Test.@testset "Package Juleana" begin
     include("test_tui_history.jl")
     include("test_tui_workers.jl")
     include("test_tui_production.jl")
+    include("test_tui_timing.jl")
     include("test_tui_branding.jl")
     include("test_logging.jl")
 end # testset
