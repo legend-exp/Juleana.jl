@@ -48,14 +48,19 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         from_strings = ProcessingConfig(base)
         @test run_steps(from_strings; enabled_only = false) == run_steps(json; enabled_only = false)
         @test from_strings.processors[:process_dsp_cal].kwargs == spec.kwargs
-        @test sprint(show, json) == "ProcessingConfig(runmode=:local, 3/15 run and 4/11 partition processors enabled)"
+        @test sprint(show, json) == "ProcessingConfig(runmode=:local, 0/15 run and 0/11 partition processors enabled)"
         @test occursin("rank=5", sprint(show, spec))
     end
 
     @testset "steps" begin
-        @test run_steps(json) == [:process_psd_efficiencies, :process_sipm_calibration_phy, :process_evt_phy]
-        @test partition_steps(json) == [:p_process_lq_calibration_cut, :p_process_psd_efficiencies,
-            :p_process_sipm_calibration_phy, :p_process_skm_phy]
+        # the shipped config enables no processor; the steps are chosen in the interface
+        @test isempty(run_steps(json)) && isempty(partition_steps(json))
+        d = deepcopy(base)
+        foreach(((section, name),) -> d[section][name]["enabled"] = true,
+            [("processors", "process_evt_phy"), ("processors", "process_psd_efficiencies"), ("p_processors", "p_process_skm_phy")])
+        some = ProcessingConfig(d)
+        @test run_steps(some) == [:process_psd_efficiencies, :process_evt_phy]
+        @test partition_steps(some) == [:p_process_skm_phy]
         all_steps = run_steps(json; enabled_only = false)
         @test length(all_steps) == 15 && first(all_steps) === :process_peak_split
         @test issorted(all_steps; by = s -> json.processors[s].rank)
@@ -112,7 +117,9 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "runmode must be \"local\" or \"slurm\"" ProcessingConfig(base; runmode = "cluster")
         @test_throws "runmode must be \"local\" or \"slurm\"" ProcessingConfig(edited(d -> d["config"]["runmode"] = "cluster"))
         @test_throws "runs without periods" ProcessingConfig(base; runs = [1])
-        @test_throws "no processor is enabled" ProcessingConfig(edited(d -> foreach(p -> p["enabled"] = false, (values(d["processors"])..., values(d["p_processors"])...))))
+        # a config may enable no processor; the steps are then selected in the interface
+        none = ProcessingConfig(edited(d -> foreach(p -> p["enabled"] = false, (values(d["processors"])..., values(d["p_processors"])...))))
+        @test isempty(run_steps(none)) && isempty(partition_steps(none))
     end
 
     @testset "constructors" begin
@@ -145,7 +152,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         second_run = ProcessorSpec(; name = :b, level = :run, category = :cal, rank = 2, dependencies = [:a])
         @test_throws "key `processors.b.dependencies` names `a` of the same level; dependencies must name processors of the other level" ProcessingConfig(; processors = Dict(:a => first_run, :b => second_run), p_processors = Dict{Symbol,ProcessorSpec}())
         idle = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, enabled = false)
-        @test_throws "no processor is enabled" ProcessingConfig(; processors = Dict(:x => idle), p_processors = Dict{Symbol,ProcessorSpec}())
+        @test isempty(run_steps(ProcessingConfig(; processors = Dict(:x => idle), p_processors = Dict{Symbol,ProcessorSpec}())))
 
         # A run selection over all periods is valid; runs are matched within each period.
         @test isnothing(positional(periods = nothing, runs = DataRun.([1, 2])).periods)

@@ -37,15 +37,37 @@ end
 
 @testset "Branding" begin
     @testset "logo art" begin
-        for name in (:large, :medium, :small)
+        # `(width, height)` in cells
+        sizes = Dict(:large => (64, 16), :medium => (48, 12), :mark => (32, 14), :mark_small => (24, 10), :corner => (9, 3))
+        for (name, size) in sizes
             rows = Juleana.LOGO_ART[name]
-            w, h = Juleana.logo_size(name)
-            @test h == length(rows) ÷ 2 && w == maximum(length, rows)
+            @test Juleana.logo_size(name) == size
+            @test length(rows) == 2 * size[2] && all(r -> length(r) == size[1], rows)
             @test all(r -> all(c -> c in " kgpr", r), rows)
         end
-        @test Juleana.logo_size(:large)[1] <= 64 && Juleana.logo_size(:medium)[1] <= 32
-        @test Juleana.logo_size(:small)[2] == 3
+        @test sort(collect(keys(Juleana.LOGO_ART))) == sort(collect(keys(sizes)))
         @test_throws KeyError Juleana.logo_size(:huge)
+    end
+
+    @testset "fitting logo" begin
+        @test Juleana.fitting_logo(64, 16) == :large
+        @test Juleana.fitting_logo(63, 16) == :medium
+        @test Juleana.fitting_logo(64, 15) == :medium
+        @test Juleana.fitting_logo(48, 11) == :mark_small
+        @test Juleana.fitting_logo(47, 15) == :mark
+        @test Juleana.fitting_logo(47, 30) == :mark
+        @test Juleana.fitting_logo(32, 15) == :mark
+        @test Juleana.fitting_logo(32, 14) == :mark_small
+        @test Juleana.fitting_logo(31, 30) == :mark_small
+        @test Juleana.fitting_logo(24, 11) == :mark_small
+        @test isnothing(Juleana.fitting_logo(24, 10)) && isnothing(Juleana.fitting_logo(23, 30))
+        @test Juleana.logo_block_size(:medium) == (48, 12) && Juleana.logo_block_size(:mark) == (32, 15)
+        tb = TestBackend(40, 20)
+        Juleana.render_logo_block(:mark, 3, 2, tb.buf; max_x = 40, max_y = 20)
+        @test find_text(tb, "Juleana") == (; x = 3 + (32 - 7) ÷ 2, y = 2 + 14)
+        tb = TestBackend(60, 20)
+        Juleana.render_logo_block(:medium, 3, 2, tb.buf; max_x = 60, max_y = 20)
+        @test find_text(tb, "Juleana") === nothing
     end
 
     @testset "half-block mapping" begin
@@ -159,10 +181,12 @@ end
         m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = new_session); splash_seconds = 60.0)
         m.splash, m.started_at = true, time()
         count_logo(tb, h) = count(r -> any(c -> c in "▀▄█", row_text(tb, r)), 5:h)
-        # large logo (16 rows), medium (8 rows), text only
-        @test count_logo(branding_render(m, 120, 36), 36) >= 16
-        medium = count_logo(branding_render(m, 70, 20), 20)
-        @test 6 <= medium < 16
+        # large logo (16 rows), medium (12 rows), the mark (14 rows and a caption), text only
+        @test count_logo(branding_render(m, 120, 36), 36) == 16
+        @test count_logo(branding_render(m, 70, 26), 26) == 12
+        @test count_logo(branding_render(m, 70, 20), 20) == 0
+        @test count_logo(branding_render(m, 40, 28), 28) == 14 && find_text(branding_render(m, 40, 28), "Juleana") !== nothing
+        @test count_logo(branding_render(m, 40, 25), 25) == 10
         @test find_text(branding_render(m, 70, 20), docs_url) !== nothing
         text_only = branding_render(m, 70, 10)
         @test find_text(text_only, docs_url) !== nothing && count_logo(text_only, 10) == 0
@@ -177,24 +201,42 @@ end
         pos = find_text(wide, version)
         @test pos.y == 3 && pos.x > 80
         @test any(c -> c in "▀▄█", row_text(wide, 2)) && any(c -> c in "▀▄█", row_text(wide, 4))
+        # the tab bar line ends one cell before the logo and leaves nothing under its cells
+        w, h = Juleana.logo_size(:corner)
+        version_col = length(SubString(row_text(wide, 3), 1, pos.x - 1)) + 1
+        left = version_col - 1 - w
+        bottom = collect(row_text(wide, 4))
+        @test h == 3 && !any(c -> c in "─╯╰", bottom[(left - 1):(end - 1)])
+        @test bottom[left - 2] == '─'
+        @test all(c -> !(c in "─╯╰"), collect(row_text(wide, 2))[left:(end - 1)])
         narrow = branding_render(m, 60, 36)
         @test find_text(narrow, version) === nothing
         @test find_text(narrow, "4 Progress") !== nothing
+        @test count(==('─'), row_text(narrow, 4)) > 40 && !any(c -> c in "▀▄█", row_text(narrow, 4))
         Tachikoma.cleanup!(m)
     end
 
     @testset "Setup page logo" begin
         m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
         @test branding_refreshed!(m)
+        logo_rows(tb, h = 36) = [r for r in 6:h if any(c -> c in "▀▄█", row_text(tb, r))]
+        # the mark with its caption ends on the last row inside the pane
         tall = branding_render(m, 120, 36)
         @test find_text(tall, "s: start") === nothing && find_text(tall, "Runs: ") !== nothing
-        # the medium logo is eight rows high and ends on the last row inside the pane
-        logo_rows = [r for r in 6:36 if any(c -> c in "▀▄█", row_text(tall, r))]
-        @test length(logo_rows) == 8 && last(logo_rows) == 32
+        rows = logo_rows(tall)
+        @test length(rows) == 14 && last(rows) == 31 && find_text(tall, "Juleana").y == 32
+        # a wider pane takes the medium logo, which has the lettering in its art
+        wide = branding_render(m, 180, 44)
+        rows = logo_rows(wide, 44)
+        @test length(rows) == 12 && last(rows) == 40 && find_text(wide, "Juleana") === nothing
+        # a narrower pane takes the small mark
+        small = branding_render(m, 100, 30)
+        @test length(logo_rows(small, 30)) == 10 && find_text(small, "Juleana").y == 26
+        # a pane without room for the logo gets none
         short = branding_render(m, 120, 20)
-        @test count(r -> r > 5 && any(c -> c in "▀▄█", row_text(short, r)), 1:20) == 0
-        narrow = branding_render(m, 90, 36)
-        @test count(r -> r > 5 && any(c -> c in "▀▄█", row_text(narrow, r)), 1:36) == 0
+        @test isempty(logo_rows(short, 20))
+        narrow = branding_render(m, 80, 36)
+        @test isempty(logo_rows(narrow))
         Tachikoma.cleanup!(m)
     end
 

@@ -48,19 +48,17 @@ function selected_period_runs(snap)
         for p in snap.periods if haskey(snap.available_runs, p))
 end
 
-# Style of a processor tag in the checklists: category, rank, dependencies, disabled.
+# Style of a processor tag in the checklists: category, rank, dependencies.
 function setup_tag_style(tag)
     tag == "cal" && return Tachikoma.tstyle(:primary)
     tag == "phy" && return Tachikoma.tstyle(:secondary)
     startswith(tag, "rank ") && return Tachikoma.tstyle(:text_dim)
     startswith(tag, "deps: ") && return Tachikoma.tstyle(:warning)
-    tag == "disabled" && return Tachikoma.tstyle(:error)
     return nothing
 end
 
 processor_tags(p) = vcat(string(p.category), "rank $(p.rank)",
-    isempty(p.dependencies) ? String[] : ["deps: " * join(p.dependencies, ", ")],
-    p.enabled ? String[] : ["disabled"])
+    isempty(p.dependencies) ? String[] : ["deps: " * join(p.dependencies, ", ")])
 
 """
     Juleana.sync_setup!(page::SetupPage, snap; pending::Bool = false)
@@ -267,7 +265,7 @@ end
 
 Draw the Setup page into `area`: periods and runs on the left, the run and partition
 processors in the middle, and the options and a summary of what a start would process on
-the right, with the logo below them if the pane has room.
+the right, with the largest logo that fits below them, centered at the bottom of the pane.
 """
 function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     columns = Tachikoma.Layout(Tachikoma.Horizontal,
@@ -307,9 +305,11 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
         y > Tachikoma.bottom(inner) && break
         put_spans!(buf, inner.x, y, Tachikoma.right(inner), spans)
     end
-    w, h = logo_size(:medium)
-    if inner.width >= w && inner.height >= length(lines) + 1 + h
-        render_logo(:medium, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf)
+    logo = fitting_logo(inner.width, inner.height - length(lines) - 1)
+    if !isnothing(logo)
+        w, h = logo_block_size(logo)
+        render_logo_block(logo, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf;
+            max_x = Tachikoma.right(inner), max_y = Tachikoma.bottom(inner))
     end
     isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
     if page.confirm === :write && !isnothing(snap)

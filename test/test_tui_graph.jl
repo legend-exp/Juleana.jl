@@ -30,7 +30,7 @@ graph_press(page, snap, sent, key::Char) = Juleana.graph_key!(page, KeyEvent(key
 entry(name, level, rank; deps = Symbol[], enabled = true, category = :cal) =
     (; name, level, category, rank, enabled, dependencies = deps)
 
-# Run level r_a, r_b, r_c (needs p_x), r_off (disabled); partition level p_x (needs r_b), p_y
+# Run level r_a, r_b, r_c (needs p_x), r_off; partition level p_x (needs r_b), p_y
 # (needs r_a and r_b). Topological order: r_a r_b p_x r_c r_off p_y.
 function graph_snapshot(; run_steps = Symbol[], partition_steps = Symbol[])
     processors = [entry(:r_a, :run, 1), entry(:r_b, :run, 2), entry(:r_c, :run, 3; deps = [:p_x]),
@@ -133,37 +133,43 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         @test locate(render_graph_page(Juleana.GraphPage(), empty_snap, nothing), "Loading the session…") !== nothing
     end
 
-    @testset "disabled processors" begin
+    @testset "unselected processors" begin
+        sel = graph_snapshot(; run_steps = [:r_a, :r_b, :r_c], partition_steps = [:p_x, :p_y])
         page = Juleana.GraphPage()
-        tb = render_graph_page(page, snap, nothing)
+        tb = render_graph_page(page, sel, nothing)
         @test locate(tb, "r_off") !== nothing
         # shown dim
         pos = locate(tb, "r_off ")
         @test style_at(tb, pos.x, pos.y).fg == Tachikoma.tstyle(:text_dim).fg
         page.cursor = :p_y
-        tb = render_graph_page(page, snap, nothing)
+        tb = render_graph_page(page, sel, nothing)
         @test style_at(tb, locate(tb, "r_c ").x, locate(tb, "r_c ").y).fg == Tachikoma.tstyle(:text).fg
         sent = []
-        @test graph_press(page, snap, sent, 'h') && !page.show_disabled && isempty(sent)
-        tb = render_graph_page(page, snap, nothing)
+        @test graph_press(page, sel, sent, 'h') && !page.show_unselected && isempty(sent)
+        tb = render_graph_page(page, sel, nothing)
+        @test locate(tb, "Processor graph (unselected hidden)") !== nothing
         @test locate(tb, "r_off") === nothing && locate(tb, "r_c") !== nothing
-        @test Juleana.graph_rows(page, snap) == filter(!=(:r_off), GRAPH_ORDER)
-        @test graph_press(page, snap, sent, 'h') && page.show_disabled
-        @test locate(render_graph_page(page, snap, nothing), "r_off") !== nothing
+        @test Juleana.graph_rows(page, sel) == filter(!=(:r_off), GRAPH_ORDER)
+        @test graph_press(page, sel, sent, 'h') && page.show_unselected
+        @test locate(render_graph_page(page, sel, nothing), "r_off") !== nothing
         # the cursor moves to a neighbor when its row is hidden
-        graph_press(page, snap, sent, :end_key)
-        graph_press(page, snap, sent, 'h')
-        render_graph_page(page, snap, nothing)
+        graph_press(page, sel, sent, :end_key)
+        graph_press(page, sel, sent, 'h')
+        render_graph_page(page, sel, nothing)
         @test page.cursor == :p_y
-        graph_press(page, snap, sent, :up)
+        graph_press(page, sel, sent, :up)
         @test page.cursor == :r_c
+        graph_press(page, sel, sent, 'h')
+        @test page.cursor == :r_c && page.show_unselected
+        # the selection decides, not the enabled flag of the config
+        flipped = (; sel..., processors = [(; p..., enabled = !p.enabled) for p in sel.processors])
+        graph_press(page, sel, sent, 'h')
+        @test Juleana.graph_rows(page, flipped) == filter(!=(:r_off), GRAPH_ORDER)
+        graph_press(page, sel, sent, 'h')
+        # nothing selected and the unselected processors hidden
         graph_press(page, snap, sent, 'h')
-        @test page.cursor == :r_c && page.show_disabled
-        # the only enabled processors are hidden
-        all_off = (; snap..., processors = [(; p..., enabled = false) for p in snap.processors])
-        graph_press(page, all_off, sent, 'h')
-        @test !page.show_disabled
-        @test locate(render_graph_page(page, all_off, nothing), "All processors are disabled and hidden.") !== nothing
+        @test !page.show_unselected
+        @test locate(render_graph_page(page, snap, nothing), "No processor is selected.") !== nothing
     end
 
     @testset "selection and state" begin
@@ -198,7 +204,8 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
     @testset "cursor highlight" begin
         page = Juleana.GraphPage()
         page.cursor = :p_x
-        tb = render_graph_page(page, snap, nothing)
+        sel = graph_snapshot(; run_steps = [:r_a, :r_b, :r_c], partition_steps = [:p_x, :p_y])
+        tb = render_graph_page(page, sel, nothing)
         style(n) = (p = locate(tb, string(n) * " "); style_at(tb, p.x, p.y))
         # p_x requires r_b and r_a, and r_c requires p_x
         @test style(:p_x).fg == Tachikoma.tstyle(:accent).fg && style(:p_x).bold
@@ -331,12 +338,12 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         m.snap = (; graph_snapshot(; run_steps = [:r_a])..., state = :ready, outcome = nothing, nworkers = 0, started = nothing,
             finished = nothing, last_error = nothing)
         tb = render(m)
-        @test locate(tb, "r_off") !== nothing && locate(tb, "↑↓ move  Space select  d add required  h disabled") !== nothing
+        @test locate(tb, "r_off") !== nothing && locate(tb, "↑↓ move  Space select  d add required  h unselected") !== nothing
         # the page gets the keys first
         Tachikoma.update!(m, KeyEvent(:down))
         @test m.graph_page.cursor == :r_b && m.page == 2
         Tachikoma.update!(m, KeyEvent('h'))
-        @test !m.graph_page.show_disabled && locate(render(m), "r_off") === nothing
+        @test !m.graph_page.show_unselected && locate(render(m), "r_off") === nothing
         Tachikoma.update!(m, KeyEvent(' '))
         @test m.pending == 1
         # unused keys fall through to the interface
@@ -347,6 +354,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         @test m.help && locate(render(m), "Graph page") !== nothing
         Tachikoma.update!(m, KeyEvent('q'))
         @test !m.help && m.page == 2
+        Tachikoma.update!(m, KeyEvent('h'))
         pos = locate(render(m), "p_y ")
         Tachikoma.update!(m, MouseEvent(pos.x, pos.y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test m.graph_page.cursor == :p_y

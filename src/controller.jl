@@ -467,7 +467,7 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     require_state(ctrl, cmd, :ready)
     session = ctrl.session
     steps, p_steps = copy(session.run_steps), copy(session.partition_steps)
-    isempty(steps) && isempty(p_steps) && throw(ArgumentError("no processing steps selected"))
+    isempty(steps) && isempty(p_steps) && throw(ArgumentError("no processing steps selected: enable processors in the config file or select them on the Setup page"))
     isempty(ctrl.periods) && throw(ArgumentError("no periods selected"))
     cfg = effective_config(ctrl)
     problems = filter(!isnothing, [processor_kwargs_problem(processor_spec(cfg, step), ctrl.processors) for step in vcat(steps, p_steps)])

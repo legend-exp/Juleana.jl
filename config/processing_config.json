@@ -140,7 +140,7 @@
             "dependencies": []
         },
         "process_psd_efficiencies": {
-            "enabled": true,
+            "enabled": false,
             "category": "cal",
             "rank": 11,
             "kwargs": {
@@ -174,7 +174,7 @@
             "dependencies": ["p_process_sipm_optimization_phy"]
         },
         "process_sipm_calibration_phy": {
-            "enabled": true,
+            "enabled": false,
             "category": "phy",
             "rank": 14,
             "kwargs": {
@@ -184,7 +184,7 @@
             "dependencies": []
         },
         "process_evt_phy": {
-            "enabled": true,
+            "enabled": false,
             "category": "phy",
             "rank": 15,
             "kwargs": {
@@ -258,7 +258,7 @@
             "dependencies": ["process_aoe_calibration_cut"]
         },
         "p_process_lq_calibration_cut": {
-            "enabled": true,
+            "enabled": false,
             "category": "cal",
             "rank": 7,
             "kwargs": {
@@ -268,7 +268,7 @@
             "dependencies": []
         },
         "p_process_psd_efficiencies": {
-            "enabled": true,
+            "enabled": false,
             "category": "cal",
             "rank": 8,
             "kwargs": {
@@ -288,7 +288,7 @@
             "dependencies": ["process_sipm_optimization_phy"]
         },
         "p_process_sipm_calibration_phy": {
-            "enabled": true,
+            "enabled": false,
             "category": "phy",
             "rank": 10,
             "kwargs": {
@@ -298,7 +298,7 @@
             "dependencies": ["process_dsp_phy", "process_sipm_optimization_phy"]
         },
         "p_process_skm_phy": {
-            "enabled": true,
+            "enabled": false,
             "category": "phy",
             "rank": 11,
             "kwargs": {

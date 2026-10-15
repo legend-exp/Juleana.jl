@@ -12,7 +12,7 @@ const GRAPH_DECOR = 6
     GraphPage()
 
 State of the Graph page of the terminal user interface: the processor under the cursor,
-the first displayed row, whether disabled processors are shown, and the
+the first displayed row, whether unselected processors are shown, and the
 [`ProcessorGraph`](@ref) of the processors of the latest snapshot. The page draws the run-level
 processors in a left lane and the partition-level processors in a right lane, one row per
 processor in the order [`topological_order`](@ref) gives. Keys are handled by
@@ -31,7 +31,7 @@ mutable struct GraphPage
     top::Int
     # rows displayed per page at the last render
     height::Int
-    show_disabled::Bool
+    show_unselected::Bool
     # `(key, graph)` of the processors the graph was built for
     cached::Any
     # area of the block and the part of it that holds the rows at the last render
@@ -53,8 +53,8 @@ end
 # Names of the displayed processors in topological order; empty while no session is loaded.
 function graph_rows(page::GraphPage, snap)
     (isnothing(snap) || isempty(snap.processors)) && return Symbol[]
-    enabled = Dict(p.name => p.enabled for p in snap.processors)
-    return [n for n in topological_order(page_graph!(page, snap)) if page.show_disabled || enabled[n]]
+    selected = Set(vcat(snap.run_steps, snap.partition_steps))
+    return [n for n in topological_order(page_graph!(page, snap)) if page.show_unselected || n in selected]
 end
 
 # Index of the cursor row in `rows` (0 if there are none), moving the cursor to the
@@ -89,7 +89,7 @@ otherwise.
   - Space adds the processor under the cursor to the selected steps, or removes it, and
     sends the new selection as [`SelectSteps`](@ref).
   - `d` adds the processors that the selected steps require, as the Setup page does.
-  - `h` hides or shows the disabled processors.
+  - `h` hides or shows the processors that are not selected.
   - Other keys and key releases are not used.
 """
 function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
@@ -102,7 +102,7 @@ function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
     if !isnothing(delta)
         move_graph_cursor!(page, rows, idx + delta)
     elseif key == :char && evt.char == 'h'
-        page.show_disabled = !page.show_disabled
+        page.show_unselected = !page.show_unselected
     elseif key == :char && evt.char == ' '
         if idx > 0
             chosen = Set(vcat(snap.run_steps, snap.partition_steps))
@@ -234,7 +234,7 @@ progress `prog` (as returned by [`progress`](@ref), or `nothing`).
 Run-level processors are in the left lane and partition-level processors in the right
 lane, one row per processor in topological order. A processor shows `[x]` if it is a
 selected step, else `[ ]`, and the icon of its state in the last run: running, failed,
-done, or stopped. Disabled processors are dim, and are left out while `page.show_disabled`
+done, or stopped. Unselected processors are dim, and are left out while `page.show_unselected`
 is `false`. Each declared dependency is an edge from the required processor down to
 the one that waits for it, in the space between the lanes; every processor with edges
 to later processors has a vertical track there, and tracks with overlapping spans have
@@ -252,7 +252,7 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
     page.height = 1
     (area.width < 3 || area.height < 3) && return nothing
     dim = Tachikoma.tstyle(:text_dim)
-    inner = Tachikoma.render(pane_block(page.show_disabled ? "Processor graph" : "Processor graph (disabled hidden)", true), area, buf)
+    inner = Tachikoma.render(pane_block(page.show_unselected ? "Processor graph" : "Processor graph (unselected hidden)", true), area, buf)
     x_max = Tachikoma.right(inner)
     if isnothing(snap) || isempty(snap.processors)
         Tachikoma.set_string!(buf, inner.x, inner.y, "Loading the session…", dim; max_x = x_max)
@@ -262,7 +262,7 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
     rows = graph_rows(page, snap)
     n = length(rows)
     if n == 0
-        Tachikoma.set_string!(buf, inner.x, inner.y, "All processors are disabled and hidden.", dim; max_x = x_max)
+        Tachikoma.set_string!(buf, inner.x, inner.y, "No processor is selected.", dim; max_x = x_max)
         return nothing
     end
     idx = sync_graph_cursor!(page, rows)
@@ -350,13 +350,12 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
         left = lane_left(name)
         x = left ? 1 : xr
         highlighted = name == cursor ? :accent : name in required ? :warning : name in dependents ? :secondary : nothing
-        enabled = spec[name].enabled
-        name_style = isnothing(highlighted) ? Tachikoma.tstyle(enabled ? :text : :text_dim) :
-            Tachikoma.tstyle(highlighted; bold = name == cursor, dim = !enabled && name != cursor)
+        checked = name in selected
+        name_style = isnothing(highlighted) ? Tachikoma.tstyle(checked ? :text : :text_dim) :
+            Tachikoma.tstyle(highlighted; bold = name == cursor, dim = !checked && name != cursor)
         put_cells!(chars, styles, r, x, "●", name_style)
         put_cells!(chars, styles, r, x + 2, rpad(clip_text(string(name), left ? nl : nr), left ? nl : nr), name_style)
         label_x = x + 2 + (left ? nl : nr)
-        checked = name in selected
         put_cells!(chars, styles, r, label_x, checked ? " [x]" : " [ ]", Tachikoma.tstyle(checked ? :text : :text_dim))
         state = get(states, name, nothing)
         isnothing(state) || put_cells!(chars, styles, r, label_x + 4, " " * STATE_ICONS[state], Tachikoma.tstyle(STATE_COLORS[state]))
