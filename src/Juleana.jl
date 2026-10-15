@@ -108,6 +108,7 @@ include("tui_graph.jl")
 include("tui_reports.jl")
 include("tui_history.jl")
 include("tui_workers.jl")
+include("tui_production.jl")
 include("tui.jl")
 include("tui_logo.jl")
 include("tui_branding.jl")
@@ -154,7 +155,7 @@ export DataflowSession
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
-    CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript
+    CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction
 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
     main, setup_session, run_no_tui, run_tui, parse_commandline,
@@ -162,6 +163,7 @@ public effective_config, escape_log_underscores, processing_logger, process_log_
     history_path, append_history, read_history, history_grid,
     WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations,
     mark_activity!, idle_deadline, check_idle!, workers_overview,
-    ProductionSpec, check_production, create_production, data_config_text, running_manifest, snapshot_software, software_version
+    ProductionSpec, check_production, create_production, data_config_text, running_manifest, snapshot_software, software_version, production_log,
+    ProductionForm, production_fields, production_spec, production_key!, production_answer!, production_sync!, render_production
 
 end # module

@@ -62,6 +62,13 @@ Juleana.workers_visit!
 Juleana.workers_stale!
 Juleana.workers_selected_allocation
 Juleana.workers_selected_worker
+Juleana.ProductionForm
+Juleana.production_fields
+Juleana.production_spec
+Juleana.production_key!
+Juleana.production_answer!
+Juleana.production_sync!
+Juleana.render_production
 Juleana.read_workers_page
 Juleana.strip_span_tags
 Juleana.tables_as_code

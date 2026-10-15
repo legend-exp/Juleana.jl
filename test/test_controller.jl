@@ -389,6 +389,48 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         end
     end
 
+    @testset "create a production" begin
+        git_env = ("GIT_AUTHOR_NAME" => "Test", "GIT_AUTHOR_EMAIL" => "test@example.org",
+            "GIT_COMMITTER_NAME" => "Test", "GIT_COMMITTER_EMAIL" => "test@example.org")
+        production = mktempdir()
+        withenv(git_env..., "LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
+            metadata = mktempdir()
+            write(joinpath(metadata, "README.md"), "metadata")
+            for args in (`init -b main`, `add .`, `commit -m init`)
+                run(pipeline(`git -C $metadata $args`; stdout = devnull, stderr = devnull))
+            end
+            parent = mktempdir()
+            loaded = Ref{Any}(nothing)
+            ctrl = DataflowController(Dict{String,Any}("config" => shipped_config, "log_path" => "old"); processors,
+                loader = args -> (loaded[] = copy(args); new_session()))
+            dispatch!(ctrl, LoadSession())
+            wait(ctrl)
+            dispatch!(ctrl, EditStartScript("sleep 60"))
+            dispatch!(ctrl, AddWorkers())
+            spec = Juleana.ProductionSpec(; name = "prod", parent, metadata_url = metadata, copy_software = false)
+            dispatch!(ctrl, CreateProduction(spec))
+            wait(ctrl)
+            config = joinpath(parent, "prod", "config.json")
+            @test snapshot(ctrl).state === :ready && isnothing(snapshot(ctrl).last_error)
+            @test ENV["LEGEND_DATA_CONFIG"] == config
+            # the new production has no config folder yet, so the shipped config is loaded with a new log folder
+            @test loaded[]["config"] == Juleana.default_config_file() && loaded[]["log_path"] == ""
+            @test only(snapshot(ctrl).allocations).state === :cancelled
+            @test any(contains("Loading the new production $(dirname(config))"), Juleana.production_log(ctrl))
+            # a spec that fails its check is rejected at once
+            @test_throws "$(joinpath(parent, "prod")) exists" dispatch!(ctrl, CreateProduction(spec))
+            # a failing creation keeps the session and the data production
+            bad = Juleana.ProductionSpec(; name = "bad", parent, metadata_url = joinpath(parent, "missing"), copy_software = false)
+            dispatch!(ctrl, CreateProduction(bad))
+            wait(ctrl)
+            @test snapshot(ctrl).state === :ready && occursin("failed with exit code", snapshot(ctrl).last_error)
+            @test ENV["LEGEND_DATA_CONFIG"] == config
+            # without a processing config no session can be loaded
+            nothing_ctrl = DataflowController(Dict{String,Any}("config" => nothing); processors, loader = _ -> new_session())
+            @test_throws "no processing config" dispatch!(nothing_ctrl, LoadSession())
+        end
+    end
+
     @testset "kwarg resets and snapshot kwargs" begin
         ctrl = DataflowController(new_session(); processors)
         energy() = only(filter(p -> p.name === :process_energy_calibration_cal, snapshot(ctrl).processors))

@@ -97,7 +97,10 @@ const REPORT = """
             @test_throws "the files of LEGEND_DATA_CONFIG are in several folders" Juleana.production_config_dir()
         end
         withenv("LEGEND_DATA_CONFIG" => nothing) do
-            @test_throws "the environment variable LEGEND_DATA_CONFIG is not set" Juleana.parse_commandline(String[])
+            # without a data production there is no default config
+            @test isnothing(Juleana.parse_commandline(String[])["config"])
+            @test Juleana.parse_commandline(["--new-production"])["new_production"]
+            @test_throws "the environment variable LEGEND_DATA_CONFIG is not set" Juleana.production_config_dir()
         end
     end
 

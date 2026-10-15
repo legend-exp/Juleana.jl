@@ -42,6 +42,9 @@ const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
 const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"), ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
     ("e", "script"), ("r", "reload"))
 const WORKERS_EDIT_HINTS = (("Ctrl-S", "save"), ("Esc", "close"))
+const PRODUCTION_HINTS = (("↑↓ Tab", "field"), ("Space", "toggle"), ("Ctrl-N", "add row"), ("Ctrl-D", "remove row"),
+    ("Ctrl-S", "create"), ("Esc", "close"))
+const PRODUCTION_DONE_HINTS = (("any key", "continue"),)
 const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "help"))
 
 # Seconds a new warning or error stays in the status bar.
@@ -195,6 +198,11 @@ the version and the link to the documentation in place of the page when the inte
 starts, until the session has loaded (or loading failed) and `splash_seconds` have passed; any key
 ends it and is not passed on. `?` opens a panel that lists the keys of the visible page;
 Escape, `?` or `q` closes it. The Setup page's filter and the kwargs editor receive `?` as text.
+
+`N` on the Setup page opens the [`Juleana.ProductionForm`](@ref) for a new data production.
+The form replaces the visible page and takes every key (see [`Juleana.production_key!`](@ref)).
+It is also open when the interface starts without a session: when the parsed
+options have no `config` or `new_production` is set, `start!` does not load a session.
 """
 mutable struct JuleanaTUI <: Tachikoma.Model
     const ctrl::DataflowController
@@ -230,6 +238,8 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     splash::Bool
     started_at::Float64
     help::Bool
+    # the open new-production form, which replaces the visible page
+    production::Union{Nothing,ProductionForm}
     # minimum seconds of the startup screen
     const splash_seconds::Float64
 end
@@ -248,7 +258,7 @@ tab_bar() = Tachikoma.TabBar(
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
     m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(), HistoryPage(), WorkersPage(),
         tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
-        false, 0.0, false, splash_seconds)
+        false, 0.0, false, nothing, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
     return m
 end
@@ -288,20 +298,28 @@ function refresh!(m::JuleanaTUI)
     m.refreshing && return nothing
     m.refreshing = true
     ctrl, answered, key = m.ctrl, m.answered, m.progress_page.open
+    creating = !isnothing(m.production) && m.production.phase === :creating
     Tachikoma.spawn_task!(m.queue, :refresh) do
         messages = isnothing(key) ? StepMessage[] : step_messages(ctrl, key)
         check_idle!(ctrl)
-        return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), (; key, messages))
+        return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), (; key, messages), creating ? production_log(ctrl) : String[])
     end
     return nothing
 end
 
-# Start the periodic reads of the controller state and load the session if none is loaded,
-# and show the startup screen.
+# Start the periodic reads of the controller state and show the startup screen. If no
+# session is loaded, load one, or open the new-production form when there is no config to
+# load or `new_production` is set.
 function start!(m::JuleanaTUI)
     m.splash, m.started_at = true, time()
     m.timer = Tachikoma.spawn_timer!(m.queue, :tick, 0.5; repeat = true)
-    snapshot(m.ctrl).state === :idle && send_command!(m, LoadSession())
+    if snapshot(m.ctrl).state === :idle
+        if isnothing(get(m.ctrl.args, "config", nothing)) || get(m.ctrl.args, "new_production", false) === true
+            m.production = ProductionForm()
+        else
+            send_command!(m, LoadSession())
+        end
+    end
     refresh!(m)
     return nothing
 end
@@ -327,7 +345,12 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         evt.value isa Exception && throw(evt.value)
         answered, m.snap, m.progress, m.busy, m.step_msgs = evt.value
         # a read from before the last answer may miss its command: keep the page, read again
-        answered == m.answered ? sync_setup!(m.setup, m.snap; pending = m.pending > 0) : refresh!(m)
+        if answered == m.answered
+            sync_setup!(m.setup, m.snap; pending = m.pending > 0)
+            isnothing(m.production) || production_sync!(m.production, m.snap, length(evt.value) > 5 ? evt.value[6] : String[])
+        else
+            refresh!(m)
+        end
         # the pane switched to another step while the read ran
         m.step_msgs.key == m.progress_page.open || refresh!(m)
         m.splash = splash_active(m)
@@ -355,6 +378,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         workers_stale!(m.workers_page)
         workers_sync!(m)
         m.command_error = evt.value isa Exception ? sprint(showerror, evt.value) : nothing
+        isnothing(m.production) || production_answer!(m.production, m.answered, evt.value)
         refresh!(m)
     end
     return nothing
@@ -392,8 +416,26 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
         end
         return nothing
     end
+    if !isnothing(m.production) && !ctrl_c
+        result = production_key!(m.production, evt, cmd -> send_command!(m, cmd))
+        if m.production.phase === :creating && m.production.answer_at == 0
+            m.production.answer_at = m.answered + m.pending
+        end
+        if result === :close
+            m.production = nothing
+        elseif result === :finished
+            m.production, m.page = nothing, 1
+        end
+        return nothing
+    end
     n = length(TUI_PAGES)
-    m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
+    if m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
+        if m.setup.new_production
+            m.setup.new_production = false
+            m.production = ProductionForm()
+        end
+        return nothing
+    end
     m.page == 2 && !ctrl_c && graph_key!(m.graph_page, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
     m.page == 3 && !ctrl_c && workers_key!(m.workers_page, evt, cmd -> send_command!(m, cmd)) && return nothing
     if m.page == 4 && !ctrl_c
@@ -424,7 +466,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
 end
 
 function update_mouse!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
-    if isnothing(m.dialog) && !m.help && !splash_active(m)
+    if isnothing(m.dialog) && !m.help && isnothing(m.production) && !splash_active(m)
         if Tachikoma.handle_mouse!(m.tabs, evt) === :changed
             m.page = m.tabs.active
             return nothing
@@ -579,6 +621,8 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     render_corner_logo(m, tab_area, f.buffer)
     if splash_active(m)
         render_splash(m, body_area, f.buffer)
+    elseif !isnothing(m.production)
+        render_production(m.production, m.snap, body_area, f.buffer; ticks = m.ticks)
     elseif m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 2
@@ -597,12 +641,13 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     end
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
-    hints = (m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
+    hints = (!isnothing(m.production) ? (m.production.phase === :done ? PRODUCTION_DONE_HINTS : m.production.phase === :creating ? () : PRODUCTION_HINTS) :
+        m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
         m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
         m.page == 7 ? (isnothing(m.history_page.viewer_path) ? HISTORY_HINTS : HISTORY_OPEN_HINTS) : ())
     spans = Tuple{String,Tachikoma.Style}[]
     # `q` closes an open report instead of quitting and is text in the editor
-    for (key, description) in (hints..., (m.page == 3 && !isnothing(m.workers_page.editor) || m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
+    for (key, description) in (hints..., (!isnothing(m.production) || m.page == 3 && !isnothing(m.workers_page.editor) || m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
     end
     put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)

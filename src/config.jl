@@ -10,7 +10,8 @@ interactive session it returns `nothing`.
 
 Options (see `juleana --help` for the full text):
 - `--config`, `-c`: path of the processing config file. Without it, the
-  [`Juleana.default_config_file`](@ref) is used.
+  [`Juleana.default_config_file`](@ref) is used, or `nothing` when `LEGEND_DATA_CONFIG`
+  is not set (no data production is selected).
 - `--periods`, `-p`: periods, each optionally with runs: `6` (all runs of p06), `6,1`
   (r001), `6,1-3` (r001 to r003), `6,1,4-6`. Each occurrence gives one vector of these
   strings, so `-p 3 4 -p 6,1` gives `[["3", "4"], ["6,1"]]`; see
@@ -19,7 +20,7 @@ Options (see `juleana --help` for the full text):
   occurrence.
 - `--runmode`, `--rm`: `local` or `slurm`, replacing the config's run mode.
 - `--log_path`, `-o`: log directory; `""` when not given.
-- Flags, `false` when not given: `--no-tui`, `--reprocess`, `--only_runs` (`--or`),
+- Flags, `false` when not given: `--no-tui`, `--new-production`, `--reprocess`, `--only_runs` (`--or`),
   `--only_partitions` (`--op`), `--submit_jobs`, `--ignore_config`,
   `--analysis_runs_only`.
 
@@ -55,6 +56,10 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
             help = "run all enabled processors without the terminal user interface and exit"
             dest_name = "no_tui"
             action = :store_true
+        "--new-production", "--new_production"
+            help = "open the terminal user interface on the creation of a new data production"
+            dest_name = "new_production"
+            action = :store_true
         "--submit_jobs"
             help = "submit slurm jobs to the selected run mode"
             action = :store_true
@@ -84,7 +89,8 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
             action = :append_arg
     end
     parsed_args = parse_args(append!(String[], args), settings)
-    !isnothing(parsed_args) && isnothing(parsed_args["config"]) && (parsed_args["config"] = default_config_file())
+    !isnothing(parsed_args) && isnothing(parsed_args["config"]) && haskey(ENV, "LEGEND_DATA_CONFIG") &&
+        (parsed_args["config"] = default_config_file())
     return parsed_args
 end
 

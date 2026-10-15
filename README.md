@@ -43,11 +43,12 @@ Pkg.Apps.add("Juleana")                            # or Pkg.Apps.develop(path = 
 juleana                                    # terminal user interface, config of the data production
 juleana -c config/processing_config.json   # a given processing config
 juleana --no-tui                           # run all enabled processors without the interface
+juleana --new-production                   # create a new data production
 juleana --help                             # command line options
 ```
 
-`config/` contains example processing configs, and `setup/` contains scripts to set up a
-production.
+`config/` contains example processing configs, and `setup/` contains a script to set the
+permissions of a production.
 
 ## Documentation
 

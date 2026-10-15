@@ -208,6 +208,22 @@ Cancel every running worker allocation of the session (see [`Juleana.cancel_all!
 struct CancelAll <: ControllerCommand end
 
 """
+    CreateProduction(spec::ProductionSpec)
+
+Create the data production `spec` describes with [`Juleana.create_production`](@ref) in the
+background and switch the session to it: cancel all worker allocations (their workers use
+the data of the previous production), set `LEGEND_DATA_CONFIG` of this process to the new
+`config.json`, and load a session with the [`Juleana.default_config_file`](@ref) of the new
+production and a new log folder. The lines of the creation are kept for
+[`production_log`](@ref Juleana.production_log). Possible while no session is loaded or
+no processing runs; the controller is `:loading` meanwhile and returns to its previous
+state if the creation or the load fails.
+"""
+struct CreateProduction <: ControllerCommand
+    spec::ProductionSpec
+end
+
+"""
     PostponeIdleCancel()
 
 Restart the idle time after which the worker allocations are cancelled (see
@@ -260,6 +276,8 @@ mutable struct DataflowController
     const abandon::Threads.Atomic{Bool}
     const progress::ProgressStore
     const workers::WorkerManager
+    # lines of the last production creation
+    const production_lines::Vector{String}
     state::Symbol
     session::Union{Nothing,DataflowSession}
     # selected periods, including those without runs to process
@@ -280,7 +298,7 @@ end
 function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console), workers::WorkerManager = WorkerManager())
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
-        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers, :idle, nothing, DataPeriod[], DataPeriod[],
+        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers, String[], :idle, nothing, DataPeriod[], DataPeriod[],
         Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, true, Dict{Symbol,Dict{Symbol,Any}}(),
         nothing, nothing, nothing, nothing, nothing)
 end
@@ -310,8 +328,9 @@ function install_session!(ctrl::DataflowController, session::DataflowSession)
 end
 
 # Run `f` in the background with the controller `:loading`; an error is kept as
-# `last_error` and the controller returns to `fallback`.
-function load_in_background!(f, ctrl::DataflowController, fallback::Symbol)
+# `last_error` and the controller returns to `fallback`, a state or a function of the
+# controller that returns it, called with the lock held.
+function load_in_background!(f, ctrl::DataflowController, fallback)
     ctrl.state = :loading
     ctrl.last_error = nothing
     ctrl.task = Threads.@spawn try
@@ -320,7 +339,7 @@ function load_in_background!(f, ctrl::DataflowController, fallback::Symbol)
         @error "Loading the session failed" exception = (e, catch_backtrace())
         @lock ctrl.lock begin
             ctrl.last_error = truncate_error(e)
-            ctrl.state = fallback
+            ctrl.state = fallback isa Symbol ? fallback : fallback(ctrl)
         end
     end
     return nothing
@@ -374,6 +393,8 @@ dispatch!(ctrl::DataflowController, cmd::ControllerCommand) = @lock ctrl.lock ap
 
 function apply!(ctrl::DataflowController, cmd::LoadSession)
     require_state(ctrl, cmd, :idle)
+    isnothing(get(ctrl.args, "config", nothing)) && throw(ArgumentError(
+        "LoadSession: no processing config: give one with --config or select a data production with LEGEND_DATA_CONFIG"))
     load_in_background!(ctrl, :idle) do
         session = ctrl.loader(ctrl.args)
         @lock ctrl.lock install_session!(ctrl, session)
@@ -613,6 +634,33 @@ end
 apply!(ctrl::DataflowController, cmd::CancelAllocation) = (cancel_allocation!(ctrl.workers, cmd.id); nothing)
 
 apply!(ctrl::DataflowController, ::CancelAll) = (cancel_all!(ctrl.workers); nothing)
+
+function apply!(ctrl::DataflowController, cmd::CreateProduction)
+    require_state(ctrl, cmd, :idle, :ready)
+    check_production(cmd.spec)
+    empty!(ctrl.production_lines)
+    log(line) = (@lock ctrl.lock push!(ctrl.production_lines, line); @info line)
+    # after a failure the session is that of the previous production, or none once switched
+    load_in_background!(ctrl, c -> isnothing(c.session) ? :idle : :ready) do
+        config = create_production(cmd.spec; log)
+        cancel_all!(ctrl.workers)
+        ENV["LEGEND_DATA_CONFIG"] = config
+        @lock ctrl.lock begin
+            ctrl.session = nothing
+            ctrl.args["config"], ctrl.args["log_path"] = default_config_file(), ""
+        end
+        log("Loading the new production $(dirname(config))")
+        session = ctrl.loader(ctrl.args)
+        @lock ctrl.lock install_session!(ctrl, session)
+    end
+end
+
+"""
+    Juleana.production_log(ctrl::DataflowController)
+
+Return a copy of the lines of the last [`CreateProduction`](@ref) of `ctrl`.
+"""
+production_log(ctrl::DataflowController) = @lock ctrl.lock copy(ctrl.production_lines)
 
 apply!(ctrl::DataflowController, ::PostponeIdleCancel) = (mark_activity!(ctrl.workers); nothing)
 

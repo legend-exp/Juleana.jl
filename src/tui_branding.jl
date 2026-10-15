@@ -20,6 +20,7 @@ const HELP_KEYS = (
         ("r", "reload the config"),
         ("g", "rebuild the dependency graph"),
         ("W", "start workers"),
+        ("N", "create a new data production"),
         ("w", "write the settings to the config file"),
         ("Mouse", "click to check, fold or focus; wheel scrolls"),
     ),
@@ -195,7 +196,9 @@ end
 # `splash_seconds` have passed.
 function splash_active(m::JuleanaTUI)
     m.splash || return false
-    return isnothing(load_outcome(m.snap)) || time() - m.started_at < m.splash_seconds
+    # with the new-production form open and no session to load, the screen ends after `splash_seconds`
+    waiting = isnothing(load_outcome(m.snap)) && !(!isnothing(m.production) && !isnothing(m.snap) && m.snap.state === :idle)
+    return waiting || time() - m.started_at < m.splash_seconds
 end
 
 # Draw the startup screen into `area`: the logo, version, docs link and load state, centered.

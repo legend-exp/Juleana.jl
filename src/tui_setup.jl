@@ -36,12 +36,14 @@ mutable struct SetupPage
     # `nothing` before it is read; whether it is read or being read for the loaded session
     dataset::Any
     dataset_requested::Bool
+    # set by `N`, taken by the interface, which opens the new-production form
+    new_production::Bool
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
     Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
     Checklist(ChecklistItem[]; title = "Partition processors", focused = false, tag_style = setup_tag_style), 1, 1, nothing,
-    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false)
+    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false, false)
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
@@ -136,7 +138,9 @@ cursor; in the options pane Up and Down choose a row and Space or
 Enter cycles its value; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
 dependency graph, `W` starts a worker allocation with [`AddWorkers`](@ref) and `w` asks to write
-the current settings to `config/processing_config.json` of the data production.
+the current settings to `config/processing_config.json` of the data production. `N` sets
+`page.new_production`, which asks the interface to open the new-production form (see
+[`Juleana.ProductionForm`](@ref)); the checklists use `n` to uncheck all items.
 """
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
@@ -197,6 +201,8 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         send(ResetDependencyGraph())
     elseif key == :char && char == 'W'
         send(AddWorkers())
+    elseif key == :char && char == 'N'
+        page.new_production = true
     else
         return false
     end
@@ -353,7 +359,7 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
     lines = Vector{Tuple{String,Tachikoma.Style}}[]
     if isnothing(snap) || isempty(snap.processors)
-        push!(lines, [("Loading the session…", dim)])
+        push!(lines, [(!isnothing(snap) && get(snap, :state, nothing) === :idle ? "No session loaded. N: new data production" : "Loading the session…", dim)])
     else
         for (i, (key, label, _)) in pairs(SETUP_OPTIONS)
             value = option_value(snap, key)

@@ -69,6 +69,7 @@ CancelAllocation
 CancelAll
 PostponeIdleCancel
 EditStartScript
+CreateProduction
 Juleana.check_idle!(::DataflowController)
 ```
 
@@ -101,6 +102,7 @@ Juleana.data_config_text
 Juleana.running_manifest
 Juleana.snapshot_software
 Juleana.software_version
+Juleana.production_log
 ```
 
 ## Processing config

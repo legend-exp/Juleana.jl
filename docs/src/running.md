@@ -61,6 +61,7 @@ session = Juleana.setup_session(["-c", "config/processing_config.json"])
 | `--only_partitions`, `--op` | Run only the partition-level processors |
 | `--analysis_runs_only` | Process only runs marked as analysis runs in the metadata |
 | `--no-tui`        | Run all enabled processors without the terminal user interface and exit |
+| `--new-production` | Open the interface on the form for a new data production, see [Creating a data production](@ref) |
 | `--submit_jobs`   | Start the workers of the selected run mode automatically (with `--no-tui`) |
 | `--runmode`, `--rm` | Run mode, `local` or `slurm`, replacing `config.runmode` |
 | `--ignore_config` | Use only the command line values of the flags above instead of the config |
@@ -88,8 +89,8 @@ the visible page, `q` or `Ctrl+C` quits.
 
 1. **Setup**: select the periods, runs and processors, edit the keyword arguments of a
    processor (`e`) and the options, start processing (`s`), stop it (`x` after the
-   running items, `X` at once), reload the config (`r`), and write the settings to the
-   config file (`w`).
+   running items, `X` at once), reload the config (`r`), write the settings to the
+   config file (`w`), and create a new data production (`N`).
 2. **Graph**: the processors with their dependencies, run-level processors on the left
    and partition-level processors on the right. `Space` selects a processor, `d` adds the
    steps that selected steps wait for, and `v` switches the state icons between the last
@@ -144,17 +145,47 @@ In the `slurm` run mode the start script submits SLURM jobs with the settings of
 `runmode_settings.slurm` in the config, such as the number of nodes. Edit the script on
 the Workers page to change them for the session, and start further allocations with `a`.
 
-### Production environment
+## Creating a data production
 
-A data production needs a place for its output, which also holds input data such as
-`legend-metadata` in a fixed structure. `setup/production.sh` of the repository creates it:
+A data production is a folder with the metadata, the generated output and a data config
+file. `juleana --new-production` opens the interface on a form for a new one, and `N` on the
+Setup page opens the same form. Without `--config` and without `LEGEND_DATA_CONFIG`, the
+interface opens on the form as well and loads no session.
 
-```bash
-bash setup/production.sh
-```
+The form asks for
 
-It asks for the name and folder of the new production and creates the structure. It can
-link data folders to other locations to avoid copying data.
+- the name and the parent folder (by default the folder that holds the current production),
+- the URL of the `legend-metadata` repository,
+- whether to check out branches in the metadata and which ones: the `jldataprod` branch for
+  the `jldataprod` config and overrides submodules and the `dataprod` branch for the
+  metadata and its other submodules (both `main` by default),
+- extra tier paths, `label` and folder of tiers that are kept elsewhere,
+- parameter folders to copy, each with a `rpars` or `ppars` component in its path,
+- whether to set the new production as the default in the startup file of the shell
+  (`.bashrc` or `.zshrc`, by `$SHELL`), and
+- whether to copy the software into the production (yes by default).
+
+`↑`, `↓` and `Tab` move between the fields, typed characters and `Backspace` edit a text
+field, `Space` or `Enter` flips a yes/no field, `Ctrl-N` adds a row to the list under the
+cursor and `Ctrl-D` removes it, `Ctrl-S` creates the production and `Esc` closes the form.
+The input is checked first and the first problem is shown in the form. An existing folder
+is refused.
+
+The production folder `<parent>/<name>` then holds
+
+- `legend-metadata`, a recursive clone of the metadata with the chosen branches checked out,
+- the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
+- `config.json`, the data config with one `tier/<label>` entry per extra tier path,
+- the copied parameters in `generated/jlpar`,
+- `software`, a copy of the Juleana checkout and of the other developed packages of the
+  running environment with a manifest that refers to the copies, and `PROVENANCE.md` with
+  the source folder, commit and uncommitted changes of each package (see
+  [`Juleana.snapshot_software`](@ref)), and
+- optionally the line `export LEGEND_DATA_CONFIG=<production>/config.json` in the shell
+  startup file, replacing earlier lines that export the variable.
+
+The form shows the log of the creation. Afterwards this process uses the new production:
+it cancels its worker allocations, sets `LEGEND_DATA_CONFIG` and loads a session from it.
 
 ## Updating
 
