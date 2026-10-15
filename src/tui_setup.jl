@@ -280,22 +280,12 @@ function setup_summary(snap)
     ]
 end
 
-const SETUP_KEYS = [
-    "Tab: next pane   Space: toggle",
-    "/: filter   a/n: all/none",
-    "c/p: cal/phy   d: add deps",
-    "e: settings   w: write config",
-    "s: start   x/X: stop/force",
-    "r: reload config   W: start workers",
-    "g: rebuild dependency graph",
-]
-
 """
     Juleana.render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the Setup page into `area`: periods and runs on the left, the run and partition
-processors in the middle, and the options, a summary of what a start would process and
-the keys on the right.
+processors in the middle, and the options and a summary of what a start would process on
+the right, with the logo below them if the pane has room.
 """
 function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     columns = Tachikoma.Layout(Tachikoma.Horizontal,
@@ -330,12 +320,14 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
             push!(lines, [(head * ": ", dim), (tail, Tachikoma.tstyle(:text_bright))])
         end
     end
-    push!(lines, [("", text)])
-    append!(lines, [[(l, dim)] for l in SETUP_KEYS])
     for (i, spans) in pairs(lines)
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
         put_spans!(buf, inner.x, y, Tachikoma.right(inner), spans)
+    end
+    w, h = logo_size(:medium)
+    if inner.width >= w && inner.height >= length(lines) + 1 + h
+        render_logo(:medium, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf)
     end
     isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
     if page.confirm === :write && !isnothing(snap)

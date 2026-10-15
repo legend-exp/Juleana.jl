@@ -34,6 +34,8 @@ Juleana.ProgressPage
 Juleana.progress_key!
 Juleana.progress_mouse!
 Juleana.render_progress
+Juleana.logo_size
+Juleana.render_logo
 Juleana.bar_segments
 Juleana.KwargsEditor
 Juleana.kwargs_key!

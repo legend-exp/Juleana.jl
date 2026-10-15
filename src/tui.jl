@@ -32,7 +32,7 @@ const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0
 const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
 const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("f", "follow"))
-const COMMON_HINTS = (("1-4", "page"), ("q", "quit"))
+const COMMON_HINTS = (("1-4", "page"), ("q", "quit"), ("?", "help"))
 
 # Seconds a new warning or error stays in the status bar.
 const ALERT_SECONDS = 10.0
@@ -135,6 +135,12 @@ Setup page and [`Juleana.progress_key!`](@ref) for the Progress page); otherwise
 `4` switch pages and `q` or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after the running items and quits when the
 run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
+
+`JuleanaTUI(ctrl, messages; splash_seconds = 1.5)` shows a startup screen with the logo,
+the version and the link to the documentation in place of the page when the interface
+starts, until the session has loaded (or loading failed) and `splash_seconds` have passed; any key
+ends it and is not passed on. `?` opens a panel that lists the keys of the visible page;
+Escape, `?` or `q` closes it. The Setup page's filter and the kwargs editor receive `?` as text.
 """
 mutable struct JuleanaTUI <: Tachikoma.Model
     const ctrl::DataflowController
@@ -160,6 +166,12 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     command_error::Union{Nothing,String}
     # number of `:tick` events, which advances the spinner
     ticks::Int
+    # whether the startup screen is on, when `start!` ran, and whether the key help is open
+    splash::Bool
+    started_at::Float64
+    help::Bool
+    # minimum seconds of the startup screen
+    const splash_seconds::Float64
 end
 
 # Tab bar of the pages, each tab labeled with its number and name.
@@ -173,9 +185,10 @@ tab_bar() = Tachikoma.TabBar(
         inactive = Tachikoma.tstyle(:text_dim)),
 )
 
-function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())
+function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
     m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(),
-        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing, 0)
+        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing, 0,
+        false, 0.0, false, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
     return m
 end
@@ -219,8 +232,10 @@ function refresh!(m::JuleanaTUI)
     return nothing
 end
 
-# Start the periodic reads of the controller state and load the session if none is loaded.
+# Start the periodic reads of the controller state and load the session if none is loaded,
+# and show the startup screen.
 function start!(m::JuleanaTUI)
+    m.splash, m.started_at = true, time()
     m.timer = Tachikoma.spawn_timer!(m.queue, :tick, 0.5; repeat = true)
     snapshot(m.ctrl).state === :idle && send_command!(m, LoadSession())
     refresh!(m)
@@ -240,6 +255,7 @@ processing(m::JuleanaTUI) = !isnothing(m.snap) && m.snap.state in (:running, :st
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     if evt.id === :tick
         m.ticks += 1
+        m.splash = splash_active(m)
         refresh!(m)
     elseif evt.id === :refresh
         m.refreshing = false
@@ -247,6 +263,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         answered, m.snap, m.progress, m.busy = evt.value
         # a read from before the last answer may miss its command: keep the page, read again
         answered == m.answered ? sync_setup!(m.setup, m.snap; pending = m.pending > 0) : refresh!(m)
+        m.splash = splash_active(m)
         m.quit_after_stop && !processing(m) && (m.quit = true)
     elseif evt.id === :command
         m.pending -= 1
@@ -259,6 +276,17 @@ end
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     ctrl_c = evt.key == :ctrl_c || (evt.key == :ctrl && evt.char == 'c')
+    if splash_active(m)
+        evt.action == Tachikoma.key_release || (m.splash = false)
+        return nothing
+    end
+    m.splash = false
+    if m.help
+        if evt.action != Tachikoma.key_release && (evt.key == :escape || ctrl_c || (evt.key == :char && evt.char in ('?', 'q')))
+            m.help = false
+        end
+        return nothing
+    end
     if m.dialog === :quit
         if evt.key == :char && evt.char == 's'
             m.dialog, m.quit_after_stop = nothing, true
@@ -275,6 +303,8 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     m.page == 4 && !ctrl_c && progress_key!(m.progress_page, evt, m.progress) && return nothing
     if ctrl_c || (evt.key == :char && evt.char == 'q')
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
+    elseif evt.key == :char && evt.char == '?'
+        m.help = true
     elseif evt.key == :char && '1' <= evt.char <= '0' + n
         m.page = evt.char - '0'
     end
@@ -282,7 +312,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
 end
 
 function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
-    if isnothing(m.dialog)
+    if isnothing(m.dialog) && !m.help && !splash_active(m)
         if Tachikoma.handle_mouse!(m.tabs, evt) === :changed
             m.page = m.tabs.active
             return nothing
@@ -366,7 +396,10 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     tab_area, body_area, status_area, keys_area = Tachikoma.split_layout(layout, render_frame(f.area, f.buffer))
 
     Tachikoma.render(tabs, tab_area, f.buffer)
-    if m.page == 1
+    render_corner_logo(m, tab_area, f.buffer)
+    if splash_active(m)
+        render_splash(m, body_area, f.buffer)
+    elseif m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 4
         render_progress(m.progress_page, m.progress, m.busy, body_area, f.buffer)
@@ -390,6 +423,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     end
     put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)
 
+    m.help && render_help(m, f.area, f.buffer)
     if m.dialog === :quit
         modal = Tachikoma.Modal(;
             title = "Processing runs",
@@ -418,7 +452,8 @@ messages of this process and the output of its workers are kept in a
 [`Juleana.MessageBuffer`](@ref) instead of being printed; the newest warning or error is shown
 in the status bar, and the error of a failed load stays there. This process also writes
 its log file as in [`setup_session`](@ref). The previous global logger is restored when
-the interface closes. See [`Juleana.JuleanaTUI`](@ref) for the keys.
+the interface closes. A startup screen with the logo is shown until the session has loaded;
+`?` lists the keys of the visible page. See [`Juleana.JuleanaTUI`](@ref) for the keys.
 """
 function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         loader = args -> setup_session(args; console = false, start_workers = false))

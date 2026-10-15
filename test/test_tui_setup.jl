@@ -81,9 +81,13 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         tb = render_setup_page(m)
         for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config",
                 "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 3", "Run steps: 1 × 3 runs",
-                "Partition steps: 1 × 2 periods", "s: start")
+                "Partition steps: 1 × 2 periods")
             @test find_text(tb, text) !== nothing
         end
+        # the keys are in the key row and the help panel, not in the options pane
+        @test find_text(tb, "s: start") === nothing
+        # the logo fills the free space of the options pane
+        @test any(r -> occursin("▀", row_text(tb, r)), 1:30)
 
         # a change in the controller shows up in the checklists
         dispatch!(m.ctrl, SelectRuns(Dict(2 => [7])))

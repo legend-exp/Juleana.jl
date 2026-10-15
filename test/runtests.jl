@@ -18,5 +18,6 @@ Test.@testset "Package Juleana" begin
     include("test_tui_checklist.jl")
     include("test_tui_setup.jl")
     include("test_tui_progress.jl")
+    include("test_tui_branding.jl")
     include("test_logging.jl")
 end # testset
