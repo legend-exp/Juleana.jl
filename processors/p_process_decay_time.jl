@@ -88,12 +88,12 @@ function p_process_decay_time(processing_config::PropDict, l200::LegendData, per
             # The events of each run are selected by timestamp before reading, so only the
             # selected waveforms are loaded from disk.
             f_timestamp = ljl_propfunc("$peakname.timestamp")
+            f_waveform = ljl_propfunc("$(peakname).waveform_presummed")
             wvfs_det = fast_flatten(map(partinfo_det) do r
-                filekey_run = start_filekey(l200, (r.period, r.run, :cal))
-                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks), filekey_run, det)
+                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det)
                 n_sel = n_evts == -1 ? length(ts) : min(n_evts, length(ts))
                 ts_sel = select_random ? sample(ts, n_sel; replace=false, ordered=true) : ts[begin:begin+n_sel-1]
-                read_ldata(peakname, l200, DataTier(:jlpks), filekey_run, ts_sel, det)
+                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det; filterby=@pf $timestamp in ts_sel)
             end).waveform_presummed
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
