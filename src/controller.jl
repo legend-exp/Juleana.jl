@@ -611,3 +611,35 @@ end
 progress(ctrl::DataflowController) = progress(ctrl.progress)
 busy_workers(ctrl::DataflowController) = busy_workers(ctrl.progress)
 step_messages(ctrl::DataflowController, key) = step_messages(ctrl.progress, key)
+
+"""
+    report_index(ctrl::DataflowController)
+
+Return the rows of the reports, as `report_index(l200, processors, periods, runs)` returns them, for the current selection of `ctrl`: the reports of the selected run-level and
+partition-level steps for the selected periods and runs, with the processor specs of
+[`effective_config`](@ref). Reports that do not exist have `state = :missing`. Throws an
+`ArgumentError` when no session is loaded. The file system is read but not changed.
+"""
+function report_index(ctrl::DataflowController)
+    l200, processors, periods, runs = @lock ctrl.lock begin
+        session = ctrl.session
+        isnothing(session) && throw(ArgumentError("report_index: no session is loaded"))
+        cfg = effective_config(ctrl)
+        specs = [processor_spec(cfg, step) for step in vcat(session.run_steps, session.partition_steps)]
+        session.l200, specs, copy(ctrl.periods), deepcopy(session.runs)
+    end
+    return report_index(l200, processors, periods, runs)
+end
+
+"""
+    report_overview(ctrl::DataflowController)
+
+Return the `report_overview(l200)` of all reports in the report
+folder of the session of `ctrl`, whatever the current selection. Throws an
+`ArgumentError` when no session is loaded.
+"""
+function report_overview(ctrl::DataflowController)
+    session = @lock ctrl.lock ctrl.session
+    isnothing(session) && throw(ArgumentError("report_overview: no session is loaded"))
+    return report_overview(session.l200)
+end

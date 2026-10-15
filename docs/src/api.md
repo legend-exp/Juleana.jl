@@ -43,6 +43,16 @@ Juleana.GraphPage
 Juleana.graph_key!
 Juleana.graph_mouse!
 Juleana.render_graph
+Juleana.ReportsPage
+Juleana.reports_key!
+Juleana.reports_mouse!
+Juleana.render_reports
+Juleana.reports_result!
+Juleana.reports_visit!
+Juleana.take_requests!
+Juleana.read_reports
+Juleana.strip_span_tags
+Juleana.tables_as_code
 Juleana.logo_size
 Juleana.render_logo
 Juleana.bar_segments

@@ -343,4 +343,37 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, ResetKwargs(:process_energy_calibration, :max_wvfs))
         @test_throws "ResetKwargs: a key needs a processor" ResetKwargs(nothing, :max_wvfs)
     end
+    @testset "report_index and report_overview" begin
+        ctrl = DataflowController(new_session(); processors)
+        jlrep = l200.tier[:jlrep]
+        failed = Juleana.report_path(l200, :process_energy_calibration, :run, p2, DataRun(6), :cal)
+        mkpath(dirname(failed))
+        write(failed, RUN_REPORT)
+        before = sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs])
+
+        rows = Juleana.report_index(ctrl)
+        energy = filter(r -> r.process === :process_energy_calibration, rows)
+        @test [(r.period, r.run, r.state) for r in energy] ==
+              [(p2, DataRun(6), :failed), (p2, DataRun(7), :missing), (p3, DataRun(0), :missing)]
+        @test energy[1].path == failed && energy[1].n_failed == 1
+        partition = filter(r -> r.level === :partition, rows)
+        @test [(r.process, r.period, r.run, r.state) for r in partition] ==
+              [(:p_process_aoe_cut, p2, nothing, :missing), (:p_process_aoe_cut, p3, nothing, :missing)]
+        # only the selected steps and periods
+        dispatch!(ctrl, SelectSteps(Symbol[], [:p_process_aoe_cut]))
+        dispatch!(ctrl, SelectPeriods([p3]))
+        @test [(r.process, r.period) for r in Juleana.report_index(ctrl)] == [(:p_process_aoe_cut, p3)]
+        dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
+        dispatch!(ctrl, SelectRuns(Dict(p2 => [DataRun(7)], p3 => nothing)))
+        @test [(r.period, r.run) for r in Juleana.report_index(ctrl)] == [(p2, DataRun(7)), (p3, DataRun(0))]
+
+        overview = Juleana.report_overview(ctrl)
+        @test [(o.name, o.level, o.category, o.nreports) for o in overview] == [("energy_calibration", :run, "cal", 1)]
+        @test overview[1].counts == (; ok = 0, warning = 0, failed = 1)
+        @test sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs]) == before
+
+        idle = DataflowController(Dict{String,Any}("config" => shipped_config); processors, loader = _ -> new_session())
+        @test_throws "report_index: no session is loaded" Juleana.report_index(idle)
+        @test_throws "report_overview: no session is loaded" Juleana.report_overview(idle)
+    end
 end

@@ -20,6 +20,8 @@ module Juleana
 
 using ArgParse: @add_arg_table!, ArgParseSettings, parse_args
 import CairoMakie
+# Loading CommonMark activates Tachikoma's Markdown extension, which the report viewer renders with.
+import CommonMark
 using ConcurrentCollections: ConcurrentDict
 using Dates: Dates, DateTime, Millisecond, Second, UTC, canonicalize, now, @dateformat_str
 using Format: format
@@ -100,6 +102,7 @@ include("tui_setup.jl")
 include("tui_progress.jl")
 include("tui_log.jl")
 include("tui_graph.jl")
+include("tui_reports.jl")
 include("tui.jl")
 include("tui_logo.jl")
 include("tui_branding.jl")

@@ -2,7 +2,7 @@
 
 const DOCS_URL = "https://legend-exp.github.io/Juleana.jl/stable/"
 
-# Keys listed by the help overlay as `(keys, description)`: Setup page, Graph page, Progress page, Log page, all pages.
+# Keys listed by the help overlay as `(keys, description)`: Setup page, Graph page, Progress page, Log page, Reports page, all pages.
 const HELP_KEYS = (
     setup = (
         ("Tab  Shift-Tab", "next, previous pane"),
@@ -47,6 +47,17 @@ const HELP_KEYS = (
         ("l", "cycle the level: all, warnings, errors"),
         ("/", "filter the lines (Enter keeps, Esc clears)"),
         ("Mouse", "wheel scrolls"),
+    ),
+    reports = (
+        ("↑ ↓ PgUp PgDn Home End", "move the cursor; scroll the failures"),
+        ("Enter  ← →", "fold, unfold a group"),
+        ("Enter on a report", "open the report"),
+        ("Tab", "switch between the reports and the failures"),
+        ("a", "reports of the selection or all on disk"),
+        ("r", "read the reports again"),
+        ("↑ ↓ PgUp PgDn Home End", "scroll an open report"),
+        ("Esc  q", "close the open report"),
+        ("Mouse", "click a row, wheel moves the cursor or scrolls"),
     ),
     common = (
         ("1-6", "open a page"),
@@ -179,6 +190,7 @@ function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     m.page == 2 && push!(sections, ("Graph page", HELP_KEYS.graph))
     m.page == 4 && push!(sections, ("Progress page", HELP_KEYS.progress))
     m.page == 5 && push!(sections, ("Log page", HELP_KEYS.log))
+    m.page == 6 && push!(sections, ("Reports page", HELP_KEYS.reports))
     push!(sections, ("All pages", HELP_KEYS.common))
     key_width = maximum(textwidth(k) for (_, entries) in sections for (k, _) in entries) + 2
     lines = Vector{Tuple{String,Tachikoma.Style}}[]
