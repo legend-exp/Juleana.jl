@@ -8,8 +8,10 @@ const PartitionStatus = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, Bool}}
 """
     mutable struct DataflowSession
 
-State of a dataflow session that [`menu`](@ref) reads and edits, as returned by
-[`main`](@ref).
+State of a dataflow session, as returned by [`Juleana.setup_session`](@ref): the processing
+config, the LEGEND data and the selection and dependency graph that
+[`run_processing`](@ref) works on. A [`DataflowController`](@ref) holds the session of the
+terminal user interface.
 
 Fields:
 - `args::Dict{String,Any}`: parsed command line options, used to reload the config.
@@ -139,15 +141,14 @@ configured run mode: `local` workers are always started; `slurm` workers only wi
 manual submission. Without `start_workers` the worker pool starts empty. Then check the processor keyword arguments with
 [`check_processor_kwargs`](@ref) and build the dependency graph for the enabled steps.
 
-Return the [`DataflowSession`](@ref), ready for [`run_processing`](@ref) or
-[`menu`](@ref). Return `nothing` when `args` asks for `--help` or `--version` in an
+Return the [`DataflowSession`](@ref), ready for [`run_processing`](@ref). Return `nothing` when `args` asks for `--help` or `--version` in an
 interactive session.
 
 # Examples
 ```julia
 using Juleana
 session = Juleana.setup_session(["--config", "config/processing_config.json", "--periods", "3"])
-menu(session)
+run_processing(session)
 ```
 """
 function setup_session(args::AbstractVector{<:AbstractString})
@@ -158,7 +159,7 @@ end
 
 function setup_session(parsed_args::AbstractDict; console::Bool = true, start_workers::Bool = true)
     l200, config, periods = setup_processing(parsed_args)
-    # a config reload from the menu writes to the same log directory
+    # a reload of the config writes to the same log directory
     parsed_args["log_path"] = config.log_path
     check_processor_kwargs(config)
 

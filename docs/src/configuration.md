@@ -5,7 +5,12 @@ DocTestSetup = :(using Juleana)
 ```
 
 The processing config file sets up the analysis chain. Examples are in the `config/`
-folder of the repository: `processing_config.json` and `processing_config.yaml`. The
+folder of the repository: `processing_config.json` and `processing_config.yaml`. Without
+`--config`, `juleana` reads `config/processing_config.json` in the data production (the
+folder `config` next to the file named by `LEGEND_DATA_CONFIG`), or the config shipped with
+Juleana if that file does not exist. `w` on the Setup page of the interface writes the
+current settings to that file and keeps the previous file as `processing_config.json.bak`.
+See [Running the dataflow](running.md). The
 file is loaded into a [`ProcessingConfig`](@ref); all keys of the `config` and
 `processing` sections are required except `idle_timeout_minutes`, and a missing or
 unknown key stops the dataflow with an error that names the key.

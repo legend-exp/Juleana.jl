@@ -29,26 +29,29 @@ Pkg.Registry.add("General")
 Pkg.Registry.add(url = "https://github.com/legend-exp/LegendJuliaRegistry.git")
 ```
 
-To run the dataflow, clone this repository and install its environment:
+To run the dataflow, install Juleana as a Julia app, which creates the `juleana`
+command (add `~/.julia/bin` to the `PATH`):
 
-```bash
-julia --project=. -e 'import Pkg; Pkg.instantiate(); Pkg.precompile()'
+```julia
+import Pkg
+Pkg.Apps.add("Juleana")                            # or Pkg.Apps.develop(path = "path/to/Juleana.jl")
 ```
 
 ## Quick start
 
 ```bash
-julia main.jl -c config/processing_config.json      # run all enabled processors
-julia -i main.jl -c config/processing_config.json   # interactive: then call menu(session)
-julia main.jl --help                                # command line options
+juleana                                    # terminal user interface, config of the data production
+juleana -c config/processing_config.json   # a given processing config
+juleana --no-tui                           # run all enabled processors without the interface
+juleana --help                             # command line options
 ```
 
 `config/` contains example processing configs, and `setup/` contains scripts to set up a
-production and a `tmux` session on a cluster.
+production.
 
 ## Documentation
 
 The [documentation](https://legend-exp.github.io/Juleana.jl/stable) describes the
-concepts, the command line options and the interactive menu, running on a cluster, the
+concepts, the command line options and the terminal user interface, running on a cluster, the
 processing config, every processor, and the API
 ([development version](https://legend-exp.github.io/Juleana.jl/dev)).

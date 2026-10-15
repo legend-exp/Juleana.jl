@@ -33,7 +33,10 @@ makedocs(
             "Pulse shape discrimination" => "processors_psd.md",
             "SiPMs, events and stability" => "processors_phy.md",
         ],
-        "API" => "api.md",
+        "API" => [
+            "Dataflow" => "api.md",
+            "Terminal interface" => "api_tui.md",
+        ],
         "LICENSE" => "LICENSE.md"
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,

@@ -139,30 +139,6 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test session.partition_status[p2][:p_process_aoe_cut_cal]
     end
 
-    @testset "check_reports" begin
-        fk6 = start_filekey(l200, (p2, DataRun(6), :cal))
-        for (filename, report) in ((get_rreportfilename(l200, fk6, :energy_calibration), RUN_REPORT),
-                (get_preportfilename(l200, fk6, :aoe_cut), PARTITION_REPORT))
-            mkpath(dirname(filename))
-            write(filename, report)
-        end
-        session = DataflowSession(; args = Dict{String,Any}(), l200, config = cfg, periods = [p2],
-            run_steps = Symbol[], partition_steps = Symbol[],
-            run_status = Juleana.RunStatus(), partition_status = Juleana.PartitionStatus())
-        output = mktemp() do path, io
-            redirect_stdout(() -> Juleana.check_reports(session, [:process_energy_calibration_cal], [:p_process_aoe_cut_cal]), io)
-            close(io)
-            read(path, String)
-        end
-        @test occursin(r"p02-r006\s+1 of 2 entries failed: V02 \(trap\)", output)
-        @test occursin(r"p02-r007\s+no report", output)
-        @test occursin(r"Summary process_energy_calibration_cal: 1 detector\(s\) with failures", output)
-        @test occursin(r"V02\s+1 run\(s\): p02-r006", output)
-        @test occursin("fit failed", output)
-        @test occursin(r"p02\s+OK \(1 entries\)", output)
-        @test occursin("All detectors passed in all checked reports of p_process_aoe_cut_cal", output)
-    end
-
     @testset "load_qc_evaluator" begin
         fk = start_filekey(l200, (p2, DataRun(6), :cal))
         @test ismissing(@test_logs (:info, r"ML training file not found") match_mode = :any load_qc_evaluator(l200, fk))

@@ -9,7 +9,7 @@ The Julia LEGEND Analysis dataflow.
 user interface ([`Juleana.run_tui`](@ref)) or, with `--no-tui`, runs the enabled
 processors with [`run_processing`](@ref). [`Juleana.setup_session`](@ref) reads the
 processing config ([`ProcessingConfig`](@ref)), starts the workers, and returns a
-[`DataflowSession`](@ref), which the interactive [`menu`](@ref) also works on. The processors are the functions in `src/processors/`, registered by
+[`DataflowSession`](@ref), which the [`DataflowController`](@ref) of the interface works on. The processors are the functions in `src/processors/`, registered by
 name in [`Juleana.PROCESSORS`](@ref). The module also provides the helpers processors
 share: distributing work over the worker pool with per-item failure logging
 ([`parallel`](@ref)), combining per-item log rows into a processor status
@@ -69,7 +69,6 @@ using ProgressLogging: ProgressLogging
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
 using PropertyFunctions: PropertyFunctions, @pf, filterby
-using REPL.TerminalMenus: MultiSelectMenu, RadioMenu, request
 using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, std
 using StructArrays: StructArray
 using Tachikoma: Tachikoma
@@ -96,7 +95,6 @@ include("reports.jl")
 include("dataset_info.jl")
 include("history.jl")
 include("workers.jl")
-include("interactive.jl")
 include("controller.jl")
 include("no_tui.jl")
 include("tui_checklist.jl")
@@ -150,14 +148,14 @@ export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
 export ProcessorGraph, processor_graph, topological_order, required_processors, dependent_processors, layered_layout
 export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
-export DataflowSession, menu
+export DataflowSession
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
     CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript
 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
-    main, setup_session, run_no_tui, run_tui, parse_commandline, check_reports,
+    main, setup_session, run_no_tui, run_tui, parse_commandline,
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
     history_path, append_history, read_history, history_grid,
     WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations,

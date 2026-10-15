@@ -72,16 +72,19 @@ Pkg.Registry.add("General")
 Pkg.Registry.add(url = "https://github.com/legend-exp/LegendJuliaRegistry.git")
 ```
 
-To run the dataflow, clone the repository and install its environment:
+To run the dataflow, install Juleana as a Julia app, which creates the `juleana`
+command:
 
-```bash
-git clone https://github.com/legend-exp/Juleana.jl.git
-cd Juleana.jl
-julia --project=. -e 'import Pkg; Pkg.instantiate(); Pkg.precompile()'
+```julia
+import Pkg
+Pkg.Apps.add("Juleana")
 ```
+
+For development, install a clone of the repository instead with
+`Pkg.Apps.develop(path = "path/to/Juleana.jl")`.
 
 Processing needs access to the LEGEND data and metadata, configured with the
 `LEGEND_DATA_CONFIG` environment variable (see `LegendDataManagement`). The
 [How-to-Legend](https://github.com/LisaSchlueter/HowTo-Legend/tree/main) repository
 explains the setup on the different clusters. [Running the dataflow](running.md) describes
-the next steps.
+the `juleana` terminal user interface and the next steps.
