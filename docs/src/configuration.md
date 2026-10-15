@@ -7,8 +7,8 @@ DocTestSetup = :(using Juleana)
 The processing config file sets up the analysis chain. Examples are in the `config/`
 folder of the repository: `processing_config.json` and `processing_config.yaml`. The
 file is loaded into a [`ProcessingConfig`](@ref); all keys of the `config` and
-`processing` sections are required, and a missing or unknown key stops the dataflow
-with an error that names the key.
+`processing` sections are required except `idle_timeout_minutes`, and a missing or
+unknown key stops the dataflow with an error that names the key.
 
 ## `config`
 
@@ -32,6 +32,11 @@ The run mode, the worker settings, environment variables and logging:
    that every process writes to its log file in the log directory (`head.log` for the
    main process, `worker-<id>-<host>.log` for each worker). `"debug"` adds the debug
    records of the packages listed in `JULIA_DEBUG`.
+6. **`idle_timeout_minutes`** (optional, default `20`): when no processing has run for
+   this many minutes, the worker allocations started from the terminal user interface
+   are cancelled, so that idle workers do not hold a machine or a SLURM allocation. The
+   time counts from the end of the last processing run, the start of the newest
+   allocation or the last postponement, whichever is latest. `0` never cancels them.
 
 ## `processing`
 

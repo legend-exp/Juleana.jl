@@ -208,6 +208,14 @@ Cancel every running worker allocation of the session (see [`Juleana.cancel_all!
 struct CancelAll <: ControllerCommand end
 
 """
+    PostponeIdleCancel()
+
+Restart the idle time after which the worker allocations are cancelled (see
+[`Juleana.check_idle!`](@ref)) from now.
+"""
+struct PostponeIdleCancel <: ControllerCommand end
+
+"""
     EditStartScript(text::AbstractString)
 
 Replace the worker start script of the session by `text` for the next allocations (see
@@ -342,7 +350,7 @@ function effective_config(ctrl::DataflowController)
     cfg = ctrl.session.config
     return ProcessingConfig(cfg.runmode, cfg.submit_jobs, cfg.local_n, cfg.local_julia_settings,
         cfg.slurm_flags, cfg.slurm_julia_settings, cfg.env_variables, cfg.periods, cfg.runs,
-        something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level,
+        something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level, cfg.idle_timeout_minutes,
         with_overrides(cfg.processors, ctrl.kwarg_overrides), with_overrides(cfg.p_processors, ctrl.kwarg_overrides))
 end
 
@@ -539,6 +547,7 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
         @lock ctrl.lock begin
             ctrl.state, ctrl.outcome, ctrl.finished = :ready, outcome, finished
             ctrl.last_error = isnothing(err) ? nothing : truncate_error(err)
+            mark_activity!(ctrl.workers, finished)
         end
     end
     return nothing
@@ -605,6 +614,19 @@ apply!(ctrl::DataflowController, cmd::CancelAllocation) = (cancel_allocation!(ct
 
 apply!(ctrl::DataflowController, ::CancelAll) = (cancel_all!(ctrl.workers); nothing)
 
+apply!(ctrl::DataflowController, ::PostponeIdleCancel) = (mark_activity!(ctrl.workers); nothing)
+
+"""
+    Juleana.check_idle!(ctrl::DataflowController)
+
+Cancel the worker allocations of `ctrl` if they have been idle for the `idle_timeout_minutes`
+of the config (see [`Juleana.check_idle!`](@ref)); allocations are never idle while processing
+runs or is stopping. Return whether they were cancelled. The terminal user interface calls it
+with every read of the controller state.
+"""
+check_idle!(ctrl::DataflowController) =
+    @lock ctrl.lock check_idle!(ctrl.workers; processing = ctrl.state in (:running, :stopping))
+
 function apply!(ctrl::DataflowController, cmd::EditStartScript)
     require_state(ctrl, cmd, :ready, :running, :stopping)
     edit_start_script!(ctrl.workers, cmd.text)
@@ -644,7 +666,8 @@ Return a `NamedTuple` with a copy of the controller state:
   the overridden kwargs);
 - `reprocess`, `analysis_runs_only` (the setting in effect), `check_dependencies`,
   `nworkers` (workers in the pool), `allocations` (the worker allocations, see
-  [`Juleana.allocations`](@ref), without their output).
+  [`Juleana.allocations`](@ref), without their output), `idle_deadline` (UTC time at which
+  idle allocations are cancelled, or `nothing`, see [`Juleana.idle_deadline`](@ref)).
 """
 function snapshot(ctrl::DataflowController)
     @lock ctrl.lock begin
@@ -677,6 +700,7 @@ function snapshot(ctrl::DataflowController)
             ctrl.check_dependencies,
             nworkers = nprocs() > 1 ? nworkers() : 0,
             allocations = allocations(ctrl.workers; output = false),
+            idle_deadline = idle_deadline(ctrl.workers; processing = ctrl.state in (:running, :stopping)),
         )
     end
 end

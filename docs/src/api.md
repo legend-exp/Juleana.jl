@@ -126,7 +126,9 @@ WriteConfig
 AddWorkers
 CancelAllocation
 CancelAll
+PostponeIdleCancel
 EditStartScript
+Juleana.check_idle!(::DataflowController)
 ```
 
 ## Workers
@@ -142,6 +144,9 @@ Juleana.update_job_ids!
 Juleana.cancel_allocation!
 Juleana.cancel_all!
 Juleana.allocations
+Juleana.mark_activity!
+Juleana.idle_deadline
+Juleana.check_idle!(::Juleana.WorkerManager)
 ```
 
 ## Processing config

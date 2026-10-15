@@ -68,6 +68,8 @@ Fields:
 - `only_runs::Bool`: process only run-level processors.
 - `log_path::String`: directory for log files; `""` when not resolved.
 - `log_level::LogLevel`: level of the records written to the log files.
+- `idle_timeout_minutes::Float64`: minutes without processing after which the worker
+  allocations started by the interface are cancelled; `0` never cancels them.
 - `processors::Dict{Symbol,ProcessorSpec}`: run-level processors.
 - `p_processors::Dict{Symbol,ProcessorSpec}`: partition-level processors.
 
@@ -75,10 +77,10 @@ Besides the positional constructor and the config-file constructors documented b
 `ProcessingConfig(; processors, p_processors, runmode=:local, ...)` builds a config from
 keywords named like the fields. Every field except the two processor tables has a
 default: empty flag and settings lists, no environment variables, `periods` and `runs`
-of `nothing`, all `Bool` fields `false`, `local_n = 1`, `log_path = ""` and
-`log_level = Logging.Info`. Every
+of `nothing`, all `Bool` fields `false`, `local_n = 1`, `log_path = ""`,
+`log_level = Logging.Info` and `idle_timeout_minutes = 20`. Every
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
-`local_n < 1`, both `only_runs` and `only_partitions` are set, a table key differs from
+`local_n < 1`, `idle_timeout_minutes` is negative or not finite, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
 processor or one of its own level, or the dependencies and ranks form a cycle (see [`processor_graph`](@ref)).
 
@@ -99,19 +101,22 @@ struct ProcessingConfig
     only_runs::Bool
     log_path::String
     log_level::LogLevel
+    idle_timeout_minutes::Float64
     processors::Dict{Symbol,ProcessorSpec}
     p_processors::Dict{Symbol,ProcessorSpec}
 
     function ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, log_path, log_level, processors, p_processors)
+            only_partitions, only_runs, log_path, log_level, idle_timeout_minutes, processors, p_processors)
         cfg = new(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, log_path, log_level, processors, p_processors)
+            only_partitions, only_runs, log_path, log_level, idle_timeout_minutes, processors, p_processors)
         cfg.runmode in (:local, :slurm) ||
             throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(cfg.runmode))"))
         cfg.local_n > 0 ||
             throw(ArgumentError("processing_config: key `config.runmode_settings.local.n` must be positive, got $(cfg.local_n)"))
+        isfinite(cfg.idle_timeout_minutes) && cfg.idle_timeout_minutes >= 0 ||
+            throw(ArgumentError("processing_config: key `config.idle_timeout_minutes` must be zero or positive, got $(cfg.idle_timeout_minutes)"))
         cfg.only_runs && cfg.only_partitions &&
             throw(ArgumentError("processing_config: only one of `only_partitions` or `only_runs` can be set"))
         for (section, level, specs) in (("processors", :run, cfg.processors), ("p_processors", :partition, cfg.p_processors)),
@@ -142,22 +147,22 @@ ProcessingConfig(;
         local_julia_settings = String[], slurm_flags = String[], slurm_julia_settings = String[],
         env_variables = Dict{String,String}(), periods = nothing, runs = nothing,
         analysis_runs_only = false, only_partitions = false, only_runs = false, log_path = "",
-        log_level = Logging.Info
+        log_level = Logging.Info, idle_timeout_minutes = 20
     ) = ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
         slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-        only_partitions, only_runs, log_path, log_level, processors, p_processors)
+        only_partitions, only_runs, log_path, log_level, idle_timeout_minutes, processors, p_processors)
 
 # Recursively convert nested dictionaries to `Dict{Symbol,Any}`.
 _symbolkeys(x) = x
 _symbolkeys(d::AbstractDict) = Dict{Symbol,Any}(Symbol(k) => _symbolkeys(v) for (k, v) in d)
 
 # Throw unless `d` has exactly the keys `required`; `path` is the key path of `d`.
-function _check_keys(d::AbstractDict, required, path::AbstractString)
+function _check_keys(d::AbstractDict, required, path::AbstractString; optional = ())
     for k in required
         haskey(d, k) || throw(ArgumentError("processing_config: missing key `$path$k`"))
     end
     for k in keys(d)
-        k in required || throw(ArgumentError("processing_config: unknown key `$path$k`"))
+        k in required || k in optional || throw(ArgumentError("processing_config: unknown key `$path$k`"))
     end
 end
 
@@ -280,7 +285,8 @@ The config must contain exactly these keys; a missing or unknown key throws an
 - `config`: `runmode` (`"local"` or `"slurm"`), `submit_jobs::Bool`,
   `runmode_settings.local.{n, julia_settings}`,
   `runmode_settings.slurm.{flags, julia_settings}`, `env_variables`, `log_level`
-  (`"debug"`, `"info"`, `"warn"` or `"error"`)
+  (`"debug"`, `"info"`, `"warn"` or `"error"`), and optionally `idle_timeout_minutes`
+  (a number, default 20)
 - `processing`: `periods` and `runs` (each `"all"` or a list), `analysis_runs_only`,
   `only_partitions`, `only_runs` (all `Bool`)
 - `processors`, `p_processors`: tables of processor name to
@@ -346,7 +352,8 @@ function ProcessingConfig(
     d = _symbolkeys(dict)
     _check_keys(d, (:config, :processing, :processors, :p_processors), "")
     config = _typed(d, :config, AbstractDict, "")
-    _check_keys(config, (:runmode, :submit_jobs, :runmode_settings, :env_variables, :log_level), "config.")
+    _check_keys(config, (:runmode, :submit_jobs, :runmode_settings, :env_variables, :log_level), "config.";
+        optional = (:idle_timeout_minutes,))
     settings = _typed(config, :runmode_settings, AbstractDict, "config.")
     _check_keys(settings, (:local, :slurm), "config.runmode_settings.")
     local_settings = _typed(settings, :local, AbstractDict, "config.runmode_settings.")
@@ -395,6 +402,7 @@ function ProcessingConfig(
         env_variables, sel_periods, sel_runs,
         sel_analysis_runs_only, sel_only_partitions, sel_only_runs, log_path,
         parse_log_level(_typed(config, :log_level, AbstractString, "config.")),
+        haskey(config, :idle_timeout_minutes) ? _typed(config, :idle_timeout_minutes, Real, "config.") : 20,
         processors, p_processors
     )
 end

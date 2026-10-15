@@ -21,6 +21,7 @@ config:
     JULIA_DEBUG: "Juleana,LegendSpecFits"
     JULIA_WORKER_TIMEOUT: "240"
   log_level: info
+  idle_timeout_minutes: 20
 
 processing:
   periods: [16, 18, 19, 20, 21, 22]

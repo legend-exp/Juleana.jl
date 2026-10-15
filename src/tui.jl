@@ -286,6 +286,7 @@ function refresh!(m::JuleanaTUI)
     ctrl, answered, key = m.ctrl, m.answered, m.progress_page.open
     Tachikoma.spawn_task!(m.queue, :refresh) do
         messages = isnothing(key) ? StepMessage[] : step_messages(ctrl, key)
+        check_idle!(ctrl)
         return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), (; key, messages))
     end
     return nothing
@@ -474,7 +475,7 @@ end
 format_duration(seconds::Real) = (s = round(Int, seconds); join(lpad.((s ÷ 3600, (s % 3600) ÷ 60, s % 60), 2, '0'), ":"))
 
 # Spans of the status row: spinner while the controller works, controller state, last run,
-# workers, progress and elapsed time on the left, separated by dots; on the right a
+# workers and the countdown to the cancel of idle worker allocations, progress and elapsed time on the left, separated by dots; on the right a
 # rejected command, else the latest alert, else the error of the last load or run.
 function status_spans(m::JuleanaTUI)
     sep = Tachikoma.Span("  · ", Tachikoma.tstyle(:border))
@@ -495,6 +496,11 @@ function status_spans(m::JuleanaTUI)
         push!(left, sep, Tachikoma.Span("workers $(snap.nworkers)", Tachikoma.tstyle(:primary)))
         isempty(m.busy) || push!(left, Tachikoma.Span(", $(length(m.busy)) busy", Tachikoma.tstyle(:secondary)))
         abandoned > 0 && push!(left, Tachikoma.Span(", $abandoned abandoned", Tachikoma.tstyle(:warning)))
+        if !isnothing(snap.idle_deadline)
+            # the countdown to the cancel of idle worker allocations
+            left_s = max(0, (snap.idle_deadline - now(UTC)) / Millisecond(1000))
+            push!(left, Tachikoma.Span(", idle cancel in $(format_duration(left_s))", Tachikoma.tstyle(left_s < 300 ? :warning : :text_dim)))
+        end
         if !isnothing(snap.started) && !isnothing(m.progress)
             push!(left, sep, Tachikoma.Span("$(round(Int, 100 * m.progress.fraction))%", Tachikoma.tstyle(:accent)))
             stop_time = something(snap.finished, now(UTC))

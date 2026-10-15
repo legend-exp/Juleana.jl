@@ -1,6 +1,7 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 using Juleana
+using Dates: Day, Minute, Second, UTC, now
 using Test
 
 # Wait until `cond()` holds, at most `timeout` seconds.
@@ -118,6 +119,37 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
             @test Juleana.add_workers!(mgr).job_name == "julia-$(getpid())-2"
             Juleana.cancel_all!(mgr)
             @test state_of(mgr, 2) === :cancelled
+        end
+
+        @testset "idle cancel" begin
+            mgr = Juleana.WorkerManager()
+            cfg(minutes) = ProcessingConfig(; processors = Dict(), p_processors = Dict(), idle_timeout_minutes = minutes)
+            @test isnothing(Juleana.idle_deadline(mgr; processing = false))
+            Juleana.set_worker_config!(mgr, cfg(2))
+            Juleana.edit_start_script!(mgr, "sleep 60")
+            # no countdown without a running allocation
+            @test isnothing(Juleana.idle_deadline(mgr; processing = false))
+            alloc = Juleana.add_workers!(mgr)
+            deadline = Juleana.idle_deadline(mgr; processing = false)
+            @test deadline == alloc.started + Minute(2)
+            @test isnothing(Juleana.idle_deadline(mgr; processing = true))
+            @test !Juleana.check_idle!(mgr; processing = false, time = deadline - Second(1))
+            @test !Juleana.check_idle!(mgr; processing = true, time = deadline + Minute(5))
+            # activity restarts the countdown; an earlier time does not
+            Juleana.mark_activity!(mgr, deadline)
+            Juleana.mark_activity!(mgr, alloc.started)
+            @test Juleana.idle_deadline(mgr; processing = false) == deadline + Minute(2)
+            @test !Juleana.check_idle!(mgr; processing = false, time = deadline + Second(119))
+            @test Juleana.check_idle!(mgr; processing = false, time = deadline + Minute(2))
+            @test state_of(mgr, 1) === :cancelled
+            @test isnothing(Juleana.idle_deadline(mgr; processing = false))
+            # `0` never cancels
+            Juleana.set_worker_config!(mgr, cfg(0))
+            Juleana.edit_start_script!(mgr, "sleep 60")
+            Juleana.add_workers!(mgr)
+            @test isnothing(Juleana.idle_deadline(mgr; processing = false))
+            @test !Juleana.check_idle!(mgr; processing = false, time = now(UTC) + Day(1))
+            Juleana.cancel_all!(mgr)
         end
     end
 end

@@ -55,6 +55,10 @@ and can be edited for the rest of the session ([`Juleana.edit_start_script!`](@r
 [`Juleana.add_workers!`](@ref) runs it as a new allocation, [`Juleana.cancel_allocation!`](@ref)
 and [`Juleana.cancel_all!`](@ref) end allocations, [`Juleana.allocations`](@ref) lists them.
 
+Running allocations are cancelled when nothing has used them for the
+`idle_timeout_minutes` of the config: see [`Juleana.idle_deadline`](@ref) and
+[`Juleana.check_idle!`](@ref).
+
 `squeue` and `scancel` are the SLURM commands, without arguments. All functions may be
 called from any task.
 """
@@ -68,10 +72,12 @@ mutable struct WorkerManager
     script::Union{Nothing,String}
     # number of the last SLURM job name handed out
     jobs::Int
+    # UTC time of the last processing run, new allocation or postponement
+    last_activity::DateTime
 end
 
 WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`) =
-    WorkerManager(ReentrantLock(), squeue, scancel, WorkerAllocation[], nothing, nothing, nothing, 0)
+    WorkerManager(ReentrantLock(), squeue, scancel, WorkerAllocation[], nothing, nothing, nothing, 0, now(UTC))
 
 """
     Juleana.set_worker_config!(mgr::WorkerManager, config::ProcessingConfig)
@@ -155,6 +161,7 @@ function add_workers!(mgr::WorkerManager)
         alloc = WorkerAllocation(length(mgr.allocations) + 1, backend, job_name, now(UTC), process, :running,
             nothing, nothing, String[], String[])
         push!(mgr.allocations, alloc)
+        mgr.last_activity = alloc.started
         errormonitor(Threads.@spawn watch_allocation(mgr, alloc, out))
         @info "Started worker allocation $(alloc.id)" * (isnothing(job_name) ? "" : " as SLURM job $job_name")
         return alloc
@@ -251,4 +258,46 @@ Return a copy of the allocations of `mgr` as `NamedTuple`s with the fields of
 function allocations(mgr::WorkerManager; output::Bool = true)
     @lock mgr.lock [(; a.id, a.backend, a.job_name, a.started, a.finished, a.state, a.exit_code,
         job_ids = copy(a.job_ids), (output ? (; output = copy(a.output)) : (;))...) for a in mgr.allocations]
+end
+
+"""
+    Juleana.mark_activity!(mgr::WorkerManager, time::DateTime = now(UTC))
+
+Record that the workers of `mgr` were used at `time` (UTC), such as by the end of a
+processing run or a postponement: the idle time of [`Juleana.idle_deadline`](@ref) counts from
+the latest such time.
+"""
+function mark_activity!(mgr::WorkerManager, time::DateTime = now(UTC))
+    @lock mgr.lock mgr.last_activity = max(mgr.last_activity, time)
+    return mgr
+end
+
+"""
+    Juleana.idle_deadline(mgr::WorkerManager; processing::Bool)
+
+Return the UTC time at which [`Juleana.check_idle!`](@ref) cancels the running allocations of
+`mgr`: the last activity (see [`Juleana.mark_activity!`](@ref); a new allocation counts too)
+plus the `idle_timeout_minutes` of the config. Return `nothing` while `processing`, if
+no allocation runs, without a config, or if the timeout is `0`.
+"""
+function idle_deadline(mgr::WorkerManager; processing::Bool)
+    @lock mgr.lock begin
+        (processing || isnothing(mgr.config) || mgr.config.idle_timeout_minutes == 0 ||
+            !any(a -> a.state === :running, mgr.allocations)) && return nothing
+        return mgr.last_activity + Millisecond(round(Int, mgr.config.idle_timeout_minutes * 60_000))
+    end
+end
+
+"""
+    Juleana.check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(UTC))
+
+Cancel all running allocations of `mgr` with [`Juleana.cancel_all!`](@ref) if `time` (UTC) has
+reached the [`Juleana.idle_deadline`](@ref). Return whether they were cancelled.
+"""
+function check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(UTC))
+    deadline = idle_deadline(mgr; processing)
+    (isnothing(deadline) || time < deadline) && return false
+    @warn "No processing for $(mgr.config.idle_timeout_minutes) minutes: cancelling all worker allocations"
+    cancel_all!(mgr)
+    return true
 end

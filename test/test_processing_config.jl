@@ -106,6 +106,13 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "unknown key `processors.process_dsp_cal.n_workers`" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["n_workers"] = "all"))
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))
         @test_throws "unknown key `extra`" ProcessingConfig(edited(d -> d["extra"] = 1))
+        # the idle timeout is optional
+        @test json.idle_timeout_minutes == yaml.idle_timeout_minutes == 20
+        @test ProcessingConfig(edited(d -> delete!(d["config"], "idle_timeout_minutes"))).idle_timeout_minutes == 20
+        @test ProcessingConfig(edited(d -> d["config"]["idle_timeout_minutes"] = 0)).idle_timeout_minutes == 0
+        @test ProcessingConfig(edited(d -> d["config"]["idle_timeout_minutes"] = 2.5)).idle_timeout_minutes == 2.5
+        @test_throws "`config.idle_timeout_minutes` must be zero or positive, got -1.0" ProcessingConfig(edited(d -> d["config"]["idle_timeout_minutes"] = -1))
+        @test_throws "`config.idle_timeout_minutes` must be a Real" ProcessingConfig(edited(d -> d["config"]["idle_timeout_minutes"] = "20"))
         @test_throws "`p_processors.p_process_energy_cal.category` must be \"cal\" or \"phy\"" ProcessingConfig(edited(d -> d["p_processors"]["p_process_energy_cal"]["category"] = "physics"))
         @test_throws "`processors.process_dsp_cal.enabled` must be a Bool" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["enabled"] = "yes"))
         @test_throws "`processors.process_dsp_cal.rank` must be a $Int" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["rank"] = 5.5))

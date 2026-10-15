@@ -2,6 +2,7 @@
 
 using Juleana
 using Test
+using Dates: Minute
 using LegendDataManagement: DataPeriod, DataRun, FileKey, ProcessStatus, readlprops, writelprops
 using Distributed: addprocs, rmprocs, workers, @everywhere
 using ParallelProcessingTools: FlexWorkerPool, ppt_worker_pool, ppt_worker_pool!
@@ -357,6 +358,26 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             dispatch!(ctrl, CancelAll())
             @test [a.state for a in snapshot(ctrl).allocations] == [:cancelled, :cancelled]
             @test_throws "there is no worker allocation 3" dispatch!(ctrl, CancelAllocation(3))
+            # postponing restarts the countdown
+            dispatch!(ctrl, EditStartScript("sleep 60"))
+            dispatch!(ctrl, AddWorkers())
+            deadline = snapshot(ctrl).idle_deadline
+            @test deadline - snapshot(ctrl).allocations[3].started == Minute(20)
+            sleep(0.01)
+            dispatch!(ctrl, PostponeIdleCancel())
+            @test snapshot(ctrl).idle_deadline > deadline
+            @test !Juleana.check_idle!(ctrl)
+            dispatch!(ctrl, CancelAll())
+            @test isnothing(snapshot(ctrl).idle_deadline)
+            # idle allocations are cancelled
+            short = DataflowController(new_session(ProcessingConfig(; cfg.processors, cfg.p_processors, idle_timeout_minutes = 0.002));
+                processors)
+            dispatch!(short, EditStartScript("sleep 60"))
+            dispatch!(short, AddWorkers())
+            @test !Juleana.check_idle!(short)
+            sleep(0.2)
+            @test Juleana.check_idle!(short)
+            @test only(snapshot(short).allocations).state === :cancelled
             # a reloaded or new config generates the start script anew
             Juleana.set_worker_config!(ctrl.workers, ctrl.session.config)
             @test occursin("elastic_worker", Juleana.start_script!(ctrl.workers).text)

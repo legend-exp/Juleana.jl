@@ -336,7 +336,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         @test m.page == 2
         tb = render(m)
         @test locate(tb, "Loading the session…") !== nothing && locate(tb, "This page is not available yet.") === nothing
-        m.snap = (; graph_snapshot(; run_steps = [:r_a])..., state = :ready, outcome = nothing, nworkers = 0, started = nothing,
+        m.snap = (; graph_snapshot(; run_steps = [:r_a])..., state = :ready, outcome = nothing, nworkers = 0, idle_deadline = nothing, started = nothing,
             finished = nothing, last_error = nothing)
         tb = render(m)
         @test locate(tb, "r_off") !== nothing && locate(tb, "↑↓ move  Space select  d add required  h unselected") !== nothing
