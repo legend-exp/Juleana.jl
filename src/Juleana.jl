@@ -65,6 +65,7 @@ using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
     AutoThreadPinning, onlyfirst_exception, onworker, original_exception,
     ppt_worker_pool!, ppt_worker_pool, runworkers, write_files, write_worker_start_script
+using PrecompileTools: @compile_workload, @setup_workload
 using ProgressLogging: ProgressLogging
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
@@ -145,6 +146,8 @@ include("processors/process_qcs_phy.jl")
 include("processors/process_sipm_calibration_phy.jl")
 include("processors/process_sipm_optimization_phy.jl")
 include("processors/process_stability_plots_phy.jl")
+
+include("precompile.jl")
 
 export UnderscoreSafeLogger
 export parallel, failure_log
