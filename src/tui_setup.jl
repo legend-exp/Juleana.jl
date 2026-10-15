@@ -135,7 +135,7 @@ the selected steps wait for and `e` opens the kwargs editor for the processor un
 cursor; in the options pane Up and Down choose a row and Space or
 Enter cycles its value; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
-dependency graph, `W` starts workers with [`SubmitWorkers`](@ref) and `w` asks to write
+dependency graph, `W` starts a worker allocation with [`AddWorkers`](@ref) and `w` asks to write
 the current settings to `config/processing_config.json` of the data production.
 """
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
@@ -196,7 +196,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     elseif key == :char && char == 'g'
         send(ResetDependencyGraph())
     elseif key == :char && char == 'W'
-        send(SubmitWorkers())
+        send(AddWorkers())
     else
         return false
     end

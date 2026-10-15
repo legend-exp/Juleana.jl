@@ -123,7 +123,25 @@ ResetDependencyGraph
 StartProcessing
 StopProcessing
 WriteConfig
-SubmitWorkers
+AddWorkers
+CancelAllocation
+CancelAll
+EditStartScript
+```
+
+## Workers
+
+```@docs
+Juleana.WorkerManager
+Juleana.WorkerAllocation
+Juleana.set_worker_config!
+Juleana.start_script!
+Juleana.edit_start_script!
+Juleana.add_workers!
+Juleana.update_job_ids!
+Juleana.cancel_allocation!
+Juleana.cancel_all!
+Juleana.allocations
 ```
 
 ## Processing config

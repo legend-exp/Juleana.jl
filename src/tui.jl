@@ -612,7 +612,8 @@ messages of this process and the output of its workers are kept in a
 [`Juleana.MessageBuffer`](@ref) instead of being printed; the newest warning or error is shown
 in the status bar, and the error of a failed load stays there. This process also writes
 its log file as in [`setup_session`](@ref). The previous global logger is restored when
-the interface closes. A startup screen with the logo is shown until the session has loaded;
+the interface closes, and every worker allocation started from the interface is
+cancelled (see [`CancelAll`](@ref)). A startup screen with the logo is shown until the session has loaded;
 `?` lists the keys of the visible page. See [`Juleana.JuleanaTUI`](@ref) for the keys.
 """
 function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
@@ -635,6 +636,8 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
         end
     finally
         global_logger(previous)
+        # allocations run in their own process groups and would outlive this process
+        dispatch!(ctrl, CancelAll())
     end
     return nothing
 end

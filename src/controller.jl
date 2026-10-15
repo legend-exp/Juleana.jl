@@ -182,11 +182,40 @@ end
 WriteConfig() = WriteConfig(nothing)
 
 """
-    SubmitWorkers()
+    AddWorkers()
 
-Start workers for the configured run mode and add them to the worker pool.
+Start a worker allocation: run the worker start script of the session in the background
+(see [`Juleana.add_workers!`](@ref)). The workers join the worker pool when they have
+started.
 """
-struct SubmitWorkers <: ControllerCommand end
+struct AddWorkers <: ControllerCommand end
+
+"""
+    CancelAllocation(id::Integer)
+
+Cancel the worker allocation `id` (see [`Juleana.cancel_allocation!`](@ref)): its workers end
+and items running on them fail.
+"""
+struct CancelAllocation <: ControllerCommand
+    id::Int
+end
+
+"""
+    CancelAll()
+
+Cancel every running worker allocation of the session (see [`Juleana.cancel_all!`](@ref)).
+"""
+struct CancelAll <: ControllerCommand end
+
+"""
+    EditStartScript(text::AbstractString)
+
+Replace the worker start script of the session by `text` for the next allocations (see
+[`Juleana.edit_start_script!`](@ref)).
+"""
+struct EditStartScript <: ControllerCommand
+    text::String
+end
 
 """
     mutable struct DataflowController
@@ -211,7 +240,8 @@ Constructors:
 - `DataflowController(session::DataflowSession; processors = PROCESSORS)` starts
   `:ready` with an existing session.
 
-`processors` maps processor names to their functions.
+`processors` maps processor names to their functions. Both constructors take the keyword
+`workers`, the [`Juleana.WorkerManager`](@ref) of the worker allocations.
 """
 mutable struct DataflowController
     const args::Dict{String,Any}
@@ -221,6 +251,7 @@ mutable struct DataflowController
     const stop::Threads.Atomic{Bool}
     const abandon::Threads.Atomic{Bool}
     const progress::ProgressStore
+    const workers::WorkerManager
     state::Symbol
     session::Union{Nothing,DataflowSession}
     # selected periods, including those without runs to process
@@ -239,15 +270,16 @@ mutable struct DataflowController
 end
 
 function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
-        console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console))
+        console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console), workers::WorkerManager = WorkerManager())
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
-        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), :idle, nothing, DataPeriod[], DataPeriod[],
+        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers, :idle, nothing, DataPeriod[], DataPeriod[],
         Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, true, Dict{Symbol,Dict{Symbol,Any}}(),
         nothing, nothing, nothing, nothing, nothing)
 end
 
-function DataflowController(session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS)
-    ctrl = DataflowController(session.args; processors, loader = nothing)
+function DataflowController(session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS,
+        workers::WorkerManager = WorkerManager())
+    ctrl = DataflowController(session.args; processors, loader = nothing, workers)
     install_session!(ctrl, session)
     return ctrl
 end
@@ -264,6 +296,7 @@ function install_session!(ctrl::DataflowController, session::DataflowSession)
     ctrl.periods = copy(session.periods)
     ctrl.available_periods = available_periods(session.l200)
     ctrl.available_runs = Dict(p => available_runs(session.l200, p) for p in ctrl.available_periods)
+    set_worker_config!(ctrl.workers, session.config)
     ctrl.state = :ready
     return ctrl
 end
@@ -562,10 +595,19 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
     return nothing
 end
 
-function apply!(ctrl::DataflowController, cmd::SubmitWorkers)
+function apply!(ctrl::DataflowController, cmd::AddWorkers)
     require_state(ctrl, cmd, :ready, :running, :stopping)
-    errormonitor(Threads.@spawn runworkers(runprocs_mode(ctrl.session.config)))
-    @info "Submitted workers"
+    add_workers!(ctrl.workers)
+    return nothing
+end
+
+apply!(ctrl::DataflowController, cmd::CancelAllocation) = (cancel_allocation!(ctrl.workers, cmd.id); nothing)
+
+apply!(ctrl::DataflowController, ::CancelAll) = (cancel_all!(ctrl.workers); nothing)
+
+function apply!(ctrl::DataflowController, cmd::EditStartScript)
+    require_state(ctrl, cmd, :ready, :running, :stopping)
+    edit_start_script!(ctrl.workers, cmd.text)
     return nothing
 end
 
@@ -601,7 +643,8 @@ Return a `NamedTuple` with a copy of the controller state:
   ones the dataflow passes itself, `nothing` if it accepts any) and `overridden` (names of
   the overridden kwargs);
 - `reprocess`, `analysis_runs_only` (the setting in effect), `check_dependencies`,
-  `nworkers` (workers in the pool).
+  `nworkers` (workers in the pool), `allocations` (the worker allocations, see
+  [`Juleana.allocations`](@ref), without their output).
 """
 function snapshot(ctrl::DataflowController)
     @lock ctrl.lock begin
@@ -633,6 +676,7 @@ function snapshot(ctrl::DataflowController)
             analysis_runs_only = isnothing(session) ? ctrl.analysis_runs_only : something(ctrl.analysis_runs_only, session.config.analysis_runs_only),
             ctrl.check_dependencies,
             nworkers = nprocs() > 1 ? nworkers() : 0,
+            allocations = allocations(ctrl.workers; output = false),
         )
     end
 end

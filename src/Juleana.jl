@@ -95,6 +95,7 @@ include("config.jl")
 include("reports.jl")
 include("dataset_info.jl")
 include("history.jl")
+include("workers.jl")
 include("interactive.jl")
 include("controller.jl")
 include("no_tui.jl")
@@ -151,11 +152,13 @@ export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers,
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetCheckDependencies, SetKwarg,
-    ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, SubmitWorkers
+    ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
+    CancelAllocation, CancelAll, EditStartScript
 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
     main, setup_session, run_no_tui, run_tui, parse_commandline, check_reports,
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
-    history_path, append_history, read_history, history_grid
+    history_path, append_history, read_history, history_grid,
+    WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations
 
 end # module

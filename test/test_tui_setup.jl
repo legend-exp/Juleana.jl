@@ -199,7 +199,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         page = Juleana.SetupPage()
         sent = ControllerCommand[]
         for (key, expected) in (('s', StartProcessing), ('x', StopProcessing), ('X', StopProcessing),
-                ('r', ReloadConfig), ('g', ResetDependencyGraph), ('W', SubmitWorkers))
+                ('r', ReloadConfig), ('g', ResetDependencyGraph), ('W', AddWorkers))
             @test Juleana.setup_key!(page, KeyEvent(key), nothing, cmd -> push!(sent, cmd))
             @test last(sent) isa expected
         end

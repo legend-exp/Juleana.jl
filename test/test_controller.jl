@@ -341,6 +341,32 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test run_steps(written_cfg) == [:process_energy_calibration_cal] && isempty(partition_steps(written_cfg))
     end
 
+    @testset "worker commands" begin
+        production = mktempdir()
+        withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
+            ctrl = DataflowController(new_session(); processors)
+            @test isempty(snapshot(ctrl).allocations)
+            dispatch!(ctrl, EditStartScript("echo started; sleep 60"))
+            @test read(joinpath(production, "config", "startjlworkers.sh"), String) == "echo started; sleep 60"
+            dispatch!(ctrl, AddWorkers())
+            dispatch!(ctrl, AddWorkers())
+            @test [(a.id, a.state) for a in snapshot(ctrl).allocations] == [(1, :running), (2, :running)]
+            @test !haskey(first(snapshot(ctrl).allocations), :output)
+            dispatch!(ctrl, CancelAllocation(1))
+            @test [a.state for a in snapshot(ctrl).allocations] == [:cancelled, :running]
+            dispatch!(ctrl, CancelAll())
+            @test [a.state for a in snapshot(ctrl).allocations] == [:cancelled, :cancelled]
+            @test_throws "there is no worker allocation 3" dispatch!(ctrl, CancelAllocation(3))
+            # a reloaded or new config generates the start script anew
+            Juleana.set_worker_config!(ctrl.workers, ctrl.session.config)
+            @test occursin("elastic_worker", Juleana.start_script!(ctrl.workers).text)
+
+            idle = DataflowController(Dict{String,Any}("config" => shipped_config); processors, loader = _ -> new_session())
+            @test_throws ArgumentError dispatch!(idle, AddWorkers())
+            @test_throws ArgumentError dispatch!(idle, EditStartScript("x"))
+        end
+    end
+
     @testset "kwarg resets and snapshot kwargs" begin
         ctrl = DataflowController(new_session(); processors)
         energy() = only(filter(p -> p.name === :process_energy_calibration_cal, snapshot(ctrl).processors))
