@@ -31,6 +31,19 @@ const HELP_KEYS = (
         ("v", "state icons of the last run or on disk"),
         ("Mouse", "click a row, wheel moves the cursor"),
     ),
+    workers = (
+        ("Tab", "switch between the allocations and the workers"),
+        ("↑ ↓", "select an allocation or worker; scroll SLURM"),
+        ("PgUp PgDn End", "scroll the output; End: newest line"),
+        ("s", "show the workers or SLURM (with SLURM only)"),
+        ("a", "start workers (a new allocation)"),
+        ("c", "cancel the selected running allocation (asks)"),
+        ("C", "cancel all allocations (asks; y confirms)"),
+        ("p", "postpone the cancel of idle allocations"),
+        ("r", "read the overview again"),
+        ("e", "edit the start script (Ctrl-S saves, Esc closes)"),
+        ("Mouse", "click a row, wheel scrolls the output"),
+    ),
     progress = (
         ("↑ ↓ PgUp PgDn Home End", "move the cursor"),
         ("Enter  ← →", "fold, unfold a group"),
@@ -233,6 +246,7 @@ function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     sections = Tuple{String,Any}[]
     m.page == 1 && push!(sections, ("Setup page", HELP_KEYS.setup))
     m.page == 2 && push!(sections, ("Graph page", HELP_KEYS.graph))
+    m.page == 3 && push!(sections, ("Workers page", HELP_KEYS.workers))
     m.page == 4 && push!(sections, ("Progress page", HELP_KEYS.progress))
     m.page == 5 && push!(sections, ("Log page", HELP_KEYS.log))
     m.page == 6 && push!(sections, ("Reports page", HELP_KEYS.reports))

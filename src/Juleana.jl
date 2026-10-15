@@ -56,7 +56,7 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
     get_peaks_survival_fractions, lq_ctc_correction, lq_norm, peakhists_gamma,
     set_timelimit, simple_calibration, sipm_simple_calibration
 using Base.ScopedValues: ScopedValue, with
-using Distributed: AbstractWorkerPool, myid, nprocs, nworkers
+using Distributed: AbstractWorkerPool, myid, nprocs, nworkers, remotecall_fetch, workers
 using Logging: Logging, AbstractLogger, LogLevel, global_logger
 using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
 import Makie
@@ -107,6 +107,7 @@ include("tui_log.jl")
 include("tui_graph.jl")
 include("tui_reports.jl")
 include("tui_history.jl")
+include("tui_workers.jl")
 include("tui.jl")
 include("tui_logo.jl")
 include("tui_branding.jl")
@@ -160,6 +161,6 @@ public effective_config, escape_log_underscores, processing_logger, process_log_
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
     history_path, append_history, read_history, history_grid,
     WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations,
-    mark_activity!, idle_deadline, check_idle!
+    mark_activity!, idle_deadline, check_idle!, workers_overview
 
 end # module

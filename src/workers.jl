@@ -43,7 +43,7 @@ mutable struct WorkerAllocation
 end
 
 """
-    WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`)
+    WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`, sinfo::Cmd = `sinfo`)
 
 The worker allocations of this process and the worker start script they run.
 
@@ -59,13 +59,17 @@ Running allocations are cancelled when nothing has used them for the
 `idle_timeout_minutes` of the config: see [`Juleana.idle_deadline`](@ref) and
 [`Juleana.check_idle!`](@ref).
 
-`squeue` and `scancel` are the SLURM commands, without arguments. All functions may be
-called from any task.
+`squeue`, `scancel` and `sinfo` are the SLURM commands, without arguments; SLURM counts as
+available when the program of `squeue` is found. [`Juleana.workers_overview`](@ref) collects
+everything the Workers page shows. All functions may be called from any task.
 """
 mutable struct WorkerManager
     const lock::ReentrantLock
     const squeue::Cmd
     const scancel::Cmd
+    const sinfo::Cmd
+    # host names of the workers, by process ID
+    const hosts::Dict{Int,String}
     const allocations::Vector{WorkerAllocation}
     config::Union{Nothing,ProcessingConfig}
     script_path::Union{Nothing,String}
@@ -76,8 +80,8 @@ mutable struct WorkerManager
     last_activity::DateTime
 end
 
-WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`) =
-    WorkerManager(ReentrantLock(), squeue, scancel, WorkerAllocation[], nothing, nothing, nothing, 0, now(UTC))
+WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`, sinfo::Cmd = `sinfo`) =
+    WorkerManager(ReentrantLock(), squeue, scancel, sinfo, Dict{Int,String}(), WorkerAllocation[], nothing, nothing, nothing, 0, now(UTC))
 
 """
     Juleana.set_worker_config!(mgr::WorkerManager, config::ProcessingConfig)
@@ -300,4 +304,51 @@ function check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(
     @warn "No processing for $(mgr.config.idle_timeout_minutes) minutes: cancelling all worker allocations"
     cancel_all!(mgr)
     return true
+end
+
+"""
+    Juleana.workers_overview(mgr::WorkerManager)
+
+Collect what the Workers page shows and return
+`(; allocations, script, workers, slurm)`:
+
+- `allocations`: [`Juleana.allocations`](@ref) with their output, after
+  [`Juleana.update_job_ids!`](@ref);
+- `script`: the `(; path, text)` of [`Juleana.start_script!`](@ref), or the message of the
+  error that kept it from being generated;
+- `workers`: one `(; pid, host)` per worker process, `host` `nothing` until it is known;
+  the host of a new worker is asked for in the background;
+- `slurm`: `nothing` without SLURM, else `(; queue, idle)`, the output of
+  `squeue -u <user>` and of `sinfo -t idle`.
+
+Runs SLURM commands, so it can take a while; call it in the background.
+"""
+function workers_overview(mgr::WorkerManager)
+    slurm_available = !isnothing(Sys.which(first(mgr.squeue.exec)))
+    slurm_available && update_job_ids!(mgr)
+    script = try
+        start_script!(mgr)
+    catch e
+        first(split(sprint(showerror, e), '\n'))
+    end
+    pids = nprocs() > 1 ? workers() : Int[]
+    workers_now = @lock mgr.lock begin
+        for pid in pids
+            haskey(mgr.hosts, pid) && continue
+            # asked once per worker; a failed request is shown as "?"
+            mgr.hosts[pid] = ""
+            errormonitor(Threads.@spawn begin
+                host = try
+                    remotecall_fetch(gethostname, pid)
+                catch
+                    "?"
+                end
+                @lock mgr.lock mgr.hosts[pid] = host
+            end)
+        end
+        [(; pid, host = isempty(mgr.hosts[pid]) ? nothing : mgr.hosts[pid]) for pid in pids]
+    end
+    user = get(ENV, "USER", "")
+    slurm = slurm_available ? (; queue = read(`$(mgr.squeue) -u $user`, String), idle = read(`$(mgr.sinfo) -t idle`, String)) : nothing
+    return (; allocations = allocations(mgr), script, workers = workers_now, slurm)
 end

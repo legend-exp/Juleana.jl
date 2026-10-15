@@ -59,6 +59,16 @@ Juleana.history_result!
 Juleana.history_visit!
 Juleana.history_selection
 Juleana.read_history_page
+Juleana.WorkersPage
+Juleana.workers_key!
+Juleana.workers_mouse!
+Juleana.render_workers
+Juleana.workers_result!
+Juleana.workers_visit!
+Juleana.workers_stale!
+Juleana.workers_selected_allocation
+Juleana.workers_selected_worker
+Juleana.read_workers_page
 Juleana.strip_span_tags
 Juleana.tables_as_code
 Juleana.logo_size
@@ -147,6 +157,7 @@ Juleana.allocations
 Juleana.mark_activity!
 Juleana.idle_deadline
 Juleana.check_idle!(::Juleana.WorkerManager)
+Juleana.workers_overview
 ```
 
 ## Processing config

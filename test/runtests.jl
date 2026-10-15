@@ -2,6 +2,9 @@
 
 import Test
 
+# Code that writes to the config folder of the data production, such as the worker start
+# script, must never reach a real production from the tests.
+withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
 Test.@testset "Package Juleana" begin
     include("test_aqua.jl")
     include("test_explicit_imports.jl")
@@ -27,6 +30,8 @@ Test.@testset "Package Juleana" begin
     include("test_tui_graph.jl")
     include("test_tui_reports.jl")
     include("test_tui_history.jl")
+    include("test_tui_workers.jl")
     include("test_tui_branding.jl")
     include("test_logging.jl")
 end # testset
+end

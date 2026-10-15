@@ -39,6 +39,9 @@ const REPORTS_HINTS = (("↑↓", "move"), ("Enter", "open"), ("a", "all/run"), 
 const REPORTS_OPEN_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("Esc", "close"))
 const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"))
 const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
+const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"), ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
+    ("e", "script"), ("r", "reload"))
+const WORKERS_EDIT_HINTS = (("Ctrl-S", "save"), ("Esc", "close"))
 const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "help"))
 
 # Seconds a new warning or error stays in the status bar.
@@ -182,7 +185,7 @@ A left click on a page's tab opens the page; other mouse events go to the visibl
 
 Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
 Setup page, [`Juleana.graph_key!`](@ref) for the Graph page,
-[`Juleana.progress_key!`](@ref) for the Progress page and [`Juleana.log_key!`](@ref) for the Log page, [`Juleana.reports_key!`](@ref) for the Reports page and [`Juleana.history_key!`](@ref) for the History page); otherwise `1` to `7` switch pages and `q`
+[`Juleana.progress_key!`](@ref) for the Progress page and [`Juleana.log_key!`](@ref) for the Log page, [`Juleana.reports_key!`](@ref) for the Reports page and [`Juleana.history_key!`](@ref) for the History page and [`Juleana.workers_key!`](@ref) for the Workers page); otherwise `1` to `7` switch pages and `q`
 or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after
 the running items and quits when the run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
@@ -204,6 +207,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const log_page::LogPage
     const reports_page::ReportsPage
     const history_page::HistoryPage
+    const workers_page::WorkersPage
     const tabs::Tachikoma.TabBar
     # commands sent and not yet answered, and commands answered so far
     pending::Int
@@ -242,7 +246,7 @@ tab_bar() = Tachikoma.TabBar(
 )
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(), HistoryPage(),
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(), HistoryPage(), WorkersPage(),
         tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
         false, 0.0, false, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
@@ -317,6 +321,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         m.ticks += 1
         m.splash = splash_active(m)
         refresh!(m)
+        workers_sync!(m)
     elseif evt.id === :refresh
         m.refreshing = false
         evt.value isa Exception && throw(evt.value)
@@ -340,9 +345,15 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         evt.value isa Exception && throw(evt.value)
         history_result!(m.history_page, evt.value)
         history_sync!(m)
+    elseif evt.id === :workers
+        evt.value isa Exception && throw(evt.value)
+        workers_result!(m.workers_page, evt.value)
+        workers_sync!(m)
     elseif evt.id === :command
         m.pending -= 1
         m.answered += 1
+        workers_stale!(m.workers_page)
+        workers_sync!(m)
         m.command_error = evt.value isa Exception ? sprint(showerror, evt.value) : nothing
         refresh!(m)
     end
@@ -353,6 +364,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     update_key!(m, evt)
     reports_sync!(m)
     history_sync!(m)
+    workers_sync!(m)
     return nothing
 end
 
@@ -383,6 +395,7 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     n = length(TUI_PAGES)
     m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
     m.page == 2 && !ctrl_c && graph_key!(m.graph_page, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
+    m.page == 3 && !ctrl_c && workers_key!(m.workers_page, evt, cmd -> send_command!(m, cmd)) && return nothing
     if m.page == 4 && !ctrl_c
         open = m.progress_page.open
         used = progress_key!(m.progress_page, evt, m.progress)
@@ -406,6 +419,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
     update_mouse!(m, evt)
     reports_sync!(m)
     history_sync!(m)
+    workers_sync!(m)
     return nothing
 end
 
@@ -417,6 +431,7 @@ function update_mouse!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
         end
         m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
         m.page == 2 && graph_mouse!(m.graph_page, evt, m.snap)
+        m.page == 3 && workers_mouse!(m.workers_page, evt)
         if m.page == 4
             open = m.progress_page.open
             progress_mouse!(m.progress_page, evt, m.progress)
@@ -436,6 +451,17 @@ function reports_sync!(m::JuleanaTUI)
     m.page == 6 && reports_visit!(page, m.snap)
     for request in take_requests!(page)
         Tachikoma.spawn_task!(() -> read_reports(ctrl, request), m.queue, :reports)
+    end
+    return nothing
+end
+
+# Queue a read of the workers overview if the Workers page is visible and the latest read is
+# older than five seconds, and carry out the queued requests of the page in background tasks.
+function workers_sync!(m::JuleanaTUI)
+    page, ctrl = m.workers_page, m.ctrl
+    m.page == 3 && workers_visit!(page)
+    for request in take_requests!(page)
+        Tachikoma.spawn_task!(() -> read_workers_page(ctrl, request), m.queue, :workers)
     end
     return nothing
 end
@@ -557,6 +583,8 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 2
         render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer; grid = m.graph_page.disk ? m.history_page.grid : nothing)
+    elseif m.page == 3
+        render_workers(m.workers_page, m.snap, m.busy, message_entries(m.messages), body_area, f.buffer)
     elseif m.page == 4
         render_progress(m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
     elseif m.page == 5
@@ -566,25 +594,15 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
         render_reports(m.reports_page, body_area, f.buffer)
     elseif m.page == 7
         render_history(m.history_page, body_area, f.buffer)
-    else
-        body = Tachikoma.Paragraph(
-            "This page is not available yet.";
-            block = Tachikoma.Block(
-                title = TUI_PAGES[m.page],
-                border_style = Tachikoma.tstyle(:border),
-                title_style = Tachikoma.tstyle(:title),
-            ),
-        )
-        Tachikoma.render(body, body_area, f.buffer)
     end
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
-    hints = (m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
+    hints = (m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
         m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
         m.page == 7 ? (isnothing(m.history_page.viewer_path) ? HISTORY_HINTS : HISTORY_OPEN_HINTS) : ())
     spans = Tuple{String,Tachikoma.Style}[]
-    # `q` closes an open report instead of quitting
-    for (key, description) in (hints..., (m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
+    # `q` closes an open report instead of quitting and is text in the editor
+    for (key, description) in (hints..., (m.page == 3 && !isnothing(m.workers_page.editor) || m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
     end
     put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)
