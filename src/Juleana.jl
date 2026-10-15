@@ -63,7 +63,7 @@ import Makie
 using Measurements: value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
-    onlyfirst_exception, onworker, original_exception, pinthreads_auto,
+    AutoThreadPinning, onlyfirst_exception, onworker, original_exception,
     ppt_worker_pool!, ppt_worker_pool, runworkers, write_files, write_worker_start_script
 using ProgressLogging: ProgressLogging
 using ProgressMeter: @showprogress, Progress, next!, update!
@@ -73,6 +73,7 @@ using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, std
 using StructArrays: StructArray
 using Tachikoma: Tachikoma
 using TerminalLoggers: TerminalLogger
+import ThreadPinning
 import TOML
 using TimerOutputs: TimerOutputs, @timeit, TimerOutput
 using TypedTables: Table, columnnames, columns

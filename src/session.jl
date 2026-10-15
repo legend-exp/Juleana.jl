@@ -108,7 +108,10 @@ end
     init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
 
 Prepare the current process for processing: set the `LegendSpecFits` fit time limit to
-180 s, pin threads, and install the global logger built by [`processing_logger`](@ref).
+180 s, install the global logger built by [`processing_logger`](@ref), and pin the Julia
+threads with `ThreadPinning.pinthreads(AutoThreadPinning())` of ParallelProcessingTools:
+to the CPUs of the affinity mask of the process if it has one, as in a SLURM job, else not
+at all. The pinning is logged.
 
 With a non-empty `log_path`, the process appends its records of level `log_level` to its
 file in that directory (see [`process_log_file`](@ref)). The main process shows records
@@ -118,10 +121,11 @@ worker.
 """
 function init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
     set_timelimit(180.0)
-    pinthreads_auto()
     log_file = isempty(log_path) ? nothing : process_log_file(log_path)
     console_level = myid() == 1 ? (console ? Logging.Info : nothing) : Logging.Warn
     global_logger(processing_logger(; log_file, log_level, console_level))
+    # after the logger, so that the log file records how the threads were pinned
+    ThreadPinning.pinthreads(AutoThreadPinning())
     return nothing
 end
 
