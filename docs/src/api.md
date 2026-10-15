@@ -73,6 +73,10 @@ Juleana.failure_summary
 Juleana.report_overview
 Juleana.dataset_summary
 Juleana.period_summary
+Juleana.history_path
+Juleana.history_section
+Juleana.append_history
+Juleana.read_history
 run_processing
 ProcessingStopped
 Juleana.wait_for

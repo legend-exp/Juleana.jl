@@ -141,7 +141,9 @@ struct ResetDependencyGraph <: ControllerCommand end
 Run the selected steps over the selected periods and runs in the background with
 [`run_processing`](@ref), using the config with the session's kwarg overrides. The
 controller is `:running` until the run ends; the outcome is `:finished`, `:failed` or
-`:stopped`. [`progress`](@ref) shows the progress of the run. Throws an `ArgumentError` when no step is selected or a selected processor
+`:stopped`. [`progress`](@ref) shows the progress of the run. When the run ends, its
+steps are added to the processing history of the data production (see
+[`Juleana.append_history`](@ref) and [`Juleana.history_path`](@ref)). Throws an `ArgumentError` when no step is selected or a selected processor
 does not accept its keyword arguments.
 """
 struct StartProcessing <: ControllerCommand end
@@ -493,10 +495,29 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
         end
         isnothing(err) || @error "Processing failed" exception = err
         @info "Processing $outcome"
+        finished = now(UTC)
+        write_history(ctrl, cfg, l200, outcome, finished)
         @lock ctrl.lock begin
-            ctrl.state, ctrl.outcome, ctrl.finished = :ready, outcome, now(UTC)
+            ctrl.state, ctrl.outcome, ctrl.finished = :ready, outcome, finished
             ctrl.last_error = isnothing(err) ? nothing : truncate_error(err)
         end
+    end
+    return nothing
+end
+
+# Append the steps of the processing run that ended with `outcome` to the processing
+# history of `l200`; an error is logged and does not change the outcome.
+function write_history(ctrl::DataflowController, cfg::ProcessingConfig, l200, outcome::Symbol, finished::DateTime)
+    try
+        steps = map(progress(ctrl).steps) do e
+            (; level, category) = processor_spec(cfg, e.step)
+            (; process = e.step, level, category, e.period, e.run, outcome = e.state, e.started, e.finished, e.done, e.failed, e.notrun)
+        end
+        path = append_history(history_path(l200), (; ctrl.started, finished, user = get(ENV, "USER", "unknown"),
+            host = gethostname(), outcome, cfg.log_path, steps))
+        @info "Added the processing run to the history in $path"
+    catch e
+        @error "Writing the processing history failed" exception = (e, catch_backtrace())
     end
     return nothing
 end

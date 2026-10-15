@@ -112,6 +112,12 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             sort([(:process_energy_calibration_cal, p2, DataRun(6)), (:p_process_aoe_cut_cal, p2, nothing)]; by = string)
         energy_call = only(filter(c -> c[1] === :process_energy_calibration_cal, calls))
         @test energy_call[4] == Dict(:reprocess => true, :max_wvfs => 5)
+        # the run is added to the processing history of the production
+        entry = last(Juleana.read_history(Juleana.history_path(l200)))
+        @test entry.outcome === :finished && entry.started == floor(snap.started, Juleana.Second) && entry.finished == floor(snap.finished, Juleana.Second)
+        @test entry.host == gethostname()
+        @test Set((s.process, s.level, s.category, s.period, s.run, s.outcome) for s in entry.steps) ==
+            Set([(:process_energy_calibration_cal, :run, :cal, p2, DataRun(6), :done), (:p_process_aoe_cut_cal, :partition, :cal, p2, nothing, :done)])
 
         dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal))
         @test isempty(snapshot(ctrl).processors[1].overridden)
@@ -182,6 +188,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         snap = snapshot(ctrl)
         @test snap.state === :ready && snap.outcome === :failed
         @test occursin("stub failure", snap.last_error)
+        entry = last(Juleana.read_history(Juleana.history_path(l200)))
+        @test entry.outcome === :failed && any(s -> s.outcome === :failed, entry.steps)
     end
 
     @testset "stop" begin
