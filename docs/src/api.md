@@ -94,6 +94,11 @@ SubmitWorkers
 ProcessingConfig
 ProcessorSpec
 run_steps
+ProcessorGraph
+processor_graph
+topological_order
+required_processors
+layered_layout
 partition_steps
 check_processor_kwargs
 Juleana.PROCESSORS

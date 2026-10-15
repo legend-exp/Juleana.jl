@@ -110,24 +110,6 @@ end
 
 steps_selection(page::SetupPage) = SelectSteps(checked(page.run_procs), checked(page.part_procs))
 
-# Names of the steps that the checked steps wait for: their dependencies and every step of
-# the same level ranked before a dependency, recursively.
-function with_dependencies(page::SetupPage, snap)
-    order = Dict(level => [p.name for p in snap.processors if p.level === level] for level in (:run, :partition))
-    spec = Dict(p.name => p for p in snap.processors)
-    chosen = Set{Symbol}(vcat(checked(page.run_procs), checked(page.part_procs)))
-    todo = collect(chosen)
-    while !isempty(todo)
-        for dep in spec[pop!(todo)].dependencies
-            steps = order[spec[dep].level]
-            for name in steps[firstindex(steps):findfirst(==(dep), steps)]
-                name in chosen || (push!(chosen, name); push!(todo, name))
-            end
-        end
-    end
-    return chosen
-end
-
 option_value(snap, key) = getproperty(snap, key)
 
 function option_command(key, value)
@@ -189,7 +171,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         set_checked!(item -> item.key in names, panes[page.focus])
         send(steps_selection(page))
     elseif page.focus in (2, 3) && key == :char && char == 'd' && !isnothing(snap)
-        chosen = with_dependencies(page, snap)
+        chosen = required_processors(processor_graph(snap.processors), vcat(checked(page.run_procs), checked(page.part_procs)))
         set_checked!(item -> item.key in chosen, page.run_procs)
         set_checked!(item -> item.key in chosen, page.part_procs)
         send(steps_selection(page))

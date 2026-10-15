@@ -80,7 +80,8 @@ of `nothing`, all `Bool` fields `false`, `local_n = 1`, `log_path = ""` and
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
 `local_n < 1`, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
-processor or one of its own level, or no processor is enabled.
+processor or one of its own level, no processor is enabled, or the dependencies and ranks
+form a cycle (see [`processor_graph`](@ref)).
 
 See [`run_steps`](@ref), [`partition_steps`](@ref) and [`check_processor_kwargs`](@ref).
 """
@@ -133,6 +134,8 @@ struct ProcessingConfig
         end
         any(s -> s.enabled, values(cfg.processors)) || any(s -> s.enabled, values(cfg.p_processors)) ||
             throw(ArgumentError("processing_config: no processor is enabled"))
+        # dependencies and ranks that form a cycle would make processing wait forever
+        processor_graph(cfg)
         return cfg
     end
 end

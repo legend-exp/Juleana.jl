@@ -23,6 +23,7 @@ import CairoMakie
 using ConcurrentCollections: ConcurrentDict
 using Dates: Dates, DateTime, Millisecond, Second, UTC, canonicalize, now, @dateformat_str
 using Format: format
+import Graphs
 using HDF5: h5open
 using IntervalSets: (..), leftendpoint, rightendpoint
 using LaTeXStrings: LaTeXStrings, @L_str
@@ -84,6 +85,7 @@ include("progress.jl")
 include("parallel.jl")
 include("qc.jl")
 include("processing_config.jl")
+include("processor_graph.jl")
 include("processing_loop.jl")
 include("registry.jl")
 include("session.jl")
@@ -136,6 +138,7 @@ export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
+export ProcessorGraph, processor_graph, topological_order, required_processors, layered_layout
 export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession, menu
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
