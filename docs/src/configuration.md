@@ -70,7 +70,7 @@ looks like this:
         "timeout": 0,
         "use_partition_pars": true
     },
-    "dependencies": ["p_process_aoe_optimization"]
+    "dependencies": ["p_process_aoe_optimization_cal"]
 }
 ```
 
@@ -92,6 +92,11 @@ All fields are required:
    Every dependency must name a configured processor of the other level, and processor
    names must be unique across `processors` and `p_processors`.
 
+A key or dependency that uses a former processor name from `Juleana.RENAMED_PROCESSORS`
+(for example `process_decay_time` for `process_decay_time_cal`) is read as the current
+name, and a warning names both once when the config is loaded. A config that contains
+both names of one processor is an error.
+
 String lists in the `kwargs` of a processor become Julia symbol vectors when the config
 is loaded: YAML `subsystems: [geds, spms, pmts, aux]` is passed as
 `[:geds, :spms, :pmts, :aux]`. Use plain strings in YAML and JSON, without a leading
@@ -107,21 +112,21 @@ in processing order:
 julia> cfg = ProcessingConfig(;
            processors = Dict(
                :process_dsp_cal => ProcessorSpec(; name = :process_dsp_cal, level = :run,
-                   category = :cal, rank = 5, dependencies = [:p_process_decay_time]),
-               :process_peak_split => ProcessorSpec(; name = :process_peak_split, level = :run,
+                   category = :cal, rank = 5, dependencies = [:p_process_decay_time_cal]),
+               :process_peak_split_cal => ProcessorSpec(; name = :process_peak_split_cal, level = :run,
                    category = :cal, rank = 1)),
            p_processors = Dict(
-               :p_process_decay_time => ProcessorSpec(; name = :p_process_decay_time,
+               :p_process_decay_time_cal => ProcessorSpec(; name = :p_process_decay_time_cal,
                    level = :partition, category = :cal, rank = 2)));
 
 julia> run_steps(cfg)
 2-element Vector{Symbol}:
- :process_peak_split
+ :process_peak_split_cal
  :process_dsp_cal
 
 julia> partition_steps(cfg)
 1-element Vector{Symbol}:
- :p_process_decay_time
+ :p_process_decay_time_cal
 
 julia> check_processor_kwargs(cfg)  # all processors are registered and accept their kwargs
 ```

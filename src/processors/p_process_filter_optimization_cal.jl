@@ -1,10 +1,10 @@
 """
-    p_process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_filter_optimization_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
 Optimize the energy filter rise time and flat-top time per detector and `cal` partition for all partitions that contain `period`, using all analysis runs of the partition (HPGe detectors `geds`).
 
-The method is the same as in `process_filter_optimization`: for each filter type listed under `e_filter`, the rise time is chosen from a baseline noise sweep and the flat-top time from a sweep over full-energy-peak events. The waveforms of the peak named by `peakname` are read from the `jlpks` tier of all runs of the partition (`n_evts` events per run, drawn randomly if `select_random` is set) and at most `max_wvfs` of them are used after the quality cuts (`qc` expression).
+The method is the same as in `process_filter_optimization_cal`: for each filter type listed under `e_filter`, the rise time is chosen from a baseline noise sweep and the flat-top time from a sweep over full-energy-peak events. The waveforms of the peak named by `peakname` are read from the `jlpks` tier of all runs of the partition (`n_evts` events per run, drawn randomly if `select_random` is set) and at most `max_wvfs` of them are used after the quality cuts (`qc` expression).
 
 # Inputs
 - `jlpks` tier of the `cal` runs of each partition, for each detector.
@@ -26,7 +26,7 @@ The method is the same as in `process_filter_optimization`: for each filter type
 # Returns
 `true` if at least one detector and partition was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses this to wait for the same step in the previous period.
 """
-function p_process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_filter_optimization_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Optimize filter for all partitions containing period $period"
 
@@ -278,7 +278,7 @@ function p_process_filter_optimization(processing_config, l200::LegendData, peri
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(det_filter_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_filter_optimization")
+    result_flt = parallel(det_filter_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_filter_optimization_cal")
     @info "Finished filter optimization"
 
     @info "Write $period validity"
@@ -306,4 +306,4 @@ function p_process_filter_optimization(processing_config, l200::LegendData, peri
     return any(x -> get(last(x), :skipped, false), values(result_flt))
 end
 
-register_processor!(p_process_filter_optimization)
+register_processor!(p_process_filter_optimization_cal)

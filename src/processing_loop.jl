@@ -14,7 +14,7 @@ warning `"Waiting for \$what"`. Throw [`ProcessingStopped`](@ref) as soon as `st
 ```julia
 abort = Threads.Atomic{Bool}(false)
 Juleana.wait_for("energy calibration of p03"; abort, timeout = 3600) do
-    all(values(run_status[DataPeriod(3)][:process_energy_calibration]))
+    all(values(run_status[DataPeriod(3)][:process_energy_calibration_cal]))
 end
 ```
 """

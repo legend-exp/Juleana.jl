@@ -17,7 +17,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     p2 = DataPeriod(2)
     args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
     cfg = ProcessingConfig(;
-        processors = Dict(:process_energy_calibration => spec(:process_energy_calibration, :run, 1)),
+        processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
         p_processors = Dict{Symbol,ProcessorSpec}())
     function loader(parsed_args)
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
@@ -30,7 +30,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     function run_logged(step; loader = loader, before_wait = nothing)
         logger = Test.TestLogger(; min_level = Logging.Info)
         code = with_logger(logger) do
-            Juleana.run_no_tui(args; processors = Dict{Symbol,Any}(:process_energy_calibration => step),
+            Juleana.run_no_tui(args; processors = Dict{Symbol,Any}(:process_energy_calibration_cal => step),
                 loader, interval = 0.05)
         end
         return code, [string(r.message) for r in logger.logs if r.message isa AbstractString]
@@ -50,7 +50,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
         @test code == 1
         summary = only(filter(startswith("Processing failed after"), messages))
         @test occursin("Steps: 1 done, 1 failed", summary)
-        @test occursin("\nFailed: p02-r006 process_energy_calibration", summary)
+        @test occursin("\nFailed: p02-r006 process_energy_calibration_cal", summary)
         @test occursin("Error: ", summary) && occursin("stub failure", summary)
     end
 
@@ -71,7 +71,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
         end
         for interrupts in (1, 2)
             started[] = 0
-            ctrl = DataflowController(loader(args); processors = Dict{Symbol,Any}(:process_energy_calibration => slow_step))
+            ctrl = DataflowController(loader(args); processors = Dict{Symbol,Any}(:process_energy_calibration_cal => slow_step))
             dispatch!(ctrl, SelectRuns([6]))
             dispatch!(ctrl, StartProcessing())
             @test timedwait(() -> started[] >= 1, 60) === :ok

@@ -25,17 +25,17 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     calls_lock = ReentrantLock()
     record(step, period, run, kwargs) = lock(() -> push!(calls, (step, period, run, Dict{Symbol,Any}(pairs(kwargs)))), calls_lock)
     energy_stub(cfg, l200, period, run; reprocess = false, max_wvfs = 10) =
-        (record(:process_energy_calibration, period, run, (; reprocess, max_wvfs)); nothing)
+        (record(:process_energy_calibration_cal, period, run, (; reprocess, max_wvfs)); nothing)
     aoe_stub(cfg, l200, period; reprocess = false, only_first_period = false) =
-        (record(:p_process_aoe_cut, period, nothing, (; reprocess)); false)
+        (record(:p_process_aoe_cut_cal, period, nothing, (; reprocess)); false)
     processors = merge(Juleana.PROCESSORS, Dict{Symbol,Any}(
-        :process_energy_calibration => energy_stub, :p_process_aoe_cut => aoe_stub))
+        :process_energy_calibration_cal => energy_stub, :p_process_aoe_cut_cal => aoe_stub))
 
     cfg = ProcessingConfig(;
         processors = Dict(
-            :process_energy_calibration => spec(:process_energy_calibration, :run, 1),
+            :process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1),
             :process_dsp_cal => spec(:process_dsp_cal, :run, 2; enabled = false)),
-        p_processors = Dict(:p_process_aoe_cut => spec(:p_process_aoe_cut, :partition, 1)))
+        p_processors = Dict(:p_process_aoe_cut_cal => spec(:p_process_aoe_cut_cal, :partition, 1)))
 
     function new_session(config = cfg)
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
@@ -53,9 +53,9 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test snap.available_runs[p2] == DataRun.([6, 7])
         @test snap.periods == [p2, p3]
         @test isnothing(snap.runs)
-        @test snap.run_steps == [:process_energy_calibration]
-        @test snap.partition_steps == [:p_process_aoe_cut]
-        @test [p.name for p in snap.processors] == [:process_energy_calibration, :process_dsp_cal, :p_process_aoe_cut]
+        @test snap.run_steps == [:process_energy_calibration_cal]
+        @test snap.partition_steps == [:p_process_aoe_cut_cal]
+        @test [p.name for p in snap.processors] == [:process_energy_calibration_cal, :process_dsp_cal, :p_process_aoe_cut_cal]
         dsp = snap.processors[2]
         @test dsp.level === :run && !dsp.enabled && !dsp.selected && dsp.rank == 2
         @test snap.config_file == shipped_config
@@ -70,9 +70,9 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test_throws "periods not available on disk: p99" dispatch!(ctrl, SelectPeriods([99]))
         @test_throws "runs not available in the selected periods: r009" dispatch!(ctrl, SelectRuns([9]))
         @test_throws "not in `processors` of the config: process_bogus" dispatch!(ctrl, SelectSteps([:process_bogus], Symbol[]))
-        @test_throws "not in `p_processors` of the config: process_energy_calibration" dispatch!(ctrl, SelectSteps(Symbol[], [:process_energy_calibration]))
+        @test_throws "not in `p_processors` of the config: process_energy_calibration_cal" dispatch!(ctrl, SelectSteps(Symbol[], [:process_energy_calibration_cal]))
         @test_throws "unknown processor `process_bogus`" dispatch!(ctrl, SetKwarg(:process_bogus, :x, 1))
-        @test_throws "`process_energy_calibration` does not accept keyword(s) unknown_kw" dispatch!(ctrl, SetKwarg(:process_energy_calibration, :unknown_kw, 1))
+        @test_throws "`process_energy_calibration_cal` does not accept keyword(s) unknown_kw" dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :unknown_kw, 1))
         dispatch!(ctrl, SelectSteps(Symbol[], Symbol[]))
         @test_throws "no processing steps selected" dispatch!(ctrl, StartProcessing())
         # rejected commands leave the state unchanged
@@ -91,8 +91,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         ctrl = DataflowController(new_session(); processors)
         dispatch!(ctrl, SelectPeriods(["p02"]))
         dispatch!(ctrl, SelectRuns([6]))
-        dispatch!(ctrl, SelectSteps([:process_energy_calibration], [:p_process_aoe_cut]))
-        dispatch!(ctrl, SetKwarg("process_energy_calibration", "max_wvfs", 5))
+        dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], [:p_process_aoe_cut_cal]))
+        dispatch!(ctrl, SetKwarg("process_energy_calibration_cal", "max_wvfs", 5))
         dispatch!(ctrl, SetReprocess(true))
         snap = snapshot(ctrl)
         @test snap.periods == [p2] && snap.runs == [DataRun(6)]
@@ -100,7 +100,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test energy.kwargs[:max_wvfs] == 5 && energy.overridden == [:max_wvfs]
         @test snap.reprocess === true
         # the config of the session is unchanged
-        @test !haskey(ctrl.session.config.processors[:process_energy_calibration].kwargs, :max_wvfs)
+        @test !haskey(ctrl.session.config.processors[:process_energy_calibration_cal].kwargs, :max_wvfs)
 
         dispatch!(ctrl, StartProcessing())
         @test snapshot(ctrl).state in (:running, :ready)
@@ -109,19 +109,19 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test snap.state === :ready && snap.outcome === :finished && isnothing(snap.last_error)
         @test snap.finished >= snap.started
         @test sort(map(c -> c[1:3], calls); by = string) ==
-            sort([(:process_energy_calibration, p2, DataRun(6)), (:p_process_aoe_cut, p2, nothing)]; by = string)
-        energy_call = only(filter(c -> c[1] === :process_energy_calibration, calls))
+            sort([(:process_energy_calibration_cal, p2, DataRun(6)), (:p_process_aoe_cut_cal, p2, nothing)]; by = string)
+        energy_call = only(filter(c -> c[1] === :process_energy_calibration_cal, calls))
         @test energy_call[4] == Dict(:reprocess => true, :max_wvfs => 5)
 
-        dispatch!(ctrl, ResetKwargs(:process_energy_calibration))
+        dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal))
         @test isempty(snapshot(ctrl).processors[1].overridden)
-        dispatch!(ctrl, SetKwarg(:process_energy_calibration, :max_wvfs, 7))
+        dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 7))
         dispatch!(ctrl, ResetKwargs())
         @test isempty(snapshot(ctrl).processors[1].overridden)
         dispatch!(ctrl, SelectRuns(nothing))
         @test isnothing(snapshot(ctrl).runs)
         dispatch!(ctrl, ResetDependencyGraph())
-        @test !any(values(ctrl.session.run_status[p2][:process_energy_calibration]))
+        @test !any(values(ctrl.session.run_status[p2][:process_energy_calibration_cal]))
     end
 
     @testset "per-period runs" begin
@@ -140,8 +140,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, StartProcessing())
         wait(ctrl)
         @test snapshot(ctrl).outcome === :finished
-        @test sort(map(c -> c[1:3], calls); by = string) == sort([(:process_energy_calibration, p2, DataRun(7)),
-            (:process_energy_calibration, p3, DataRun(0)), (:p_process_aoe_cut, p2, nothing), (:p_process_aoe_cut, p3, nothing)]; by = string)
+        @test sort(map(c -> c[1:3], calls); by = string) == sort([(:process_energy_calibration_cal, p2, DataRun(7)),
+            (:process_energy_calibration_cal, p3, DataRun(0)), (:p_process_aoe_cut_cal, p2, nothing), (:p_process_aoe_cut_cal, p3, nothing)]; by = string)
 
         # a period without any of the selected runs stays selected, but has nothing to process
         dispatch!(ctrl, SelectRuns([6]))
@@ -175,8 +175,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
 
     @testset "failed run" begin
         failing(cfg, l200, period, run; reprocess = false) = error("stub failure")
-        ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration => failing)))
-        dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
+        ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration_cal => failing)))
+        dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, StartProcessing())
         wait(ctrl)
         snap = snapshot(ctrl)
@@ -197,10 +197,10 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             Threads.atomic_add!(finished_batches, 1)
             return nothing
         end
-        ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration => slow_step)))
+        ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration_cal => slow_step)))
         dispatch!(ctrl, SelectPeriods([2]))
         dispatch!(ctrl, SelectRuns([6]))
-        dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
+        dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, StartProcessing())
         @test_throws "SelectPeriods is not possible while the controller is :running" dispatch!(ctrl, SelectPeriods([2]))
         @test waituntil(() -> started[] >= 1)
@@ -241,14 +241,14 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
                 sleep(8)
                 (processed = true, log = StopLog((fk, ProcessStatus(1), "")))
             end
-            ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration => slow_item_step)))
+            ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration_cal => slow_item_step)))
             dispatch!(ctrl, SelectPeriods([2]))
             dispatch!(ctrl, SelectRuns([6]))
-            dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
+            dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
             dispatch!(ctrl, StartProcessing())
             @test waituntil(() -> !isempty(busy_workers(ctrl)))
             busy = only(busy_workers(ctrl))
-            @test busy.worker == pid && !busy.abandoned && busy.step === :process_energy_calibration
+            @test busy.worker == pid && !busy.abandoned && busy.step === :process_energy_calibration_cal
             @test busy.period == p2 && busy.run == DataRun(6) && busy.item in string.(filekeys)
             t_stop = time()
             dispatch!(ctrl, StopProcessing(; force = true))
@@ -295,7 +295,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         session = DataflowSession(; args, session.l200, session.config, session.periods, session.run_steps,
             session.partition_steps, session.run_status, session.partition_status)
         ctrl = DataflowController(session; processors)
-        dispatch!(ctrl, SetKwarg(:process_energy_calibration, :max_wvfs, 5))
+        dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
         withenv("LEGEND_DATA_CONFIG" => nothing) do
             dispatch!(ctrl, ReloadConfig())
             wait(ctrl)
@@ -309,44 +309,44 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
 
     @testset "WriteConfig" begin
         ctrl = DataflowController(new_session(); processors)
-        dispatch!(ctrl, SetKwarg(:process_energy_calibration, :max_wvfs, 5))
-        dispatch!(ctrl, SelectSteps([:process_energy_calibration], Symbol[]))
+        dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
+        dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, SetAnalysisRunsOnly(true))
         written = joinpath(root, "written_config.json")
         write(written, "previous")
         dispatch!(ctrl, WriteConfig(written))
         @test read(written * ".bak", String) == "previous"
         original, props = readlprops(shipped_config), readlprops(written)
-        @test props.processors.process_energy_calibration.kwargs.max_wvfs == 5
+        @test props.processors.process_energy_calibration_cal.kwargs.max_wvfs == 5
         # every processor is enabled exactly when it is selected
-        @test props.processors.process_energy_calibration.enabled
+        @test props.processors.process_energy_calibration_cal.enabled
         @test !any(e -> e.enabled, values(props.p_processors))
-        @test !any(e -> e.enabled, (e for (n, e) in props.processors if n != :process_energy_calibration))
+        @test !any(e -> e.enabled, (e for (n, e) in props.processors if n != :process_energy_calibration_cal))
         @test props.processing.analysis_runs_only
         @test props.config == original.config
         written_cfg = ProcessingConfig(written)
-        @test written_cfg.processors[:process_energy_calibration].kwargs[:max_wvfs] == 5
-        @test run_steps(written_cfg) == [:process_energy_calibration] && isempty(partition_steps(written_cfg))
+        @test written_cfg.processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 5
+        @test run_steps(written_cfg) == [:process_energy_calibration_cal] && isempty(partition_steps(written_cfg))
     end
 
     @testset "kwarg resets and snapshot kwargs" begin
         ctrl = DataflowController(new_session(); processors)
-        energy() = only(filter(p -> p.name === :process_energy_calibration, snapshot(ctrl).processors))
+        energy() = only(filter(p -> p.name === :process_energy_calibration_cal, snapshot(ctrl).processors))
         @test energy().accepted == [:max_wvfs]
         @test isempty(energy().config_kwargs)
-        dispatch!(ctrl, SetKwarg(:process_energy_calibration, :max_wvfs, 5))
+        dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
         @test energy().kwargs[:max_wvfs] == 5 && isempty(energy().config_kwargs)
-        dispatch!(ctrl, ResetKwargs(:process_energy_calibration, :max_wvfs))
+        dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal, :max_wvfs))
         @test isempty(energy().overridden) && !haskey(energy().kwargs, :max_wvfs)
         @test isempty(ctrl.kwarg_overrides)
         # resetting a key that is not overridden changes nothing
-        dispatch!(ctrl, ResetKwargs(:process_energy_calibration, :max_wvfs))
+        dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal, :max_wvfs))
         @test_throws "ResetKwargs: a key needs a processor" ResetKwargs(nothing, :max_wvfs)
     end
     @testset "report_index and report_overview" begin
         ctrl = DataflowController(new_session(); processors)
         jlrep = l200.tier[:jlrep]
-        failed = Juleana.report_path(l200, :process_energy_calibration, :run, p2, DataRun(6), :cal)
+        failed = Juleana.report_path(l200, :process_energy_calibration_cal, :run, p2, DataRun(6), :cal)
         mkpath(dirname(failed))
         write(failed, RUN_REPORT)
         before = sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs])
@@ -357,15 +357,15 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         wait(ctrl)
         @test snapshot(ctrl).outcome === :finished
         rows = Juleana.report_index(ctrl)
-        energy = filter(r -> r.process === :process_energy_calibration, rows)
+        energy = filter(r -> r.process === :process_energy_calibration_cal, rows)
         @test [(r.period, r.run, r.state) for r in energy] ==
               [(p2, DataRun(6), :failed), (p2, DataRun(7), :missing), (p3, DataRun(0), :missing)]
         @test energy[1].path == failed && energy[1].n_failed == 1
         partition = filter(r -> r.level === :partition, rows)
         @test [(r.process, r.period, r.run, r.state) for r in partition] ==
-              [(:p_process_aoe_cut, p2, nothing, :missing), (:p_process_aoe_cut, p3, nothing, :missing)]
+              [(:p_process_aoe_cut_cal, p2, nothing, :missing), (:p_process_aoe_cut_cal, p3, nothing, :missing)]
         # a later change of the selection does not change the rows
-        dispatch!(ctrl, SelectSteps(Symbol[], [:p_process_aoe_cut]))
+        dispatch!(ctrl, SelectSteps(Symbol[], [:p_process_aoe_cut_cal]))
         dispatch!(ctrl, SelectPeriods([p3]))
         @test [(r.process, r.period, r.run) for r in Juleana.report_index(ctrl)] == [(r.process, r.period, r.run) for r in rows]
 

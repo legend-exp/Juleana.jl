@@ -35,14 +35,14 @@ index_row(process, period, run, state; level = :run, date = nothing, failures = 
         n_entries = 0, n_failed = length(failures), n_warnings = 0, failures)
 
 const INDEX_ROWS = [
-    index_row(:process_energy_calibration, "p03", "r001", :ok; date = DateTime(2026, 10, 3, 12, 0)),
-    index_row(:process_energy_calibration, "p03", "r002", :failed; date = DateTime(2026, 10, 3, 12, 5),
+    index_row(:process_energy_calibration_cal, "p03", "r001", :ok; date = DateTime(2026, 10, 3, 12, 0)),
+    index_row(:process_energy_calibration_cal, "p03", "r002", :failed; date = DateTime(2026, 10, 3, 12, 5),
         failures = [("V02 (trap)", "fit failed"), ("V03 (cusp)", "fit failed")]),
-    index_row(:process_energy_calibration, "p03", "r003", :missing),
-    index_row(:process_energy_calibration, "p03", "r004", :failed; failures = [("V02 (trap)", "no peaks")]),
+    index_row(:process_energy_calibration_cal, "p03", "r003", :missing),
+    index_row(:process_energy_calibration_cal, "p03", "r004", :failed; failures = [("V02 (trap)", "no peaks")]),
     index_row(:process_dsp_cal, "p03", "r001", :ok),
     index_row(:process_dsp_cal, "p03", "r002", :warning; date = DateTime(2026, 10, 2, 8, 30)),
-    index_row(:p_process_aoe_cut, "p03", nothing, :failed; level = :partition, failures = [("V02 (1)", "no peaks")]),
+    index_row(:p_process_aoe_cut_cal, "p03", nothing, :failed; level = :partition, failures = [("V02 (1)", "no peaks")]),
 ]
 
 report_entry(period, run, state; path = "/jlrep/$period-$run.md", date = nothing) = (; period, run, path, state, date)
@@ -85,7 +85,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
     @testset "groups, counts and colors" begin
         page = loaded_page()
         @test page.loaded && !page.reading && isnothing(page.error)
-        @test [g.name for g in page.groups] == ["energy_calibration", "dsp_cal", "aoe_cut"]
+        @test [g.name for g in page.groups] == ["energy_calibration", "dsp", "aoe_cut"]
         @test page.groups[1].counts == (; ok = 1, warning = 0, failed = 2, missing = 1)
         tb = render_reports_page(page)
         @test find_text(tb, "Reports (current run)") !== nothing
@@ -94,7 +94,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test find_text(tb, "partition") !== nothing && find_text(tb, "run") !== nothing
         # the groups with failures are unfolded, the group without is not
         @test find_text(tb, "▾ energy_calibration") !== nothing
-        @test find_text(tb, "▸ dsp_cal") !== nothing
+        @test find_text(tb, "▸ dsp") !== nothing
         @test find_text(tb, "▾ aoe_cut") !== nothing
         @test find_text(tb, "p03-r001") !== nothing && find_text(tb, "p03-r004") !== nothing
         @test find_text(tb, "p03-r002  ✗ failed   10-03 12:05Z") !== nothing
@@ -169,7 +169,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test !page.loaded && page.reading
         Juleana.reports_result!(page, (; request, value = OVERVIEW_ROWS))
         @test page.loaded && !page.reading
-        @test [g.name for g in page.groups] == ["dsp_cal", "energy_calibration"]
+        @test [g.name for g in page.groups] == ["dsp", "energy_calibration"]
         tb = render_reports_page(page)
         @test find_text(tb, "ok 1  warn 0  fail 0") !== nothing && find_text(tb, "miss") === nothing
         # `r` reads again and keeps the source
@@ -198,7 +198,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         # the group without failures
         page.cursor = (page.groups[2].key,)
         tb = render_reports_page(page)
-        @test find_text(tb, "Failures: dsp_cal") !== nothing && find_text(tb, "No failures.") !== nothing
+        @test find_text(tb, "Failures: dsp") !== nothing && find_text(tb, "No failures.") !== nothing
         # a report row shows the failures of its processor; a partition-level processor counts periods
         page.cursor = (page.groups[3].key, "p03", nothing)
         tb = render_reports_page(page)
@@ -232,7 +232,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
 
     @testset "focus and scrolling of the failures" begin
         failures = [("V$(lpad(i, 2, '0')) (trap)", "error $i") for i in 1:30]
-        page = loaded_page([index_row(:process_energy_calibration, "p03", "r001", :failed; failures)])
+        page = loaded_page([index_row(:process_energy_calibration_cal, "p03", "r001", :failed; failures)])
         tb = render_reports_page(page, 120, 14)
         @test find_text(tb, "V01  1 run") !== nothing && find_text(tb, "V30") === nothing
         # the list has the focus: Tab moves it to the failures
@@ -359,7 +359,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         p2 = DataPeriod(2)
         args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
         cfg = ProcessingConfig(;
-            processors = Dict(:process_energy_calibration => spec(:process_energy_calibration, :run, 1)),
+            processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())
         function new_session()
             periods, run_status, partition_status = Juleana.setup_dependency_graph(
@@ -367,8 +367,8 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
             return DataflowSession(; args, l200, config = cfg, periods,
                 run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
         end
-        processors = Dict{Symbol,Any}(:process_energy_calibration => (cfg, l200, period, run; reprocess = false) -> nothing)
-        report(run) = Juleana.report_path(l200, :process_energy_calibration, :run, p2, DataRun(run), :cal)
+        processors = Dict{Symbol,Any}(:process_energy_calibration_cal => (cfg, l200, period, run; reprocess = false) -> nothing)
+        report(run) = Juleana.report_path(l200, :process_energy_calibration_cal, :run, p2, DataRun(run), :cal)
         failed_text = "# Energy calibration\nDate of processing: 2026-10-03T12:00:00Z\n\n" * RUN_REPORT
         ok_text = "# Energy calibration\nDate of processing: 2026-10-01T09:30:00Z\n\n| Detector | Status | Filter Type | Error |\n|:---|:---|:---|:---|\n| V01 | Success | trap | - |\n"
         mkpath(dirname(report(6)))

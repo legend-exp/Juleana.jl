@@ -336,7 +336,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
         args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
         cfg = ProcessingConfig(;
-            processors = Dict(:process_energy_calibration => spec(:process_energy_calibration, :run, 1)),
+            processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
             l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg), partition_steps(cfg))
@@ -363,7 +363,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test m.quit
 
         # opening a step on the Progress page reads its messages in the background
-        key = (DataPeriod(2), DataRun(6), :process_energy_calibration)
+        key = (DataPeriod(2), DataRun(6), :process_energy_calibration_cal)
         Juleana.reset_progress!(m.ctrl.progress, [key])
         Juleana.set_step_state!(m.ctrl.progress, key, :running)
         Juleana.step_message!(m.ctrl.progress, key, Logging.Warn, "low statistics")

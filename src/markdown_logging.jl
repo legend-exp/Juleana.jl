@@ -9,8 +9,8 @@ emphasis.
 
 # Examples
 ```jldoctest
-julia> Juleana.escape_log_underscores("process_dsp_cal in `p_process_energy`")
-"process\\\\_dsp\\\\_cal in `p_process_energy`"
+julia> Juleana.escape_log_underscores("process_dsp_cal in `p_process_energy_cal`")
+"process\\\\_dsp\\\\_cal in `p_process_energy_cal`"
 ```
 """
 escape_log_underscores(message::AbstractString) = replace(message, r"(`+).*?\1|(?<!\\)_"s => m -> m == "_" ? "\\_" : m)

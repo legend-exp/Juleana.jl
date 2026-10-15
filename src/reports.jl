@@ -4,8 +4,13 @@
 # period (partition level). The functions in this file only read them: no function creates
 # a folder or a file, so they are safe to call on a production data folder.
 
-# the name of a report: the processor name without the `process_` / `p_process_` prefix
-report_name(process::Symbol) = String(last(split(string(process), "process_")))
+# The name of a report: the processor name without the `process_` / `p_process_` prefix.
+# A processor listed in `RENAMED_PROCESSORS` additionally drops its `_cal` suffix: the
+# report files keep the name the processor had before the suffix was added.
+function report_name(process::Symbol)
+    name = chopprefix(chopprefix(string(process), "p_process_"), "process_")
+    return process in values(RENAMED_PROCESSORS) ? String(chopsuffix(name, "_cal")) : String(name)
+end
 
 # the cells of a Markdown table row
 table_cells(line::AbstractString) = strip.(split(strip(strip(line), '|'), "|"))
@@ -23,7 +28,8 @@ Return the path of the report written by the processor `process`. `jlrep` is the
 report tier folder, `l200.tier[:jlrep]` for the `LegendData` method. `level` is `:run`
 for `<jlrep>/rreport/<category>/<period>/<run>/<setup>-<period>-<run>-<category>-<name>.md`
 and `:partition` for `<jlrep>/preport/<period>/<category>/<setup>-<period>-<category>-<name>.md`,
-where `<name>` is the processor name without its `process_` or `p_process_` prefix.
+where `<name>` is the processor name without its `process_` or `p_process_` prefix and
+without the `_cal` suffix of the processors in [`RENAMED_PROCESSORS`](@ref).
 `run` is not used for the partition level. The file system is not accessed.
 """
 function report_path(jlrep::AbstractString, process::Symbol, level::Symbol, period, run, category; setup = "l200")

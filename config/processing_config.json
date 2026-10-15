@@ -37,7 +37,7 @@
     },
     "processors":
     {
-        "process_peak_split": {
+        "process_peak_split_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 1,
@@ -47,7 +47,7 @@
             },
             "dependencies": []
         },
-        "process_decay_time": {
+        "process_decay_time_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 2,
@@ -57,7 +57,7 @@
             },
             "dependencies": []
         },
-        "process_filter_optimization": {
+        "process_filter_optimization_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 3,
@@ -67,7 +67,7 @@
             },
             "dependencies": []
         },
-        "process_aoe_optimization": {
+        "process_aoe_optimization_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 4,
@@ -87,7 +87,7 @@
                 "timeout": 0,
                 "use_partition_pars": true
             },
-            "dependencies": ["p_process_aoe_optimization", "p_process_filter_optimization", "p_process_decay_time"]
+            "dependencies": ["p_process_aoe_optimization_cal", "p_process_filter_optimization_cal", "p_process_decay_time_cal"]
         },
         "process_hit_cal": {
             "enabled": false,
@@ -99,7 +99,7 @@
             },
             "dependencies": []
         },
-        "process_ct_correction": {
+        "process_ct_correction_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 7,
@@ -109,7 +109,7 @@
             },
             "dependencies": []
         },
-        "process_energy_calibration": {
+        "process_energy_calibration_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 8,
@@ -119,7 +119,7 @@
             },
             "dependencies": []
         },
-        "process_aoe_calibration_cut": {
+        "process_aoe_calibration_cut_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 9,
@@ -129,7 +129,7 @@
             },
             "dependencies": []
         },
-        "process_lq_calibration_cut": {
+        "process_lq_calibration_cut_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 10,
@@ -139,7 +139,7 @@
             },
             "dependencies": []
         },
-        "process_psd_efficiencies": {
+        "process_psd_efficiencies_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 11,
@@ -148,7 +148,7 @@
                 "timeout": 0,
                 "use_partition_pars": true
             },
-            "dependencies": ["p_process_aoe_calibration_cut", "p_process_lq_calibration_cut"]
+            "dependencies": ["p_process_aoe_calibration_cut_cal", "p_process_lq_calibration_cut_cal"]
         },
         "process_sipm_optimization_phy": {
             "enabled": false,
@@ -196,7 +196,7 @@
     },
     "p_processors":
     {
-        "p_process_decay_time": {
+        "p_process_decay_time_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 1,
@@ -204,9 +204,9 @@
                 "reprocess": true,
                 "timeout": 0
             },
-            "dependencies": ["process_peak_split"]
+            "dependencies": ["process_peak_split_cal"]
         },
-        "p_process_filter_optimization": {
+        "p_process_filter_optimization_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 2,
@@ -214,9 +214,9 @@
                 "reprocess": true,
                 "timeout": 3000
             },
-            "dependencies": ["process_peak_split"]
+            "dependencies": ["process_peak_split_cal"]
         },
-        "p_process_aoe_optimization": {
+        "p_process_aoe_optimization_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 3,
@@ -225,9 +225,9 @@
                 "timeout": 0,
                 "max_wvfs": 35000
             },
-            "dependencies": ["process_peak_split"]
+            "dependencies": ["process_peak_split_cal"]
         },
-        "p_process_energy": {
+        "p_process_energy_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 4,
@@ -235,9 +235,9 @@
                 "reprocess": true,
                 "timeout": 0
             },
-            "dependencies": ["process_energy_calibration"]
+            "dependencies": ["process_energy_calibration_cal"]
         },
-        "p_process_aoe_calibration_cut": {
+        "p_process_aoe_calibration_cut_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 5,
@@ -247,7 +247,7 @@
             },
             "dependencies": []
         },
-        "p_process_aoe_cut": {
+        "p_process_aoe_cut_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 6,
@@ -255,9 +255,9 @@
                 "reprocess": true,
                 "timeout": 0
             },
-            "dependencies": ["process_aoe_calibration_cut"]
+            "dependencies": ["process_aoe_calibration_cut_cal"]
         },
-        "p_process_lq_calibration_cut": {
+        "p_process_lq_calibration_cut_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 7,
@@ -267,7 +267,7 @@
             },
             "dependencies": []
         },
-        "p_process_psd_efficiencies": {
+        "p_process_psd_efficiencies_cal": {
             "enabled": false,
             "category": "cal",
             "rank": 8,

@@ -1,5 +1,5 @@
 """
-    process_ct_correction(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_ct_correction_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Determine the charge-trapping correction for all processable HPGe detectors (`geds`) of the `cal` run.
@@ -23,7 +23,7 @@ For each energy type in `energy_types` of the `ctc` section of the energy config
 # Returns
 `nothing`.
 """
-function process_ct_correction(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_ct_correction_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "CT correction for period $period and run $run"
 
@@ -166,7 +166,7 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
     # get start time
     start_time = now()
 
-    result_ctc = parallel(det_ct_correction, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_ct_correction")
+    result_ctc = parallel(det_ct_correction, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_ct_correction_cal")
 
     @info "Finished CT correction"
 
@@ -194,4 +194,4 @@ function process_ct_correction(processing_config, l200::LegendData, period::Data
     flush(stdout)
 end
 
-register_processor!(process_ct_correction)
+register_processor!(process_ct_correction_cal)

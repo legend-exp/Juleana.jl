@@ -183,7 +183,7 @@ function render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Ta
     for y in box.y:Tachikoma.bottom(box), x in box.x:Tachikoma.right(box)
         Tachikoma.set_char!(buf, x, y, ' ', text)
     end
-    inner = Tachikoma.render(Tachikoma.Block(title = "Settings of $(editor.step) (this session)",
+    inner = Tachikoma.render(Tachikoma.Block(title = "Settings of $(display_name(editor.step)) $(proc.category) (this session)",
         border_style = Tachikoma.tstyle(:border_focus)), box, buf)
     for (i, (line, style)) in enumerate(lines)
         y = inner.y + i - 1

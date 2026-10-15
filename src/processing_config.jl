@@ -184,6 +184,63 @@ function _selection(::Type{T}, d::AbstractDict, k::Symbol) where {T}
     return T[T(x) for x in v]
 end
 
+"""
+    RENAMED_PROCESSORS::Dict{Symbol,Symbol}
+
+Former processor names mapped to their current names. A processing config that uses a
+former name as a key of `processors` or `p_processors`, or in a `dependencies` list,
+is read as if it used the current name.
+"""
+const RENAMED_PROCESSORS = Dict{Symbol,Symbol}(
+    :process_peak_split => :process_peak_split_cal,
+    :process_decay_time => :process_decay_time_cal,
+    :process_filter_optimization => :process_filter_optimization_cal,
+    :process_aoe_optimization => :process_aoe_optimization_cal,
+    :process_ct_correction => :process_ct_correction_cal,
+    :process_energy_calibration => :process_energy_calibration_cal,
+    :process_aoe_calibration_cut => :process_aoe_calibration_cut_cal,
+    :process_lq_calibration_cut => :process_lq_calibration_cut_cal,
+    :process_psd_efficiencies => :process_psd_efficiencies_cal,
+    :p_process_decay_time => :p_process_decay_time_cal,
+    :p_process_filter_optimization => :p_process_filter_optimization_cal,
+    :p_process_aoe_optimization => :p_process_aoe_optimization_cal,
+    :p_process_energy => :p_process_energy_cal,
+    :p_process_aoe_calibration_cut => :p_process_aoe_calibration_cut_cal,
+    :p_process_aoe_cut => :p_process_aoe_cut_cal,
+    :p_process_lq_calibration_cut => :p_process_lq_calibration_cut_cal,
+    :p_process_psd_efficiencies => :p_process_psd_efficiencies_cal,
+)
+
+# Replace former processor names in the keys and the `dependencies` of the processor
+# tables by the current names and warn once per former name found. Throws when a table
+# holds both names of one processor.
+function _current_names(tables::Tuple)
+    found = Set{Symbol}()
+    current(name) = begin
+        new = get(RENAMED_PROCESSORS, name, name)
+        new === name || push!(found, name)
+        new
+    end
+    renamed = map(tables) do table
+        out = Dict{Symbol,Any}()
+        for (name, entry) in table
+            new = current(name)
+            haskey(table, new) && new !== name &&
+                throw(ArgumentError("processing_config: the config has both `$name` and `$new`, which are the same processor; keep `$new`"))
+            if entry isa AbstractDict && get(entry, :dependencies, nothing) isa AbstractVector
+                deps = entry[:dependencies]
+                entry = merge(entry, Dict(:dependencies => [x isa AbstractString ? string(current(Symbol(x))) : x for x in deps]))
+            end
+            out[new] = entry
+        end
+        out
+    end
+    for name in sort!(collect(found))
+        @warn "processing_config: processor `$name` is now named `$(RENAMED_PROCESSORS[name])`; update the config"
+    end
+    return renamed
+end
+
 function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, reprocess::Bool)
     specs = Dict{Symbol,ProcessorSpec}()
     for (name, entry) in table
@@ -233,6 +290,11 @@ Processor names must be unique across both tables, every dependency must name a
 configured processor, and at least one processor must be enabled. String lists in
 `kwargs` become `Vector{Symbol}`.
 
+A key of `processors` or `p_processors`, or an entry of a `dependencies` list, that
+is a name from [`RENAMED_PROCESSORS`](@ref) is read as the current name and logs a
+warning naming both once per loaded config. A config that holds both the former and the
+current name of one processor throws an `ArgumentError`.
+
 Overrides:
 - `analysis_runs_only`, `only_partitions`, `only_runs`, `submit_jobs`: with
   `ignore_config = true` the given value is used (`nothing` means `false`); otherwise
@@ -255,7 +317,7 @@ julia> config = Dict(
                "env_variables" => Dict(), "log_level" => "info"),
            "processing" => Dict("periods" => [3], "runs" => "all", "analysis_runs_only" => false,
                "only_partitions" => false, "only_runs" => false),
-           "processors" => Dict("process_energy_calibration" => Dict("enabled" => true,
+           "processors" => Dict("process_energy_calibration_cal" => Dict("enabled" => true,
                "category" => "cal", "rank" => 1, "kwargs" => Dict(), "dependencies" => [])),
            "p_processors" => Dict());
 
@@ -320,8 +382,10 @@ function ProcessingConfig(
         _selection(DataPeriod, processing, :periods), _selection(DataRun, processing, :runs)
     end
 
-    processors = _processor_specs(_typed(d, :processors, AbstractDict, ""), :run, :processors, reprocess)
-    p_processors = _processor_specs(_typed(d, :p_processors, AbstractDict, ""), :partition, :p_processors, reprocess)
+    current_processors, current_p_processors = _current_names((
+        _typed(d, :processors, AbstractDict, ""), _typed(d, :p_processors, AbstractDict, "")))
+    processors = _processor_specs(current_processors, :run, :processors, reprocess)
+    p_processors = _processor_specs(current_p_processors, :partition, :p_processors, reprocess)
 
     return ProcessingConfig(
         sel_runmode, sel_submit_jobs, n,

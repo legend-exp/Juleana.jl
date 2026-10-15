@@ -47,7 +47,7 @@ end
     p2 = DataPeriod(2)
     args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
     cfg = ProcessingConfig(;
-        processors = Dict(:process_energy_calibration => spec(:process_energy_calibration, :run, 1)),
+        processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
         p_processors = Dict{Symbol,ProcessorSpec}())
     function new_session(parsed_args = args)
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
@@ -56,7 +56,7 @@ end
             run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
     end
     quick_step(cfg, l200, period, run; reprocess = false) = nothing
-    processors = Dict{Symbol,Any}(:process_energy_calibration => quick_step)
+    processors = Dict{Symbol,Any}(:process_energy_calibration_cal => quick_step)
 
     @testset "render before the first read" begin
         m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = new_session))
@@ -234,7 +234,7 @@ end
             sleep(0.5)
             (processed = true, log = TuiLog((fk, ProcessStatus(1), "")))
         end
-        ctrl = DataflowController(new_session(); processors = Dict{Symbol,Any}(:process_energy_calibration => slow_step))
+        ctrl = DataflowController(new_session(); processors = Dict{Symbol,Any}(:process_energy_calibration_cal => slow_step))
         dispatch!(ctrl, SelectRuns([6]))
         m = Juleana.JuleanaTUI(ctrl)
         dispatch!(ctrl, StartProcessing())

@@ -78,7 +78,7 @@ function sync_setup!(page::SetupPage, snap; pending::Bool = false)
             [ChecklistItem((p, r), string(r)) for r in snap.available_runs[p]];
             tags = [(n = length(snap.available_runs[p]); n == 1 ? "1 run" : "$n runs")], expanded = p in selected)
             for p in snap.available_periods]
-        items(level) = [ChecklistItem(p.name, string(p.name); tags = processor_tags(p))
+        items(level) = [ChecklistItem(p.name, display_name(p.name); tags = processor_tags(p))
             for p in snap.processors if p.level === level]
         focused = page.focus
         page.periods = Checklist(groups; title = "Periods / runs", focused = focused == 1)

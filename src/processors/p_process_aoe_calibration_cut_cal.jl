@@ -1,10 +1,10 @@
 """
-    p_process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
 Calibrate A/E and generate the A/E cuts for every detector and `cal` partition that contains `period`.
 
-This is the partition-level counterpart of [`process_aoe_calibration_cut`](@ref): the `cal` data of all runs in a
+This is the partition-level counterpart of [`process_aoe_calibration_cut_cal`](@ref): the `cal` data of all runs in a
 detector's partition are combined and the A/E normalization, Compton band fits, optional charge trapping correction
 and cut search run once per detector and partition. Detectors with `low_aoe_status` of `:valid` or `:present` are
 processed. In addition, the Compton-band A/E is plotted against time over the partition.
@@ -13,7 +13,7 @@ processed. In addition, the Compton-band A/E is plotted against time over the pa
 - `l200.par.rpars.ecal[period, run]` of every run in the partition: the calibration function of the energy type `e_type`.
 - `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition.
 - `dataprod_config(l200).psd(filekey).aoe` of the first run of the partition, `p_default` merged with `p[det]`, with
-  the same entries as described for `process_aoe_calibration_cut`.
+  the same entries as described for `process_aoe_calibration_cut_cal`.
 
 # Outputs
 - `l200.par.ppars.aoe[det, part]`: per A/E type (`func`, `ctc`, `correction`, `apply_ctc`, `use_combined_fit`) and per
@@ -37,7 +37,7 @@ processed. In addition, the Compton-band A/E is plotted against time over the pa
 `true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
 this to wait for the same step in the previous period.
 """
-function p_process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate AoE cut for all partitions containing period $period"
 
@@ -482,7 +482,7 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
     # get start time
     start_time = now()
 
-    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-p_process_aoe_calibration_cut")
+    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-p_process_aoe_calibration_cut_cal")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"
@@ -511,4 +511,4 @@ function p_process_aoe_calibration_cut(processing_config, l200::LegendData, peri
     return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
 
-register_processor!(p_process_aoe_calibration_cut)
+register_processor!(p_process_aoe_calibration_cut_cal)

@@ -48,9 +48,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
     cfg = ProcessingConfig(;
         processors = Dict(
-            :process_energy_calibration => spec(:process_energy_calibration, :run, 1),
+            :process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1),
             :process_dsp_cal => spec(:process_dsp_cal, :run, 2; enabled = false)),
-        p_processors = Dict(:p_process_aoe_cut => spec(:p_process_aoe_cut, :partition, 1;
+        p_processors = Dict(:p_process_aoe_cut_cal => spec(:p_process_aoe_cut_cal, :partition, 1;
             dependencies = [:process_dsp_cal])))
     function new_session()
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
@@ -61,8 +61,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     run_stub(cfg, l200, period, run; reprocess = false) = nothing
     part_stub(cfg, l200, period; reprocess = false, only_first_period = false) = false
     energy_stub(cfg, l200, period, run; reprocess = false, max_wvfs = 10, channels = Symbol[]) = nothing
-    processors = Dict{Symbol,Any}(:process_energy_calibration => energy_stub, :process_dsp_cal => run_stub,
-        :p_process_aoe_cut => part_stub)
+    processors = Dict{Symbol,Any}(:process_energy_calibration_cal => energy_stub, :process_dsp_cal => run_stub,
+        :p_process_aoe_cut_cal => part_stub)
     new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(session; processors))
 
     @testset "checklists follow the controller" begin
@@ -70,9 +70,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test setup_refreshed!(m)
         page = m.setup
         @test Juleana.checked(page.periods) == [(p2, r6), (p2, r7), (p3, r0)]
-        @test Juleana.checked(page.run_procs) == [:process_energy_calibration]
-        @test Juleana.checked(page.part_procs) == [:p_process_aoe_cut]
-        @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration, :process_dsp_cal]
+        @test Juleana.checked(page.run_procs) == [:process_energy_calibration_cal]
+        @test Juleana.checked(page.part_procs) == [:p_process_aoe_cut_cal]
+        @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration_cal, :process_dsp_cal]
         dsp = page.run_procs.groups[1].items[2]
         @test dsp.tags == ["cal", "rank 2"]
         @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 1", "deps: process_dsp_cal"]
@@ -114,7 +114,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test isempty(m.snap.run_steps)
         press!(m, 'c')
         @test setup_refreshed!(m)
-        @test m.snap.run_steps == [:process_energy_calibration, :process_dsp_cal]
+        @test m.snap.run_steps == [:process_energy_calibration_cal, :process_dsp_cal]
         press!(m, 'p')
         @test setup_refreshed!(m)
         @test isempty(m.snap.run_steps)
@@ -125,8 +125,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test isempty(m.snap.partition_steps) && isempty(m.snap.run_steps)
         press!(m, 'a', 'd')
         @test setup_refreshed!(m)
-        @test m.snap.partition_steps == [:p_process_aoe_cut]
-        @test m.snap.run_steps == [:process_energy_calibration, :process_dsp_cal]
+        @test m.snap.partition_steps == [:p_process_aoe_cut_cal]
+        @test m.snap.run_steps == [:process_energy_calibration_cal, :process_dsp_cal]
 
         # options pane
         press!(m, :tab)
@@ -232,9 +232,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, :tab)
         # `e` on a processor opens its editor; the editor takes every key
         press!(m, 'e')
-        @test m.setup.editor isa Juleana.KwargsEditor && m.setup.editor.step === :process_energy_calibration
+        @test m.setup.editor isa Juleana.KwargsEditor && m.setup.editor.step === :process_energy_calibration_cal
         text = join(row_text(render_setup_page(m), r) for r in 1:30)
-        @test occursin("Settings of process_energy_calibration", text)
+        @test occursin("Settings of energy_calibration cal", text)
         @test occursin("channels", text) && occursin("max_wvfs", text)
         press!(m, 'q', '2')
         @test !m.quit && m.page == 1
@@ -244,7 +244,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test m.setup.editor.text == ""
         press!(m, '5', 'x', :backspace, :enter)
         @test setup_refreshed!(m)
-        energy = only(filter(p -> p.name === :process_energy_calibration, m.snap.processors))
+        energy = only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors))
         @test energy.kwargs[:max_wvfs] == 5 && energy.overridden == [:max_wvfs]
         @test occursin("* max_wvfs = 5   (config: not set)", join(row_text(render_setup_page(m), r) for r in 1:30))
 
@@ -262,16 +262,16 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test startswith(m.setup.editor.error, "expected a Julia literal")
         press!(m, :escape, :enter, '[', ':', 'V', '1', ',', ':', 'V', '2', ']', :enter)
         @test setup_refreshed!(m)
-        energy = only(filter(p -> p.name === :process_energy_calibration, m.snap.processors))
+        energy = only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors))
         @test energy.kwargs[:channels] == [:V1, :V2]
 
         press!(m, 'u')
         @test setup_refreshed!(m)
-        energy = only(filter(p -> p.name === :process_energy_calibration, m.snap.processors))
+        energy = only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors))
         @test energy.overridden == [:max_wvfs]
         press!(m, 'U')
         @test setup_refreshed!(m)
-        @test isempty(only(filter(p -> p.name === :process_energy_calibration, m.snap.processors)).overridden)
+        @test isempty(only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors)).overridden)
         press!(m, :escape)
         @test isnothing(m.setup.editor)
         @test isnothing(m.command_error)
@@ -297,7 +297,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test setup_refreshed!(m)
         @test isnothing(m.command_error)
         @test isfile(config_file * ".bak")
-        @test ProcessingConfig(config_file).processors[:process_energy_calibration].kwargs[:max_wvfs] == 7
+        @test ProcessingConfig(config_file).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 7
     end
 
     @testset "mouse" begin

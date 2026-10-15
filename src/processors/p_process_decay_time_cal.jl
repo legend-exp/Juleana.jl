@@ -1,5 +1,5 @@
 """
-    p_process_decay_time(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true) -> Bool
 
 Determine the preamplifier decay time of the HPGe detectors (`geds`) for every `cal` partition that contains `period`.
@@ -32,7 +32,7 @@ outside 350 to 700 µs. An entry fails if loading, QC, DSP or the fit throws an 
 # Returns
 `true` if at least one detector was skipped because of `only_first_period`, `false` otherwise. `run_processing` then waits for this step in the previous period.
 """
-function p_process_decay_time(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     @info "Process decay time for all partitions containing period $period"
 
     rinfo = runinfo(l200, period) |> filterby(@pf $cal.is_analysis_run)
@@ -193,7 +193,7 @@ function p_process_decay_time(processing_config, l200::LegendData, period::DataP
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(det_decay_time, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_decay_time")
+    result_pz = parallel(det_decay_time, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_decay_time_cal")
 
     @info "Finished decay time extraction"
 
@@ -224,4 +224,4 @@ function p_process_decay_time(processing_config, l200::LegendData, period::DataP
     return any(x -> get(last(x), :skipped, false), values(result_pz))
 end
 
-register_processor!(p_process_decay_time)
+register_processor!(p_process_decay_time_cal)

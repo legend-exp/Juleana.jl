@@ -1,5 +1,5 @@
 """
-    process_peak_split(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_peak_split_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Extract the events in the Th-228 peaks from the raw `cal` data of the HPGe detectors (`geds`) of a run.
@@ -29,7 +29,7 @@ throws an error if no file is found.
 # Returns
 Return `nothing`.
 """
-function process_peak_split(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_peak_split_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Process peak splitting for period $period and run $run"
 
@@ -114,7 +114,7 @@ function process_peak_split(processing_config, l200::LegendData, period::DataPer
             return (result = is_ok, timer = fk_timer, log = log_fk, processed = true)
         end
 
-        result_fkcheck = Dict(parallel(check_filekey, filekeys, log_fkcheck; timeout=timeout, retry=false, process_name="$period-$run-process_peak_split"))
+        result_fkcheck = Dict(parallel(check_filekey, filekeys, log_fkcheck; timeout=timeout, retry=false, process_name="$period-$run-process_peak_split_cal"))
 
         if !all(v -> hasproperty(v, :result), values(result_fkcheck))
             error("Some filekeys failed during checking due to unknown reason.")
@@ -223,7 +223,7 @@ function process_peak_split(processing_config, l200::LegendData, period::DataPer
     end
 
     # execute in parallel
-    result_peaksplit = parallel(split_peak_det, chinfo, log_peaksplit; timeout=timeout, retry=false, process_name="$period-$run-process_peak_split")
+    result_peaksplit = parallel(split_peak_det, chinfo, log_peaksplit; timeout=timeout, retry=false, process_name="$period-$run-process_peak_split_cal")
 
     @info "Finished peak splitting"
 
@@ -251,4 +251,4 @@ function process_peak_split(processing_config, l200::LegendData, period::DataPer
     flush(stdout)
 end # function
 
-register_processor!(process_peak_split)
+register_processor!(process_peak_split_cal)

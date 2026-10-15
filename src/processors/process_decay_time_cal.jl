@@ -1,5 +1,5 @@
 """
-    process_decay_time(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Determine the preamplifier decay time of the HPGe detectors (`geds`) from the `cal` data of a run.
@@ -31,7 +31,7 @@ loading, QC, DSP or the fit throws an error.
 # Returns
 Return `nothing`.
 """
-function process_decay_time(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
         
     @info "Process decay time for period $period and run $run"
 
@@ -168,7 +168,7 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(det_decay_time, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_decay_time")
+    result_pz = parallel(det_decay_time, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_decay_time_cal")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
@@ -195,4 +195,4 @@ function process_decay_time(processing_config, l200::LegendData, period::DataPer
     flush(stdout)
 end
 
-register_processor!(process_decay_time)
+register_processor!(process_decay_time_cal)

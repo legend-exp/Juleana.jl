@@ -1,10 +1,10 @@
 """
-    p_process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
 Calibrate LQ and generate the LQ cut for every detector and `cal` partition that contains `period`.
 
-This is the partition-level counterpart of [`process_lq_calibration_cut`](@ref): the `cal` data of all runs in a
+This is the partition-level counterpart of [`process_lq_calibration_cut_cal`](@ref): the `cal` data of all runs in a
 detector's partition are combined, and the drift time correction, normalization, cut and survival fractions are
 computed once per detector and partition. Detectors with `lq_status` of `:valid` or `:present` are processed.
 
@@ -13,7 +13,7 @@ computed once per detector and partition. Detectors with `lq_status` of `:valid`
 - `l200.par.ppars.ecal[det, part]`: the DEP resolution from the `e_cusp_ctc` fit of the `Tl208DEP` peak.
 - `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition.
 - `dataprod_config(l200).psd(filekey).lq` of the first run of the partition, `p_default` merged with `p[det]`, with
-  the same entries as described for `process_lq_calibration_cut`.
+  the same entries as described for `process_lq_calibration_cut_cal`.
 
 # Outputs
 - `l200.par.ppars.lq[det, part]`: per LQ type the drift time correction and normalization results, and per classifier
@@ -35,7 +35,7 @@ computed once per detector and partition. Detectors with `lq_status` of `:valid`
 `true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
 this to wait for the same step in the previous period.
 """
-function p_process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate lq cut for all partitions containing period $period"
 
@@ -381,7 +381,7 @@ function p_process_lq_calibration_cut(processing_config, l200::LegendData, perio
     # get start time
     start_time = now()
 
-    result_lq = parallel(det_lq_cut, chinfo_unfolded, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-p_process_lq_calibration_cut")
+    result_lq = parallel(det_lq_cut, chinfo_unfolded, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-p_process_lq_calibration_cut_cal")
     @info "Finished lq cut generation"
 
     @info "Write $period validity"
@@ -410,4 +410,4 @@ function p_process_lq_calibration_cut(processing_config, l200::LegendData, perio
     return any(x -> get(last(x), :skipped, false), values(result_lq))
 end
 
-register_processor!(p_process_lq_calibration_cut)
+register_processor!(p_process_lq_calibration_cut_cal)

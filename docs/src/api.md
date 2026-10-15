@@ -123,6 +123,8 @@ partition_steps
 check_processor_kwargs
 Juleana.PROCESSORS
 Juleana.register_processor!
+Juleana.display_name
+Juleana.RENAMED_PROCESSORS
 ```
 
 ## Helpers for processors

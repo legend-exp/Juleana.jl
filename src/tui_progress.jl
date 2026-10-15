@@ -249,6 +249,9 @@ function put_spans!(buf, x, y, x_max, spans, background = nothing)
     return nothing
 end
 
+# `step_label` with the display name of the processor.
+step_display_label(e) = step_label((; e.period, e.run, step = display_name(Symbol(e.step))))
+
 group_label(g) = isnothing(g.run) ? "$(g.period) partitions" : "$(g.period)-$(g.run)"
 
 function group_spans(g, label_width, expanded)
@@ -269,7 +272,7 @@ end
 function step_spans(e, name_width)
     color = STATE_COLORS[e.state]
     spans = [("  ", Tachikoma.tstyle(:text)), (STATE_ICONS[e.state] * " ", Tachikoma.tstyle(color)),
-        (rpad(clip_text(string(e.step), name_width), name_width) * " ", Tachikoma.tstyle(:text_bright))]
+        (rpad(clip_text(display_name(Symbol(e.step)), name_width), name_width) * " ", Tachikoma.tstyle(:text_bright))]
     if e.total == 0
         push!(spans, (rpad(string(e.state), STEP_BAR_WIDTH), Tachikoma.tstyle(color)))
     else
@@ -348,7 +351,7 @@ function render_steps(page::ProgressPage, prog, area, buf)
     idx > page.top + height - 1 && (page.top = idx - height + 1)
 
     label_width = clamp(maximum(textwidth(group_label(r.entry)) for r in rows if !r.step), 1, max(1, inner.width ÷ 3))
-    name_width = clamp(maximum(textwidth(string(e.step)) for e in prog.steps), 1, max(1, min(28, inner.width - STEP_BAR_WIDTH - 12)))
+    name_width = clamp(maximum(textwidth(display_name(Symbol(e.step))) for e in prog.steps), 1, max(1, min(28, inner.width - STEP_BAR_WIDTH - 12)))
     highlight = Tachikoma.tstyle(:border)
     x_max = Tachikoma.right(inner)
     for r in 0:(height - 1)
@@ -374,7 +377,7 @@ function render_busy(busy, area, buf)
         Tachikoma.set_string!(buf, inner.x, inner.y, "none", Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(inner))
         return nothing
     end
-    labels = [step_label(b) for b in busy]
+    labels = [step_display_label(b) for b in busy]
     label_width = min(maximum(textwidth, labels), max(1, inner.width ÷ 3))
     t = now(UTC)
     for (r, (b, label)) in enumerate(zip(busy, labels))
@@ -402,7 +405,7 @@ function render_pane(page::ProgressPage, prog, msgs, area, buf)
     (area.width < 3 || area.height < 3) && return nothing
     messages = msgs.key == key ? msgs.messages : nothing
     count = isnothing(messages) ? "" : ": $(length(messages)) " * (length(messages) == 1 ? "message" : "messages")
-    label = step_label((; period = key[1], run = key[2], step = key[3]))
+    label = step_display_label((; period = key[1], run = key[2], step = key[3]))
     inner = Tachikoma.render(pane_block(clip_text(label * count, max(0, area.width - 6)), false), area, buf)
     index = isnothing(prog) ? nothing : findfirst(e -> (e.period, e.run, e.step) == key, prog.steps)
     entry = isnothing(index) ? nothing : prog.steps[index]

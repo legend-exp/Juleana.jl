@@ -1,5 +1,5 @@
 """
-    p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_aoe_cut_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
 Generate the A/E cuts from the combined `cal` data of every detector and partition that contains `period`.
@@ -40,7 +40,7 @@ with `low_aoe_status` of `:valid` or `:present` are processed.
 `true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
 this to wait for the same step in the previous period.
 """
-function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Generate AoE cut for all partitions containing period $period"
 
@@ -273,7 +273,7 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     # get start time
     start_time = now()
 
-    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_aoe_cut")
+    result_aoe = parallel(det_aoe_cut, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_aoe_cut_cal")
     @info "Finished AoE cut generation"
 
     @info "Write $period validity"
@@ -301,4 +301,4 @@ function p_process_aoe_cut(processing_config, l200::LegendData, period::DataPeri
     return any(x -> get(last(x), :skipped, false), values(result_aoe))
 end
 
-register_processor!(p_process_aoe_cut)
+register_processor!(p_process_aoe_cut_cal)

@@ -232,7 +232,7 @@ Draw the Graph page into `area` of `buf` from the controller snapshot `snap` and
 progress `prog` (as returned by [`progress`](@ref), or `nothing`).
 
 Run-level processors are in the left lane and partition-level processors in the right
-lane, one row per processor in topological order. A processor shows `[x]` if it is a
+lane, one row per processor in topological order, labeled with its [`display_name`](@ref) and category. A processor shows `[x]` if it is a
 selected step, else `[ ]`, and the icon of its state in the last run: running, failed,
 done, or stopped. Unselected processors are dim, and are left out while `page.show_unselected`
 is `false`. Each declared dependency is an edge from the required processor down to
@@ -285,8 +285,9 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
     selected = Set(vcat(snap.run_steps, snap.partition_steps))
     states = processor_states(prog)
 
-    nl = maximum((textwidth(string(r)) for r in rows if lane_left(r)); init = 0)
-    nr = maximum((textwidth(string(r)) for r in rows if !lane_left(r)); init = 0)
+    label = Dict(r => "$(display_name(r)) $(spec[r].category)" for r in rows)
+    nl = maximum((textwidth(label[r]) for r in rows if lane_left(r)); init = 0)
+    nr = maximum((textwidth(label[r]) for r in rows if !lane_left(r)); init = 0)
     edges = graph_edges(g, rows)
     track, ntracks = assign_tracks(edges)
     cols = graph_columns(nl, nr, ntracks)
@@ -354,7 +355,7 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
         name_style = isnothing(highlighted) ? Tachikoma.tstyle(checked ? :text : :text_dim) :
             Tachikoma.tstyle(highlighted; bold = name == cursor, dim = !checked && name != cursor)
         put_cells!(chars, styles, r, x, "●", name_style)
-        put_cells!(chars, styles, r, x + 2, rpad(clip_text(string(name), left ? nl : nr), left ? nl : nr), name_style)
+        put_cells!(chars, styles, r, x + 2, rpad(clip_text(label[name], left ? nl : nr), left ? nl : nr), name_style)
         label_x = x + 2 + (left ? nl : nr)
         put_cells!(chars, styles, r, label_x, checked ? " [x]" : " [ ]", Tachikoma.tstyle(checked ? :text : :text_dim))
         state = get(states, name, nothing)
@@ -376,7 +377,7 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Ta
     end
     if info_line
         p = spec[cursor]
-        spans = Tuple{String,Tachikoma.Style}[("$cursor: requires $(length(required)), required by $(length(dependents))", dim)]
+        spans = Tuple{String,Tachikoma.Style}[("$(display_name(cursor)): requires $(length(required)), required by $(length(dependents))", dim)]
         for tag in processor_tags(p)
             push!(spans, ("  ", dim), (tag, something(setup_tag_style(tag), dim)))
         end

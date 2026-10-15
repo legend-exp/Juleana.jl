@@ -1,5 +1,5 @@
 """
-    process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_filter_optimization_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Optimize the energy filter rise time and flat-top time for all processable HPGe detectors (`geds`) of the `cal` run.
@@ -25,7 +25,7 @@ For each filter type listed under `e_filter` in the optimization config, the ris
 # Returns
 `nothing`.
 """
-function process_filter_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_filter_optimization_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
     
     @info "Optimize filter for period $period and run $run"
 
@@ -246,7 +246,7 @@ function process_filter_optimization(processing_config, l200::LegendData, period
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(det_filter_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_filter_optimization")
+    result_flt = parallel(det_filter_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_filter_optimization_cal")
 
     @info "Finished filter optimization"
 
@@ -274,4 +274,4 @@ function process_filter_optimization(processing_config, l200::LegendData, period
     flush(stdout)
 end
 
-register_processor!(process_filter_optimization)
+register_processor!(process_filter_optimization_cal)

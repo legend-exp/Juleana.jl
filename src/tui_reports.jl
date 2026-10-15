@@ -129,13 +129,13 @@ function run_groups(rows)
     return Any[
         let rs = [r for r in rows if (report_name(r.process), r.level, string(r.category)) == key]
             reports = [(; period = string(r.period), run = isnothing(r.run) ? nothing : string(r.run), r.path, r.state, r.date) for r in rs]
-            (; key, name = key[1], level = key[2], category = key[3], reports, counts = report_counts(reports), rows = rs)
+            (; key, name = display_name(first(rs).process), level = key[2], category = key[3], reports, counts = report_counts(reports), rows = rs)
         end for key in keys]
 end
 
 # Groups of the entries of `report_overview`; their failures are read on demand.
 overview_groups(overview) = Any[
-    (; key = (o.name, o.level, string(o.category)), o.name, o.level, category = string(o.category), o.reports,
+    (; key = (o.name, o.level, string(o.category)), name = display_name(Symbol(o.name)), o.level, category = string(o.category), o.reports,
         counts = report_counts(o.reports), rows = nothing) for o in overview]
 
 # Displayed rows: a group row followed by the rows of its reports if it is unfolded.

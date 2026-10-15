@@ -1,5 +1,5 @@
 """
-    process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_psd_efficiencies_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0, use_partition_pars::Bool=true)
 
 Compute the survival fractions of the combined A/E and LQ cuts for the HPGe detectors (`geds`) of one `cal` run.
@@ -37,7 +37,7 @@ the low and high A/E cuts (`ds`), the low A/E cut and the LQ cut (`low_lq`), and
 # Returns
 The return value is not used by `run_processing`.
 """
-function process_psd_efficiencies(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, use_partition_pars::Bool=true)
+function process_psd_efficiencies_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, use_partition_pars::Bool=true)
 
     @info "Generate PSD efficiencies for period $period and run $run"
 
@@ -283,7 +283,7 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
     start_time = now()
 
     # execute in parallel
-    result_psd = parallel(det_psd_sf, chinfo, log_nt_cut; timeout=timeout, retry=false, process_name="$period-$run-process_psd_efficiencies")
+    result_psd = parallel(det_psd_sf, chinfo, log_nt_cut; timeout=timeout, retry=false, process_name="$period-$run-process_psd_efficiencies_cal")
 
     @info "Finished PSD efficiencies"
 
@@ -311,4 +311,4 @@ function process_psd_efficiencies(processing_config, l200::LegendData, period::D
     flush(stdout)
 end
 
-register_processor!(process_psd_efficiencies)
+register_processor!(process_psd_efficiencies_cal)

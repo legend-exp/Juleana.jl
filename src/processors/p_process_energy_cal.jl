@@ -1,5 +1,5 @@
 """
-    p_process_energy(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_energy_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
 
 Calibrate the energy per detector and `cal` partition for all partitions that contain `period` (HPGe detectors `geds`).
@@ -25,7 +25,7 @@ For each energy type in `energy_types` of the partition energy config, the energ
 # Returns
 `true` if at least one detector and partition was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses this to wait for the same step in the previous period.
 """
-function p_process_energy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_energy_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
     
     @info "Energy calibration for for all partitions containing period $period"
 
@@ -262,7 +262,7 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     # get start time
     start_time = now()
 
-    result_energy = parallel(det_energy_calibration, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_energy")
+    result_energy = parallel(det_energy_calibration, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_energy_cal")
 
     @info "Finished partition calibration"
 
@@ -291,4 +291,4 @@ function p_process_energy(processing_config, l200::LegendData, period::DataPerio
     return any(x -> get(last(x), :skipped, false), values(result_energy))
 end
 
-register_processor!(p_process_energy)
+register_processor!(p_process_energy_cal)

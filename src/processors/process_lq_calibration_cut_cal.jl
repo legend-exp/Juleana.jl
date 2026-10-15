@@ -1,5 +1,5 @@
 """
-    process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_lq_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Calibrate LQ and generate the LQ cut for the HPGe detectors (`geds`) of one `cal` run.
@@ -42,7 +42,7 @@ computed for the configured peaks and the Qbb window with that cut.
 # Returns
 The return value is not used by `run_processing`.
 """
-function process_lq_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_lq_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Calibrate LQ for period $period and run $run"
 
@@ -357,7 +357,7 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
     start_time = now()
 
     # execute in parallel
-    result_lq = parallel(det_lq_cut, chinfo, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-$run-process_lq_calibration_cut")
+    result_lq = parallel(det_lq_cut, chinfo, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-$run-process_lq_calibration_cut_cal")
 
     @info "Finished LQ Cut calculation"
 
@@ -385,4 +385,4 @@ function process_lq_calibration_cut(processing_config, l200::LegendData, period:
     flush(stdout)
 end
 
-register_processor!(process_lq_calibration_cut)
+register_processor!(process_lq_calibration_cut_cal)

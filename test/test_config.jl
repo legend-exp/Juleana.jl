@@ -81,43 +81,43 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
 
     cfg = ProcessingConfig(;
         processors = Dict(
-            :process_energy_calibration => spec(:process_energy_calibration, :run, 1),
+            :process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1),
             :process_dsp_cal => spec(:process_dsp_cal, :run, 2; enabled = false)),
-        p_processors = Dict(:p_process_aoe_cut => spec(:p_process_aoe_cut, :partition, 1)))
+        p_processors = Dict(:p_process_aoe_cut_cal => spec(:p_process_aoe_cut_cal, :partition, 1)))
 
     @testset "setup_dependency_graph" begin
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
-            l200, cfg, [p2, p3, p13], nothing, [:process_energy_calibration], Symbol[])
+            l200, cfg, [p2, p3, p13], nothing, [:process_energy_calibration_cal], Symbol[])
         @test periods == [p2, p3]
-        @test sort(collect(keys(run_status[p2][:process_energy_calibration]))) == DataRun.([6, 7])
+        @test sort(collect(keys(run_status[p2][:process_energy_calibration_cal]))) == DataRun.([6, 7])
         # only the selected steps start as unfinished
-        @test !any(values(run_status[p2][:process_energy_calibration]))
+        @test !any(values(run_status[p2][:process_energy_calibration_cal]))
         @test all(values(run_status[p2][:process_dsp_cal]))
-        @test partition_status[p3][:p_process_aoe_cut]
+        @test partition_status[p3][:p_process_aoe_cut_cal]
 
         periods, run_status, _ = @test_logs (:warn, "Run r007 not found in period p03") Juleana.setup_dependency_graph(
-            l200, cfg, [p2, p3], [DataRun(7)], Symbol[], [:p_process_aoe_cut])
+            l200, cfg, [p2, p3], [DataRun(7)], Symbol[], [:p_process_aoe_cut_cal])
         @test periods == [p2]
-        @test collect(keys(run_status[p2][:process_energy_calibration])) == [DataRun(7)]
+        @test collect(keys(run_status[p2][:process_energy_calibration_cal])) == [DataRun(7)]
     end
 
     @testset "DataflowSession" begin
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
             l200, cfg, [p2], nothing, Symbol[], Symbol[])
         session = DataflowSession(; args = Dict{String,Any}(), l200, config = cfg, periods,
-            run_steps = [:process_energy_calibration], partition_steps = [:p_process_aoe_cut],
+            run_steps = [:process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
             run_status, partition_status)
         @test isnothing(session.runs)
 
         # resetting marks the session's scheduled steps as unfinished
-        @test all(values(session.run_status[p2][:process_energy_calibration]))
+        @test all(values(session.run_status[p2][:process_energy_calibration_cal]))
         @test Juleana.reset_dependency_graph!(session) === session
-        @test !any(values(session.run_status[p2][:process_energy_calibration]))
-        @test !session.partition_status[p2][:p_process_aoe_cut]
+        @test !any(values(session.run_status[p2][:process_energy_calibration_cal]))
+        @test !session.partition_status[p2][:p_process_aoe_cut_cal]
 
         session.runs = [DataRun(6)]
         Juleana.reset_dependency_graph!(session)
-        @test collect(keys(session.run_status[p2][:process_energy_calibration])) == [DataRun(6)]
+        @test collect(keys(session.run_status[p2][:process_energy_calibration_cal])) == [DataRun(6)]
 
         shown = sprint(show, session)
         @test occursin("1 period(s)", shown)
@@ -133,10 +133,10 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         partition_stub(cfg, l200, period; kwargs...) = (lock(() -> push!(calls, (:partition, period, nothing)), calls_lock); false)
         Juleana.reset_dependency_graph!(session)
         run_processing(session; processors = Dict{Symbol,Any}(
-            :process_energy_calibration => run_stub, :p_process_aoe_cut => partition_stub), dependency_timeout = 60)
+            :process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal => partition_stub), dependency_timeout = 60)
         @test sort(calls; by = string) == sort([(:run, p2, DataRun(6)), (:run, p2, DataRun(7)), (:partition, p2, nothing)]; by = string)
-        @test all(values(session.run_status[p2][:process_energy_calibration]))
-        @test session.partition_status[p2][:p_process_aoe_cut]
+        @test all(values(session.run_status[p2][:process_energy_calibration_cal]))
+        @test session.partition_status[p2][:p_process_aoe_cut_cal]
     end
 
     @testset "check_reports" begin
@@ -150,17 +150,17 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
             run_steps = Symbol[], partition_steps = Symbol[],
             run_status = Juleana.RunStatus(), partition_status = Juleana.PartitionStatus())
         output = mktemp() do path, io
-            redirect_stdout(() -> Juleana.check_reports(session, [:process_energy_calibration], [:p_process_aoe_cut]), io)
+            redirect_stdout(() -> Juleana.check_reports(session, [:process_energy_calibration_cal], [:p_process_aoe_cut_cal]), io)
             close(io)
             read(path, String)
         end
         @test occursin(r"p02-r006\s+1 of 2 entries failed: V02 \(trap\)", output)
         @test occursin(r"p02-r007\s+no report", output)
-        @test occursin(r"Summary process_energy_calibration: 1 detector\(s\) with failures", output)
+        @test occursin(r"Summary process_energy_calibration_cal: 1 detector\(s\) with failures", output)
         @test occursin(r"V02\s+1 run\(s\): p02-r006", output)
         @test occursin("fit failed", output)
         @test occursin(r"p02\s+OK \(1 entries\)", output)
-        @test occursin("All detectors passed in all checked reports of p_process_aoe_cut", output)
+        @test occursin("All detectors passed in all checked reports of p_process_aoe_cut_cal", output)
     end
 
     @testset "load_qc_evaluator" begin

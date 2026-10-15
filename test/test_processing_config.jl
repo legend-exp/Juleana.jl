@@ -35,10 +35,10 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test json.log_path == ""
         spec = json.processors[:process_dsp_cal]
         @test spec.level === :run && spec.category === :cal && spec.rank == 5 && !spec.enabled
-        @test spec.dependencies == [:p_process_aoe_optimization, :p_process_filter_optimization, :p_process_decay_time]
+        @test spec.dependencies == [:p_process_aoe_optimization_cal, :p_process_filter_optimization_cal, :p_process_decay_time_cal]
         @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true)
-        @test json.p_processors[:p_process_energy].level === :partition
-        @test json.p_processors[:p_process_energy].category === :cal
+        @test json.p_processors[:p_process_energy_cal].level === :partition
+        @test json.p_processors[:p_process_energy_cal].category === :cal
         @test json.p_processors[:p_process_skm_phy].category === :phy
 
         @test yaml.runmode === :slurm
@@ -57,12 +57,12 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test isempty(run_steps(json)) && isempty(partition_steps(json))
         d = deepcopy(base)
         foreach(((section, name),) -> d[section][name]["enabled"] = true,
-            [("processors", "process_evt_phy"), ("processors", "process_psd_efficiencies"), ("p_processors", "p_process_skm_phy")])
+            [("processors", "process_evt_phy"), ("processors", "process_psd_efficiencies_cal"), ("p_processors", "p_process_skm_phy")])
         some = ProcessingConfig(d)
-        @test run_steps(some) == [:process_psd_efficiencies, :process_evt_phy]
+        @test run_steps(some) == [:process_psd_efficiencies_cal, :process_evt_phy]
         @test partition_steps(some) == [:p_process_skm_phy]
         all_steps = run_steps(json; enabled_only = false)
-        @test length(all_steps) == 15 && first(all_steps) === :process_peak_split
+        @test length(all_steps) == 15 && first(all_steps) === :process_peak_split_cal
         @test issorted(all_steps; by = s -> json.processors[s].rank)
         @test length(partition_steps(json; enabled_only = false)) == 11
     end
@@ -106,7 +106,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "unknown key `processors.process_dsp_cal.n_workers`" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["n_workers"] = "all"))
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))
         @test_throws "unknown key `extra`" ProcessingConfig(edited(d -> d["extra"] = 1))
-        @test_throws "`p_processors.p_process_energy.category` must be \"cal\" or \"phy\"" ProcessingConfig(edited(d -> d["p_processors"]["p_process_energy"]["category"] = "physics"))
+        @test_throws "`p_processors.p_process_energy_cal.category` must be \"cal\" or \"phy\"" ProcessingConfig(edited(d -> d["p_processors"]["p_process_energy_cal"]["category"] = "physics"))
         @test_throws "`processors.process_dsp_cal.enabled` must be a Bool" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["enabled"] = "yes"))
         @test_throws "`processors.process_dsp_cal.rank` must be a $Int" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["rank"] = 5.5))
         @test_throws "`config.runmode_settings.local.n` must be positive" ProcessingConfig(edited(d -> d["config"]["runmode_settings"]["local"]["n"] = 0))
@@ -202,5 +202,44 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test isnothing(check_processor_kwargs(ProcessingConfig(dsp)))
         dsp["processors"]["process_dsp_cal"]["kwargs"]["use_partition_filter"] = true
         @test_throws "`process_dsp_cal` does not accept keyword(s) use_partition_filter" check_processor_kwargs(ProcessingConfig(dsp))
+    end
+
+    @testset "display_name" begin
+        @test Juleana.display_name(:process_decay_time_cal) == "decay_time"
+        @test Juleana.display_name(:p_process_sipm_calibration_phy) == "sipm_calibration"
+        @test Juleana.display_name(:process_dsp_aux_phy) == "dsp_aux"
+        @test Juleana.display_name(:dsp_cal) == "dsp"
+        for name in keys(Juleana.PROCESSORS)
+            display = Juleana.display_name(name)
+            @test !startswith(display, "process_") && !startswith(display, "p_process_")
+            @test !endswith(display, "_cal") && !endswith(display, "_phy")
+            @test occursin(display, string(name))
+        end
+        # a display name is unique among the processors of one level and category
+        for level in (:run, :partition), category in (:cal, :phy)
+            specs = [s for s in vcat(collect(values(json.processors)), collect(values(json.p_processors)))
+                     if s.level === level && s.category === category]
+            names = Juleana.display_name.(getfield.(specs, :name))
+            @test allunique(names)
+        end
+    end
+
+    @testset "former processor names" begin
+        d = deepcopy(base)
+        d["processors"]["process_decay_time"] = pop!(d["processors"], "process_decay_time_cal")
+        d["p_processors"]["p_process_energy"] = pop!(d["p_processors"], "p_process_energy_cal")
+        d["processors"]["process_dsp_cal"]["dependencies"] = ["p_process_aoe_optimization_cal", "p_process_filter_optimization", "p_process_decay_time"]
+        cfg = @test_logs (:warn, r"`p_process_decay_time` is now named `p_process_decay_time_cal`") (:warn, r"`p_process_energy` is now named `p_process_energy_cal`") (:warn, r"`p_process_filter_optimization` is now named `p_process_filter_optimization_cal`") (:warn, r"`process_decay_time` is now named `process_decay_time_cal`") ProcessingConfig(d)
+        @test haskey(cfg.processors, :process_decay_time_cal) && !haskey(cfg.processors, :process_decay_time)
+        @test haskey(cfg.p_processors, :p_process_energy_cal)
+        @test cfg.processors[:process_dsp_cal].dependencies == [:p_process_aoe_optimization_cal, :p_process_filter_optimization_cal, :p_process_decay_time_cal]
+        @test cfg.processors[:process_decay_time_cal].name === :process_decay_time_cal
+
+        both = deepcopy(base)
+        both["processors"]["process_decay_time"] = deepcopy(both["processors"]["process_decay_time_cal"])
+        @test_throws "has both `process_decay_time` and `process_decay_time_cal`" ProcessingConfig(both)
+
+        @test_logs ProcessingConfig(base)
+        @test all(((old, new),) -> haskey(Juleana.PROCESSORS, new) && !haskey(Juleana.PROCESSORS, old), Juleana.RENAMED_PROCESSORS)
     end
 end

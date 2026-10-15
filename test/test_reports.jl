@@ -74,11 +74,11 @@ end
 
 @testset "reports" begin
     jlrep = mktempdir()
-    ok = write_report(jlrep, :process_energy_calibration, :run, "p03", "r001", :cal, OK_REPORT)
-    warn = write_report(jlrep, :process_energy_calibration, :run, "p03", "r002", :cal, WARNING_REPORT)
-    failed = write_report(jlrep, :process_energy_calibration, :run, "p03", "r004", :cal, FAILED_FIT_REPORT)
+    ok = write_report(jlrep, :process_energy_calibration_cal, :run, "p03", "r001", :cal, OK_REPORT)
+    warn = write_report(jlrep, :process_energy_calibration_cal, :run, "p03", "r002", :cal, WARNING_REPORT)
+    failed = write_report(jlrep, :process_energy_calibration_cal, :run, "p03", "r004", :cal, FAILED_FIT_REPORT)
     dsp = write_report(jlrep, :process_dsp_cal, :run, "p03", "r001", :cal, FAILED_DSP_REPORT)
-    part = write_report(jlrep, :p_process_aoe_cut, :partition, "p03", nothing, :cal, PARTITION_FAILED_REPORT)
+    part = write_report(jlrep, :p_process_aoe_cut_cal, :partition, "p03", nothing, :cal, PARTITION_FAILED_REPORT)
     # not a report of the naming scheme
     stray = joinpath(dirname(ok), "notes.md")
     write(stray, "# notes\n")
@@ -88,9 +88,9 @@ end
     before = tree(jlrep)
 
     @testset "report_path" begin
-        @test Juleana.report_path("/j", :process_energy_calibration, :run, "p03", "r001", :cal) ==
+        @test Juleana.report_path("/j", :process_energy_calibration_cal, :run, "p03", "r001", :cal) ==
               "/j/rreport/cal/p03/r001/l200-p03-r001-cal-energy_calibration.md"
-        @test Juleana.report_path("/j", :p_process_aoe_cut, :partition, "p03", nothing, :phy; setup = "l201") ==
+        @test Juleana.report_path("/j", :p_process_aoe_cut_cal, :partition, "p03", nothing, :phy; setup = "l201") ==
               "/j/preport/p03/phy/l201-p03-phy-aoe_cut.md"
         @test_throws "report level must be :run or :partition" Juleana.report_path("/j", :process_x, :event, "p03", "r001", :cal)
         @test !ispath("/j")
@@ -139,15 +139,15 @@ end
         @test_throws "unknown processor status \"Unknown\"" Juleana.read_report(bad)
     end
 
-    specs = [(; name = :process_energy_calibration, level = :run, category = :cal),
+    specs = [(; name = :process_energy_calibration_cal, level = :run, category = :cal),
         (; name = :process_dsp_cal, level = :run, category = :cal),
-        (; name = :p_process_aoe_cut, level = :partition, category = :cal)]
+        (; name = :p_process_aoe_cut_cal, level = :partition, category = :cal)]
     period_runs = ["p03" => ["r001", "r002", "r003", "r004"], "p04" => ["r001"]]
 
     @testset "report_index" begin
         rows = Juleana.report_index(jlrep, specs, period_runs)
         @test length(rows) == 4 * 2 + 2 + 2
-        energy = filter(r -> r.process == :process_energy_calibration, rows)
+        energy = filter(r -> r.process == :process_energy_calibration_cal, rows)
         @test [(r.period, r.run, r.state) for r in energy] == [("p03", "r001", :ok), ("p03", "r002", :warning),
             ("p03", "r003", :missing), ("p03", "r004", :failed), ("p04", "r001", :missing)]
         @test energy[1].path == ok
@@ -161,7 +161,7 @@ end
     @testset "failure_summary" begin
         rows = Juleana.report_index(jlrep, specs, period_runs)
         summary = Juleana.failure_summary(rows)
-        @test [s.process for s in summary] == [:process_energy_calibration, :process_dsp_cal, :p_process_aoe_cut]
+        @test [s.process for s in summary] == [:process_energy_calibration_cal, :process_dsp_cal, :p_process_aoe_cut_cal]
         energy = summary[1].detectors
         @test energy == [(; detector = "V02", labels = ["p03-r004"], errors = ["fit failed"]),
             (; detector = "V03", labels = ["p03-r004"], errors = ["fit failed"])]
@@ -197,5 +197,17 @@ end
         Juleana.report_overview(empty)
         Juleana.report_path(empty, :process_dsp_cal, :run, "p09", "r001", :cal)
         @test isempty(tree(empty))
+    end
+
+    @testset "report_name matches the report each processor writes" begin
+        dir = joinpath(dirname(pathof(Juleana)), "processors")
+        for name in keys(Juleana.PROCESSORS)
+            source = read(joinpath(dir, "$name.jl"), String)
+            written = [m.captures[1] for m in eachmatch(r"get_[rp]reportfilename\([^,]+,[^,]+,\s*:(\w+)\)", source)]
+            @test length(written) == 1
+            @test Juleana.report_name(name) == only(written)
+        end
+        @test Juleana.report_name(:process_dsp_cal) == "dsp_cal"
+        @test Juleana.report_name(:p_process_energy_cal) == "energy"
     end
 end

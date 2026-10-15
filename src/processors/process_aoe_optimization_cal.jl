@@ -1,5 +1,5 @@
 """
-    process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_aoe_optimization_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Optimize the window length of the A/E filters for the HPGe detectors (`geds`) of one `cal` run.
@@ -35,7 +35,7 @@ after a simple A/E cut set on the DEP. It stores the selected window length toge
 # Returns
 The return value is not used by `run_processing`.
 """
-function process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_aoe_optimization_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Optimize PSD filter for period $period and run $run"
 
@@ -233,7 +233,7 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(det_sg_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_aoe_optimization")
+    result_sg = parallel(det_sg_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_aoe_optimization_cal")
 
     @info "Finished SG filter optimization"
 
@@ -262,4 +262,4 @@ function process_aoe_optimization(processing_config, l200::LegendData, period::D
     flush(stdout)
 end
 
-register_processor!(process_aoe_optimization)
+register_processor!(process_aoe_optimization_cal)

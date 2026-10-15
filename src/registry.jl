@@ -24,6 +24,19 @@ function register_processor!(f)
     return f
 end
 
+"""
+    display_name(name::Symbol) -> String
+
+The name of the processor `name` as the terminal interface shows it: without the
+`process_` or `p_process_` prefix and without the category suffix `_cal` or `_phy`, for
+example `"decay_time"` for `:process_decay_time_cal`. The category is shown separately.
+A name without the prefix, such as a report name, loses only the suffix.
+"""
+function display_name(name::Symbol)
+    s = chopprefix(chopprefix(string(name), "p_process_"), "process_")
+    return String(chopsuffix(chopsuffix(s, "_cal"), "_phy"))
+end
+
 # The LegendDSP function `name` that the dataprod config key `config_key` selects.
 function legend_dsp_function(name, config_key::AbstractString)
     sym = Symbol(name)

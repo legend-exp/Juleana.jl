@@ -114,11 +114,11 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         snap2 = (; snap..., processors = [entry(:process_a_very_long_name, :run, 1), entry(:p_process_another_very_long_name, :partition, 1; deps = [:process_a_very_long_name])],
             run_steps = [], partition_steps = [])
         wide = render_graph_page(Juleana.GraphPage(), snap2, nothing, 120, 12)
-        @test locate(wide, "process_a_very_long_name") !== nothing && locate(wide, "p_process_another_very_long_name") !== nothing
+        @test locate(wide, "a_very_long_name cal") !== nothing && locate(wide, "another_very_long_name cal") !== nothing
         @test !occursin("…", graph_text(wide))
         narrow = render_graph_page(Juleana.GraphPage(), snap2, nothing, 50, 12)
         @test occursin("…", graph_text(narrow))
-        @test !occursin("process_a_very_long_name", row_text(narrow, 3))
+        @test !occursin("a_very_long_name cal", row_text(narrow, 3))
         # the right border is intact
         @test all(r -> Tachikoma.char_at(narrow, 50, r) in ('┃', '┓', '┛'), 1:12)
         # even a tiny area does not throw
@@ -305,10 +305,10 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.json"))
         processors = [(; s.name, s.level, s.category, s.rank, s.enabled, s.dependencies)
             for s in vcat(collect(values(cfg.processors)), collect(values(cfg.p_processors)))]
-        snap7 = (; processors, run_steps = [:process_psd_efficiencies], partition_steps = Symbol[])
+        snap7 = (; processors, run_steps = [:process_psd_efficiencies_cal], partition_steps = Symbol[])
         page = Juleana.GraphPage()
         tb = render_graph_page(page, snap7, nothing, 120, 40)
-        @test all(p -> locate(tb, string(p.name) * " ") !== nothing, processors)
+        @test all(p -> locate(tb, Juleana.display_name(p.name) * " ") !== nothing, processors)
         # the cursor row stays visible when there are fewer rows than processors
         page = Juleana.GraphPage()
         order = topological_order(processor_graph(processors))
@@ -317,13 +317,13 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
             graph_press(page, snap7, sent, key)
             tb = render_graph_page(page, snap7, nothing, 120, 12)
             @test page.height == 8
-            @test locate(tb, string(page.cursor) * " ") !== nothing
+            @test locate(tb, Juleana.display_name(page.cursor) * " ") !== nothing
         end
         @test page.cursor == last(order)
         graph_press(page, snap7, sent, :home)
         tb = render_graph_page(page, snap7, nothing, 120, 12)
-        @test page.cursor == first(order) && locate(tb, string(first(order)) * " ") !== nothing
-        @test locate(tb, string(last(order)) * " ") === nothing
+        @test page.cursor == first(order) && locate(tb, Juleana.display_name(first(order)) * " ") !== nothing
+        @test locate(tb, Juleana.display_name(last(order)) * " ") === nothing
     end
 
     @testset "pages of the interface" begin

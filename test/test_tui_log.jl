@@ -193,7 +193,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
         args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
         cfg = ProcessingConfig(;
-            processors = Dict(:process_energy_calibration => spec(:process_energy_calibration, :run, 1)),
+            processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
             l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg), partition_steps(cfg))

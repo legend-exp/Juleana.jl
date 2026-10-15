@@ -1,10 +1,10 @@
 """
-    p_process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod;
+    p_process_aoe_optimization_cal(processing_config, l200::LegendData, period::DataPeriod;
         reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=15000, only_first_period::Bool=true)
 
 Optimize the window length of the A/E filters for every detector and `cal` partition that contains `period`.
 
-This is the partition-level counterpart of [`process_aoe_optimization`](@ref). The Tl208 DEP and SEP waveforms of all
+This is the partition-level counterpart of [`process_aoe_optimization_cal`](@ref). The Tl208 DEP and SEP waveforms of all
 `cal` runs in a detector's partition are combined for one optimization per detector, partition and filter type.
 Detectors with `low_aoe_status` of `:valid` or `:present` are processed.
 
@@ -17,7 +17,7 @@ Detectors with `low_aoe_status` of `:valid` or `:present` are processed.
 - `l200.par.ppars.pz[det, part]` (decay times) and `l200.par.ppars.fltopt[det, part]` (energy filter parameters).
 - `dataprod_config(l200).dsp(filekey)`: the `default` section merged with the detector section for the DSP settings;
   `aoe_optimization.p_default` merged with `aoe_optimization.p[det]` for `qc`, `n_evts`, `select_random` and the
-  `aoe_filter` table (same entries as in `process_aoe_optimization`).
+  `aoe_filter` table (same entries as in `process_aoe_optimization_cal`).
 - The QC evaluator of the filekey (`load_qc_evaluator`).
 
 # Outputs
@@ -40,7 +40,7 @@ Detectors with `low_aoe_status` of `:valid` or `:present` are processed.
 `true` if at least one detector was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses
 this to wait for the same step in the previous period.
 """
-function p_process_aoe_optimization(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=15000, only_first_period::Bool=true)
+function p_process_aoe_optimization_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=15000, only_first_period::Bool=true)
 
     @info "Optimize PSD filter for all partitions containing period $period"
 
@@ -285,7 +285,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(det_sg_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_aoe_optimization")
+    result_sg = parallel(det_sg_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_aoe_optimization_cal")
 
     @info "Finished SG filter optimization"
 
@@ -316,4 +316,4 @@ function det_sg_optimization(chinfo_det::NamedTuple)
     return any(x -> get(last(x), :skipped, false), values(result_sg))
 end
 
-register_processor!(p_process_aoe_optimization)
+register_processor!(p_process_aoe_optimization_cal)

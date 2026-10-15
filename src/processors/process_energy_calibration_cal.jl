@@ -1,5 +1,5 @@
 """
-    process_energy_calibration(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_energy_calibration_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Calibrate the energy of all processable HPGe detectors (`geds`) of the `cal` run with the Th-228 spectrum.
@@ -24,7 +24,7 @@ For each energy type in `energy_types` of the energy config, the uncalibrated en
 # Returns
 `nothing`.
 """
-function process_energy_calibration(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_energy_calibration_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
     
     @info "Energy calibration for period $period and run $run"
 
@@ -259,7 +259,7 @@ function process_energy_calibration(processing_config, l200::LegendData, period:
     # get start time
     start_time = now()
 
-    result_energy = parallel(det_energy_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_energy_calibration")
+    result_energy = parallel(det_energy_calibration, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_energy_calibration_cal")
 
     @info "Finished energy calibration"
 
@@ -287,4 +287,4 @@ function process_energy_calibration(processing_config, l200::LegendData, period:
     flush(stdout)
 end
 
-register_processor!(process_energy_calibration)
+register_processor!(process_energy_calibration_cal)

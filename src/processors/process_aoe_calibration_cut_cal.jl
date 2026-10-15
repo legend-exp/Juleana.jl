@@ -1,5 +1,5 @@
 """
-    process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+    process_aoe_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
         reprocess::Bool=false, timeout::Real=0)
 
 Calibrate A/E and generate the A/E cuts for the HPGe detectors (`geds`) of one `cal` run.
@@ -43,7 +43,7 @@ alone and with both cuts (`ds`).
 # Returns
 The return value is not used by `run_processing`.
 """
-function process_aoe_calibration_cut(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
 
     @info "Calibrate AoE for period $period and run $run"
 
@@ -425,7 +425,7 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
     start_time = now()
 
     # execute in parallel
-    result_aoe = parallel(det_aoe_cut, chinfo, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-$run-process_aoe_calibration_cut")
+    result_aoe = parallel(det_aoe_cut, chinfo, merge(log_nt_cal, log_nt_cut); timeout=timeout, retry=false, process_name="$period-$run-process_aoe_calibration_cut_cal")
 
     @info "Finished AoE calibration"
 
@@ -453,4 +453,4 @@ function process_aoe_calibration_cut(processing_config, l200::LegendData, period
     flush(stdout)
 end
 
-register_processor!(process_aoe_calibration_cut)
+register_processor!(process_aoe_calibration_cut_cal)
