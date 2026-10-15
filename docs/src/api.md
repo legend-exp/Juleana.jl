@@ -16,6 +16,7 @@ Juleana.send_command!
 Juleana.MessageBuffer
 Juleana.append_output!
 Juleana.message_lines
+Juleana.message_entries
 Juleana.Checklist
 Juleana.ChecklistItem
 Juleana.ChecklistGroup
@@ -34,6 +35,10 @@ Juleana.ProgressPage
 Juleana.progress_key!
 Juleana.progress_mouse!
 Juleana.render_progress
+Juleana.LogPage
+Juleana.log_key!
+Juleana.log_mouse!
+Juleana.render_log
 Juleana.logo_size
 Juleana.render_logo
 Juleana.bar_segments

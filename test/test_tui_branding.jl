@@ -230,6 +230,15 @@ end
         Tachikoma.update!(m, KeyEvent('?'))
         @test !m.help
 
+        # the Log page lists its own keys
+        Tachikoma.update!(m, KeyEvent('5'))
+        Tachikoma.update!(m, KeyEvent('?'))
+        tb = branding_render(m)
+        @test find_text(tb, "Log page") !== nothing && find_text(tb, "cycle the level") !== nothing &&
+            find_text(tb, "follow the running step") === nothing
+        Tachikoma.update!(m, KeyEvent('?'))
+        @test !m.help
+
         # a small screen clips the panel
         Tachikoma.update!(m, KeyEvent('1'))
         Tachikoma.update!(m, KeyEvent('?'))

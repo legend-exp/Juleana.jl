@@ -2,7 +2,7 @@
 
 const DOCS_URL = "https://legend-exp.github.io/Juleana.jl/stable/"
 
-# Keys listed by the help overlay as `(keys, description)`: Setup page, Progress page, all pages.
+# Keys listed by the help overlay as `(keys, description)`: Setup page, Progress page, Log page, all pages.
 const HELP_KEYS = (
     setup = (
         ("Tab  Shift-Tab", "next, previous pane"),
@@ -29,8 +29,16 @@ const HELP_KEYS = (
         ("f", "follow the running step"),
         ("Mouse", "click a row, wheel moves the cursor"),
     ),
+    log = (
+        ("↑ ↓ PgUp PgDn Home", "scroll; turns following off"),
+        ("End", "jump to the newest line and follow"),
+        ("f", "follow the newest line"),
+        ("l", "cycle the level: all, warnings, errors"),
+        ("/", "filter the lines (Enter keeps, Esc clears)"),
+        ("Mouse", "wheel scrolls"),
+    ),
     common = (
-        ("1-4", "open a page"),
+        ("1-6", "open a page"),
         ("q  Ctrl-C", "quit"),
         ("?", "show these keys"),
         ("Ctrl-G", "toggle mouse reporting (off allows selecting text)"),
@@ -158,6 +166,7 @@ function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     sections = Tuple{String,Any}[]
     m.page == 1 && push!(sections, ("Setup page", HELP_KEYS.setup))
     m.page == 4 && push!(sections, ("Progress page", HELP_KEYS.progress))
+    m.page == 5 && push!(sections, ("Log page", HELP_KEYS.log))
     push!(sections, ("All pages", HELP_KEYS.common))
     key_width = maximum(textwidth(k) for (_, entries) in sections for (k, _) in entries) + 2
     lines = Vector{Tuple{String,Tachikoma.Style}}[]

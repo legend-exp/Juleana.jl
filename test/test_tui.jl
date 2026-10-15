@@ -79,7 +79,8 @@ end
         # the letters of the title have the colors of the logo; the frame's corner and edge precede them
         @test [style_at(tb, 4 + i, 1).fg for i in 0:6] ==
             [Juleana.TITLE_COLORS[mod1(i, 3)] for i in 1:7]
-        @test find_text(tb, "1 Setup") !== nothing && find_text(tb, "4 Progress") !== nothing
+        @test find_text(tb, "1 Setup") !== nothing && find_text(tb, "4 Progress") !== nothing &&
+            find_text(tb, "5 Log") !== nothing && find_text(tb, "6 Reports") !== nothing
         @test find_text(tb, "starting") !== nothing
         @test refreshed!(m)
         tb = render_tui(m, 120, 32)
@@ -90,7 +91,7 @@ end
         @test occursin("f follow", row_text(render_tui(m, 120, 32), 31))
         Tachikoma.update!(m, KeyEvent('3'))
         keys_row = row_text(render_tui(m, 120, 32), 31)
-        @test occursin("1-4 page  q quit", keys_row) && !occursin("follow", keys_row)
+        @test occursin("1-6 page  q quit", keys_row) && !occursin("follow", keys_row)
         # a narrow screen cuts the key row at the frame
         @test !occursin("quit", row_text(render_tui(m, 12, 32), 31))
     end
@@ -125,15 +126,24 @@ end
 
     @testset "page switching" begin
         m = Juleana.JuleanaTUI(DataflowController(new_session(); processors))
-        Tachikoma.update!(m, KeyEvent('3'))
-        @test m.page == 3
-        Tachikoma.update!(m, KeyEvent('5'))
-        @test m.page == 3
+        Tachikoma.update!(m, KeyEvent('6'))
+        @test m.page == 6
+        Tachikoma.update!(m, KeyEvent('7'))
+        @test m.page == 6
         # Tab moves between the panes of a page, not between pages
         Tachikoma.update!(m, KeyEvent(:tab))
-        @test m.page == 3
+        @test m.page == 6
         tb = render_tui(m)
         @test count(r -> occursin("Reports", row_text(tb, r)), 1:30) == 2
+        for (key, name) in (('2', "Graph"), ('3', "Workers"))
+            Tachikoma.update!(m, KeyEvent(key))
+            @test m.page == parse(Int, key)
+            tb = render_tui(m)
+            @test count(r -> occursin(name, row_text(tb, r)), 1:30) == 2
+            @test find_text(tb, "This page is not available yet.") !== nothing
+        end
+        Tachikoma.update!(m, KeyEvent('5'))
+        @test m.page == 5 && find_text(render_tui(m), "No messages yet.") !== nothing
         Tachikoma.update!(m, KeyEvent('1'))
         @test m.page == 1
         @test !m.quit
@@ -146,6 +156,12 @@ end
         Tachikoma.update!(m, Tachikoma.MouseEvent(x + 1, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test m.page == 4
         @test find_text(render_tui(m), "No processing run yet.") !== nothing
+        tb = render_tui(m)
+        y = findfirst(r -> occursin("Log", row_text(tb, r)), 1:30)
+        row = row_text(tb, y)
+        x = length(row, 1, findfirst("Log", row).start - 1) + 1
+        Tachikoma.update!(m, Tachikoma.MouseEvent(x + 1, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test m.page == 5
     end
 
     @testset "start! loads the session in the background" begin
@@ -267,6 +283,13 @@ end
         # the capacity keeps the newest lines
         @test length(lines) == 3 && occursin("Warn  careful", lines[2]) && strip(lines[3]) == "n = 1"
         @test buf.alert.level == Logging.Warn && buf.alert.text == "careful"
+        # the lines of a record share its number and level
+        entries = Juleana.message_entries(buf)
+        @test [e.level for e in entries] == [Logging.Info, Logging.Warn, Logging.Warn]
+        @test entries[1].record < entries[2].record == entries[3].record
+        @test Juleana.message_lines(buf) == [e.text for e in entries]
+        push!(entries, entries[1])
+        @test length(Juleana.message_entries(buf)) == 3
 
         Juleana.append_output!(buf, :stdout, "      From worker 2:\tpartial")
         @test !any(contains("partial"), Juleana.message_lines(buf))
@@ -278,5 +301,10 @@ end
 
         m = Juleana.JuleanaTUI(DataflowController(new_session(); processors), buf)
         @test find_text(render_tui(m), "fit failed") !== nothing
+        # each output line is a record; only lines with `Warning:` or `Error:` leave `Info`
+        Juleana.append_output!(buf, :stderr, "plain\n┌ Warning: careful\n")
+        entries = Juleana.message_entries(buf)
+        @test [e.level for e in entries] == [Logging.Error, Logging.Info, Logging.Warn]
+        @test allunique(e.record for e in entries)
     end
 end # testset

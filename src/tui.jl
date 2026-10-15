@@ -1,6 +1,6 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
-const TUI_PAGES = ("Setup", "Workers", "Reports", "Progress")
+const TUI_PAGES = ("Setup", "Graph", "Workers", "Progress", "Log", "Reports")
 
 # Colors of the interface, from the colors of the logo (red `#cb3c33`, green `#389826`,
 # purple `#9558b2`): `border` and `secondary` muted purple, `border_focus`, `primary` and
@@ -28,46 +28,57 @@ const JULEANA_THEME = Tachikoma.Theme(
 const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
     Tachikoma.ColorRGB(0x95, 0x58, 0xb2))
 
-# Keys shown below the status row, as `(key, description)` per page: Setup, Progress, others.
+# Keys shown below the status row, as `(key, description)` per page: Setup, Progress, Log, others.
 const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
 const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("f", "follow"))
-const COMMON_HINTS = (("1-4", "page"), ("q", "quit"), ("?", "help"))
+const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
+const COMMON_HINTS = (("1-6", "page"), ("q", "quit"), ("?", "help"))
 
 # Seconds a new warning or error stays in the status bar.
 const ALERT_SECONDS = 10.0
 
+# One line kept by a `MessageBuffer`.
+const MessageEntry = NamedTuple{(:level, :record, :text),Tuple{LogLevel,Int,String}}
+
 """
     MessageBuffer(capacity::Integer = 1000)
 
-Logger that keeps the last `capacity` log messages and lines of captured terminal output
-as text, for the terminal user interface. Records below `Info` and progress bar records
-of ProgressLogging are dropped. The newest warning or error, from a log record or from
-an output line containing `Warning:` or `Error:`, is kept as the alert of the buffer.
+Logger that keeps the last `capacity` lines of log messages and of captured terminal
+output as text, for the terminal user interface. Each line has the log level of its
+message and the number of its record: the lines of one log message share a record, each
+line of captured output is a record of its own. Output lines containing `Warning:` or
+`Error:` get the level `Warn` or `Error`, other output lines `Info`. Records below `Info`
+and progress bar records of ProgressLogging are dropped. The newest warning or error, from
+a log record or from an output line containing `Warning:` or `Error:`, is kept as the
+alert of the buffer.
 
-[`Juleana.message_lines`](@ref) returns the kept lines.
+[`Juleana.message_lines`](@ref) returns the kept lines as text and
+[`Juleana.message_entries`](@ref) with their levels and records.
 """
 mutable struct MessageBuffer <: AbstractLogger
     const lock::ReentrantLock
-    const lines::Vector{String}
+    const entries::Vector{MessageEntry}
     const capacity::Int
     # unfinished last line of each captured stream
     const partial::Dict{Symbol,String}
     alert::Union{Nothing,NamedTuple{(:level, :text, :time),Tuple{LogLevel,String,Float64}}}
+    # number of the last record
+    record::Int
 end
 
 function MessageBuffer(capacity::Integer = 1000)
     capacity > 0 || throw(ArgumentError("MessageBuffer: capacity must be positive, got $capacity"))
-    return MessageBuffer(ReentrantLock(), String[], capacity, Dict{Symbol,String}(), nothing)
+    return MessageBuffer(ReentrantLock(), MessageEntry[], capacity, Dict{Symbol,String}(), nothing, 0)
 end
 
 min_enabled_level(::MessageBuffer) = Logging.Info
 shouldlog(::MessageBuffer, level, _module, group, id) = true
 catch_exceptions(::MessageBuffer) = true
 
-function push_line!(buf::MessageBuffer, line::AbstractString)
-    push!(buf.lines, line)
-    length(buf.lines) > buf.capacity && deleteat!(buf.lines, 1:(length(buf.lines) - buf.capacity))
+function push_line!(buf::MessageBuffer, level::LogLevel, record::Integer, line::AbstractString)
+    push!(buf.entries, (; level, record, text = String(line)))
+    length(buf.entries) > buf.capacity && deleteat!(buf.entries, 1:(length(buf.entries) - buf.capacity))
     return nothing
 end
 
@@ -81,8 +92,9 @@ function handle_message(buf::MessageBuffer, level, message, _module, group, id, 
     end
     stamp = Dates.format(now(), dateformat"HH:MM:SS")
     @lock buf.lock begin
+        record = (buf.record += 1)
         for (i, l) in enumerate(split(text, '\n'))
-            push_line!(buf, i == 1 ? "$stamp $(rpad(string(level), 5)) $l" : "               $l")
+            push_line!(buf, LogLevel(level), record, i == 1 ? "$stamp $(rpad(string(level), 5)) $l" : "               $l")
         end
         level >= Logging.Warn && (buf.alert = (; level = LogLevel(level), text = first(split(text, '\n')), time = time()))
     end
@@ -102,9 +114,10 @@ function append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString
         for l in pieces
             l = rstrip(l, '\r')
             isempty(strip(l)) && continue
-            push_line!(buf, l)
             m = match(r"(Warning|Error):\s*(.*)$", l)
-            isnothing(m) || (buf.alert = (; level = m[1] == "Error" ? Logging.Error : Logging.Warn, text = String(m[2]), time = time()))
+            level = isnothing(m) ? Logging.Info : m[1] == "Error" ? Logging.Error : Logging.Warn
+            push_line!(buf, level, (buf.record += 1), l)
+            isnothing(m) || (buf.alert = (; level, text = String(m[2]), time = time()))
         end
     end
     return nothing
@@ -115,7 +128,16 @@ end
 
 Return a copy of the lines kept in `buf`, oldest first.
 """
-message_lines(buf::MessageBuffer) = @lock buf.lock copy(buf.lines)
+message_lines(buf::MessageBuffer) = @lock buf.lock [e.text for e in buf.entries]
+
+"""
+    Juleana.message_entries(buf::MessageBuffer)
+
+Return a copy of the entries kept in `buf`, oldest first: named tuples with the fields
+`level` (a `Logging.LogLevel`), `record` (the number of the log message or output line
+the line belongs to) and `text` (the line as shown).
+"""
+message_entries(buf::MessageBuffer) = @lock buf.lock copy(buf.entries)
 
 """
     mutable struct JuleanaTUI <: Tachikoma.Model
@@ -131,9 +153,10 @@ state read from it is kept in the fields `snap`, `progress` and `busy`.
 A left click on a page's tab opens the page; other mouse events go to the visible page.
 
 Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
-Setup page and [`Juleana.progress_key!`](@ref) for the Progress page); otherwise `1` to
-`4` switch pages and `q` or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after the running items and quits when the
-run has ended, `q` quits at once, ending the run and the workers connected to this
+Setup page, [`Juleana.progress_key!`](@ref) for the Progress page and
+[`Juleana.log_key!`](@ref) for the Log page); otherwise `1` to `6` switch pages and `q`
+or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after
+the running items and quits when the run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
 
 `JuleanaTUI(ctrl, messages; splash_seconds = 1.5)` shows a startup screen with the logo,
@@ -149,6 +172,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     const commands::Channel{ControllerCommand}
     const setup::SetupPage
     const progress_page::ProgressPage
+    const log_page::LogPage
     const tabs::Tachikoma.TabBar
     # commands sent and not yet answered, and commands answered so far
     pending::Int
@@ -186,7 +210,7 @@ tab_bar() = Tachikoma.TabBar(
 )
 
 function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(),
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), ProgressPage(), LogPage(),
         tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], nothing, 0,
         false, 0.0, false, splash_seconds)
     errormonitor(Threads.@spawn run_commands(m))
@@ -301,6 +325,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     n = length(TUI_PAGES)
     m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
     m.page == 4 && !ctrl_c && progress_key!(m.progress_page, evt, m.progress) && return nothing
+    m.page == 5 && !ctrl_c && log_key!(m.log_page, evt, message_entries(m.messages)) && return nothing
     if ctrl_c || (evt.key == :char && evt.char == 'q')
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
     elseif evt.key == :char && evt.char == '?'
@@ -319,6 +344,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
         end
         m.page == 1 && setup_mouse!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
         m.page == 4 && progress_mouse!(m.progress_page, evt, m.progress)
+        m.page == 5 && log_mouse!(m.log_page, evt, message_entries(m.messages))
     end
     return nothing
 end
@@ -403,6 +429,9 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 4
         render_progress(m.progress_page, m.progress, m.busy, body_area, f.buffer)
+    elseif m.page == 5
+        render_log(m.log_page, message_entries(m.messages), body_area, f.buffer;
+            capacity = m.messages.capacity, log_path = isnothing(m.snap) ? nothing : m.snap.log_path)
     else
         body = Tachikoma.Paragraph(
             "This page is not available yet.";
@@ -416,7 +445,7 @@ function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     end
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
-    hints = (m.page == 1 ? SETUP_HINTS : m.page == 4 ? PROGRESS_HINTS : ())
+    hints = (m.page == 1 ? SETUP_HINTS : m.page == 4 ? PROGRESS_HINTS : m.page == 5 ? LOG_HINTS : ())
     spans = Tuple{String,Tachikoma.Style}[]
     for (key, description) in (hints..., COMMON_HINTS...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
@@ -440,7 +469,7 @@ end
 """
     Juleana.run_tui(parsed_args::AbstractDict; processors = PROCESSORS, loader)
 
-Open the terminal user interface with the pages Setup, Workers, Reports and Progress on
+Open the terminal user interface with the pages Setup, Graph, Workers, Progress, Log and Reports on
 a [`DataflowController`](@ref) for the parsed command line options `parsed_args`, as
 returned by [`Juleana.parse_commandline`](@ref). Returns `nothing` when the user quits.
 
