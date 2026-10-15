@@ -32,7 +32,9 @@ function format_log_record(io::IO, log)
         println(io, "    ", line)
     end
     for (key, value) in log.kwargs
-        text = key === :exception && value isa Tuple{Exception,Any} ? sprint(showerror, value...) : string(value)
+        # `showerror` shows the errors inside wrappers such as `CompositeException`
+        text = key !== :exception ? string(value) : value isa Tuple{Exception,Any} ? sprint(showerror, value...) :
+            value isa Exception ? sprint(showerror, value) : string(value)
         println(io, "    ", key, " = ", replace(text, '\n' => "\n        "))
     end
     log.level >= Logging.Warn && println(io, "    @ ", log.file, ":", log.line)

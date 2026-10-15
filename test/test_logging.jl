@@ -76,6 +76,23 @@ end
         @test length(lines) == 1 && occursin("after the bar", only(lines))
     end
 
+    @testset "exceptions without a backtrace" begin
+        # as `@sync` reports a failed task: the cause is only inside the wrapper
+        task = Threads.@spawn error("fit did not converge")
+        err = try
+            wait(task)
+        catch e
+            CompositeException([e])
+        end
+        text = join(logged_lines(; log_level = Logging.Info) do
+            @error "Processing failed" exception = err
+        end, "\n")
+        @test occursin("fit did not converge", text)
+        buf = Juleana.MessageBuffer()
+        with_logger(() -> (@error "Processing failed" exception = err), buf)
+        @test any(l -> occursin("fit did not converge", l), Juleana.message_lines(buf))
+    end
+
     @testset "sinks" begin
         @test_throws "no log file and no console output" Juleana.processing_logger(; console_level = nothing)
         @test Juleana.process_log_file("logs") == joinpath("logs", "head.log")

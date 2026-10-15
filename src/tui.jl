@@ -92,6 +92,7 @@ function handle_message(buf::MessageBuffer, level, message, _module, group, id, 
     text = string(message)
     for (key, value) in kwargs
         key === :exception && value isa Tuple{Exception,Any} && (value = sprint(showerror, first(value)))
+        key === :exception && value isa Exception && (value = sprint(showerror, value))
         text *= "\n  $key = $value"
     end
     stamp = Dates.format(now(), dateformat"HH:MM:SS")
