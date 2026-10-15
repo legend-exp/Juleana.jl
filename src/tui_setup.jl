@@ -127,8 +127,8 @@ Handle the key `evt` on the Setup page and return whether it was used. `snap` is
 latest controller snapshot (or `nothing`) and `send(cmd)` sends a controller command.
 
 An open kwargs editor gets every key (see [`Juleana.kwargs_key!`](@ref)); while writing
-the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config file
-of the session and any other key cancels. Otherwise the focused checklist gets the key
+the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config folder
+of the data production and any other key cancels. Otherwise the focused checklist gets the key
 first; a change of its selection sends `SelectRuns` or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
 `c` and `p` select the `cal` and `phy` processors of the pane, `d` adds the steps
 the selected steps wait for and `e` opens the kwargs editor for the processor under the
@@ -136,7 +136,7 @@ cursor; in the options pane Up and Down choose a row and Space or
 Enter cycles its value; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
 dependency graph, `W` starts workers with [`SubmitWorkers`](@ref) and `w` asks to write
-the current settings to the config file.
+the current settings to `config/processing_config.json` of the data production.
 """
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
@@ -145,7 +145,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         return true
     end
     if page.confirm === :write
-        evt.key == :char && evt.char == 'y' && !isnothing(snap) && send(WriteConfig(snap.config_file))
+        evt.key == :char && evt.char == 'y' && !isnothing(snap) && send(WriteConfig())
         page.confirm = nothing
         return true
     end
@@ -381,9 +381,8 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     end
     isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
     if page.confirm === :write && !isnothing(snap)
-        file = snap.config_file
         Tachikoma.render(Tachikoma.Modal(; title = "Write config",
-            message = "Write the current settings to\n$file?\nThe current file is kept as $(basename(file)).bak.\n\ny: write   any other key: cancel",
+            message = "Write the current settings to\nconfig/processing_config.json\nin the data production?\nAn existing file is kept as processing_config.json.bak.\n\ny: write   any other key: cancel",
             confirm_label = "", cancel_label = ""), area, buf)
     end
     return nothing

@@ -77,6 +77,30 @@ const REPORT = """
         @test Juleana.parse_commandline(["-c", "x.json", "--no_tui"])["no_tui"]
     end
 
+    @testset "config folder of the data production" begin
+        production = mktempdir()
+        shipped = joinpath(dirname(@__DIR__), "config", "processing_config.json")
+        withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
+            @test Juleana.production_config_dir() == joinpath(production, "config")
+            # without --config: the shipped config until the production has one
+            @test Juleana.parse_commandline(String[])["config"] == shipped
+            mkpath(joinpath(production, "config"))
+            cp(shipped, joinpath(production, "config", "processing_config.json"))
+            @test Juleana.parse_commandline(["-p", "3"])["config"] == joinpath(production, "config", "processing_config.json")
+            @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
+        end
+        other = mktempdir()
+        withenv("LEGEND_DATA_CONFIG" => "$(joinpath(production, "a.json")):$(joinpath(production, "b.json"))") do
+            @test Juleana.production_config_dir() == joinpath(production, "config")
+        end
+        withenv("LEGEND_DATA_CONFIG" => "$(joinpath(production, "a.json")):$(joinpath(other, "b.json"))") do
+            @test_throws "the files of LEGEND_DATA_CONFIG are in several folders" Juleana.production_config_dir()
+        end
+        withenv("LEGEND_DATA_CONFIG" => nothing) do
+            @test_throws "the environment variable LEGEND_DATA_CONFIG is not set" Juleana.parse_commandline(String[])
+        end
+    end
+
     @testset "parse_period_runs" begin
         p3, p6, p7 = DataPeriod.((3, 6, 7))
         @test Juleana.parse_period_runs([], []) == (nothing, nothing)

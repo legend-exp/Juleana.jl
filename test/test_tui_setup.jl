@@ -319,24 +319,33 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     @testset "write the config" begin
         config_file = joinpath(mktempdir(), "processing_config.json")
         cp(args["config"], config_file)
+        production = mktempdir()
+        written = joinpath(production, "config", "processing_config.json")
         session = new_session()
         session.args["config"] = config_file
         m = new_tui(session)
         @test setup_refreshed!(m)
-        # any key but `y` cancels
-        press!(m, 'w')
-        @test m.setup.confirm === :write
-        @test occursin("Write the current settings to", join(row_text(render_setup_page(m), r) for r in 1:30))
-        press!(m, 'n')
-        @test isnothing(m.setup.confirm)
-        @test setup_refreshed!(m)
-        @test !isfile(config_file * ".bak")
+        withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
+            # any key but `y` cancels
+            press!(m, 'w')
+            @test m.setup.confirm === :write
+            @test occursin("Write the current settings to", join(row_text(render_setup_page(m), r) for r in 1:30))
+            press!(m, 'n')
+            @test isnothing(m.setup.confirm)
+            @test setup_refreshed!(m)
+            @test !ispath(written)
 
-        press!(m, :tab, 'e', :down, :enter, '7', :enter, :escape, 'w', 'y')
-        @test setup_refreshed!(m)
-        @test isnothing(m.command_error)
-        @test isfile(config_file * ".bak")
-        @test ProcessingConfig(config_file).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 7
+            # the config folder of the data production is created and the session config file becomes the written one
+            press!(m, :tab, 'e', :down, :enter, '7', :enter, :escape, 'w', 'y')
+            @test setup_refreshed!(m)
+            @test isnothing(m.command_error)
+            @test ProcessingConfig(written).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 7
+            @test m.snap.config_file == written
+            @test !isfile(written * ".bak") && !isfile(config_file * ".bak")
+            press!(m, 'w', 'y')
+            @test setup_refreshed!(m)
+            @test isfile(written * ".bak")
+        end
     end
 
     @testset "mouse" begin

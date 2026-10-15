@@ -164,16 +164,22 @@ StopProcessing(; force::Bool = false) = StopProcessing(force)
 
 """
     WriteConfig(path::AbstractString)
+    WriteConfig()
 
 Write the processing config file of the session to `path` with the current settings of
 the session: the kwarg overrides are applied to the processor entries, every processor
 is `enabled` exactly when it is selected, and `processing.analysis_runs_only` is the
-setting in effect. An existing file at `path` is first copied to `path * ".bak"`. The
-format follows the file extension (`.json` or `.yaml`).
+setting in effect. Without `path`, the file is `processing_config.json` in the
+[`Juleana.production_config_dir`](@ref), which is created if needed. An existing file
+at the path is first copied to `path * ".bak"`. The format follows the file extension
+(`.json` or `.yaml`). The written file becomes the config file of the session, which
+[`ReloadConfig`](@ref) reads.
 """
 struct WriteConfig <: ControllerCommand
-    path::String
+    path::Union{Nothing,String}
 end
+
+WriteConfig() = WriteConfig(nothing)
 
 """
     SubmitWorkers()
@@ -548,9 +554,11 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
         entry.enabled = name in selected
     end
     props.processing.analysis_runs_only = effective_config(ctrl).analysis_runs_only
-    isfile(cmd.path) && cp(cmd.path, cmd.path * ".bak"; force = true)
-    writelprops(cmd.path, props)
-    @info "Wrote processing config to $(cmd.path)"
+    path = isnothing(cmd.path) ? joinpath(mkpath(production_config_dir()), "processing_config.json") : cmd.path
+    isfile(path) && cp(path, path * ".bak"; force = true)
+    writelprops(path, props)
+    ctrl.args["config"] = path
+    @info "Wrote processing config to $path"
     return nothing
 end
 

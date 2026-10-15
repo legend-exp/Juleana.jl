@@ -9,7 +9,8 @@ ArgParse prints the text and exits the process in a non-interactive session; in 
 interactive session it returns `nothing`.
 
 Options (see `juleana --help` for the full text):
-- `--config`, `-c` (required): path of the processing config file.
+- `--config`, `-c`: path of the processing config file. Without it, the
+  [`Juleana.default_config_file`](@ref) is used.
 - `--periods`, `-p`: periods, each optionally with runs: `6` (all runs of p06), `6,1`
   (r001), `6,1-3` (r001 to r003), `6,1,4-6`. Each occurrence gives one vector of these
   strings, so `-p 3 4 -p 6,1` gives `[["3", "4"], ["6,1"]]`; see
@@ -37,9 +38,8 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
                             add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
-            help = "path to config file"
+            help = "path to config file; default: config/processing_config.json in the data production, else the config shipped with Juleana"
             arg_type = String
-            required = true
         "--reprocess"
             help = "reprocess all channels while deleting old data"
             action = :store_true
@@ -83,7 +83,41 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
             arg_type = Int
             action = :append_arg
     end
-    return parse_args(append!(String[], args), settings)
+    parsed_args = parse_args(append!(String[], args), settings)
+    !isnothing(parsed_args) && isnothing(parsed_args["config"]) && (parsed_args["config"] = default_config_file())
+    return parsed_args
+end
+
+"""
+    Juleana.production_config_dir()
+
+Return the path of the `config` folder of the data production: the folder `config` next
+to the data config file named by the environment variable `LEGEND_DATA_CONFIG`, the
+folder that `\$_` stands for in that file. The folder need not exist.
+
+Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set, or names several files
+in different folders.
+"""
+function production_config_dir()
+    haskey(ENV, "LEGEND_DATA_CONFIG") ||
+        throw(ArgumentError("production_config_dir: the environment variable LEGEND_DATA_CONFIG is not set"))
+    # several files are separated by colons, as LegendDataManagement reads them
+    dirs = unique(dirname.(abspath.(split(ENV["LEGEND_DATA_CONFIG"], r":(?!\\)"))))
+    length(dirs) == 1 || throw(ArgumentError(
+        "production_config_dir: the files of LEGEND_DATA_CONFIG are in several folders: $(join(dirs, ", "))"))
+    return joinpath(only(dirs), "config")
+end
+
+"""
+    Juleana.default_config_file()
+
+Return the processing config file used without `--config`: `processing_config.json`
+in the [`Juleana.production_config_dir`](@ref) if it exists, else the
+`config/processing_config.json` shipped with Juleana.
+"""
+function default_config_file()
+    path = joinpath(production_config_dir(), "processing_config.json")
+    return isfile(path) ? path : joinpath(pkgdir(Juleana), "config", "processing_config.json")
 end
 
 """

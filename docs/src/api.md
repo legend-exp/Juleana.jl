@@ -69,6 +69,8 @@ Juleana.kwargs_key!
 Juleana.render_kwargs
 Juleana.parse_kwarg_value
 Juleana.parse_commandline
+Juleana.production_config_dir
+Juleana.default_config_file
 Juleana.parse_period_runs
 Juleana.init_process
 DataflowSession

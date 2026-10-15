@@ -322,7 +322,11 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, SetAnalysisRunsOnly(true))
         written = joinpath(root, "written_config.json")
         write(written, "previous")
-        dispatch!(ctrl, WriteConfig(written))
+        production = mktempdir()
+        withenv(() -> dispatch!(ctrl, WriteConfig(written)), "LEGEND_DATA_CONFIG" => joinpath(production, "config.json"))
+        # a given path leaves the config folder of the data production alone
+        @test !ispath(joinpath(production, "config"))
+        @test snapshot(ctrl).config_file == written
         @test read(written * ".bak", String) == "previous"
         original, props = readlprops(shipped_config), readlprops(written)
         @test props.processors.process_energy_calibration_cal.kwargs.max_wvfs == 5
