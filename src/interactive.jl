@@ -1,6 +1,6 @@
 function menu()        
     # main menu options
-    options = ["Execute processors", "Reload processors", "Select periods", "Select runs", "Reload processing config", "Reset dependency graph", "Submit workers", "Exit"]
+    options = ["Execute processors", "Reload processors", "Select periods", "Select runs", "Reload processing config", "Reset dependency graph", "Submit workers", "Refresh master reports", "Exit"]
     # main menu
     choice = try
         println()
@@ -99,6 +99,8 @@ function menu()
     elseif choice == 7
         @async runworkers(runmode)
         @info "Submitted workers"
+    elseif choice == 8
+        refresh_master_reports(l200)
     # execute processing steps
     elseif choice == 1
         Base.exit_on_sigint(false)
@@ -304,7 +306,83 @@ function execute_processors()
                 end
             end
         end
+        refresh_master_reports(l200)
     end
+end
+
+"""
+    get_report_status(text::AbstractString)
+
+Read the saved processor status from Markdown report text; return `nothing` if unavailable.
+"""
+function get_report_status(text::AbstractString)
+    status = match(r"(?m)^\|\h*Processor Status\h*\|\r?\n\|[ :\-]+\|\r?\n\|([^|\r\n]*)\|", text)
+    isnothing(status) && return nothing
+    label = strip(replace(status[1], r"<[^>]*>" => ""))
+    return get((Success = process_succeeded, Warning = process_warning, Failure = process_failed), Symbol(label), nothing)
+end
+
+"""
+    refresh_master_reports(l200)
+
+Rebuild `<jlrep>/master/<processor>.md` from all available run and partition reports,
+independently of the selected periods, runs, or enabled processors. Each overview
+shows the saved processor status, processing date, and a link to the detailed report.
+Reports without a saved master status appear as Unknown.
+"""
+function refresh_master_reports(l200)
+    master_folder = data_path(l200.tier, "jlrep", "master")
+    reports = Dict{String, Vector{NamedTuple}}()
+    unknown = """<span style="color:gray">Unknown</span>"""
+    folders = NamedTuple[]
+    # Run reports: jlrep/rreport/<category>/<period>/<run>.
+    run_reports = data_path(l200.tier, "jlrep", "rreport")
+    if isdir(run_reports)
+        for category in search_disk(DataCategory, run_reports),
+            period in search_disk(DataPeriod, data_path(l200.tier, "jlrep", "rreport", string(category))),
+            run in search_disk(DataRun, data_path(l200.tier, "jlrep", "rreport", string(category), string(period)))
+            push!(folders, (Path = get_rreportfolder(l200, period, run, category), Period = period, Run = run, Category = category))
+        end
+    end
+    # Partition reports: jlrep/preport/<period>/<category>, without a run.
+    partition_reports = data_path(l200.tier, "jlrep", "preport")
+    if isdir(partition_reports)
+        for period in search_disk(DataPeriod, partition_reports),
+            category in search_disk(DataCategory, data_path(l200.tier, "jlrep", "preport", string(period)))
+            push!(folders, (Path = get_preportfolder(l200, period, category), Period = period, Run = nothing, Category = category))
+        end
+    end
+    for folder in folders, filename in readdir(folder.Path; join=true)
+        endswith(filename, ".md") || continue
+        # LDM filenames: setup-period-run-category-processor.md (5 parts), or without run (4).
+        # Limit the split so hyphens inside a processor name remain part of that name.
+        n_parts = isnothing(folder.Run) ? 4 : 5
+        parts = split(chopsuffix(basename(filename), ".md"), '-'; limit=n_parts)
+        length(parts) == n_parts || continue
+        processor = (isnothing(folder.Run) ? "p_process_" : "process_") * last(parts)
+        text = read(filename, String)
+        status = get_report_status(text)
+        processing_date = match(r"(?m)^(?:Date|Time) of processing:\h*(.+)$", text)
+        row = (Setup = first(parts), Period = folder.Period, Category = folder.Category,
+               var"Processor Status" = isnothing(status) ? unknown : status, var"Processing Date" = isnothing(processing_date) ? "-" : strip(processing_date[1]),
+               Report = "[open report]($(relpath(filename, master_folder)))")
+        if !isnothing(folder.Run)
+            row = merge((Setup = row.Setup, Period = folder.Period, Run = folder.Run), row)
+        end
+        push!(get!(reports, processor, NamedTuple[]), row)
+    end
+    mkpath(master_folder)
+    filenames = map(sort(collect(keys(reports)))) do processor
+        rows = reports[processor]
+        sort!(rows; by = row -> (row.Setup, row.Period, get(row, :Run, DataRun(0)), row.Category))
+        report = lreport("# `$processor`", "Refresh: `julia main.jl -c <config> --refresh-master-reports` or interactive menu → **Refresh master reports**.",
+                         "Last refreshed: $(now())", rows)
+        filename = data_path(l200.tier, "jlrep", "master", "$processor.md")
+        writelreport(filename, report)
+        filename
+    end
+    @info "Refreshed $(length(filenames)) master reports in $master_folder"
+    return filenames
 end
 
 # read a report and return the number of result entries, the number of failed entries and
@@ -314,7 +392,6 @@ end
 function get_report_failures(filename::AbstractString)
     header, previous, n_entries, n_failed, failures = String[], String[], 0, 0, Tuple{String, String}[]
     for line in eachline(filename)
-        # only markdown table rows are of interest
         startswith(strip(line), "|") || continue
         cells = strip.(split(strip(strip(line), '|'), "|"))
         # a separator row marks the previous row as the header of a new table
@@ -353,36 +430,37 @@ function get_report_failures(filename::AbstractString)
     return n_entries, n_failed, failures
 end
 
-# print all failed detectors in the reports of the selected process steps for the selected periods and runs
+# Saved processor statuses govern the overview; result failures provide detector-level detail.
 function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Symbol})
-    # print one line per report and collect the failed detectors and their errors for the summary
+    colors = Dict(process_succeeded => :green, process_warning => :yellow, process_failed => :red)
     function check_report(label::String, filename::AbstractString, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
         if !isfile(filename)
             printstyled("  $(rpad(label, 11)) no report\n"; color = :light_black)
-            return
+            return nothing
         end
+        status = get_report_status(read(filename, String))
+        status_label = isnothing(status) ? "Unknown" : sprint(show, MIME"text/plain"(), status)
         n_entries, n_failed, failures = get_report_failures(filename)
-        if isempty(failures)
-            printstyled("  $(rpad(label, 11)) OK"; color = :green)
-            println(" ($n_entries entries)")
-            return
-        end
-        # collect run and error per detector, dropping the filter type suffix for the summary
+        printstyled("  $(rpad(label, 11)) $status_label"; color = get(colors, status, :light_black))
+        println(" ($n_entries entries)")
+        # Drop filter/partition suffixes when grouping failures by detector.
         for (det, err) in failures
             push!(get!(failed, first(split(det, " (")), String[]), label)
             isempty(err) || push!(get!(errors, first(split(det, " (")), String[]), err)
         end
-        printstyled("  $(rpad(label, 11)) $n_failed of $n_entries entries failed: "; color = :red)
-        println(truncate_string(join(unique(first.(failures)), ", "), 80))
+        if n_failed > 0
+            printstyled("      $n_failed of $n_entries entries failed: "; color = :red)
+            println(truncate_string(join(unique(first.(failures)), ", "), 80))
+        end
+        return status
     end
 
-    # print which detector failed in which runs and with which errors
-    function check_summary(process::Symbol, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
+    function check_summary(process::Symbol, statuses, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
         println("-"^110)
-        if isempty(failed)
-            printstyled("  All detectors passed in all checked reports of $(string(process))\n"; color = :green)
-        else
-            printstyled("  Summary $(string(process)): $(length(failed)) detector(s) with failures\n"; color = :red)
+        counts = join(["$(sprint(show, MIME"text/plain"(), status)): $(count(isequal(status), statuses))" for status in (process_succeeded, process_warning, process_failed)], ", ")
+        println("  Summary $process: $counts, Unknown/no report: $(count(isnothing, statuses))")
+        if !isempty(failed)
+            printstyled("  $(length(failed)) detector(s) with failed result entries\n"; color = :red)
             for det in sort(collect(keys(failed)))
                 runs_failed = unique(failed[det])
                 println("      $(rpad(det, 12)) $(lpad(length(runs_failed), 3)) run(s): $(truncate_string(join(runs_failed, ", "), 85))")
@@ -394,46 +472,34 @@ function check_reports(process_steps::Vector{Symbol}, p_process_steps::Vector{Sy
         println()
     end
 
-    # reports written per run
     for process in process_steps
         report = Symbol("$(last(split(string(process), "process_")))")
         category = processing_config.processors[process].category
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
+        statuses = Union{Nothing, ProcessStatus}[]
         for period in periods
             for run in get_proccessable_runs(l200, period, runs)
-                filename = try
-                    get_rreportfilename(l200, start_filekey(l200, (period, run, category)), report)
-                catch e
-                    @warn "No start filekey for $period-$run-$category, skip"
-                    continue
-                end
-                check_report("$period-$run", filename, failed, errors)
+                filename = get_rreportfilename(l200, l200.name, period, run, category, report)
+                push!(statuses, check_report("$period-$run", filename, failed, errors))
             end
         end
-        check_summary(process, failed, errors)
+        check_summary(process, statuses, failed, errors)
     end
 
-    # reports written per partition, i.e. one per period
     for process in p_process_steps
         report = Symbol("$(last(split(string(process), "process_")))")
-        # the cal-side partition processors carry no category key in the config (they
-        # hardcode :cal internally); only the phy ones declare it. A plain property access
-        # would yield a PropDicts.MissingProperty, which silently matches no filekey.
+        # Calibration partition processors omit the category in their configuration.
         category = get(processing_config.p_processors[process], :category, "cal")
         printstyled("\n$(string(process)) ($category)\n"; bold = true)
         println("-"^110)
         failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
+        statuses = Union{Nothing, ProcessStatus}[]
         for period in periods
-            filename = try
-                get_preportfilename(l200, start_filekey(l200, (period, first(get_proccessable_runs(l200, period, runs)), category)), report)
-            catch e
-                @warn "No start filekey for $period-$category, skip"
-                continue
-            end
-            check_report("$period", filename, failed, errors)
+            filename = get_preportfilename(l200, l200.name, period, category, report)
+            push!(statuses, check_report("$period", filename, failed, errors))
         end
-        check_summary(process, failed, errors)
+        check_summary(process, statuses, failed, errors)
     end
 end

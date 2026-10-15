@@ -40,6 +40,7 @@ The script also offers command line options to have a handy way of processing th
 | `--runs`, `-r`    | Runs to process |
 | `--partitions` | Partitions to process |
 |`--reprocess`      | Reprocess all channels while deleting old data, overwrite all `reprocess` flags |
+| `--refresh-master-reports` | Refresh all master reports and exit without processing |
 | `--only_runs`     | Process only runs ignoring periods and partitions |
 | `--only_partitions` | Process only partitions ignoring periods and runs |
 | `--analysis_runs_only` | Process only runs which are marked as analysis runs |
@@ -57,10 +58,21 @@ This will start a `debug` menu with the following options:
 - **Reload processing config**: Reload processing config and `argparse` new from disk. Good to modify `processor` and `p-processor` settings without exiting session.
 - **Reset dependency graph**: Reset the dependency graph and restore initial graph before any processing happened and recheck all dependencies.
 - **Submit Workers**: Submit new workers to the session. This can be useful to add new workers to the session without exiting the session.
+- **Refresh master reports**: Rebuild one overview per processor from all saved run and partition reports, across every period and run.
 - **Exit**: Exit the debug menu and continue with the processing.
 
 The `debug` menu can be exited with the `Ctrl+c` command.
 It can also be manually invoked by calling `menu()` in the julia REPL.
+
+Master reports are automatically refreshed after a processing batch finishes, including interactive processing. They are stored at `<jlrep>/master/process_<name>.md` for run processors and `<jlrep>/master/p_process_<name>.md` for partition processors. Each row shows the saved processor status, processing date, and a relative link to the detailed report. Older reports without a master status show `Unknown`.
+
+The refresh scans all available reports, so reprocessing a single run keeps the other runs in the overview. From an initialized Julia session, it can also be called directly with `refresh_master_reports(l200)`.
+
+To refresh from the terminal without starting workers or executing processors:
+```bash
+julia main.jl -c config/processing_config.json --refresh-master-reports
+```
+The config supplies the data paths; the selected periods, runs, and enabled processors do not limit the refresh.
 
 # Setup
 To set up the dataflow, you need to have a running `julia` configuration on a login node of a SLURM based cluster with the corresponding acces to the *LEGEND data*. To help you set this up, the folder `setup/` contains helper scripts based on `bash` to guide you through the setup process. 
