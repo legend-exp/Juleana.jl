@@ -90,6 +90,7 @@ include("processing_loop.jl")
 include("registry.jl")
 include("session.jl")
 include("config.jl")
+include("reports.jl")
 include("interactive.jl")
 include("controller.jl")
 include("no_tui.jl")
@@ -147,6 +148,7 @@ export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, 
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, SubmitWorkers
 
 public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, wait_for, PROCESSORS, register_processor!, init_process,
-    main, setup_session, run_no_tui, run_tui, parse_commandline, check_reports
+    main, setup_session, run_no_tui, run_tui, parse_commandline, check_reports,
+    report_path, read_report, report_index, failure_summary, report_overview
 
 end # module

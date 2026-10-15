@@ -182,13 +182,13 @@ const REPORT = """
     end
 
     @testset "report_failures" begin
-        n_entries, n_failed, failures = mktemp() do path, io
+        report = mktemp() do path, io
             write(io, REPORT)
             close(io)
-            Juleana.report_failures(path)
+            Juleana.read_report(path)
         end
-        @test n_entries == 3
-        @test n_failed == 2
-        @test failures == [("V02 (trap)", "fit failed"), ("V03", ""), ("V04", "")]
+        @test report.n_entries == 3
+        @test report.n_failed == 2
+        @test report.failures == [("V02 (trap)", "fit failed"), ("V03", ""), ("V04", "")]
     end
 end

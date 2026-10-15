@@ -174,156 +174,58 @@ function execute_processors(session::DataflowSession)
     end
 end
 
-# read a report and return the number of result entries, the number of failed entries and
-# the failures as detector => error. An entry is a table row: per detector and filter type
-# for the fit reports, per filekey for the dsp reports - so for a dsp report the failure
-# count stays in filekeys while the labels name the individual failed detectors of each row.
-function report_failures(filename::AbstractString)
-    header, previous, n_entries, n_failed, failures = String[], String[], 0, 0, Tuple{String, String}[]
-    for line in eachline(filename)
-        # only markdown table rows are of interest
-        startswith(strip(line), "|") || continue
-        cells = strip.(split(strip(strip(line), '|'), "|"))
-        # a separator row marks the previous row as the header of a new table
-        if all(c -> !isempty(c) && all(in((':', '-')), c), cells)
-            header = previous
-            continue
-        end
-        previous = cells
-        # only tables with a status column hold results, the metadata table is skipped
-        i_status = findfirst(isequal("Status"), header)
-        (isnothing(i_status) || length(cells) != length(header)) && continue
-        n_entries += 1
-        occursin("Failure", replace(cells[i_status], r"<[^>]*>" => "")) || continue
-        n_failed += 1
-        # label the entry by detector, by the failed detectors of a dsp report or else by filekey
-        i_det = findfirst(in(("Detector", "Failed Detectors")), header)
-        labels = if isnothing(i_det) || cells[i_det] in ("", "-")
-            [first(cells)]
-        elseif header[i_det] == "Failed Detectors"
-            [m.captures[1] for m in eachmatch(r"\"([^\"]+)\"", cells[i_det])]
-        else
-            [cells[i_det]]
-        end
-        # add the filter/energy type and, for partition reports, the partition to
-        # distinguish several entries per detector; "-" cells carry no information
-        i_type = findfirst(in(("Filter Type", "Energy Type")), header)
-        i_part = findfirst(isequal("Partition"), header)
-        suffix = join([cells[i] for i in (i_type, i_part) if !isnothing(i) && !(cells[i] in ("", "-"))], ", ")
-        isempty(suffix) || (labels = labels .* " ($suffix)")
-        # collect every error-like column: the fit reports have "Error", the aoe/lq cut
-        # reports have "CalError" and "CutError" - matching on the substring covers all
-        i_errs = findall(h -> occursin("Error", h), header)
-        err = join([cells[i] for i in i_errs if !(cells[i] in ("", "-"))], " | ")
-        append!(failures, [(l, err) for l in labels])
-    end
-    return n_entries, n_failed, failures
-end
-
 """
     check_reports(session::DataflowSession, run_steps, partition_steps)
 
 Print, for every step in `run_steps` (run level) and `partition_steps` (partition
-level), one line per report of the session's periods and runs with its failed entries,
-followed by a summary of the failed detectors and their errors. Return `nothing`.
+level), one line per report of the session's periods and runs, followed by a summary of
+the failed detectors and their errors. The reports are read with
+[`report_index`](@ref) and summarized with [`failure_summary`](@ref). Return `nothing`.
 
+A line shows the failed entries of the report, `OK` with the number of entries, or
+`Warning` when only warnings occurred. A missing report is listed as `no report`.
 An entry is a row of a report table with a `Status` column; it counts as failed when
-its status cell contains `Failure`. A missing report is listed as `no report`.
+its status cell contains `Failure`, see [`read_report`](@ref).
 """
 function check_reports(session::DataflowSession, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
     (; l200, config, periods, runs) = session
-    # print one line per report and collect the failed detectors and their errors for the summary
-    function check_report(label::String, filename::AbstractString, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
-        if !isfile(filename)
-            printstyled("  $(rpad(label, 11)) no report\n"; color = :light_black)
-            return
-        end
-        n_entries, n_failed, failures = report_failures(filename)
-        if isempty(failures)
-            printstyled("  $(rpad(label, 11)) OK"; color = :green)
-            println(" ($n_entries entries)")
-            return
-        end
-        # collect run and error per detector, dropping the filter type suffix for the summary
-        for (det, err) in failures
-            push!(get!(failed, first(split(det, " (")), String[]), label)
-            isempty(err) || push!(get!(errors, first(split(det, " (")), String[]), err)
-        end
-        printstyled("  $(rpad(label, 11)) $n_failed of $n_entries entries failed: "; color = :red)
-        println(truncate_string(join(unique(first.(failures)), ", "), 80))
-    end
-
-    # print which detector failed in which runs and with which errors
-    function check_summary(process::Symbol, failed::Dict{String, Vector{String}}, errors::Dict{String, Vector{String}})
+    for (steps, specs) in ((run_steps, config.processors), (partition_steps, config.p_processors)), process in steps
+        spec = specs[process]
+        printstyled("\n$(string(process)) ($(spec.category))\n"; bold = true)
         println("-"^110)
-        if isempty(failed)
+        rows = report_index(l200, [spec], periods, runs)
+        for row in rows
+            label = rpad(row_label(row), 11)
+            if row.state == :missing
+                printstyled("  $label no report\n"; color = :light_black)
+            elseif !isempty(row.failures)
+                printstyled("  $label $(row.n_failed) of $(row.n_entries) entries failed: "; color = :red)
+                println(truncate_string(join(unique(first.(row.failures)), ", "), 80))
+            elseif row.state == :failed
+                printstyled("  $label processor failed\n"; color = :red)
+            elseif row.state == :warning
+                printstyled("  $label Warning"; color = :yellow)
+                println(" ($(row.n_warnings) of $(row.n_entries) entries with warnings)")
+            else
+                printstyled("  $label OK"; color = :green)
+                println(" ($(row.n_entries) entries)")
+            end
+        end
+        # print which detector failed in which runs and with which errors
+        println("-"^110)
+        detectors = isempty(rows) ? [] : only(failure_summary(rows)).detectors
+        if isempty(detectors)
             printstyled("  All detectors passed in all checked reports of $(string(process))\n"; color = :green)
         else
-            printstyled("  Summary $(string(process)): $(length(failed)) detector(s) with failures\n"; color = :red)
-            for det in sort(collect(keys(failed)))
-                runs_failed = unique(failed[det])
-                println("      $(rpad(det, 12)) $(lpad(length(runs_failed), 3)) run(s): $(truncate_string(join(runs_failed, ", "), 85))")
-                for err in unique(get(errors, det, String[]))
+            printstyled("  Summary $(string(process)): $(length(detectors)) detector(s) with failures\n"; color = :red)
+            for (; detector, labels, errors) in detectors
+                println("      $(rpad(detector, 12)) $(lpad(length(labels), 3)) run(s): $(truncate_string(join(labels, ", "), 85))")
+                for err in errors
                     println("      $(" "^12)      $(truncate_string(err, 100))")
                 end
             end
         end
         println()
     end
-
-    # reports written per run
-    for process in run_steps
-        report = Symbol("$(last(split(string(process), "process_")))")
-        category = config.processors[process].category
-        printstyled("\n$(string(process)) ($category)\n"; bold = true)
-        println("-"^110)
-        failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
-        for period in periods
-            for run in processable_runs(l200, period, runs)
-                # `start_filekey` throws an `ArgumentError` for a run without run information
-                filekey = try
-                    start_filekey(l200, (period, run, category))
-                catch e
-                    e isa ArgumentError || rethrow()
-                    @warn "No start filekey for $period-$run-$category, skip: $(truncate_error(e))"
-                    continue
-                end
-                if ismissing(filekey)
-                    @warn "No $category data in $period-$run, skip"
-                    continue
-                end
-                check_report("$period-$run", get_rreportfilename(l200, filekey, report), failed, errors)
-            end
-        end
-        check_summary(process, failed, errors)
-    end
-
-    # reports written per partition, i.e. one per period
-    for process in partition_steps
-        report = Symbol("$(last(split(string(process), "process_")))")
-        category = config.p_processors[process].category
-        printstyled("\n$(string(process)) ($category)\n"; bold = true)
-        println("-"^110)
-        failed, errors = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
-        for period in periods
-            period_runs = processable_runs(l200, period, runs)
-            if isempty(period_runs)
-                @warn "No selected runs in $period, skip"
-                continue
-            end
-            filekey = try
-                start_filekey(l200, (period, first(period_runs), category))
-            catch e
-                e isa ArgumentError || rethrow()
-                @warn "No start filekey for $period-$category, skip: $(truncate_error(e))"
-                continue
-            end
-            if ismissing(filekey)
-                @warn "No $category data in $period-$(first(period_runs)), skip"
-                continue
-            end
-            check_report("$period", get_preportfilename(l200, filekey, report), failed, errors)
-        end
-        check_summary(process, failed, errors)
-    end
+    return nothing
 end

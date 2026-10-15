@@ -56,6 +56,11 @@ Juleana.init_process
 DataflowSession
 menu
 Juleana.check_reports
+Juleana.report_path
+Juleana.read_report
+Juleana.report_index
+Juleana.failure_summary
+Juleana.report_overview
 run_processing
 ProcessingStopped
 Juleana.wait_for
