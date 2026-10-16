@@ -158,7 +158,7 @@ export ProcessorGraph, processor_graph, topological_order, required_processors, 
 export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
-    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetCheckDependencies, SetKwarg,
+    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetRunmode, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
     CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction, SelectProduction, SelectDataset
 

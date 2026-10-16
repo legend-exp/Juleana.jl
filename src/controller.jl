@@ -101,6 +101,20 @@ struct SetAnalysisRunsOnly <: ControllerCommand
 end
 
 """
+    SetRunmode(runmode::Symbol)
+
+Use the run mode `runmode`, `:local` or `:slurm`, instead of the one of the config, for the
+next worker allocations; running allocations are not changed.
+"""
+struct SetRunmode <: ControllerCommand
+    runmode::Symbol
+    function SetRunmode(runmode)
+        runmode in (:local, :slurm) || throw(ArgumentError("SetRunmode: runmode must be :local or :slurm, got $(repr(runmode))"))
+        return new(runmode)
+    end
+end
+
+"""
     SetKwarg(step, key, value)
 
 Override the keyword argument `key` of the processor `step` for this session. The
@@ -313,6 +327,7 @@ mutable struct DataflowController
     available_runs::Dict{DataPeriod,Vector{DataRun}}
     reprocess::Union{Nothing,Bool}
     analysis_runs_only::Union{Nothing,Bool}
+    runmode::Union{Nothing,Symbol}
     check_dependencies::Bool
     kwarg_overrides::Dict{Symbol,Dict{Symbol,Any}}
     task::Union{Nothing,Task}
@@ -326,7 +341,7 @@ function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol}
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console), workers::WorkerManager = WorkerManager())
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
         Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers, String[], :idle, nothing, DataPeriod[], DataPeriod[],
-        Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, true, Dict{Symbol,Dict{Symbol,Any}}(),
+        Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, nothing, true, Dict{Symbol,Dict{Symbol,Any}}(),
         nothing, nothing, nothing, nothing, nothing)
 end
 
@@ -349,7 +364,7 @@ function install_session!(ctrl::DataflowController, session::DataflowSession)
     ctrl.periods = copy(session.periods)
     ctrl.available_periods = available_periods(session.l200)
     ctrl.available_runs = Dict(p => available_runs(session.l200, p) for p in ctrl.available_periods)
-    set_worker_config!(ctrl.workers, session.config)
+    set_worker_config!(ctrl.workers, effective_config(ctrl))
     ctrl.state = :ready
     return ctrl
 end
@@ -389,12 +404,12 @@ end
     effective_config(ctrl::DataflowController)
 
 Return the session's [`ProcessingConfig`](@ref) with the kwarg overrides of the
-controller merged into the processor kwargs and its `analysis_runs_only` setting
-applied.
+controller merged into the processor kwargs and its `analysis_runs_only` and `runmode`
+settings applied.
 """
 function effective_config(ctrl::DataflowController)
     cfg = ctrl.session.config
-    return ProcessingConfig(cfg.runmode, cfg.submit_jobs, cfg.local_n, cfg.local_julia_settings,
+    return ProcessingConfig(something(ctrl.runmode, cfg.runmode), cfg.submit_jobs, cfg.local_n, cfg.local_julia_settings,
         cfg.slurm_flags, cfg.slurm_julia_settings, cfg.env_variables, cfg.periods, cfg.runs,
         something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level, cfg.idle_timeout_minutes,
         with_overrides(cfg.processors, ctrl.kwarg_overrides), with_overrides(cfg.p_processors, ctrl.kwarg_overrides))
@@ -522,6 +537,13 @@ function apply!(ctrl::DataflowController, cmd::SetAnalysisRunsOnly)
     return nothing
 end
 
+function apply!(ctrl::DataflowController, cmd::SetRunmode)
+    require_state(ctrl, cmd, :ready)
+    ctrl.runmode = cmd.runmode
+    set_worker_config!(ctrl.workers, effective_config(ctrl))
+    return nothing
+end
+
 function apply!(ctrl::DataflowController, cmd::SetCheckDependencies)
     require_state(ctrl, cmd, :idle, :ready)
     ctrl.check_dependencies = cmd.check
@@ -644,6 +666,7 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
         entry.enabled = name in selected
     end
     props.processing.analysis_runs_only = effective_config(ctrl).analysis_runs_only
+    props.config.runmode = string(effective_config(ctrl).runmode)
     path = isnothing(cmd.path) ? joinpath(mkpath(production_config_dir()), "processing_config.yaml") : cmd.path
     isfile(path) && cp(path, path * ".bak"; force = true)
     writelprops(path, props)
@@ -767,7 +790,7 @@ const ControllerSnapshot = @NamedTuple{state::Symbol, outcome::Union{Nothing,Sym
     available_runs::Dict{DataPeriod,Vector{DataRun}}, periods::Vector{DataPeriod},
     runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}}, run_steps::Vector{Symbol},
     partition_steps::Vector{Symbol}, processors::Vector{ProcessorInfo}, reprocess::Union{Nothing,Bool},
-    analysis_runs_only::Union{Nothing,Bool}, check_dependencies::Bool, nworkers::Int,
+    analysis_runs_only::Union{Nothing,Bool}, runmode::Union{Nothing,Symbol}, check_dependencies::Bool, nworkers::Int,
     allocations::Vector{AllocationInfo}, idle_deadline::Union{Nothing,DateTime}}
 
 """
@@ -791,7 +814,7 @@ the controller state:
   config), `accepted` (the keyword arguments the processor function accepts besides the
   ones the dataflow passes itself, `nothing` if it accepts any) and `overridden` (names of
   the overridden kwargs);
-- `reprocess`, `analysis_runs_only` (the setting in effect), `check_dependencies`,
+- `reprocess`, `analysis_runs_only` and `runmode` (the settings in effect), `check_dependencies`,
   `nworkers` (workers in the pool), `allocations` (the worker allocations, see
   [`Juleana.allocations`](@ref), without their output), `idle_deadline` (UTC time at which
   idle allocations are cancelled, or `nothing`, see [`Juleana.idle_deadline`](@ref)).
@@ -825,6 +848,7 @@ function snapshot(ctrl::DataflowController)
             partition_steps = isnothing(session) ? Symbol[] : copy(session.partition_steps),
             processors, ctrl.reprocess,
             analysis_runs_only = isnothing(session) ? ctrl.analysis_runs_only : something(ctrl.analysis_runs_only, session.config.analysis_runs_only),
+            runmode = isnothing(session) ? ctrl.runmode : something(ctrl.runmode, session.config.runmode),
             ctrl.check_dependencies,
             nworkers = nprocs() > 1 ? nworkers() : 0,
             allocations = allocations(ctrl.workers; output = false),

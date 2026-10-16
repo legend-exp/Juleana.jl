@@ -49,7 +49,7 @@
             config_file = "config/processing_config.yaml", log_path = "", dataset = "default", available_periods = [p2, p3],
             available_runs = Dict(p2 => runs2, p3 => [r0]), periods = [p2, p3], runs = nothing,
             run_steps = [:process_dsp_cal, :process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
-            processors, reprocess = nothing, analysis_runs_only = true, check_dependencies = true, nworkers = 2,
+            processors, reprocess = nothing, analysis_runs_only = true, runmode = :local, check_dependencies = true, nworkers = 2,
             allocations = [], idle_deadline = t0 + Second(900)))
 
         done_key, run_key, wait_key, part_key = (p2, runs2[1], :process_dsp_cal), (p2, runs2[1], :process_energy_calibration_cal),

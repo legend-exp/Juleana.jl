@@ -93,7 +93,8 @@ The tabs at the top open the pages, also with the keys `1` to `7`. `?` shows all
 the visible page, `q` or `Ctrl+C` quits.
 
 1. **Setup**: select the periods, runs and processors, edit the keyword arguments of a
-   processor (`e`) and the options, start processing (`s`), stop it (`x` after the
+   processor (`e`) and the options (reprocess, check dependencies, analysis runs only and the
+   run mode, `local` or `slurm`, of the next worker allocations), start processing (`s`), stop it (`x` after the
    running items, `X` at once), reload the config (`r`), write the settings to the
    config file (`w`), and create a new data production (`N`). The Production pane shows the
    production root, the data production and the dataset. The root is the folder the

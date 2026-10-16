@@ -5,6 +5,7 @@ const SETUP_OPTIONS = (
     (:reprocess, "Reprocess", (nothing, true, false)),
     (:check_dependencies, "Check dependencies", (true, false)),
     (:analysis_runs_only, "Analysis runs only", (true, false)),
+    (:runmode, "Run mode", (:local, :slurm)),
 )
 
 """
@@ -158,6 +159,7 @@ option_value(snap, key) = getproperty(snap, key)
 function option_command(key, value)
     key === :reprocess && return SetReprocess(value)
     key === :check_dependencies && return SetCheckDependencies(value)
+    key === :runmode && return SetRunmode(value)
     return SetAnalysisRunsOnly(value)
 end
 
