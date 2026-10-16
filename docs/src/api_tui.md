@@ -22,6 +22,9 @@ Juleana.current
 Juleana.SetupPage
 Juleana.SetupPicker
 Juleana.read_choices
+Juleana.find_productions
+Juleana.production_root
+Juleana.root_key!
 Juleana.sync_setup!
 Juleana.setup_key!
 Juleana.setup_mouse!

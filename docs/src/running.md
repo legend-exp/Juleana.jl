@@ -96,9 +96,15 @@ the visible page, `q` or `Ctrl+C` quits.
    processor (`e`) and the options, start processing (`s`), stop it (`x` after the
    running items, `X` at once), reload the config (`r`), write the settings to the
    config file (`w`), and create a new data production (`N`). The Production pane shows the
-   data production and the dataset; `Enter` or a click on a line opens a list of the
-   productions next to the current one (the folders in its parent folder that hold a
-   `config.json`) or of the datasets (`default` and the names in the metadata
+   production root, the data production and the dataset. The root is the folder the
+   productions are listed under, by default the parent folder of the current production.
+   `Enter` or a click on the `Root` line edits it in place: type the path, `Tab` completes it
+   (several candidates are listed below the lines), `Enter` sets it (it must be an existing
+   absolute folder; `~` is expanded) and `Esc` cancels. While the root is edited, all keys
+   go to its text. `Enter` or a click on the other lines opens a list of the productions
+   under the root (all folders up to four levels below it that hold a `config.json` or
+   `config.yaml`, shown as paths relative to the root; hidden folders and symbolic links
+   are skipped, and a production is not searched for further productions) or of the datasets (`default` and the names in the metadata
    `datasets/runlists`). Choosing one cancels the worker allocations and reloads the
    session; it is possible while no processing runs. The Dataset pane below shows the runinfo of the
    period or run under the cursor of the periods.

@@ -27,18 +27,24 @@ SetupPicker(kind, items, cursor) = SetupPicker(kind, items, cursor, 1)
 
 State of the Setup page of the terminal user interface: a [`Juleana.Checklist`](@ref)
 of periods with their runs, one of the run-level and one of the partition-level
-processors, the options pane, the pane with the data production and the dataset, and the
+processors, the options pane, the pane with the production root, the data production and
+the dataset, and the
 runinfo of the period or run under the cursor of the periods. The checklists are built from the controller
 snapshots by [`Juleana.sync_setup!`](@ref); keys are handled by
 [`Juleana.setup_key!`](@ref).
 
 `focus` is the focused pane: 1 periods, 2 run processors, 3 partition processors,
-4 options, 5 production and dataset, where `source` is the chosen line (1 production,
-2 dataset). `editor` is the open [`Juleana.KwargsEditor`](@ref), `confirm` is `:write`
+4 options, 5 production pane, where `source` is the chosen line (1 root, 2 production,
+3 dataset). `editor` is the open [`Juleana.KwargsEditor`](@ref), `confirm` is `:write`
 while writing the config waits for confirmation, and `picker` is the open
-[`Juleana.SetupPicker`](@ref). `choices` holds the names the pickers list, read by
-[`Juleana.read_choices`](@ref): `nothing` before they are read, the message of the read
-error, or a `NamedTuple` with `productions` and `datasets`.
+[`Juleana.SetupPicker`](@ref). `root` is the folder the productions are listed under, or
+`nothing` for the parent folder of the current data production (see
+[`Juleana.production_root`](@ref)); `root_edit` is the text of the root while it is edited
+in place, `nothing` otherwise, and `root_hint` a message below the lines of the pane (the
+completion candidates or the error of the root) with whether it is an error. `choices`
+holds the names the pickers list, read by [`Juleana.read_choices`](@ref): `nothing` before
+they are read, the message of the read error, or a `NamedTuple` with `productions` and
+`datasets`.
 """
 mutable struct SetupPage
     periods::Checklist
@@ -66,13 +72,17 @@ mutable struct SetupPage
     # inside of the production pane and of the picker list at the last render
     production_area::Tachikoma.Rect
     picker_area::Tachikoma.Rect
+    root::Union{Nothing,String}
+    root_edit::Union{Nothing,String}
+    root_hint::Tuple{String,Bool}
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
     Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
     Checklist(ChecklistItem[]; title = "Partition processors", focused = false, tag_style = setup_tag_style), 1, 1, nothing,
     nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false, false,
-    1, nothing, nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+    1, nothing, nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0),
+    nothing, nothing, ("", false))
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
@@ -161,13 +171,15 @@ An open kwargs editor gets every key (see [`Juleana.kwargs_key!`](@ref)); while 
 the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config folder
 of the data production and any other key cancels. An open picker gets every key: Up and
 Down move the cursor, Enter sends [`SelectProduction`](@ref) or [`SelectDataset`](@ref) for the chosen
-name unless it is the current one, and Escape closes the picker. Otherwise the focused checklist gets the key
+name unless it is the current one, and Escape closes the picker. While the production root is edited
+every key goes to its text (see [`Juleana.root_key!`](@ref)). Otherwise the focused checklist gets the key
 first; a change of its selection sends `SelectRuns` or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
 `c` and `p` select the `cal` and `phy` processors of the pane, `d` adds the steps
 the selected steps wait for and `e` opens the kwargs editor for the processor under the
 cursor; in the options pane Up and Down choose a row and Space or
-Enter cycles its value; in the production pane Up and Down choose the production or the
-dataset and Space or Enter opens its picker once the names are read; `s` starts processing, `x` stops it after the running items, `X`
+Enter cycles its value; in the production pane Up and Down choose the root, the production or the
+dataset, Space or Enter edits the root in place or opens the picker of the production or dataset
+once the names are read; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
 dependency graph, `W` starts a worker allocation with [`AddWorkers`](@ref) and `w` asks to write
 the current settings to `config/processing_config.json` of the data production. `N` sets
@@ -178,6 +190,10 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
     if !isnothing(page.editor)
         kwargs_key!(page.editor, evt, snap, send) === :close && (page.editor = nothing)
+        return true
+    end
+    if !isnothing(page.root_edit)
+        root_key!(page, evt)
         return true
     end
     if page.confirm === :write
@@ -226,9 +242,9 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     elseif page.focus == 4 && (key == :enter || (key == :char && char == ' ')) && !isnothing(snap)
         cycle_option(page, snap, send)
     elseif page.focus == 5 && key in (:up, :down)
-        page.source = clamp(page.source + (key == :up ? -1 : 1), 1, 2)
+        page.source = clamp(page.source + (key == :up ? -1 : 1), 1, 3)
     elseif page.focus == 5 && (key == :enter || (key == :char && char == ' '))
-        open_picker!(page, snap)
+        open_line!(page, snap)
     elseif key == :char && char == 's'
         send(StartProcessing())
     elseif key == :char && char == 'x'
@@ -255,12 +271,14 @@ end
 Pass the mouse event `evt` to the checklist under the pointer, focus that pane, and send
 the new selection if it changed. A left click in the options pane focuses it; on an
 option row it also chooses the row and sends its next value. A left click in the
-production pane focuses it and opens the picker of the line. While a picker is open, a
+production pane focuses it and edits the root or opens the picker of the line. While the root is edited, a
+click is used without effect. While a picker is open, a
 left click on an item chooses it and every other event is used without effect. Return whether the event
 was used.
 """
 function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
     (isnothing(page.editor) && isnothing(page.confirm)) || return false
+    isnothing(page.root_edit) || return true
     if !isnothing(page.picker)
         picker = page.picker
         if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.picker_area, evt.x, evt.y)
@@ -299,21 +317,83 @@ function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
     end
     if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.production_area, evt.x, evt.y)
         focus!(length(panes) + 2)
-        page.source = clamp(evt.y - page.production_area.y + 1, 1, 2)
-        open_picker!(page, snap)
+        page.source = clamp(evt.y - page.production_area.y + 1, 1, 3)
+        open_line!(page, snap)
         return true
     end
     return false
 end
 
-# Open the picker of the production (`page.source == 1`) or the dataset line once the names
-# are read, with the cursor on the current name.
-function open_picker!(page::SetupPage, snap)
+# Start editing the root (`page.source == 1`), or open the picker of the production
+# (`page.source == 2`) or the dataset once the names are read, with the cursor on the
+# current name.
+function open_line!(page::SetupPage, snap)
+    if page.source == 1
+        page.root_edit, page.root_hint = production_root(page), ("", false)
+        return nothing
+    end
     page.choices isa NamedTuple || return nothing
-    kind = page.source == 1 ? :production : :dataset
-    items = kind === :production ? page.choices.productions : page.choices.datasets
-    current = kind === :production ? first(something(current_production(), ("",))) : dataset_name(snap)
-    page.picker = SetupPicker(kind, items, something(findfirst(==(current), items), 1))
+    kind = page.source == 2 ? :production : :dataset
+    if kind === :production
+        current = current_production()
+        folder = isnothing(current) ? "" : joinpath(last(current), first(current))
+        items = page.choices.productions
+        cursor = findfirst(n -> abspath(joinpath(production_root(page), n)) == folder, items)
+    else
+        items = page.choices.datasets
+        cursor = findfirst(==(dataset_name(snap)), items)
+    end
+    page.picker = SetupPicker(kind, items, something(cursor, 1))
+    return nothing
+end
+
+"""
+    Juleana.production_root(page::SetupPage)
+
+Return the folder the productions of the Setup page are listed under: `page.root` if it was
+set, else the parent folder of the current data production, or `""` if none is set.
+"""
+function production_root(page::SetupPage)
+    isnothing(page.root) || return page.root
+    current = current_production()
+    return isnothing(current) ? "" : last(current)
+end
+
+"""
+    Juleana.root_key!(page::SetupPage, evt::Tachikoma.KeyEvent)
+
+Handle the key `evt` while the production root of `page` is edited in `page.root_edit`.
+Printable characters are appended and Backspace removes the last one. Tab completes the
+text with [`Juleana.complete_path`](@ref): it extends the text by the common prefix of the
+folders it matches and, if there are several, shows up to 8 of them in `page.root_hint`.
+Enter sets the root to the text, with `~` expanded, if that is an existing absolute folder,
+which makes the productions be read again, and shows an error and keeps editing otherwise.
+Escape ends the edit and keeps the root. Every other key is ignored.
+"""
+function root_key!(page::SetupPage, evt::Tachikoma.KeyEvent)
+    text, key, char = page.root_edit, evt.key, evt.char
+    page.root_hint = ("", false)
+    if key == :escape
+        page.root_edit = nothing
+    elseif key == :enter
+        expanded = text == "~" || startswith(text, "~/") ? homedir() * text[2:end] : text
+        if !isabspath(expanded) || !isdir(expanded)
+            page.root_hint = ("Not an existing absolute folder", true)
+        else
+            page.root, page.root_edit, page.choices = expanded == "/" ? expanded : chopsuffix(abspath(expanded), "/"), nothing, nothing
+        end
+    elseif key == :tab
+        completed, candidates = complete_path(text)
+        page.root_edit = completed
+        if length(candidates) > 1
+            shown = first(candidates, 8)
+            page.root_hint = (join(shown, "  ") * (length(candidates) > length(shown) ? "  and $(length(candidates) - length(shown)) more" : ""), false)
+        end
+    elseif key == :backspace
+        page.root_edit = chop(text)
+    elseif key == :char && isprint(char)
+        page.root_edit = text * char
+    end
     return nothing
 end
 
@@ -339,8 +419,9 @@ function picker_choose!(page::SetupPage, snap, send)
     page.picker = nothing
     name = picker.items[picker.cursor]
     if picker.kind === :production
-        production = current_production()
-        name == first(something(production, ("",))) || send(SelectProduction(joinpath(last(production), name)))
+        current = current_production()
+        folder = abspath(joinpath(production_root(page), name))
+        folder == (isnothing(current) ? "" : joinpath(last(current), first(current))) || send(SelectProduction(folder))
     else
         name == dataset_name(snap) || send(SelectDataset(Symbol(name)))
     end
@@ -425,35 +506,70 @@ function dataset_lines(page::SetupPage)
 end
 
 """
-    Juleana.read_choices(ctrl::DataflowController)
+    Juleana.find_productions(root)
+
+Return the sorted paths, relative to the folder `root`, of the folders under `root` that
+hold a `config.json` or `config.yaml`; `"."` is `root` itself. The search is breadth-first
+with one `readdir` per folder, goes at most 4 levels below `root`, skips hidden folders and
+symbolic links, and does not descend into a folder that holds a config file. Folders that
+cannot be read are skipped.
+"""
+function find_productions(root::AbstractString)
+    found, level = String[], [""]
+    for depth in 0:4
+        next = String[]
+        for rel in level
+            dir = joinpath(root, rel)
+            names = try
+                readdir(dir)
+            catch e
+                e isa Base.IOError || rethrow()
+                continue
+            end
+            if "config.json" in names || "config.yaml" in names
+                push!(found, isempty(rel) ? "." : rel)
+            elseif depth < 4
+                for n in names
+                    path = joinpath(dir, n)
+                    startswith(n, ".") || islink(path) || !isdir(path) || push!(next, joinpath(rel, n))
+                end
+            end
+        end
+        level = next
+    end
+    return sort!(found)
+end
+
+"""
+    Juleana.read_choices(ctrl::DataflowController, root)
 
 Read the names the pickers of the Setup page list, and return them as a `NamedTuple` with
-`productions`, the folders next to the current data production that hold a `config.json`
-(one `readdir` of the parent folder), and `datasets`, `"default"` and the names in the
-metadata `datasets/runlists` of the loaded session. Throws if the data production is not
-set or the run lists cannot be read.
+`productions`, the data productions under the folder `root` (see
+[`Juleana.find_productions`](@ref)), and `datasets`, `"default"` and the names in the
+metadata `datasets/runlists` of the loaded session. Throws if `root` is empty or the run
+lists cannot be read.
 """
-function read_choices(ctrl::DataflowController)
-    current = current_production()
-    isnothing(current) && throw(ArgumentError("LEGEND_DATA_CONFIG is not set: no data production is selected"))
-    productions = sort!([d for d in readdir(last(current)) if isfile(joinpath(last(current), d, "config.json"))])
+function read_choices(ctrl::DataflowController, root::AbstractString)
+    isempty(root) && throw(ArgumentError("no production root is set"))
+    productions = find_productions(root)
     session = @lock ctrl.lock ctrl.session
     datasets = isnothing(session) ? String[] : string.(keys(session.l200.metadata.datasets.runlists))
     return (; productions, datasets = sort!(unique!(vcat("default", datasets))))
 end
 
-# Read the choices of the pickers in a background task when the data production or the
-# loaded state of the session changed since the last read; the value is the choices or
+# Read the choices of the pickers in a background task when the data production, the
+# production root or the loaded state of the session changed since the last read; the value is the choices or
 # the message of the read error, tagged with what it was read for.
 function choices_sync!(m)
     page, ctrl = m.setup, m.ctrl
     m.snap.state === :loading && return nothing
-    key = (current_production(), m.snap.state === :idle)
+    root = production_root(page)
+    key = (current_production(), m.snap.state === :idle, root)
     key == page.choices_key && return nothing
     page.choices_key = key
     Tachikoma.spawn_task!(m.queue, :choices) do
         value = try
-            read_choices(ctrl)
+            read_choices(ctrl, root)
         catch e
             @error "Reading the data productions and datasets failed" exception = (e, catch_backtrace())
             first(split(sprint(showerror, e), '\n'))
@@ -463,18 +579,25 @@ function choices_sync!(m)
     return nothing
 end
 
-# Lines of the production pane: the data production and the dataset, and the read error of
-# the choices if there is one.
+# Lines of the production pane: the root, the data production and the dataset, the hint or
+# error of the root, and the read error of the choices if there is one.
 function production_lines(page::SetupPage, snap)
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
     production = current_production()
     names = (isnothing(production) ? "not set" : first(production), dataset_name(snap))
     lines = Vector{Tuple{String,Tachikoma.Style}}[]
-    for (i, (label, name)) in enumerate(zip(("Production: ", "Dataset: "), names))
+    editing = !isnothing(page.root_edit)
+    root = editing ? page.root_edit : production_root(page)
+    # the end of a long path stays visible, with room for the label and the cursor
+    room = page.production_area.width - 8
+    names = (editing && 0 < room < textwidth(root) ? "…" * last(root, room - 1) : root, names...)
+    for (i, (label, name)) in enumerate(zip(("Root: ", "Production: ", "Dataset: "), names))
         chosen = page.focus == 5 && i == page.source
         push!(lines, [(label, chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
-            (name, Tachikoma.tstyle(:text_bright, bold = chosen))])
+            (name, Tachikoma.tstyle(:text_bright, bold = chosen)), (i == 1 && editing ? "█" : "", Tachikoma.tstyle(:accent))])
     end
+    hint, failed = page.root_hint
+    isempty(hint) || push!(lines, [(hint, failed ? Tachikoma.tstyle(:error) : dim)])
     page.choices isa AbstractString && push!(lines, [(page.choices, Tachikoma.tstyle(:error))])
     return lines
 end
@@ -510,7 +633,8 @@ Draw the Setup page into `area`: periods and runs on the left, the run and parti
 processors in the middle, and on the right the options with a summary of what a start
 would process and the largest logo that fits below it (centered at the bottom of the
 pane), the data production and dataset, and the runinfo of the period or run under the
-cursor of the periods (see [`Juleana.dataset_lines`](@ref)). The open picker is drawn over the page.
+cursor of the periods (see [`Juleana.dataset_lines`](@ref)); the production pane shows
+[`Juleana.production_root`](@ref), the data production and the dataset. The open picker is drawn over the page.
 """
 function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     columns = Tachikoma.Layout(Tachikoma.Horizontal,

@@ -83,7 +83,7 @@
         m.progress, m.busy = progress(store), busy_workers(store)
         sync_setup!(m.setup, snap)
         m.setup.dataset_requested = true
-        m.setup.choices_key = (current_production(), false)
+        m.setup.choices_key = (current_production(), false, Juleana.production_root(m.setup))
 
         # page data, delivered as the background reads answer
         index_row(process, period, run, state; level = :run) = (; process, level, category = :cal, period, run,
@@ -163,8 +163,8 @@
         setup_key!(m.setup, Tachikoma.KeyEvent(:enter), snap, drop)
         deliver!(Tachikoma.TaskEvent(:choices, (m.setup.choices_key, (; productions = ["prod-a", "prod-b"], datasets = ["default", "valid"]))))
         m.setup.focus = 5
-        press(:down, :up, :enter, :down, :escape)
-        m.setup.source = 2
+        press(:enter, '1', :backspace, :tab, :escape, :down, :up, :down, :enter, :down, :escape)
+        m.setup.source = 3
         press(:enter, :down)
         frame()
         setup_key!(m.setup, Tachikoma.KeyEvent(:enter), snap, drop)

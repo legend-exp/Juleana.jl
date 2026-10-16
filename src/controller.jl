@@ -227,8 +227,8 @@ end
     SelectProduction(path::AbstractString)
 
 Switch the session to the existing data production in the folder `path`, which must hold a
-`config.json`: cancel all worker allocations, set `LEGEND_DATA_CONFIG` of this process to
-that file, reset the dataset to `default`, and load a session with the
+`config.json` or `config.yaml` (`config.json` if both exist): cancel all worker allocations,
+set `LEGEND_DATA_CONFIG` of this process to that file, reset the dataset to `default`, and load a session with the
 [`Juleana.install_default_config`](@ref) file of the production and a new log folder.
 Possible while no session is loaded or no processing runs; the controller is `:loading`
 meanwhile and is `:idle` without a session if the load fails.
@@ -697,8 +697,10 @@ end
 
 function apply!(ctrl::DataflowController, cmd::SelectProduction)
     require_state(ctrl, cmd, :idle, :ready)
-    config = joinpath(cmd.path, "config.json")
-    isfile(config) || throw(ArgumentError("$(cmd.path) is not a data production: it has no config.json"))
+    configs = [joinpath(cmd.path, f) for f in ("config.json", "config.yaml")]
+    i = findfirst(isfile, configs)
+    isnothing(i) && throw(ArgumentError("$(cmd.path) is not a data production: it has no config.json or config.yaml"))
+    config = configs[i]
     reload_session!(ctrl) do
         ENV["LEGEND_DATA_CONFIG"] = config
         @lock ctrl.lock begin

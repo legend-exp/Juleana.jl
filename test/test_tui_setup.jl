@@ -385,9 +385,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             name == "no-config" || write(joinpath(parent, name, "config.json"), "{}")
         end
         withenv("LEGEND_DATA_CONFIG" => joinpath(parent, "prod-a", "config.json")) do
-            @test_throws "no data production" withenv(() -> Juleana.read_choices(DataflowController(Dict{String,Any}())), "LEGEND_DATA_CONFIG" => nothing)
+            @test_throws "no production root" Juleana.read_choices(DataflowController(Dict{String,Any}()), "")
             ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
-            @test Juleana.read_choices(ctrl) == (; productions = ["prod-a", "prod-b"], datasets = ["default"])
+            @test Juleana.read_choices(ctrl, parent) == (; productions = ["prod-a", "prod-b"], datasets = ["default"])
 
             m = new_tui()
             @test setup_refreshed!(m)
@@ -396,7 +396,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             @test setup_settle!(() -> page.choices isa NamedTuple && page.dataset isa AbstractDict, m)
             @test page.choices.productions == ["prod-a", "prod-b"] && "default" in page.choices.datasets
             tb = render_setup_page(m)
-            for text in ("Production", "Production: prod-a", "Dataset: default", "Options", "Dataset p02")
+            for text in ("Production", "Root: ", "Production: prod-a", "Dataset: default", "Options", "Dataset p02")
                 @test find_text(tb, text) !== nothing
             end
             # the Dataset pane is below the Production pane, which is below the Options pane
@@ -416,7 +416,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             sent = ControllerCommand[]
             send = cmd -> push!(sent, cmd)
             key!(k) = Juleana.setup_key!(page, KeyEvent(k), m.snap, send)
-            page.focus = 5
+            page.focus, page.source = 5, 2
             key!(:enter)
             @test page.picker.kind === :production && page.picker.items == ["prod-a", "prod-b"] && page.picker.cursor == 1
             tb = render_setup_page(m)
@@ -438,7 +438,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
             # the dataset line opens the picker of the datasets
             key!(:down)
-            @test page.source == 2
+            @test page.source == 3
             page.choices = (; productions = ["prod-a"], datasets = ["default", "valid", "zzz"])
             key!(' ')
             @test page.picker.kind === :dataset && page.picker.cursor == 1
@@ -461,17 +461,120 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             render_setup_page(m)
             area = page.production_area
             click(x, y) = Juleana.setup_mouse!(page, MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), m.snap, send)
-            @test click(area.x + 2, area.y)
-            @test page.focus == 5 && page.source == 1 && page.picker.kind === :production
+            @test click(area.x + 2, area.y + 1)
+            @test page.focus == 5 && page.source == 2 && page.picker.kind === :production
             render_setup_page(m)
             @test click(page.picker_area.x + 2, page.picker_area.y + 1)
             @test isnothing(page.picker) && only(sent).path == joinpath(parent, "prod-b")
             empty!(sent)
-            @test click(area.x + 2, area.y + 1)
-            @test page.source == 2 && page.picker.kind === :dataset
+            @test click(area.x + 2, area.y + 2)
+            @test page.source == 3 && page.picker.kind === :dataset
             @test click(1, 1) && !isnothing(page.picker)
             key!(:escape)
             @test isempty(sent)
+        end
+    end
+
+    @testset "production listing" begin
+        tree = realpath(mktempdir())
+        touch_config(path, name = "config.json") = (mkpath(path); write(joinpath(path, name), "{}"))
+        touch_config(joinpath(tree, "test"))
+        touch_config(joinpath(tree, "jl-v1.0", "prodA"))
+        touch_config(joinpath(tree, "jl-v1.0", "prodB"), "config.yaml")
+        touch_config(joinpath(tree, "a", "b", "c", "d"))
+        touch_config(joinpath(tree, "a", "b", "c", "d", "e"))
+        touch_config(joinpath(tree, "a", "b", "c", "d", "e", "f"))
+        touch_config(joinpath(tree, "a", "b", "c", "d", "e", "f", "g"))
+        touch_config(joinpath(tree, "test", "generated", "inner"))
+        touch_config(joinpath(tree, ".hidden"))
+        mkpath(joinpath(tree, "empty"))
+        symlink(joinpath(tree, "test"), joinpath(tree, "link"))
+        # the folder at depth 4 is listed, deeper ones are not; a production is not searched
+        @test Juleana.find_productions(tree) == ["a/b/c/d", "jl-v1.0/prodA", "jl-v1.0/prodB", "test"]
+        @test Juleana.find_productions(joinpath(tree, "jl-v1.0")) == ["prodA", "prodB"]
+        # the root itself counts
+        @test Juleana.find_productions(joinpath(tree, "test")) == ["."]
+        @test Juleana.find_productions(joinpath(tree, "missing")) == String[]
+    end
+
+    @testset "production root" begin
+        tree = realpath(mktempdir())
+        mkpath.(joinpath.(tree, ("alpha", "alpine", "beta", "prod")))
+        write(joinpath(tree, "prod", "config.json"), "{}")
+        withenv("LEGEND_DATA_CONFIG" => joinpath(tree, "prod", "config.json")) do
+            page = Juleana.SetupPage()
+            send = cmd -> error("no command expected")
+            key!(k) = Juleana.setup_key!(page, KeyEvent(k), nothing, send)
+            type!(text) = foreach(key!, text)
+            @test Juleana.production_root(page) == tree
+            page.focus = 5
+            tb = TestBackend(140, 30)
+            Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
+            @test find_text(tb, "Root: ") !== nothing
+            @test find_text(tb, "Root: ").y < find_text(tb, "Production: ").y
+
+            # Enter edits the root in place; every key goes to its text
+            key!(:enter)
+            @test page.root_edit == tree
+            @test page.focus == 5
+            type!("/al1q")
+            @test page.root_edit == tree * "/al1q"
+            key!(:backspace)
+            key!(:backspace)
+            @test page.root_edit == tree * "/al"
+            Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
+            @test find_text(tb, "█") !== nothing
+
+            # Tab extends to the common prefix and lists several candidates
+            key!(:tab)
+            @test page.root_edit == tree * "/alp"
+            @test page.root_hint == ("alpha/  alpine/", false)
+            key!('h')
+            key!(:tab)
+            @test page.root_edit == tree * "/alpha/" && page.root_hint == ("", false)
+            for i in 1:9
+                mkpath(joinpath(tree, "alpha", "d$i"))
+            end
+            key!(:tab)
+            @test endswith(page.root_hint[1], "and 1 more") && count("/", page.root_hint[1]) == 8
+
+            # Enter with a missing folder shows the error and keeps editing
+            type!("nope")
+            key!(:enter)
+            @test page.root_edit == tree * "/alpha/dnope" && page.root_hint[2] && isnothing(page.root)
+            Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
+            @test find_text(tb, "Not an existing absolute folder") !== nothing
+
+            # Enter with an existing folder sets the root and re-reads the productions
+            page.choices = (; productions = ["x"], datasets = ["default"])
+            foreach(_ -> key!(:backspace), 1:5)
+            key!(:enter)
+            @test isnothing(page.root_edit) && page.root == tree * "/alpha" && isnothing(page.choices)
+            @test Juleana.production_root(page) == tree * "/alpha"
+
+            # a relative path is rejected, `~` is expanded, Escape cancels
+            key!(:enter)
+            foreach(_ -> key!(:backspace), 1:length(page.root_edit))
+            type!("rel")
+            key!(:enter)
+            @test !isnothing(page.root_edit) && page.root == tree * "/alpha"
+            foreach(_ -> key!(:backspace), 1:3)
+            type!("~")
+            key!(:enter)
+            @test page.root == rstrip(homedir(), '/')
+            key!(:enter)
+            type!("zzz")
+            key!(:escape)
+            @test isnothing(page.root_edit) && page.root == rstrip(homedir(), '/')
+
+            # the interface passes digits and q to the field instead of switching the page
+            m = new_tui()
+            @test setup_refreshed!(m)
+            m.setup.focus, m.setup.source = 5, 1
+            press!(m, :enter, '2', '3', 'q', '?')
+            @test m.page == 1 && !m.quit && !m.help && endswith(m.setup.root_edit, "23q?")
+            press!(m, :escape, '2')
+            @test m.page == 2
         end
     end
 end
