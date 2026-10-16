@@ -78,15 +78,16 @@ end
 Carry out a request of a [`Juleana.HistoryPage`](@ref) (see [`Juleana.take_requests!`](@ref))
 and return `(; request, value)`, or `(; request, error)` with the message of the exception
 if the read failed. The value of a `:grid` request is `history_grid(ctrl)` (see
-[`Juleana.history_grid`](@ref)), that of an `:open` request the text of the report file, or
-`nothing` if there is no such file.
+[`Juleana.history_grid`](@ref)), that of an `:open` request the viewer of the report file's
+text, or `nothing` if there is no such file. The viewer is built here, so that converting the
+text does not hold up the interface.
 """
 function read_history_page(ctrl::DataflowController, request)
     value = try
         if request.kind === :grid
             history_grid(ctrl)
         else
-            isfile(request.path) ? read(request.path, String) : nothing
+            isfile(request.path) ? report_viewer(request.path, read(request.path, String)) : nothing
         end
     catch e
         return (; request, error = first(split(sprint(showerror, e), '\n')))
@@ -118,8 +119,8 @@ end
 
 Take the `answer` to a request of `page` as [`Juleana.read_history_page`](@ref) returns it.
 The answer to a read of the grid replaces the grid of `page`, or sets its `error`, unless
-the page has read the grid anew since. The text of the report file opens the viewer if the
-report is still the open one, else it is dropped.
+the page has read the grid anew since. The viewer of the report file opens if the report is
+still the open one, else it is dropped.
 """
 function history_result!(page::HistoryPage, answer)
     (; request) = answer
@@ -138,7 +139,7 @@ function history_result!(page::HistoryPage, answer)
         elseif isnothing(answer.value)
             page.viewer_message = "No report file: $(request.path)"
         else
-            page.viewer = report_viewer(request.path, answer.value)
+            page.viewer = answer.value
         end
     end
     return nothing

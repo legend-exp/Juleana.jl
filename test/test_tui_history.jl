@@ -134,9 +134,9 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         @test page.viewer_path == "/rep/p02-r007.md"
         @test find_text(render_history_page(page), "Reading report…") !== nothing
         # an answer for another report is dropped
-        Juleana.history_result!(page, (; request = (; kind = :open, path = "/rep/other.md"), value = "# Other"))
+        Juleana.history_result!(page, (; request = (; kind = :open, path = "/rep/other.md"), value = Juleana.report_viewer("/rep/other.md", "# Other")))
         @test isnothing(page.viewer)
-        Juleana.history_result!(page, (; request = (; kind = :open, path = page.viewer_path), value = "# Report\n\nbody"))
+        Juleana.history_result!(page, (; request = (; kind = :open, path = page.viewer_path), value = Juleana.report_viewer(page.viewer_path, "# Report\n\nbody")))
         @test page.viewer isa Tachikoma.MarkdownPane
         @test find_text(render_history_page(page), "p02-r007.md") !== nothing
         # the viewer takes the keys; Escape closes it

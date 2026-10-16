@@ -225,7 +225,8 @@ and return `(; request, value)`, or `(; request, error)` with the message of the
 if the read failed. The value of an `:index` request is the rows of
 `report_index(ctrl)` or the entries of `report_overview(ctrl)` (see [`report_index`](@ref)), that of a `:failures`
 request the rows `(; process, period, run, failures)` of its reports, and that of an `:open`
-request the text of the file, or `nothing` if there is no such file.
+request the viewer of the file's text, or `nothing` if there is no such file. The viewer is
+built here, so that converting the text does not hold up the interface.
 """
 function read_reports(ctrl::DataflowController, request)
     value = try
@@ -234,7 +235,7 @@ function read_reports(ctrl::DataflowController, request)
         elseif request.kind === :failures
             [(; process = request.group, period, run, read_report(path).failures) for (period, run, path) in request.reports]
         else
-            isfile(request.path) ? read(request.path, String) : nothing
+            isfile(request.path) ? report_viewer(request.path, read(request.path, String)) : nothing
         end
     catch e
         return (; request, error = first(split(sprint(showerror, e), '\n')))
@@ -259,8 +260,8 @@ end
 Take the `answer` to a request of `page` as [`Juleana.read_reports`](@ref) returns it. The
 answer to a read of the reports replaces the groups of `page`, or sets its `error`, unless
 the page has read the reports anew since; likewise an answer with failures is dropped if the
-groups changed. The text of the report file opens the viewer if the report is still the open one,
-else it is dropped.
+groups changed. The viewer of the report file opens if the report is still the open one, else
+it is dropped.
 """
 function reports_result!(page::ReportsPage, answer)
     (; request) = answer
@@ -288,7 +289,7 @@ function reports_result!(page::ReportsPage, answer)
         elseif isnothing(answer.value)
             page.viewer_message = "No report file: $(request.path)"
         else
-            page.viewer = report_viewer(request.path, answer.value)
+            page.viewer = answer.value
         end
     end
     return nothing

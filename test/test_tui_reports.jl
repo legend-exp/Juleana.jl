@@ -284,7 +284,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
             |:---|:---|
             | V01 | <span style="color:red">Failure</span> |
             """ * "\n" * join(("line $i" for i in 1:60), "\n\n")
-        Juleana.reports_result!(page, (; request, value = text))
+        Juleana.reports_result!(page, (; request, value = Juleana.report_viewer(path, text)))
         tb = render_reports_page(page, 100, 20)
         screen = reports_text(tb)
         @test find_text(tb, basename(path)) !== nothing
@@ -307,7 +307,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         press(page, :enter)
         request = only(Juleana.take_requests!(page))
         @test press(page, :escape) && isnothing(page.viewer_path)
-        Juleana.reports_result!(page, (; request, value = text))
+        Juleana.reports_result!(page, (; request, value = Juleana.report_viewer(path, text)))
         @test isnothing(page.viewer)
 
         # a missing file and a failed read
@@ -323,6 +323,17 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         # a closed viewer ignores mouse events
         press(page, :escape)
         @test !Juleana.reports_mouse!(page, MouseEvent(5, 3, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false))
+    end
+
+    @testset "reading a report file" begin
+        # an `:open` request does not use the controller
+        ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
+        path = joinpath(mktempdir(), "report.md")
+        write(path, "# Main Log\n\nbody")
+        answer = Juleana.read_reports(ctrl, (; kind = :open, path))
+        @test answer.value isa Tachikoma.MarkdownPane
+        @test Juleana.read_reports(ctrl, (; kind = :open, path = path * ".missing")).value === nothing
+        @test Juleana.read_history_page(ctrl, (; kind = :open, path)).value isa Tachikoma.MarkdownPane
     end
 
     @testset "reads follow the controller state" begin
