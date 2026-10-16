@@ -299,6 +299,8 @@
                 foreach(close, timers)
                 close(input)
             end
+            # the cancelled tick timer of the interface ends its last sleep
+            timedwait(() -> m.queue.active[] == 0, 5; pollint = 0.05)
         end
         return nothing
     end
