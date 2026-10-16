@@ -183,9 +183,11 @@ else
                                     # check if run is a analysis run if switched on
                                     if processing_config.analysis_runs_only && !is_analysis_run(l200, (period, run, processing_config.processors[process].category))
                                         @warn "$period-$run-$(processing_config.processors[process].category) is not a analysis run, skip $(string(process))"
+                                        process_status[period][process][run] = true
                                         continue
                                     elseif !is_lrun(l200, (period, run, processing_config.processors[process].category))
                                         @warn "$period-$run-$(processing_config.processors[process].category) is not in runinfo, skip $(string(process))"
+                                        process_status[period][process][run] = true
                                         continue
                                     end
                                     
