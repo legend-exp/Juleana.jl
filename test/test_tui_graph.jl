@@ -303,7 +303,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
     end
 
     @testset "shipped config" begin
-        cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         processors = [(; s.name, s.level, s.category, s.rank, s.enabled, s.dependencies)
             for s in vcat(collect(values(cfg.processors)), collect(values(cfg.p_processors)))]
         snap7 = (; processors, run_steps = [:process_psd_efficiencies_cal], partition_steps = Symbol[])
@@ -328,7 +328,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
     end
 
     @testset "pages of the interface" begin
-        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         m = Juleana.JuleanaTUI(DataflowController(args; processors = Dict{Symbol,Any}(), loader = _ -> error("no session")))
         render(m) = (tb = TestBackend(110, 30);
             Tachikoma.view(m, Frame(tb.buf, Rect(1, 1, 110, 30), GraphicsRegion[], PixelSnapshot[])); tb)

@@ -32,7 +32,7 @@ Detectors with `low_aoe_status` of `:valid` or `:present` are processed.
   types again. Otherwise, filter types that already have results are kept.
 - `timeout`: Seconds allowed per detector and partition in `parallel`; `0` means no limit.
 - `max_wvfs`: Maximum number of DEP waveforms and of SEP waveforms used per detector and partition (default `15000`).
-  If more are loaded, `max_wvfs` indices are drawn at random, with replacement, from the first `max_wvfs` events.
+  If more are loaded, `max_wvfs` of them are selected at random, without repetition and in their original order.
 - `only_first_period`: If `true`, a detector whose partition starts in an earlier period is skipped and logged as
   skipped. `run_processing` sets it to `true` when the previous period is also being processed.
 
@@ -148,23 +148,17 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         # load data
         wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
         try
-            @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            dep_data = read_ldata(
-                (@pf (;
-                    waveform_windowed = $Tl208DEP_Bi212FEP.waveform_windowed,
-                    waveform_presummed = $Tl208DEP_Bi212FEP.waveform_presummed,
-                    daqenergy = $Tl208DEP_Bi212FEP.daqenergy,
-                )),
-                l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts,
-            )
-            sep_data = read_ldata(
-                (@pf (;
-                    waveform_windowed = $Tl208SEP.waveform_windowed,
-                    waveform_presummed = $Tl208SEP.waveform_presummed,
-                    presum_rate = $Tl208SEP.presum_rate,
-                )),
-                l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts,
-            )
+            @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly ", ""))$n_evts events from each run"
+            # The events of each run are selected by timestamp before reading, so only the
+            # selected waveforms are loaded from disk.
+            read_peak_selected(peakname) = fast_flatten(map(partinfo_det) do r
+                ts = read_ldata(ljl_propfunc("$peakname.timestamp"), l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det)
+                n_sel = n_evts == -1 ? length(ts) : min(n_evts, length(ts))
+                ts_sel = select_random ? sample(ts, n_sel; replace=false, ordered=true) : ts[begin:begin+n_sel-1]
+                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det; filterby=@pf $timestamp in ts_sel)
+            end)
+            dep_data = read_peak_selected(:Tl208DEP_Bi212FEP)
+            sep_data = read_peak_selected(:Tl208SEP)
             wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
             wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
             presum_rate               = first(sep_data.presum_rate)
@@ -176,7 +170,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
             if length(wvfs_det_dep_pre) > max_wvfs
                 @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sample(eachindex(wvfs_det_dep_pre), max_wvfs; replace=false, ordered=true)
                 wvfs_det_dep_pre = wvfs_det_dep_pre[sel]
                 wvfs_det_dep_wdw = wvfs_det_dep_wdw[sel]
             end
@@ -185,7 +179,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
             wvfs_det_sep_pre          = sep_data.waveform_presummed
             if length(wvfs_det_sep_pre) > max_wvfs
                 @warn "SEP events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sample(eachindex(wvfs_det_sep_pre), max_wvfs; replace=false, ordered=true)
                 wvfs_det_sep_pre = wvfs_det_sep_pre[sel]
                 wvfs_det_sep_wdw = wvfs_det_sep_wdw[sel]
             end

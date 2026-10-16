@@ -17,54 +17,51 @@ struct PartitionStub end
 const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b => PartitionStub())
 
 @testset "processing config" begin
-    json = ProcessingConfig(joinpath(CONFIG_DIR, "processing_config.json"))
-    yaml = ProcessingConfig(joinpath(CONFIG_DIR, "processing_config.yaml"))
-    base = stringdict(readlprops(joinpath(CONFIG_DIR, "processing_config.json")))
+    shipped = ProcessingConfig(joinpath(CONFIG_DIR, "processing_config.yaml"))
+    base = stringdict(readlprops(joinpath(CONFIG_DIR, "processing_config.yaml")))
 
     @testset "repository configs" begin
-        @test json.runmode === :local
-        @test !json.submit_jobs
-        @test json.local_n == 64
-        @test json.local_julia_settings == String[]
-        @test "--nodes=4" in json.slurm_flags
-        @test json.env_variables["JULIA_WORKER_TIMEOUT"] == "240"
-        @test json.log_level == yaml.log_level == Juleana.parse_log_level("info")
-        @test json.periods == DataPeriod.([3, 4, 6, 7, 8, 9])
-        @test isnothing(json.runs)
-        @test json.analysis_runs_only && !json.only_partitions && !json.only_runs
-        @test json.log_path == ""
-        spec = json.processors[:process_dsp_cal]
+        @test shipped.runmode === :slurm
+        @test !shipped.submit_jobs
+        @test shipped.local_n == 64
+        @test shipped.local_julia_settings == String[]
+        @test "--nodes=4" in shipped.slurm_flags
+        @test shipped.env_variables["JULIA_WORKER_TIMEOUT"] == "240"
+        @test shipped.log_level == Juleana.parse_log_level("info")
+        @test shipped.periods == DataPeriod.([16, 18, 19, 20, 21, 22])
+        @test isnothing(shipped.runs)
+        @test !shipped.analysis_runs_only && !shipped.only_partitions && !shipped.only_runs
+        @test shipped.log_path == ""
+        spec = shipped.processors[:process_dsp_cal]
         @test spec.level === :run && spec.category === :cal && spec.rank == 5 && !spec.enabled
         @test spec.dependencies == [:p_process_aoe_optimization_cal, :p_process_filter_optimization_cal, :p_process_decay_time_cal]
         @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true)
-        @test json.p_processors[:p_process_energy_cal].level === :partition
-        @test json.p_processors[:p_process_energy_cal].category === :cal
-        @test json.p_processors[:p_process_skm_phy].category === :phy
+        @test shipped.p_processors[:p_process_energy_cal].level === :partition
+        @test shipped.p_processors[:p_process_energy_cal].category === :cal
+        @test shipped.p_processors[:p_process_skm_phy].category === :phy
 
-        @test yaml.runmode === :slurm
-        @test yaml.periods == DataPeriod.([16, 18, 19, 20, 21, 22])
-        @test yaml.processors[:process_sipm_calibration_phy].kwargs[:subsystems] == [:geds, :spms, :pmts, :aux]
+        @test shipped.processors[:process_sipm_calibration_phy].kwargs[:subsystems] == [:geds, :spms, :pmts, :aux]
 
         from_strings = ProcessingConfig(base)
-        @test run_steps(from_strings; enabled_only = false) == run_steps(json; enabled_only = false)
+        @test run_steps(from_strings; enabled_only = false) == run_steps(shipped; enabled_only = false)
         @test from_strings.processors[:process_dsp_cal].kwargs == spec.kwargs
-        @test sprint(show, json) == "ProcessingConfig(runmode=:local, 0/15 run and 0/11 partition processors enabled)"
+        @test sprint(show, shipped) == "ProcessingConfig(runmode=:slurm, 0/15 run and 0/11 partition processors enabled)"
         @test occursin("rank=5", sprint(show, spec))
     end
 
     @testset "steps" begin
         # the shipped config enables no processor; the steps are chosen in the interface
-        @test isempty(run_steps(json)) && isempty(partition_steps(json))
+        @test isempty(run_steps(shipped)) && isempty(partition_steps(shipped))
         d = deepcopy(base)
         foreach(((section, name),) -> d[section][name]["enabled"] = true,
             [("processors", "process_evt_phy"), ("processors", "process_psd_efficiencies_cal"), ("p_processors", "p_process_skm_phy")])
         some = ProcessingConfig(d)
         @test run_steps(some) == [:process_psd_efficiencies_cal, :process_evt_phy]
         @test partition_steps(some) == [:p_process_skm_phy]
-        all_steps = run_steps(json; enabled_only = false)
+        all_steps = run_steps(shipped; enabled_only = false)
         @test length(all_steps) == 15 && first(all_steps) === :process_peak_split_cal
-        @test issorted(all_steps; by = s -> json.processors[s].rank)
-        @test length(partition_steps(json; enabled_only = false)) == 11
+        @test issorted(all_steps; by = s -> shipped.processors[s].rank)
+        @test length(partition_steps(shipped; enabled_only = false)) == 11
     end
 
     @testset "overrides" begin
@@ -80,7 +77,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test cfg.periods == [DataPeriod(5)] && cfg.runs == DataRun.([1, 2]) && cfg.log_path == "logs"
         @test isnothing(ProcessingConfig(base; periods = [5]).runs)
 
-        @test !json.processors[:process_dsp_cal].kwargs[:reprocess]
+        @test !shipped.processors[:process_dsp_cal].kwargs[:reprocess]
         reprocessed = ProcessingConfig(base; reprocess = true)
         @test all(s -> s.kwargs[:reprocess], values(reprocessed.processors))
         @test all(s -> s.kwargs[:reprocess], values(reprocessed.p_processors))
@@ -107,7 +104,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))
         @test_throws "unknown key `extra`" ProcessingConfig(edited(d -> d["extra"] = 1))
         # the idle timeout is optional
-        @test json.idle_timeout_minutes == yaml.idle_timeout_minutes == 20
+        @test shipped.idle_timeout_minutes == 20
         @test ProcessingConfig(edited(d -> delete!(d["config"], "idle_timeout_minutes"))).idle_timeout_minutes == 20
         @test ProcessingConfig(edited(d -> d["config"]["idle_timeout_minutes"] = 0)).idle_timeout_minutes == 0
         @test ProcessingConfig(edited(d -> d["config"]["idle_timeout_minutes"] = 2.5)).idle_timeout_minutes == 2.5
@@ -132,7 +129,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
     @testset "constructors" begin
         samefields(a, b) = all(f -> getfield(a, f) == getfield(b, f), fieldnames(typeof(a)))
 
-        spec = json.processors[:process_dsp_cal]
+        spec = shipped.processors[:process_dsp_cal]
         spec_fields = NamedTuple{fieldnames(ProcessorSpec)}(getfield.(Ref(spec), fieldnames(ProcessorSpec)))
         @test samefields(ProcessorSpec(spec_fields...), spec)
         @test samefields(ProcessorSpec(; spec_fields...), spec)
@@ -142,9 +139,9 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "key `p_processors.x.category` must be \"cal\" or \"phy\"" ProcessorSpec(; name = :x, level = :partition, category = :physics, rank = 1)
         @test_throws "key `processors.x.dependencies` names the processor itself" ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, dependencies = [:x])
 
-        fields = NamedTuple{fieldnames(ProcessingConfig)}(getfield.(Ref(json), fieldnames(ProcessingConfig)))
-        @test samefields(ProcessingConfig(fields...), json)
-        @test samefields(ProcessingConfig(; fields...), json)
+        fields = NamedTuple{fieldnames(ProcessingConfig)}(getfield.(Ref(shipped), fieldnames(ProcessingConfig)))
+        @test samefields(ProcessingConfig(fields...), shipped)
+        @test samefields(ProcessingConfig(; fields...), shipped)
         positional(; kw...) = ProcessingConfig(values(merge(fields, kw))...)
         @test_throws "runmode must be \"local\" or \"slurm\", got :cluster" positional(runmode = :cluster)
         @test_throws "`config.runmode_settings.local.n` must be positive" positional(local_n = 0)
@@ -152,7 +149,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "`processors` entry `renamed` holds the spec of `process_dsp_cal`" positional(processors = Dict(:renamed => spec))
         @test_throws "`p_processors.process_dsp_cal` has level :run" positional(p_processors = Dict(:process_dsp_cal => spec))
         partition_twin = ProcessorSpec(; name = :process_dsp_cal, level = :partition, category = :cal, rank = 1)
-        @test_throws "in both `processors` and `p_processors`: process_dsp_cal" positional(p_processors = merge(json.p_processors, Dict(:process_dsp_cal => partition_twin)))
+        @test_throws "in both `processors` and `p_processors`: process_dsp_cal" positional(p_processors = merge(shipped.p_processors, Dict(:process_dsp_cal => partition_twin)))
         orphan = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, dependencies = [:missing])
         @test_throws "key `processors.x.dependencies` names unknown processor `missing`" ProcessingConfig(; processors = Dict(:x => orphan), p_processors = Dict{Symbol,ProcessorSpec}())
         first_run = ProcessorSpec(; name = :a, level = :run, category = :cal, rank = 1)
@@ -192,8 +189,8 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
     end
 
     @testset "registered processors" begin
-        @test isnothing(check_processor_kwargs(json))
-        processors = run_steps(json; enabled_only = false) ∪ partition_steps(json; enabled_only = false)
+        @test isnothing(check_processor_kwargs(shipped))
+        processors = run_steps(shipped; enabled_only = false) ∪ partition_steps(shipped; enabled_only = false)
         # `process_hit_cal` is a disabled config entry without a processor function
         @test setdiff(processors, keys(Juleana.PROCESSORS)) == [:process_hit_cal]
 
@@ -224,7 +221,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         end
         # a display name is unique among the processors of one level and category
         for level in (:run, :partition), category in (:cal, :phy)
-            specs = [s for s in vcat(collect(values(json.processors)), collect(values(json.p_processors)))
+            specs = [s for s in vcat(collect(values(shipped.processors)), collect(values(shipped.p_processors)))
                      if s.level === level && s.category === category]
             names = Juleana.display_name.(getfield.(specs, :name))
             @test allunique(names)

@@ -334,7 +334,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         store = running_store()
         root = mktempdir()
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
-        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         cfg = ProcessingConfig(;
             processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())

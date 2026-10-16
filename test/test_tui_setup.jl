@@ -46,7 +46,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     p2, p3 = DataPeriod.((2, 3))
     r0, r6, r7 = DataRun.((0, 6, 7))
     all_runs = [[(p2, r) for r in DataRun.(0:7)]; [(p3, r) for r in DataRun.(0:5)]]
-    args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+    args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
     cfg = ProcessingConfig(;
         processors = Dict(
             :process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1),
@@ -320,10 +320,10 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     end
 
     @testset "write the config" begin
-        config_file = joinpath(mktempdir(), "processing_config.json")
+        config_file = joinpath(mktempdir(), "processing_config.yaml")
         cp(args["config"], config_file)
         production = mktempdir()
-        written = joinpath(production, "config", "processing_config.json")
+        written = joinpath(production, "config", "processing_config.yaml")
         session = new_session()
         session.args["config"] = config_file
         m = new_tui(session)

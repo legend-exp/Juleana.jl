@@ -4,12 +4,12 @@
 DocTestSetup = :(using Juleana)
 ```
 
-The processing config file sets up the analysis chain. Examples are in the `config/`
-folder of the repository: `processing_config.json` and `processing_config.yaml`. Without
-`--config`, `juleana` reads `config/processing_config.json` in the data production (the
+The processing config file sets up the analysis chain. The config shipped with Juleana
+is `config/processing_config.yaml`. Without
+`--config`, `juleana` reads `config/processing_config.yaml` in the data production (the
 folder `config` next to the file named by `LEGEND_DATA_CONFIG`). If that file does not
-exist, Juleana first copies the config shipped with Juleana there. `w` on the Setup page of the interface writes the
-current settings to that file and keeps the previous file as `processing_config.json.bak`.
+exist, Juleana first copies the config shipped with Juleana there; a `processing_config.json` in that folder is ignored with a warning. `w` on the Setup page of the interface writes the
+current settings to that file and keeps the previous file as `processing_config.yaml.bak`.
 See [Running the dataflow](running.md). The
 file is loaded into a [`ProcessingConfig`](@ref); all keys of the `config` and
 `processing` sections are required except `idle_timeout_minutes`, and a missing or
@@ -47,12 +47,11 @@ The run mode, the worker settings, environment variables and logging:
 
 The `periods` and `runs` to process, each either a list of numbers or `"all"`:
 
-```json
-"processing": {
-    "periods": [3],
-    "runs": "all",
-    ...
-}
+```yaml
+processing:
+  periods: [3]
+  runs: all
+  ...
 ```
 
 processes all available runs of period 3. `"periods": "all"` processes all periods
@@ -69,19 +68,17 @@ The run-level processors (`processors`) and partition-level processors (`p_proce
 of the chain, keyed by processor name. At least one processor must be enabled. An entry
 looks like this:
 
-```json
-"process_dsp_cal": {
-    "enabled": true,
-    "category": "cal",
-    "rank": 5,
-    "kwargs": {
-        "reprocess": true,
-        "max_wvfs": 1000,
-        "timeout": 0,
-        "use_partition_pars": true
-    },
-    "dependencies": ["p_process_aoe_optimization_cal"]
-}
+```yaml
+process_dsp_cal:
+  enabled: true
+  category: cal
+  rank: 5
+  kwargs:
+    reprocess: true
+    max_wvfs: 1000
+    timeout: 0
+    use_partition_pars: true
+  dependencies: [p_process_aoe_optimization_cal]
 ```
 
 All fields are required:
@@ -109,7 +106,7 @@ both names of one processor is an error.
 
 String lists in the `kwargs` of a processor become Julia symbol vectors when the config
 is loaded: YAML `subsystems: [geds, spms, pmts, aux]` is passed as
-`[:geds, :spms, :pmts, :aux]`. Use plain strings in YAML and JSON, without a leading
+`[:geds, :spms, :pmts, :aux]`. Use plain strings in YAML, without a leading
 colon. Scalar strings, and lists outside processor `kwargs`, keep their types.
 
 ## Building a config in Julia

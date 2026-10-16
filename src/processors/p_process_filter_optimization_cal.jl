@@ -134,14 +134,22 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
         # load data
         wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
         try
-            @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            peak_data = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts)
+            @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly ", ""))$n_evts events from each run"
+            # The events of each run are selected by timestamp before reading, so only the
+            # selected waveforms are loaded from disk.
+            f_timestamp = ljl_propfunc("$peakname.timestamp")
+            peak_data = fast_flatten(map(partinfo_det) do r
+                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det)
+                n_sel = n_evts == -1 ? length(ts) : min(n_evts, length(ts))
+                ts_sel = select_random ? sample(ts, n_sel; replace=false, ordered=true) : ts[begin:begin+n_sel-1]
+                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det; filterby=@pf $timestamp in ts_sel)
+            end)
             wvfs_det_pre = peak_data.waveform_presummed
             wvfs_det_wdw = peak_data.waveform_windowed
             presum_rate = peak_data.presum_rate
             if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sample(eachindex(wvfs_det_pre), max_wvfs; replace=false, ordered=true)
                 wvfs_det_pre = wvfs_det_pre[sel]
                 wvfs_det_wdw = wvfs_det_wdw[sel]
                 presum_rate = presum_rate[sel]

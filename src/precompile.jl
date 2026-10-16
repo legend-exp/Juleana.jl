@@ -46,7 +46,7 @@
             processor(:p_process_aoe_cut_cal, :partition, :cal, 1, [:process_energy_calibration_cal])]
         # an empty log folder: the interface timing writes no file when its window ends
         snap = convert(ControllerSnapshot, (; state = :running, outcome = nothing, last_error = nothing, started = t0 - Second(90), finished = nothing,
-            config_file = "config/processing_config.json", log_path = "", dataset = "default", available_periods = [p2, p3],
+            config_file = "config/processing_config.yaml", log_path = "", dataset = "default", available_periods = [p2, p3],
             available_runs = Dict(p2 => runs2, p3 => [r0]), periods = [p2, p3], runs = nothing,
             run_steps = [:process_dsp_cal, :process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
             processors, reprocess = nothing, analysis_runs_only = true, check_dependencies = true, nworkers = 2,

@@ -417,7 +417,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
         p2 = DataPeriod(2)
         runs = DataRun.([6, 7])
-        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         cfg = ProcessingConfig(;
             processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())

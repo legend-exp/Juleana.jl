@@ -139,6 +139,15 @@ end
             lines = readlines(log_file)
             @test any(contains("Info  [Main] worker record"), lines)
             @test !any(contains("hidden worker record"), lines)
+            # only in SLURM mode does the job's node-local shared memory hold tempdir()
+            shm = mktempdir()
+            tmp(slurm) = remotecall_fetch(pid, log_path, shm, slurm) do log_path, shm, slurm
+                ENV["JOB_SHMTMPDIR"] = shm
+                Juleana.init_process(log_path, Juleana.parse_log_level("info"); slurm)
+                tempdir()
+            end
+            @test tmp(false) != shm
+            @test tmp(true) == shm
         finally
             rmprocs(pid)
         end

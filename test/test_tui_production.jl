@@ -308,7 +308,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             Tachikoma.cleanup!(m)
 
             # `--new-production` with a config does not load a session either
-            withconfig = Dict{String,Any}("config" => "config/processing_config.json", "new_production" => true)
+            withconfig = Dict{String,Any}("config" => "config/processing_config.yaml", "new_production" => true)
             m = Juleana.JuleanaTUI(DataflowController(withconfig; loader); splash_seconds = 0.0)
             Juleana.start!(m)
             @test !isnothing(m.production)
@@ -317,7 +317,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             Tachikoma.cleanup!(m)
 
             # a config without the flag loads the session as before
-            plain = Dict{String,Any}("config" => "config/processing_config.json", "new_production" => false)
+            plain = Dict{String,Any}("config" => "config/processing_config.yaml", "new_production" => false)
             m = Juleana.JuleanaTUI(DataflowController(plain; loader); splash_seconds = 0.0)
             with_logger(Logging.NullLogger()) do
                 Juleana.start!(m)

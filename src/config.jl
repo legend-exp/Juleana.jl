@@ -42,7 +42,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
                             add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
-            help = "path to config file; default: config/processing_config.json in the data production, copied there from the config shipped with Juleana if missing"
+            help = "path to config file; default: config/processing_config.yaml in the data production, copied there from the config shipped with Juleana if missing"
             arg_type = String
         "--reprocess"
             help = "reprocess all channels while deleting old data"
@@ -125,23 +125,26 @@ end
     Juleana.default_config_file()
 
 Return the path of the default processing config file of the data production,
-`processing_config.json` in the [`Juleana.production_config_dir`](@ref). The file need
+`processing_config.yaml` in the [`Juleana.production_config_dir`](@ref). The file need
 not exist; see [`Juleana.install_default_config`](@ref).
 """
-default_config_file() = joinpath(production_config_dir(), "processing_config.json")
+default_config_file() = joinpath(production_config_dir(), "processing_config.yaml")
 
 """
     Juleana.install_default_config()
 
 Return the [`Juleana.default_config_file`](@ref). If the file does not exist, first
 create the [`Juleana.production_config_dir`](@ref) and copy the
-`config/processing_config.json` shipped with Juleana into it, logging the copy. An
-existing file is never overwritten.
+`config/processing_config.yaml` shipped with Juleana into it, logging the copy. An
+existing file is never overwritten. A `processing_config.json` next to the file is
+ignored with a warning.
 """
 function install_default_config()
     path = default_config_file()
     if !isfile(path)
-        shipped = joinpath(pkgdir(Juleana), "config", "processing_config.json")
+        legacy = joinpath(dirname(path), "processing_config.json")
+        isfile(legacy) && @warn "Ignoring $legacy: the processing config is read from YAML; using $path"
+        shipped = joinpath(pkgdir(Juleana), "config", "processing_config.yaml")
         cp(shipped, joinpath(mkpath(dirname(path)), basename(path)))
         @info "Copied the processing config shipped with Juleana ($shipped) to $path"
     end

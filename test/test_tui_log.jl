@@ -191,7 +191,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
     @testset "in the interface" begin
         root = mktempdir()
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
-        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         cfg = ProcessingConfig(;
             processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())

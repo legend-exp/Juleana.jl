@@ -84,7 +84,7 @@ using Test
     end
 
     @testset "configs and snapshot entries" begin
-        cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         g = processor_graph(cfg)
         @test Set(g.names) == union(keys(cfg.processors), keys(cfg.p_processors))
         @test !Juleana.Graphs.is_cyclic(g.graph)

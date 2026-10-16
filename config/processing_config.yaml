@@ -213,7 +213,7 @@ p_processors:
     rank: 1
     kwargs:
       reprocess: false
-      timeout: 0
+      timeout: 180
     dependencies:
       - process_peak_split_cal
 

@@ -182,7 +182,7 @@ dataset, Space or Enter edits the root in place or opens the picker of the produ
 once the names are read; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
 dependency graph, `W` starts a worker allocation with [`AddWorkers`](@ref) and `w` asks to write
-the current settings to `config/processing_config.json` of the data production. `N` sets
+the current settings to `config/processing_config.yaml` of the data production. `N` sets
 `page.new_production`, which asks the interface to open the new-production form (see
 [`Juleana.ProductionForm`](@ref)); the checklists use `n` to uncheck all items.
 """
@@ -701,7 +701,7 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     isnothing(page.picker) || render_picker(page, area, buf)
     if page.confirm === :write && !isnothing(snap)
         Tachikoma.render(Tachikoma.Modal(; title = "Write config",
-            message = "Write the current settings to\nconfig/processing_config.json\nin the data production?\nAn existing file is kept as processing_config.json.bak.\n\ny: write   any other key: cancel",
+            message = "Write the current settings to\nconfig/processing_config.yaml\nin the data production?\nAn existing file is kept as processing_config.yaml.bak.\n\ny: write   any other key: cancel",
             confirm_label = "", cancel_label = ""), area, buf)
     end
     return nothing

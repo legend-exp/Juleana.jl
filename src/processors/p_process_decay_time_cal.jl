@@ -7,7 +7,7 @@ Determine the preamplifier decay time of the HPGe detectors (`geds`) for every `
 For each detector and partition, the presummed waveforms of the peak named by `peakname` in the
 `pz` section of the DSP configuration are read from the `jlpks` tier of the runs of the
 partition, `n_evts` events per run. If there are more than `max_wvfs` waveforms in total,
-`max_wvfs` of them are selected by drawing random indices in `1:max_wvfs` with replacement.
+`max_wvfs` of them are selected at random, without repetition and in their original order.
 Waveforms that fail the QC condition `qc` are removed. The decay time of each remaining
 waveform is computed, and a truncated Gaussian is fitted to the values between `min_tau` and
 `max_tau`; its mean is the decay time. An entry gets warning status if the decay time is
@@ -117,11 +117,19 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         # load data
         wvfs_det = nothing
         try
-            @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly", "")) $n_evts events from each run"
-            wvfs_det = read_ldata(peakname, l200, DataTier(:jlpks), :cal, partinfo_det, det; n_evts).waveform_presummed
+            @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly ", ""))$n_evts events from each run"
+            # The events of each run are selected by timestamp before reading, so only the
+            # selected waveforms are loaded from disk.
+            f_timestamp = ljl_propfunc("$peakname.timestamp")
+            wvfs_det = fast_flatten(map(partinfo_det) do r
+                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det)
+                n_sel = n_evts == -1 ? length(ts) : min(n_evts, length(ts))
+                ts_sel = select_random ? sample(ts, n_sel; replace=false, ordered=true) : ts[begin:begin+n_sel-1]
+                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det; filterby=@pf $timestamp in ts_sel)
+            end).waveform_presummed
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                wvfs_det = wvfs_det[rand(1:max_wvfs, max_wvfs)]
+                wvfs_det = wvfs_det[sample(eachindex(wvfs_det), max_wvfs; replace=false, ordered=true)]
             end
         catch e
             @error "$peakname data from $(part) cannot be loaded: $(truncate_error(e))"

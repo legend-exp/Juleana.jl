@@ -29,7 +29,7 @@ import Graphs
 using HDF5: h5open
 using IntervalSets: (..), leftendpoint, rightendpoint
 using LaTeXStrings: LaTeXStrings, @L_str
-using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, DataTier,
+using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, DataRun, DataTier,
     DetectorId, FileKey, LegendData, ProcessStatus, bad_filekeys, channelinfo, data_path,
     dataprod_config, get_aux_cal_propfunc, get_aux_evt_detsel_propfunc, get_exposure,
     get_ged_evt_kwargs, get_values, is_analysis_run, is_lrun, ljl_propfunc, lreport,
@@ -70,7 +70,7 @@ using ProgressLogging: ProgressLogging
 using ProgressMeter: @showprogress, Progress, next!, update!
 using PropDicts: PropDict
 using PropertyFunctions: PropertyFunctions, @pf, filterby
-using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, std
+using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, sample, std
 using StructArrays: StructArray
 using Tachikoma: Tachikoma
 using TerminalLoggers: TerminalLogger

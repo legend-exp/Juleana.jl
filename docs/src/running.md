@@ -18,7 +18,7 @@ frees memory concurrently, which shortens the pauses of the interface while proc
 and `--startup-file=no`, so packages loaded by the `startup.jl` of the user are not available. Julia options before a `--` replace these defaults:
 
 ```bash
-juleana --threads=16,1 -- -c config/processing_config.json
+juleana --threads=16,1 -- -c config/processing_config.yaml
 ```
 
 Processing needs access to the LEGEND data and metadata through the `LEGEND_DATA_CONFIG`
@@ -29,7 +29,7 @@ named there also holds the `config` folder described [below](@ref "Config folder
 
 ```bash
 juleana                                    # config of the data production
-juleana -c config/processing_config.json   # a given config
+juleana -c config/processing_config.yaml   # a given config
 juleana --help                             # all options
 ```
 
@@ -50,7 +50,7 @@ The same session is available from any Julia session:
 
 ```julia
 using Juleana
-session = Juleana.setup_session(["-c", "config/processing_config.json"])
+session = Juleana.setup_session(["-c", "config/processing_config.yaml"])
 ```
 
 ## Command line options
@@ -80,12 +80,12 @@ new directory in the `jllog` tier, named by the current UTC time.
 
 The `config` folder of the data production is the folder `config` next to the file named
 by `LEGEND_DATA_CONFIG`. Without `--config`, Juleana reads
-`config/processing_config.json` from it. If that file does not exist, Juleana creates the
-folder and copies the `config/processing_config.json` shipped with Juleana there first. The folder also holds the worker start script `startjlworkers.sh`.
+`config/processing_config.yaml` from it. If that file does not exist, Juleana creates the
+folder and copies the `config/processing_config.yaml` shipped with Juleana there first. The folder also holds the worker start script `startjlworkers.sh`.
 
-`w` on the Setup page writes the current settings to `config/processing_config.json` of
+`w` on the Setup page writes the current settings to `config/processing_config.yaml` of
 the data production, after a confirmation; an existing file is kept as
-`processing_config.json.bak`. That file is then the default config.
+`processing_config.yaml.bak`. That file is then the default config.
 
 ## The interface
 

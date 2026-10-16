@@ -41,7 +41,7 @@ Pkg.Apps.add("Juleana")                            # or Pkg.Apps.develop(path = 
 
 ```bash
 juleana                                    # terminal user interface, config of the data production
-juleana -c config/processing_config.json   # a given processing config
+juleana -c config/processing_config.yaml   # a given processing config
 juleana --no-tui                           # run all enabled processors without the interface
 juleana --new-production                   # create a new data production
 juleana --help                             # command line options

@@ -140,9 +140,9 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
     end
 
     @testset "setup_processing" begin
-        props = readlprops(joinpath(dirname(@__DIR__), "config", "processing_config.json"))
+        props = readlprops(joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         props.config.env_variables = Dict("LEGEND_DATA_CONFIG" => data_config)
-        processing_config = joinpath(root, "processing_config.json")
+        processing_config = joinpath(root, "processing_config.yaml")
         writelprops(processing_config, props)
         log_path = joinpath(root, "logs")
         args = Juleana.parse_commandline(["-c", processing_config, "-p", "2", "13", "-p", "3", "-r", "6", "-o", log_path, "--or"])

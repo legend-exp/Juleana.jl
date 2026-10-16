@@ -20,7 +20,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     data_config = legend_test_setup(root, TEST_DIRS)
     l200 = legend_test_data(data_config)
     p2, p3 = DataPeriod.((2, 3))
-    shipped_config = joinpath(dirname(@__DIR__), "config", "processing_config.json")
+    shipped_config = joinpath(dirname(@__DIR__), "config", "processing_config.yaml")
 
     calls = Tuple{Symbol,DataPeriod,Any,Dict{Symbol,Any}}[]
     calls_lock = ReentrantLock()
@@ -325,7 +325,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, SetAnalysisRunsOnly(true))
-        written = joinpath(root, "written_config.json")
+        written = joinpath(root, "written_config.yaml")
         write(written, "previous")
         production = mktempdir()
         withenv(() -> dispatch!(ctrl, WriteConfig(written)), "LEGEND_DATA_CONFIG" => joinpath(production, "config.json"))

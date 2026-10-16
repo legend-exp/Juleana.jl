@@ -105,13 +105,14 @@ function runprocs_mode(cfg::ProcessingConfig)
 end
 
 """
-    init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
+    init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true, slurm::Bool = false)
 
 Prepare the current process for processing: set the `LegendSpecFits` fit time limit to
 180 s, install the global logger built by [`processing_logger`](@ref), and pin the Julia
 threads with `ThreadPinning.pinthreads(AutoThreadPinning())` of ParallelProcessingTools:
 to the CPUs of the affinity mask of the process if it has one, as in a SLURM job, else not
-at all. The pinning is logged.
+at all. The pinning is logged. With `slurm`, a process in a SLURM job that sets
+`JOB_SHMTMPDIR` uses that node-local shared-memory folder for `tempdir()`.
 
 With a non-empty `log_path`, the process appends its records of level `log_level` to its
 file in that directory (see [`process_log_file`](@ref)). The main process shows records
@@ -119,8 +120,9 @@ of level `Info` and above on the terminal unless `console = false`; a worker sho
 warnings and errors there. [`setup_session`](@ref) runs it on the head and on every
 worker.
 """
-function init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
+function init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true, slurm::Bool = false)
     set_timelimit(180.0)
+    slurm && haskey(ENV, "JOB_SHMTMPDIR") && (ENV["TMPDIR"] = ENV["JOB_SHMTMPDIR"])
     log_file = isempty(log_path) ? nothing : process_log_file(log_path)
     console_level = myid() == 1 ? (console ? Logging.Info : nothing) : Logging.Warn
     global_logger(processing_logger(; log_file, log_level, console_level))
@@ -151,7 +153,7 @@ interactive session.
 # Examples
 ```julia
 using Juleana
-session = Juleana.setup_session(["--config", "config/processing_config.json", "--periods", "3"])
+session = Juleana.setup_session(["--config", "config/processing_config.yaml", "--periods", "3"])
 run_processing(session)
 ```
 """
@@ -168,10 +170,10 @@ function setup_session(parsed_args::AbstractDict; console::Bool = true, start_wo
     check_processor_kwargs(config)
 
     # runs `init_process` on this process now and on every worker when it starts
-    log_path, log_level = config.log_path, config.log_level
+    log_path, log_level, slurm = config.log_path, config.log_level, config.runmode == :slurm
     @always_everywhere begin
         using Juleana: Juleana
-        Juleana.init_process($log_path, $log_level; console = $console)
+        Juleana.init_process($log_path, $log_level; console = $console, slurm = $slurm)
     end
     @info "Start Data processing with config $(parsed_args["config"]), logging to $log_path"
 
