@@ -11,9 +11,11 @@ Pkg.Apps.add("Juleana")                              # from the registry
 Pkg.Apps.develop(path = "path/to/Juleana.jl")        # or from a checkout
 ```
 
-The `juleana` command is placed in `~/.julia/bin`, which must be in the `PATH`. It starts
-Julia with `--threads=8,1` and `--startup-file=no`, so packages loaded by the `startup.jl`
-of the user are not available. Julia options before a `--` replace these defaults:
+The `juleana` command is placed in the `bin` folder of the first Julia depot (`~/.julia/bin`
+unless `JULIA_DEPOT_PATH` is set), which must be in the `PATH`. It starts Julia with
+`--threads=8,1`, `--gcthreads=8,1` (garbage collection on eight threads, plus one thread that
+frees memory concurrently, which shortens the pauses of the interface while processing runs)
+and `--startup-file=no`, so packages loaded by the `startup.jl` of the user are not available. Julia options before a `--` replace these defaults:
 
 ```bash
 juleana --threads=16,1 -- -c config/processing_config.json

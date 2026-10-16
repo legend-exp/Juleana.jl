@@ -94,4 +94,4 @@ UnitfulAtomic = "1"
 julia = "1.12"
 
 [apps.juleana]
-julia_flags = ["--threads=8,1", "--startup-file=no"]
+julia_flags = ["--threads=8,1", "--gcthreads=8,1", "--startup-file=no"]
