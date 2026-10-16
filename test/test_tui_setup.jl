@@ -45,6 +45,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
     p2, p3 = DataPeriod.((2, 3))
     r0, r6, r7 = DataRun.((0, 6, 7))
+    all_runs = [[(p2, r) for r in DataRun.(0:7)]; [(p3, r) for r in DataRun.(0:5)]]
     args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
     cfg = ProcessingConfig(;
         processors = Dict(
@@ -69,7 +70,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         m = new_tui()
         @test setup_refreshed!(m)
         page = m.setup
-        @test Juleana.checked(page.periods) == [(p2, r6), (p2, r7), (p3, r0)]
+        @test Juleana.checked(page.periods) == all_runs
         @test Juleana.checked(page.run_procs) == [:process_energy_calibration_cal]
         @test Juleana.checked(page.part_procs) == [:p_process_aoe_cut_cal]
         @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration_cal, :process_dsp_cal]
@@ -79,7 +80,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
         tb = render_setup_page(m)
         for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config",
-                "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 3", "Run steps: 1 × 3 runs",
+                "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 14", "Run steps: 1 × 14 runs",
                 "Partition steps: 1 × 2 periods")
             @test find_text(tb, text) !== nothing
         end
@@ -105,7 +106,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         for text in ("Dataset p02", "Start 2022-01-01 00:00 UTC", "8 runs", "32 keys", "22:13:20")
             @test find_text(tb, text) !== nothing
         end
-        press!(m, :down)
+        press!(m, fill(:down, 7)...)
         tb = render_setup_page(m)
         for text in ("Dataset p02-r006", "Start 2022-07-01 00:00 UTC", "4 keys", "02:46:40")
             @test find_text(tb, text) !== nothing
@@ -138,10 +139,10 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     @testset "selections become controller commands" begin
         m = new_tui()
         @test setup_refreshed!(m)
-        # rows: p02, r006, r007, p03, r000
-        press!(m, :down, :down, ' ')
+        # rows: p02, r000 to r007, p03, r000 to r005
+        press!(m, fill(:down, 8)..., ' ')
         @test setup_refreshed!(m)
-        @test m.snap.runs == Dict(p2 => [r6])
+        @test m.snap.runs == Dict(p2 => DataRun.(0:6))
         @test m.snap.periods == [p2, p3]
         press!(m, :down, ' ')
         @test setup_refreshed!(m)
@@ -220,7 +221,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         Juleana.sync_setup!(m.setup, snap; pending = true)
         @test Juleana.checked(m.setup.periods) == [(p3, r0)]
         Juleana.sync_setup!(m.setup, snap)
-        @test Juleana.checked(m.setup.periods) == [(p2, r6), (p2, r7), (p3, r0)]
+        @test Juleana.checked(m.setup.periods) == all_runs
     end
 
     @testset "a read older than an answered command is not shown" begin
@@ -236,7 +237,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         # and the page reads again
         @test m.refreshing
         @test setup_settle!(() -> !m.refreshing, m)
-        @test Juleana.checked(m.setup.periods) == [(p2, r6), (p2, r7), (p3, r0)]
+        @test Juleana.checked(m.setup.periods) == all_runs
     end
 
     @testset "selected runs that are not on disk" begin
@@ -244,7 +245,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         session.runs = Dict(p2 => [r6, DataRun(9)])
         m = Juleana.JuleanaTUI(DataflowController(session; processors))
         @test setup_refreshed!(m)
-        @test Juleana.checked(m.setup.periods) == [(p2, r6), (p3, r0)]
+        @test Juleana.checked(m.setup.periods) == [(p2, r6); all_runs[9:end]]
     end
 
     @testset "parse_kwarg_value" begin

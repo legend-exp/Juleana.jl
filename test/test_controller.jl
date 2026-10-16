@@ -50,8 +50,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         snap = snapshot(ctrl)
         @test snap.state === :ready
         @test isnothing(snap.outcome) && isnothing(snap.last_error)
-        @test snap.available_periods == [p2, p3]
-        @test snap.available_runs[p2] == DataRun.([6, 7])
+        @test snap.available_periods == DataPeriod.([2, 3, 13, 16])
+        @test snap.available_runs[p2] == DataRun.(0:7)
         @test snap.periods == [p2, p3]
         @test isnothing(snap.runs)
         @test snap.run_steps == [:process_energy_calibration_cal]
@@ -138,7 +138,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "per-period runs" begin
         empty!(calls)
         ctrl = DataflowController(new_session(); processors)
-        @test snapshot(ctrl).available_runs[p3] == [DataRun(0)]
+        @test snapshot(ctrl).available_runs[p3] == DataRun.(0:5)
         dispatch!(ctrl, SelectRuns(Dict(2 => [7], "p03" => nothing)))
         snap = snapshot(ctrl)
         @test snap.periods == [p2, p3]
@@ -151,8 +151,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, StartProcessing())
         wait(ctrl)
         @test snapshot(ctrl).outcome === :finished
-        @test sort(map(c -> c[1:3], calls); by = string) == sort([(:process_energy_calibration_cal, p2, DataRun(7)),
-            (:process_energy_calibration_cal, p3, DataRun(0)), (:p_process_aoe_cut_cal, p2, nothing), (:p_process_aoe_cut_cal, p3, nothing)]; by = string)
+        @test sort(map(c -> c[1:3], calls); by = string) == sort([(:process_energy_calibration_cal, p2, DataRun(7)); [(:process_energy_calibration_cal, p3, r) for r in DataRun.(0:5)];
+            (:p_process_aoe_cut_cal, p2, nothing); (:p_process_aoe_cut_cal, p3, nothing)]; by = string)
 
         # a period without any of the selected runs stays selected, but has nothing to process
         dispatch!(ctrl, SelectRuns([6]))
@@ -499,8 +499,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         rows = Juleana.report_index(ctrl)
         energy = filter(r -> r.process === :process_energy_calibration_cal, rows)
         @test [(r.period, r.run, r.state) for r in energy] ==
-              [(p2, DataRun(6), :failed), (p2, DataRun(7), :missing), (p3, DataRun(0), :missing)]
-        @test energy[1].path == failed && energy[1].n_failed == 1
+              [[(p2, r, r == DataRun(6) ? :failed : :missing) for r in DataRun.(0:7)]; [(p3, r, :missing) for r in DataRun.(0:5)]]
+        @test energy[7].path == failed && energy[7].n_failed == 1
         partition = filter(r -> r.level === :partition, rows)
         @test [(r.process, r.period, r.run, r.state) for r in partition] ==
               [(:p_process_aoe_cut_cal, p2, nothing, :missing), (:p_process_aoe_cut_cal, p3, nothing, :missing)]

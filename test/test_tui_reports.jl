@@ -416,14 +416,15 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         root = mktempdir()
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
         p2 = DataPeriod(2)
+        runs = DataRun.([6, 7])
         args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.json"))
         cfg = ProcessingConfig(;
             processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
             p_processors = Dict{Symbol,ProcessorSpec}())
         function new_session()
             periods, run_status, partition_status = Juleana.setup_dependency_graph(
-                l200, cfg, [p2], nothing, run_steps(cfg), partition_steps(cfg))
-            return DataflowSession(; args, l200, config = cfg, periods,
+                l200, cfg, [p2], runs, run_steps(cfg), partition_steps(cfg))
+            return DataflowSession(; args, l200, config = cfg, periods, runs,
                 run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
         end
         processors = Dict{Symbol,Any}(:process_energy_calibration_cal => (cfg, l200, period, run; reprocess = false) -> nothing)

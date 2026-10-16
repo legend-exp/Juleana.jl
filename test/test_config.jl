@@ -69,7 +69,7 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
     end
 
     @testset "processable_runs" begin
-        @test Juleana.processable_runs(l200, p2, nothing) == DataRun.([6, 7])
+        @test Juleana.processable_runs(l200, p2, nothing) == DataRun.(0:7)
         @test Juleana.processable_runs(l200, p2, [DataRun(7)]) == [DataRun(7)]
         @test (@test_logs (:warn, "Run r008 not found in period p02") Juleana.processable_runs(l200, p2, DataRun.([6, 8]))) == [DataRun(6)]
     end
@@ -82,9 +82,9 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
 
     @testset "setup_dependency_graph" begin
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
-            l200, cfg, [p2, p3, p13], nothing, [:process_energy_calibration_cal], Symbol[])
+            l200, cfg, [p2, p3, DataPeriod(99)], nothing, [:process_energy_calibration_cal], Symbol[])
         @test periods == [p2, p3]
-        @test sort(collect(keys(run_status[p2][:process_energy_calibration_cal]))) == DataRun.([6, 7])
+        @test sort(collect(keys(run_status[p2][:process_energy_calibration_cal]))) == DataRun.(0:7)
         # only the selected steps start as unfinished
         @test !any(values(run_status[p2][:process_energy_calibration_cal]))
         @test all(values(run_status[p2][:process_dsp_cal]))
@@ -129,7 +129,7 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         Juleana.reset_dependency_graph!(session)
         run_processing(session; processors = Dict{Symbol,Any}(
             :process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal => partition_stub), dependency_timeout = 60)
-        @test sort(calls; by = string) == sort([(:run, p2, DataRun(6)), (:run, p2, DataRun(7)), (:partition, p2, nothing)]; by = string)
+        @test sort(calls; by = string) == sort([[(:run, p2, r) for r in DataRun.(0:7)]; (:partition, p2, nothing)]; by = string)
         @test all(values(session.run_status[p2][:process_energy_calibration_cal]))
         @test session.partition_status[p2][:p_process_aoe_cut_cal]
     end
@@ -157,7 +157,7 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
             Juleana.setup_processing(args)
         end
         @test l200_setup isa LegendData
-        @test periods == [p2, p3]
+        @test periods == [p2, p13, p3]
         @test config.periods == [p2, p13, p3]
         @test config.runs == [DataRun(6)]
         @test config.only_runs
@@ -179,8 +179,8 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
             ppt_worker_pool!(pool)
         end
         @test session isa DataflowSession
-        # only p02 has run r006 to process; `--or` schedules no partition steps
-        @test session.periods == [p2]
+        # only p02 and p13 have run r006 to process; `--or` schedules no partition steps
+        @test session.periods == [p2, p13]
         @test session.run_steps == run_steps(session.config) && isempty(session.partition_steps)
         @test nprocs() == n
         @test isempty(readdir(workdir))

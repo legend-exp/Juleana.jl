@@ -19,10 +19,11 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     cfg = ProcessingConfig(;
         processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
         p_processors = Dict{Symbol,ProcessorSpec}())
+    runs = DataRun.([6, 7])
     function loader(parsed_args)
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
-            l200, cfg, [p2], nothing, run_steps(cfg), partition_steps(cfg))
-        return DataflowSession(; args = parsed_args, l200, config = cfg, periods,
+            l200, cfg, [p2], runs, run_steps(cfg), partition_steps(cfg))
+        return DataflowSession(; args = parsed_args, l200, config = cfg, periods, runs,
             run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
     end
     # Run `run_no_tui` with `step` as the energy calibration and return the exit code and

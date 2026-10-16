@@ -83,7 +83,7 @@
         m.progress, m.busy = progress(store), busy_workers(store)
         sync_setup!(m.setup, snap)
         m.setup.dataset_requested = true
-        m.setup.choices_key = (current_production(), false, Juleana.production_root(m.setup))
+        m.setup.choices_key = (current_production(), false, production_root(m.setup))
 
         # page data, delivered as the background reads answer
         index_row(process, period, run, state; level = :run) = (; process, level, category = :cal, period, run,
