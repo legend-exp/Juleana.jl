@@ -67,6 +67,7 @@ session = Juleana.setup_session(["-c", "config/processing_config.json"])
 | `--no-tui`        | Run all enabled processors without the terminal user interface and exit |
 | `--new-production` | Open the interface on the form for a new data production, see [Creating a data production](@ref) |
 | `--submit_jobs`   | Start the workers of the selected run mode automatically (with `--no-tui`) |
+| `--dataset`       | Dataset of the run lists in the metadata (`datasets/runlists`) that selects the runs; `default` (every run) when not given |
 | `--runmode`, `--rm` | Run mode, `local` or `slurm`, replacing `config.runmode` |
 | `--ignore_config` | Use only the command line values of the flags above instead of the config |
 | `--log_path`, `-o` | Directory for log files |
@@ -79,8 +80,8 @@ new directory in the `jllog` tier, named by the current UTC time.
 
 The `config` folder of the data production is the folder `config` next to the file named
 by `LEGEND_DATA_CONFIG`. Without `--config`, Juleana reads
-`config/processing_config.json` from it, or the config shipped with Juleana if that file
-does not exist. The folder also holds the worker start script `startjlworkers.sh`.
+`config/processing_config.json` from it. If that file does not exist, Juleana creates the
+folder and copies the `config/processing_config.json` shipped with Juleana there first. The folder also holds the worker start script `startjlworkers.sh`.
 
 `w` on the Setup page writes the current settings to `config/processing_config.json` of
 the data production, after a confirmation; an existing file is kept as
@@ -94,7 +95,13 @@ the visible page, `q` or `Ctrl+C` quits.
 1. **Setup**: select the periods, runs and processors, edit the keyword arguments of a
    processor (`e`) and the options, start processing (`s`), stop it (`x` after the
    running items, `X` at once), reload the config (`r`), write the settings to the
-   config file (`w`), and create a new data production (`N`).
+   config file (`w`), and create a new data production (`N`). The Production pane shows the
+   data production and the dataset; `Enter` or a click on a line opens a list of the
+   productions next to the current one (the folders in its parent folder that hold a
+   `config.json`) or of the datasets (`default` and the names in the metadata
+   `datasets/runlists`). Choosing one cancels the worker allocations and reloads the
+   session; it is possible while no processing runs. The Dataset pane below shows the runinfo of the
+   period or run under the cursor of the periods.
 2. **Graph**: the processors with their dependencies, run-level processors on the left
    and partition-level processors on the right. `Space` selects a processor, `d` adds the
    steps that selected steps wait for, and `v` switches the state icons between the last
@@ -103,9 +110,12 @@ the visible page, `q` or `Ctrl+C` quits.
 4. **Progress**: the steps of the processing run by period and run, with their state; `Enter`
    on a step shows its messages.
 5. **Log**: the messages of the session, filtered by level (`l`) or text (`/`).
-6. **Reports**: the Markdown reports of the steps and the failures they list; `Enter`
-   opens a report.
-7. **History**: the processing state of every processor in every run on disk.
+6. **Reports**: the Markdown reports of the steps, in processing order, and the failures
+   they list; `Enter` opens a report. The first entry, if the file exists, is the
+   processing history `history.md`.
+7. **History**: the processing state of every processor in the runs on disk. The columns are
+   the periods and runs selected in the session; `a` switches to all periods and runs of the
+   data production and back, and the title shows which. `r` reads the state anew.
 
 Every processing run appends a section to `history.md` in the `jllog` tier. The History
 page and the `v` view of the Graph page show the state on disk, also from earlier sessions.
@@ -160,16 +170,20 @@ The form asks for
 
 - the name and the parent folder (by default the folder that holds the current production),
 - the URL of the `legend-metadata` repository,
-- whether to check out branches in the metadata and which ones: the `jldataprod` branch for
-  the `jldataprod` config and overrides submodules and the `dataprod` branch for the
-  metadata and its other submodules (both `main` by default),
+- whether to check out branches in the metadata and which ones: a branch or tag of the
+  whole `legend-metadata` repository (empty by default; all submodules are then updated to
+  the commits it records), then the `jldataprod` branch for the `jldataprod` config and
+  overrides submodules and the `dataprod` branch for the metadata and its other submodules
+  (both `main` by default, applied on top of the first; empty branches are not checked out),
 - extra tier paths, `label` and folder of tiers that are kept elsewhere,
 - parameter folders to copy, each with a `rpars` or `ppars` component in its path,
 - whether to set the new production as the default in the startup file of the shell
   (`.bashrc` or `.zshrc`, by `$SHELL`), and
 - whether to copy the software into the production (yes by default).
 
-`↑`, `↓` and `Tab` move between the fields, typed characters and `Backspace` edit a text
+`↑`, `↓` and `Shift-Tab` move between the fields, `Tab` completes the path in a path field
+(parent folder, extra tier path, parameter folder), lists the folders that match and moves to
+the next field when there is nothing to complete, typed characters and `Backspace` edit a text
 field, `Space` or `Enter` flips a yes/no field, `Ctrl-N` adds a row to the list under the
 cursor and `Ctrl-D` removes it, `Ctrl-S` creates the production and `Esc` closes the form.
 The input is checked first and the first problem is shown in the form. An existing folder

@@ -231,9 +231,10 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 # the root is clipped from the left
                 clipped = branding_render(m, 104, 36)
                 @test endswith(row_text(clipped, 3), "jl-v9.9.9  …/l200│") && endswith(rstrip(row_text(clipped, 2), '│'), "JuLeAna " * version)
-                # no room right of the tabs: nothing
+                # no room right of the tabs: nothing in the rows of the tab bar (the Setup page
+                # shows the production in its Production pane)
                 narrow = branding_render(m, 100, 36)
-                @test find_text(narrow, version) === nothing && find_text(narrow, "jl-v9.9.9") === nothing
+                @test !any(y -> occursin(version, row_text(narrow, y)) || occursin("jl-v9.9.9", row_text(narrow, y)), 1:4)
                 @test find_text(narrow, "7 History") !== nothing
             end
             # a root that is longer than the free space

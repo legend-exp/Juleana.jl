@@ -211,8 +211,8 @@ function failure_summary(rows)
 end
 
 """
-    report_overview(jlrep::AbstractString)
-    report_overview(l200::LegendData)
+    report_overview(jlrep::AbstractString; processors = ())
+    report_overview(l200::LegendData; processors = ())
 
 Read all reports below the report folder `jlrep` (`l200.tier[:jlrep]` for the `LegendData`
 method), in the folders `rreport/<category>/<period>/<run>/` and
@@ -220,15 +220,20 @@ method), in the folders `rreport/<category>/<period>/<run>/` and
 that do not follow the naming scheme of [`report_path`](@ref) are skipped. Nothing is
 created in the file system.
 
-Return a vector, sorted by level (run before partition), name and category, of
+Return a vector, sorted by level (run before partition), rank, name and category, of
 `(; name, level, category, nreports, counts, last_date, latest_path, reports)`.
 `counts` is `(; ok, warning, failed)`, the number of reports in each [`read_report`](@ref)
 state. `last_date` and `latest_path` are the processing date of the latest report and its
 path, `nothing` if no report has a date. `reports` is a vector of
 `(; period, run, path, state, date)` sorted by period and run, with the period and the run
 as strings and `run = nothing` for the partition level.
+
+`processors` is anything with the fields `name`, `level` and `rank`, such as the
+[`ProcessorSpec`](@ref)s of the processing config. The rank of a report is the rank of the
+processor of its level whose report name (see [`report_path`](@ref)) is the name of the report;
+reports of processors that are not in `processors` come last in their level, ordered by name.
 """
-function report_overview(jlrep::AbstractString)
+function report_overview(jlrep::AbstractString; processors = ())
     groups = Dict{Tuple{Symbol, String, String}, Vector{Any}}()
     subdirs(dir) = isdir(dir) ? [d for d in readdir(dir) if isdir(joinpath(dir, d))] : String[]
     function scan(dir, level, period, run, category)
@@ -263,7 +268,8 @@ function report_overview(jlrep::AbstractString)
             last_date = isnothing(latest) ? nothing : latest.date,
             latest_path = isnothing(latest) ? nothing : latest.path, reports)
     end
-    return sort!(overview; by = o -> (o.level == :partition, o.name, o.category))
+    ranks = Dict((spec.level, report_name(spec.name)) => spec.rank for spec in processors)
+    return sort!(overview; by = o -> (o.level == :partition, get(ranks, (o.level, o.name), typemax(Int)), o.name, o.category))
 end
 
-report_overview(l200::LegendData) = report_overview(l200.tier[:jlrep])
+report_overview(l200::LegendData; kwargs...) = report_overview(l200.tier[:jlrep]; kwargs...)

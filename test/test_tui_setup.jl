@@ -184,9 +184,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, :down, ' ')
         @test setup_refreshed!(m)
         @test m.snap.analysis_runs_only == !cfg.analysis_runs_only
-        press!(m, :tab)
+        press!(m, :tab, :tab)
         @test m.setup.focus == 1 && m.setup.periods.focused
-        press!(m, :backtab)
+        press!(m, :backtab, :backtab)
         @test m.setup.focus == 4
 
         # start
@@ -376,5 +376,102 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
+    end
+
+    @testset "production and dataset" begin
+        parent = mktempdir()
+        for name in ("prod-b", "prod-a", "no-config")
+            mkpath(joinpath(parent, name))
+            name == "no-config" || write(joinpath(parent, name, "config.json"), "{}")
+        end
+        withenv("LEGEND_DATA_CONFIG" => joinpath(parent, "prod-a", "config.json")) do
+            @test_throws "no data production" withenv(() -> Juleana.read_choices(DataflowController(Dict{String,Any}())), "LEGEND_DATA_CONFIG" => nothing)
+            ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
+            @test Juleana.read_choices(ctrl) == (; productions = ["prod-a", "prod-b"], datasets = ["default"])
+
+            m = new_tui()
+            @test setup_refreshed!(m)
+            page = m.setup
+            # the choices are read in the background for the loaded session
+            @test setup_settle!(() -> page.choices isa NamedTuple && page.dataset isa AbstractDict, m)
+            @test page.choices.productions == ["prod-a", "prod-b"] && "default" in page.choices.datasets
+            tb = render_setup_page(m)
+            for text in ("Production", "Production: prod-a", "Dataset: default", "Options", "Dataset p02")
+                @test find_text(tb, text) !== nothing
+            end
+            # the Dataset pane is below the Production pane, which is below the Options pane
+            rows = [find_text(tb, t).y for t in ("Options", "Production: prod-a", "Dataset p02")]
+            @test issorted(rows) && allunique(rows)
+            @test find_text(tb, "Dataset p02").x > m.setup.periods.list.x + m.setup.periods.list.width
+
+            # Tab reaches the pane as the fifth stop, the last before the periods
+            page.focus = 4
+            press!(m, :tab)
+            @test page.focus == 5 && !any(list -> list.focused, Juleana.setup_panes(page))
+            @test find_text(render_setup_page(m), "▶ Production") !== nothing
+            press!(m, :tab)
+            @test page.focus == 1 && page.periods.focused
+
+            # the production picker lists the productions next to the current one
+            sent = ControllerCommand[]
+            send = cmd -> push!(sent, cmd)
+            key!(k) = Juleana.setup_key!(page, KeyEvent(k), m.snap, send)
+            page.focus = 5
+            key!(:enter)
+            @test page.picker.kind === :production && page.picker.items == ["prod-a", "prod-b"] && page.picker.cursor == 1
+            tb = render_setup_page(m)
+            @test find_text(tb, "Data production") !== nothing && find_text(tb, "▶ prod-a") !== nothing
+            # choosing the current production sends nothing
+            key!(:enter)
+            @test isnothing(page.picker) && isempty(sent)
+            key!(:enter)
+            key!(:down)
+            key!(:down)
+            @test page.picker.cursor == 2
+            key!(:escape)
+            @test isnothing(page.picker) && isempty(sent)
+            key!(:enter)
+            key!(:down)
+            key!(:enter)
+            @test only(sent) isa SelectProduction && only(sent).path == joinpath(parent, "prod-b")
+            empty!(sent)
+
+            # the dataset line opens the picker of the datasets
+            key!(:down)
+            @test page.source == 2
+            page.choices = (; productions = ["prod-a"], datasets = ["default", "valid", "zzz"])
+            key!(' ')
+            @test page.picker.kind === :dataset && page.picker.cursor == 1
+            key!(:down)
+            key!(:enter)
+            @test only(sent) == SelectDataset(:valid)
+            empty!(sent)
+
+            # the pickers open only once the names are read; an error shows in the pane
+            page.choices = nothing
+            key!(:enter)
+            @test isnothing(page.picker)
+            page.choices = "disk error"
+            @test find_text(render_setup_page(m), "disk error") !== nothing
+            key!(:enter)
+            @test isnothing(page.picker)
+
+            # a click on a line opens its picker, a click on an item chooses it
+            page.choices = (; productions = ["prod-a", "prod-b"], datasets = ["default", "valid"])
+            render_setup_page(m)
+            area = page.production_area
+            click(x, y) = Juleana.setup_mouse!(page, MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), m.snap, send)
+            @test click(area.x + 2, area.y)
+            @test page.focus == 5 && page.source == 1 && page.picker.kind === :production
+            render_setup_page(m)
+            @test click(page.picker_area.x + 2, page.picker_area.y + 1)
+            @test isnothing(page.picker) && only(sent).path == joinpath(parent, "prod-b")
+            empty!(sent)
+            @test click(area.x + 2, area.y + 1)
+            @test page.source == 2 && page.picker.kind === :dataset
+            @test click(1, 1) && !isnothing(page.picker)
+            key!(:escape)
+            @test isempty(sent)
+        end
     end
 end

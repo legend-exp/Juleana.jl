@@ -46,7 +46,7 @@
             processor(:p_process_aoe_cut_cal, :partition, :cal, 1, [:process_energy_calibration_cal])]
         # an empty log folder: the interface timing writes no file when its window ends
         snap = convert(ControllerSnapshot, (; state = :running, outcome = nothing, last_error = nothing, started = t0 - Second(90), finished = nothing,
-            config_file = "config/processing_config.json", log_path = "", available_periods = [p2, p3],
+            config_file = "config/processing_config.json", log_path = "", dataset = "default", available_periods = [p2, p3],
             available_runs = Dict(p2 => runs2, p3 => [r0]), periods = [p2, p3], runs = nothing,
             run_steps = [:process_dsp_cal, :process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
             processors, reprocess = nothing, analysis_runs_only = true, check_dependencies = true, nworkers = 2,
@@ -83,6 +83,7 @@
         m.progress, m.busy = progress(store), busy_workers(store)
         sync_setup!(m.setup, snap)
         m.setup.dataset_requested = true
+        m.setup.choices_key = (current_production(), false)
 
         # page data, delivered as the background reads answer
         index_row(process, period, run, state; level = :run) = (; process, level, category = :cal, period, run,
@@ -118,7 +119,7 @@
         end
         m.page = 6
         reports_visit!(m.reports_page, snap)
-        deliver!(Tachikoma.TaskEvent(:reports, (; request = only(take_requests!(m.reports_page)), value = rows)))
+        deliver!(Tachikoma.TaskEvent(:reports, (; request = only(take_requests!(m.reports_page)), value = rows, history = nothing)))
         m.page = 7
         history_visit!(m.history_page, snap)
         deliver!(Tachikoma.TaskEvent(:history, (; request = only(take_requests!(m.history_page)), value = grid)))
@@ -160,6 +161,16 @@
         end
         m.setup.focus = 4
         setup_key!(m.setup, Tachikoma.KeyEvent(:enter), snap, drop)
+        deliver!(Tachikoma.TaskEvent(:choices, (m.setup.choices_key, (; productions = ["prod-a", "prod-b"], datasets = ["default", "valid"]))))
+        m.setup.focus = 5
+        press(:down, :up, :enter, :down, :escape)
+        m.setup.source = 2
+        press(:enter, :down)
+        frame()
+        setup_key!(m.setup, Tachikoma.KeyEvent(:enter), snap, drop)
+        deliver!(Tachikoma.TaskEvent(:choices, (m.setup.choices_key, "no data production")))
+        frame()
+        m.setup.source = 1
         m.setup.focus = 1
         press(:tab, :tab, :tab)
         frame()

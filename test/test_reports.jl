@@ -188,6 +188,15 @@ end
         @test isnothing(overview[3].last_date) && isnothing(overview[3].latest_path)
         @test overview[4].reports == [(; period = "p03", run = nothing, path = part, state = :failed, date = DateTime(2026, 10, 4))]
         @test Juleana.report_overview(mktempdir()) == []
+        # ranked processors first, the others by name; the level comes first
+        ranked = [(; name = :process_dsp_cal, level = :run, rank = 5), (; name = :process_energy_calibration_cal, level = :run, rank = 2),
+            (; name = :p_process_aoe_cut_cal, level = :partition, rank = 1)]
+        by_rank = Juleana.report_overview(jlrep; processors = ranked)
+        @test [(o.level, o.name) for o in by_rank] ==
+              [(:run, "energy_calibration"), (:run, "dsp_cal"), (:run, "extra"), (:partition, "aoe_cut")]
+        # a processor of the other level with the same name does not rank the report
+        other = [(; name = :p_process_dsp_cal, level = :partition, rank = 1)]
+        @test [o.name for o in Juleana.report_overview(jlrep; processors = other)] == ["dsp_cal", "energy_calibration", "extra", "aoe_cut"]
     end
 
     @testset "no file system changes" begin

@@ -38,10 +38,14 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
             step(:p_process_energy_cal, :partition, p3, nothing, :failed, t(11), t(12))])]
     grid = Juleana.history_grid(processors, [p2 => runs2, p3 => [r0]], overview, history)
 
+    # controller snapshot with the given selection; everything is selected by default
+    snapshot(; state = :ready, started = nothing, periods = [p2, p3], runs = nothing) = (; state, outcome = nothing, started,
+        finished = nothing, periods, runs, available_periods = [p2, p3], available_runs = Dict(p2 => runs2, p3 => [r0]))
+
     # a page that has read `grid`
-    function loaded_page()
+    function loaded_page(snap = snapshot())
         page = Juleana.HistoryPage()
-        Juleana.history_visit!(page, (; state = :ready, outcome = nothing, started = nothing, finished = nothing))
+        Juleana.history_visit!(page, snap)
         (request,) = Juleana.take_requests!(page)
         Juleana.history_result!(page, (; request, value = grid))
         return page
@@ -51,9 +55,9 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         page = Juleana.HistoryPage()
         @test find_text(render_history_page(page), "No session loaded.") !== nothing
         Juleana.history_visit!(page, nothing)
-        Juleana.history_visit!(page, (; state = :loading, outcome = nothing, started = nothing, finished = nothing))
+        Juleana.history_visit!(page, snapshot(state = :loading))
         @test isempty(Juleana.take_requests!(page))
-        ready = (; state = :ready, outcome = nothing, started = nothing, finished = nothing)
+        ready = snapshot()
         Juleana.history_visit!(page, ready)
         Juleana.history_visit!(page, ready)
         requests = Juleana.take_requests!(page)
@@ -65,7 +69,7 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         Juleana.history_result!(page, (; request = requests[1], value = grid))
         @test page.grid === grid && !page.reading
         # a new processing run triggers a new read; an older answer to the first read is dropped
-        Juleana.history_visit!(page, merge(ready, (; state = :running, started = t(14))))
+        Juleana.history_visit!(page, snapshot(state = :running, started = t(14)))
         Juleana.history_result!(page, (; request = requests[1], value = (; periods = [], rows = [])))
         @test page.grid === grid
         (request,) = Juleana.take_requests!(page)
@@ -79,6 +83,53 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         @test Juleana.history_key!(page, KeyEvent('r'))
         @test only(Juleana.take_requests!(page)).kind === :grid
         @test !Juleana.history_key!(page, KeyEvent('x')) && !Juleana.history_key!(page, KeyEvent('7'))
+    end
+
+    @testset "selected and all runs" begin
+        run_labels(page) = [string(page.grid.periods[c.p].period, "-", c.run) for c in page.columns]
+        # the default shows the selected runs only
+        page = loaded_page(snapshot(periods = [p2], runs = Dict(p2 => DataRun.([7, 9]))))
+        @test !page.all_runs && run_labels(page) == ["p02-r007", "p02-r009"]
+        text = history_text(render_history_page(page))
+        @test occursin("History, selected runs", text) && !occursin("p03", text)
+        @test detail_text(page) == "dsp cal  p02-r007  warning  2026-10-15 10:00 UTC  report"
+        # a partition-level cell spans only the shown runs of its period
+        page.row = 3
+        @test detail_text(page) == "energy cal  p02  ok  2026-10-15 10:00 UTC  report"
+        @test occursin("[  ✓  ]", history_text(render_history_page(page)))
+        # `a` shows all runs and periods, without a new read
+        @test Juleana.history_key!(page, KeyEvent('a'))
+        @test page.all_runs && length(page.columns) == 11 && isempty(Juleana.take_requests!(page))
+        text = history_text(render_history_page(page))
+        @test occursin("History, all runs", text) && occursin("p03", text)
+        @test page.row == 3
+        @test Juleana.history_key!(page, KeyEvent('a'))
+        @test !page.all_runs && length(page.columns) == 2
+        # a changed selection updates the shown columns in the selected mode, without a new read
+        Juleana.history_visit!(page, snapshot(periods = [p3]))
+        @test run_labels(page) == ["p03-r000"] && isempty(Juleana.take_requests!(page))
+        Juleana.history_visit!(page, snapshot(periods = [p2, p3], runs = Dict(p2 => [DataRun(6)])))
+        @test run_labels(page) == ["p02-r006", "p03-r000"]
+        # runs given as a vector apply to every selected period
+        Juleana.history_visit!(page, snapshot(runs = DataRun.([6, 0])))
+        @test run_labels(page) == ["p02-r006", "p03-r000"]
+        # all runs ignore the selection
+        Juleana.history_key!(page, KeyEvent('a'))
+        Juleana.history_visit!(page, snapshot(periods = [p3]))
+        @test length(page.columns) == 11
+        # an empty selection shows no columns
+        Juleana.history_key!(page, KeyEvent('a'))
+        Juleana.history_visit!(page, snapshot(periods = DataPeriod[]))
+        @test isempty(page.columns)
+        @test find_text(render_history_page(page), "No processors or runs.") !== nothing
+        # a grid that arrives later takes the mode and selection of the page
+        page = Juleana.HistoryPage()
+        Juleana.history_key!(page, KeyEvent('a'))
+        @test page.all_runs
+        Juleana.history_visit!(page, snapshot(periods = [p3]))
+        (request,) = Juleana.take_requests!(page)
+        Juleana.history_result!(page, (; request, value = grid))
+        @test length(page.columns) == 11
     end
 
     @testset "cursor and details" begin

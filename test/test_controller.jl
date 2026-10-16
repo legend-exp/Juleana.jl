@@ -434,6 +434,41 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         end
     end
 
+    @testset "select a production and a dataset" begin
+        parent = mktempdir()
+        mkpath(joinpath(parent, "other"))
+        write(joinpath(parent, "other", "config.json"), "{}")
+        withenv("LEGEND_DATA_CONFIG" => joinpath(parent, "current", "config.json")) do
+            loaded = Ref{Any}(nothing)
+            ctrl = DataflowController(Dict{String,Any}("config" => shipped_config, "log_path" => "old", "dataset" => "default"); processors,
+                loader = args -> (loaded[] = copy(args); new_session()))
+            @test snapshot(ctrl).dataset == "default"
+            dispatch!(ctrl, SelectDataset(:valid))
+            wait(ctrl)
+            @test snapshot(ctrl).state === :ready && snapshot(ctrl).dataset == "valid"
+            @test loaded[]["dataset"] == "valid" && loaded[]["log_path"] == ""
+            dispatch!(ctrl, SelectProduction(joinpath(parent, "other")))
+            wait(ctrl)
+            @test snapshot(ctrl).state === :ready && snapshot(ctrl).dataset == "default"
+            @test ENV["LEGEND_DATA_CONFIG"] == joinpath(parent, "other", "config.json")
+            @test loaded[]["config"] == Juleana.default_config_file() && loaded[]["dataset"] == "default"
+            # a folder without config.json is no production
+            @test_throws "no config.json" dispatch!(ctrl, SelectProduction(joinpath(parent, "missing")))
+            @test ENV["LEGEND_DATA_CONFIG"] == joinpath(parent, "other", "config.json")
+            # a failing load leaves no session
+            bad = DataflowController(Dict{String,Any}("config" => shipped_config, "dataset" => "default"); processors,
+                loader = _ -> error("dataset nope is not in the run lists"))
+            dispatch!(bad, SelectDataset(:nope))
+            wait(bad)
+            @test snapshot(bad).state === :idle && occursin("dataset nope", snapshot(bad).last_error)
+            # not while processing
+            running = DataflowController(new_session(); processors)
+            running.state = :running
+            @test_throws "SelectDataset is not possible" dispatch!(running, SelectDataset(:valid))
+            @test_throws "SelectProduction is not possible" dispatch!(running, SelectProduction(parent))
+        end
+    end
+
     @testset "kwarg resets and snapshot kwargs" begin
         ctrl = DataflowController(new_session(); processors)
         energy() = only(filter(p -> p.name === :process_energy_calibration_cal, snapshot(ctrl).processors))

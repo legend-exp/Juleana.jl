@@ -8,17 +8,37 @@ const SETUP_OPTIONS = (
 )
 
 """
+    SetupPicker(kind::Symbol, items::Vector{String}, cursor::Integer)
+
+Open list of names on the Setup page: `kind` is `:production` or `:dataset`, `cursor` the
+index of the chosen item in `items`, and `top` the index of the first item shown at the last render.
+"""
+mutable struct SetupPicker
+    kind::Symbol
+    items::Vector{String}
+    cursor::Int
+    top::Int
+end
+
+SetupPicker(kind, items, cursor) = SetupPicker(kind, items, cursor, 1)
+
+"""
     SetupPage()
 
 State of the Setup page of the terminal user interface: a [`Juleana.Checklist`](@ref)
-of periods with their runs, the runinfo of the period or run under its cursor, one of
-the run-level and one of the partition-level processors, and the options pane. The checklists are built from the controller
+of periods with their runs, one of the run-level and one of the partition-level
+processors, the options pane, the pane with the data production and the dataset, and the
+runinfo of the period or run under the cursor of the periods. The checklists are built from the controller
 snapshots by [`Juleana.sync_setup!`](@ref); keys are handled by
 [`Juleana.setup_key!`](@ref).
 
 `focus` is the focused pane: 1 periods, 2 run processors, 3 partition processors,
-4 options. `editor` is the open [`Juleana.KwargsEditor`](@ref) and `confirm` is `:write`
-while writing the config waits for confirmation.
+4 options, 5 production and dataset, where `source` is the chosen line (1 production,
+2 dataset). `editor` is the open [`Juleana.KwargsEditor`](@ref), `confirm` is `:write`
+while writing the config waits for confirmation, and `picker` is the open
+[`Juleana.SetupPicker`](@ref). `choices` holds the names the pickers list, read by
+[`Juleana.read_choices`](@ref): `nothing` before they are read, the message of the read
+error, or a `NamedTuple` with `productions` and `datasets`.
 """
 mutable struct SetupPage
     periods::Checklist
@@ -38,12 +58,21 @@ mutable struct SetupPage
     dataset_requested::Bool
     # set by `N`, taken by the interface, which opens the new-production form
     new_production::Bool
+    source::Int
+    picker::Union{Nothing,SetupPicker}
+    choices::Any
+    # what `choices` was read for, see `choices_sync!`
+    choices_key::Any
+    # inside of the production pane and of the picker list at the last render
+    production_area::Tachikoma.Rect
+    picker_area::Tachikoma.Rect
 end
 
 SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
     Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
     Checklist(ChecklistItem[]; title = "Partition processors", focused = false, tag_style = setup_tag_style), 1, 1, nothing,
-    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false, false)
+    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false, false,
+    1, nothing, nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
@@ -130,12 +159,15 @@ latest controller snapshot (or `nothing`) and `send(cmd)` sends a controller com
 
 An open kwargs editor gets every key (see [`Juleana.kwargs_key!`](@ref)); while writing
 the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config folder
-of the data production and any other key cancels. Otherwise the focused checklist gets the key
+of the data production and any other key cancels. An open picker gets every key: Up and
+Down move the cursor, Enter sends [`SelectProduction`](@ref) or [`SelectDataset`](@ref) for the chosen
+name unless it is the current one, and Escape closes the picker. Otherwise the focused checklist gets the key
 first; a change of its selection sends `SelectRuns` or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
 `c` and `p` select the `cal` and `phy` processors of the pane, `d` adds the steps
 the selected steps wait for and `e` opens the kwargs editor for the processor under the
 cursor; in the options pane Up and Down choose a row and Space or
-Enter cycles its value; `s` starts processing, `x` stops it after the running items, `X`
+Enter cycles its value; in the production pane Up and Down choose the production or the
+dataset and Space or Enter opens its picker once the names are read; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
 dependency graph, `W` starts a worker allocation with [`AddWorkers`](@ref) and `w` asks to write
 the current settings to `config/processing_config.json` of the data production. `N` sets
@@ -153,6 +185,10 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         page.confirm = nothing
         return true
     end
+    if !isnothing(page.picker)
+        picker_key!(page, evt, snap, send)
+        return true
+    end
     panes = setup_panes(page)
     if page.focus <= length(panes)
         list = panes[page.focus]
@@ -166,7 +202,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     end
     key, char = evt.key, evt.char
     if key == :tab || key == :backtab
-        page.focus = mod1(page.focus + (key == :tab ? 1 : -1), length(panes) + 1)
+        page.focus = mod1(page.focus + (key == :tab ? 1 : -1), length(panes) + 2)
         for (i, list) in pairs(panes)
             list.focused = i == page.focus
         end
@@ -189,6 +225,10 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         page.option = clamp(page.option + (key == :up ? -1 : 1), 1, length(SETUP_OPTIONS))
     elseif page.focus == 4 && (key == :enter || (key == :char && char == ' ')) && !isnothing(snap)
         cycle_option(page, snap, send)
+    elseif page.focus == 5 && key in (:up, :down)
+        page.source = clamp(page.source + (key == :up ? -1 : 1), 1, 2)
+    elseif page.focus == 5 && (key == :enter || (key == :char && char == ' '))
+        open_picker!(page, snap)
     elseif key == :char && char == 's'
         send(StartProcessing())
     elseif key == :char && char == 'x'
@@ -214,11 +254,24 @@ end
 
 Pass the mouse event `evt` to the checklist under the pointer, focus that pane, and send
 the new selection if it changed. A left click in the options pane focuses it; on an
-option row it also chooses the row and sends its next value. Return whether the event
+option row it also chooses the row and sends its next value. A left click in the
+production pane focuses it and opens the picker of the line. While a picker is open, a
+left click on an item chooses it and every other event is used without effect. Return whether the event
 was used.
 """
 function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
     (isnothing(page.editor) && isnothing(page.confirm)) || return false
+    if !isnothing(page.picker)
+        picker = page.picker
+        if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.picker_area, evt.x, evt.y)
+            i = picker.top + evt.y - page.picker_area.y
+            if i in eachindex(picker.items)
+                picker.cursor = i
+                picker_choose!(page, snap, send)
+            end
+        end
+        return true
+    end
     panes = setup_panes(page)
     function focus!(i)
         page.focus = i
@@ -244,7 +297,54 @@ function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
         end
         return true
     end
+    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.production_area, evt.x, evt.y)
+        focus!(length(panes) + 2)
+        page.source = clamp(evt.y - page.production_area.y + 1, 1, 2)
+        open_picker!(page, snap)
+        return true
+    end
     return false
+end
+
+# Open the picker of the production (`page.source == 1`) or the dataset line once the names
+# are read, with the cursor on the current name.
+function open_picker!(page::SetupPage, snap)
+    page.choices isa NamedTuple || return nothing
+    kind = page.source == 1 ? :production : :dataset
+    items = kind === :production ? page.choices.productions : page.choices.datasets
+    current = kind === :production ? first(something(current_production(), ("",))) : dataset_name(snap)
+    page.picker = SetupPicker(kind, items, something(findfirst(==(current), items), 1))
+    return nothing
+end
+
+dataset_name(snap) = isnothing(snap) ? "default" : snap.dataset
+
+# Handle a key of the open picker of `page`.
+function picker_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
+    picker = page.picker
+    if evt.key in (:up, :down)
+        picker.cursor = clamp(picker.cursor + (evt.key == :up ? -1 : 1), 1, length(picker.items))
+    elseif evt.key == :enter
+        picker_choose!(page, snap, send)
+    elseif evt.key == :escape
+        page.picker = nothing
+    end
+    return nothing
+end
+
+# Close the picker of `page` and send the command for the item under its cursor, unless
+# that is the current production or dataset.
+function picker_choose!(page::SetupPage, snap, send)
+    picker = page.picker
+    page.picker = nothing
+    name = picker.items[picker.cursor]
+    if picker.kind === :production
+        production = current_production()
+        name == first(something(production, ("",))) || send(SelectProduction(joinpath(last(production), name)))
+    else
+        name == dataset_name(snap) || send(SelectDataset(Symbol(name)))
+    end
+    return nothing
 end
 
 # Send the next value of the option row `page.option`.
@@ -325,27 +425,98 @@ function dataset_lines(page::SetupPage)
 end
 
 """
+    Juleana.read_choices(ctrl::DataflowController)
+
+Read the names the pickers of the Setup page list, and return them as a `NamedTuple` with
+`productions`, the folders next to the current data production that hold a `config.json`
+(one `readdir` of the parent folder), and `datasets`, `"default"` and the names in the
+metadata `datasets/runlists` of the loaded session. Throws if the data production is not
+set or the run lists cannot be read.
+"""
+function read_choices(ctrl::DataflowController)
+    current = current_production()
+    isnothing(current) && throw(ArgumentError("LEGEND_DATA_CONFIG is not set: no data production is selected"))
+    productions = sort!([d for d in readdir(last(current)) if isfile(joinpath(last(current), d, "config.json"))])
+    session = @lock ctrl.lock ctrl.session
+    datasets = isnothing(session) ? String[] : string.(keys(session.l200.metadata.datasets.runlists))
+    return (; productions, datasets = sort!(unique!(vcat("default", datasets))))
+end
+
+# Read the choices of the pickers in a background task when the data production or the
+# loaded state of the session changed since the last read; the value is the choices or
+# the message of the read error, tagged with what it was read for.
+function choices_sync!(m)
+    page, ctrl = m.setup, m.ctrl
+    m.snap.state === :loading && return nothing
+    key = (current_production(), m.snap.state === :idle)
+    key == page.choices_key && return nothing
+    page.choices_key = key
+    Tachikoma.spawn_task!(m.queue, :choices) do
+        value = try
+            read_choices(ctrl)
+        catch e
+            @error "Reading the data productions and datasets failed" exception = (e, catch_backtrace())
+            first(split(sprint(showerror, e), '\n'))
+        end
+        (key, value)
+    end
+    return nothing
+end
+
+# Lines of the production pane: the data production and the dataset, and the read error of
+# the choices if there is one.
+function production_lines(page::SetupPage, snap)
+    text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
+    production = current_production()
+    names = (isnothing(production) ? "not set" : first(production), dataset_name(snap))
+    lines = Vector{Tuple{String,Tachikoma.Style}}[]
+    for (i, (label, name)) in enumerate(zip(("Production: ", "Dataset: "), names))
+        chosen = page.focus == 5 && i == page.source
+        push!(lines, [(label, chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
+            (name, Tachikoma.tstyle(:text_bright, bold = chosen))])
+    end
+    page.choices isa AbstractString && push!(lines, [(page.choices, Tachikoma.tstyle(:error))])
+    return lines
+end
+
+# Draw the open picker of `page` centered in `area`.
+function render_picker(page::SetupPage, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    picker = page.picker
+    text = Tachikoma.tstyle(:text)
+    title = picker.kind === :production ? "Data production" : "Dataset"
+    width = min(area.width, max(40, maximum(textwidth, picker.items; init = 0) + 6))
+    box = Tachikoma.center(area, width, min(area.height, length(picker.items) + 4))
+    for y in box.y:Tachikoma.bottom(box), x in box.x:Tachikoma.right(box)
+        Tachikoma.set_char!(buf, x, y, ' ', text)
+    end
+    inner = Tachikoma.render(Tachikoma.Block(title = title, border_style = Tachikoma.tstyle(:border_focus)), box, buf)
+    list = Tachikoma.Rect(inner.x, inner.y, inner.width, max(0, inner.height - 1))
+    page.picker_area = list
+    picker.top = clamp(picker.cursor - list.height ÷ 2, 1, max(1, length(picker.items) - list.height + 1))
+    for row in 1:min(list.height, length(picker.items) - picker.top + 1)
+        i = picker.top + row - 1
+        Tachikoma.set_string!(buf, list.x + 1, list.y + row - 1, (i == picker.cursor ? "▶ " : "  ") * picker.items[i],
+            i == picker.cursor ? Tachikoma.tstyle(:accent, bold = true) : text; max_x = Tachikoma.right(list))
+    end
+    Tachikoma.set_string!(buf, inner.x + 1, Tachikoma.bottom(inner), "Enter: choose   Esc: close", Tachikoma.tstyle(:text_dim);
+        max_x = Tachikoma.right(inner))
+    return nothing
+end
+
+"""
     Juleana.render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
-Draw the Setup page into `area`: periods and runs on the left with the runinfo of the
-period or run under the cursor below them (see [`Juleana.dataset_lines`](@ref)), the run and partition
-processors in the middle, and the options and a summary of what a start would process on
-the right, with the largest logo that fits below them, centered at the bottom of the pane.
+Draw the Setup page into `area`: periods and runs on the left, the run and partition
+processors in the middle, and on the right the options with a summary of what a start
+would process and the largest logo that fits below it (centered at the bottom of the
+pane), the data production and dataset, and the runinfo of the period or run under the
+cursor of the periods (see [`Juleana.dataset_lines`](@ref)). The open picker is drawn over the page.
 """
 function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     columns = Tachikoma.Layout(Tachikoma.Horizontal,
         [Tachikoma.Percent(28), Tachikoma.Percent(42), Tachikoma.Fill()])
     left, middle, right = Tachikoma.split_layout(columns, area)
-    info = dataset_lines(page)
-    tree, below = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical,
-        [Tachikoma.Fill(), Tachikoma.Fixed(min(length(info.lines) + 2, left.height ÷ 2))]), left)
-    Tachikoma.render(page.periods, tree, buf)
-    inner = Tachikoma.render(pane_block(info.title, false), below, buf)
-    for (i, spans) in pairs(info.lines)
-        y = inner.y + i - 1
-        y > Tachikoma.bottom(inner) && break
-        put_spans!(buf, inner.x, y, Tachikoma.right(inner), spans)
-    end
+    Tachikoma.render(page.periods, left, buf)
     nrun, npart = length(page.run_procs.keys), length(page.part_procs.keys)
     procs = Tachikoma.Layout(Tachikoma.Vertical,
         [Tachikoma.Fill(max(1, nrun + 2)), Tachikoma.Fill(max(1, npart + 2))])
@@ -353,8 +524,25 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     Tachikoma.render(page.run_procs, top, buf)
     Tachikoma.render(page.part_procs, bottom, buf)
 
+    info, production = dataset_lines(page), production_lines(page, snap)
+    options, production_pane, dataset_pane = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical,
+        [Tachikoma.Fill(), Tachikoma.Fixed(min(length(production) + 2, right.height ÷ 3)),
+            Tachikoma.Fixed(min(length(info.lines) + 2, right.height ÷ 3))]), right)
+    page.production_area = Tachikoma.render(pane_block("Production", page.focus == 5), production_pane, buf)
+    for (i, spans) in pairs(production)
+        y = page.production_area.y + i - 1
+        y > Tachikoma.bottom(page.production_area) && break
+        put_spans!(buf, page.production_area.x, y, Tachikoma.right(page.production_area), spans)
+    end
+    inner = Tachikoma.render(pane_block(info.title, false), dataset_pane, buf)
+    for (i, spans) in pairs(info.lines)
+        y = inner.y + i - 1
+        y > Tachikoma.bottom(inner) && break
+        put_spans!(buf, inner.x, y, Tachikoma.right(inner), spans)
+    end
+
     block = pane_block("Options", page.focus == 4)
-    inner = Tachikoma.render(block, right, buf)
+    inner = Tachikoma.render(block, options, buf)
     page.options = inner
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
     lines = Vector{Tuple{String,Tachikoma.Style}}[]
@@ -386,6 +574,7 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
             max_x = Tachikoma.right(inner), max_y = Tachikoma.bottom(inner))
     end
     isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
+    isnothing(page.picker) || render_picker(page, area, buf)
     if page.confirm === :write && !isnothing(snap)
         Tachikoma.render(Tachikoma.Modal(; title = "Write config",
             message = "Write the current settings to\nconfig/processing_config.json\nin the data production?\nAn existing file is kept as processing_config.json.bak.\n\ny: write   any other key: cancel",

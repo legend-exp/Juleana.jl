@@ -82,11 +82,21 @@ const REPORT = """
         shipped = joinpath(dirname(@__DIR__), "config", "processing_config.json")
         withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
             @test Juleana.production_config_dir() == joinpath(production, "config")
-            # without --config: the shipped config until the production has one
-            @test Juleana.parse_commandline(String[])["config"] == shipped
-            mkpath(joinpath(production, "config"))
-            cp(shipped, joinpath(production, "config", "processing_config.json"))
-            @test Juleana.parse_commandline(["-p", "3"])["config"] == joinpath(production, "config", "processing_config.json")
+            # without --config: the shipped config is copied into the production
+            installed = joinpath(production, "config", "processing_config.json")
+            @test Juleana.default_config_file() == installed && !ispath(installed)
+            @test_logs (:info, r"Copied the processing config shipped with Juleana") @test Juleana.parse_commandline(String[])["config"] == installed
+            @test read(installed) == read(shipped)
+            # an existing config is kept
+            write(installed, "{}")
+            @test_logs Juleana.parse_commandline(["-p", "3"])["config"] == installed
+            @test read(installed, String) == "{}"
+            # with --config nothing is copied
+            fresh = mktempdir()
+            withenv("LEGEND_DATA_CONFIG" => joinpath(fresh, "config.json")) do
+                @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
+                @test !ispath(joinpath(fresh, "config"))
+            end
             @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
         end
         other = mktempdir()

@@ -155,7 +155,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
     tasks = broadcast(iterator, ids) do itr, id
         Threads.@spawn begin
-            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker, string(itr))
+            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker, string(hasproperty(itr, :detector) ? itr.detector : itr))
             result, outcome = try
                 # Past `maxtime`, onworker terminates the worker (never the main process) and
                 # counts the timeout as a failed try; the last failure lands in the catch below.

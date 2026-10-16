@@ -151,6 +151,12 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         writelprops(processing_config, props)
         log_path = joinpath(root, "logs")
         args = Juleana.parse_commandline(["-c", processing_config, "-p", "2", "13", "-p", "3", "-r", "6", "-o", log_path, "--or"])
+        @test args["dataset"] == "default"
+        @test Juleana.parse_commandline(["-c", processing_config, "--dataset", "valid"])["dataset"] == "valid"
+        bad_args = Juleana.parse_commandline(["-c", processing_config, "--dataset", "no_such_dataset"])
+        withenv("LEGEND_DATA_CONFIG" => nothing) do
+            @test_throws "dataset no_such_dataset is not in the metadata datasets/runlists" Juleana.setup_processing(bad_args)
+        end
         # `setup_processing` sets `ENV` from the config's `env_variables`
         l200_setup, config, periods = withenv("LEGEND_DATA_CONFIG" => nothing) do
             Juleana.setup_processing(args)

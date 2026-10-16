@@ -3,7 +3,7 @@
 const METADATA_URL = "git@github.com:legend-exp/legend-metadata"
 const PRODUCTION_NAME = r"^[a-zA-Z0-9._-]+$"
 const TIER_LABEL = r"^[a-zA-Z0-9_-]+$"
-const BRANCH_NAME = r"^[a-zA-Z0-9._/-]+$"
+const BRANCH_NAME = r"^[a-zA-Z0-9._/][a-zA-Z0-9._/-]*$"
 # folders of a new production below `generated/`
 const GENERATED_DIRS = ("tier", "jllog", "jlplt", "jlreport", "jlpar", joinpath("jlpar", "rpars"), joinpath("jlpar", "ppars"))
 
@@ -28,8 +28,8 @@ dataprod_checkout(branch) = """
     """
 
 """
-    ProductionSpec(; name, parent, metadata_url = $(repr(METADATA_URL)), jldataprod_branch = nothing,
-        dataprod_branch = nothing, tier_paths = Pair{String,String}[], pars = String[],
+    ProductionSpec(; name, parent, metadata_url = $(repr(METADATA_URL)), metadata_ref = nothing,
+        jldataprod_branch = nothing, dataprod_branch = nothing, tier_paths = Pair{String,String}[], pars = String[],
         set_default = false, copy_software = true, shell = basename(get(ENV, "SHELL", "")),
         home = homedir())
 
@@ -37,6 +37,9 @@ What [`Juleana.create_production`](@ref) creates: the data production `name` in 
 `parent` (an absolute path).
 
 - `metadata_url`: the `legend-metadata` repository to clone.
+- `metadata_ref`: branch or tag to check out in the metadata repository, with every
+  submodule at the commit that ref records; `nothing` to keep the cloned default branch. The
+  two branches below are checked out on top of it.
 - `jldataprod_branch`: branch to check out in the `jldataprod/config*` and
   `jldataprod/overrides*` submodules of the metadata, `nothing` to keep the cloned ones.
 - `dataprod_branch`: branch to check out in the metadata repository and all other
@@ -54,6 +57,7 @@ Base.@kwdef struct ProductionSpec
     name::String
     parent::String
     metadata_url::String = METADATA_URL
+    metadata_ref::Union{Nothing,String} = nothing
     jldataprod_branch::Union{Nothing,String} = nothing
     dataprod_branch::Union{Nothing,String} = nothing
     tier_paths::Vector{Pair{String,String}} = Pair{String,String}[]
@@ -73,7 +77,7 @@ shell_rc_file(shell, home) = shell == "bash" ? joinpath(home, ".bashrc") : shell
 Return the folder of the production `spec` describes, after checking `spec` without
 changing anything: the name contains only letters, digits, `.`, `_` and `-`, the parent is
 an absolute path, the production folder does not exist, the branch names contain only
-letters, digits, `.`, `_`, `/` and `-`, every tier label is unique and
+letters, digits, `.`, `_`, `/` and `-` and do not start with `-` (also the `metadata_ref`), every tier label is unique and
 contains only letters, digits, `_` and `-`, every tier path and parameter folder exists,
 every parameter folder has a `/rpars` or `/ppars` component, and with `set_default` the
 shell is `bash` or `zsh`. Throws an `ArgumentError` that names the first problem.
@@ -84,9 +88,9 @@ function check_production(spec::ProductionSpec)
     isabspath(spec.parent) || throw(ArgumentError("the production folder must be an absolute path, got $(repr(spec.parent))"))
     path = joinpath(spec.parent, spec.name)
     ispath(path) && throw(ArgumentError("$path exists; remove it or choose another name"))
-    for branch in (spec.jldataprod_branch, spec.dataprod_branch)
+    for branch in (spec.metadata_ref, spec.jldataprod_branch, spec.dataprod_branch)
         isnothing(branch) || occursin(BRANCH_NAME, branch) ||
-            throw(ArgumentError("the branch name $(repr(branch)) may contain only letters, digits, '.', '_', '/' and '-'"))
+            throw(ArgumentError("the branch name $(repr(branch)) may contain only letters, digits, '.', '_', '/' and '-' and may not start with '-'"))
     end
     labels = first.(spec.tier_paths)
     allunique(labels) || throw(ArgumentError("tier labels must be unique, got $(join(labels, ", "))"))
@@ -162,7 +166,8 @@ Create the data production `spec` describes and return the path of its data conf
 [`Juleana.check_production`](@ref), then
 
 1. creates the production folder and clones the metadata with its submodules into
-   `legend-metadata`, checking out the branches of `spec`,
+   `legend-metadata`; with `metadata_ref` it checks out that branch or tag and updates all
+   submodules to the commits it records, then it checks out the other branches of `spec`,
 2. creates the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
 3. writes `config.json` (see [`Juleana.data_config_text`](@ref)),
 4. copies the parameter folders into `generated/jlpar`,
@@ -183,6 +188,14 @@ function create_production(spec::ProductionSpec; log = line -> @info(line))
     run_logged(`git clone --recursive $(spec.metadata_url) $metadata`, log)
     run_logged(`git -C $metadata submodule init`, log)
     run_logged(`git -C $metadata submodule update`, log)
+    if !isnothing(spec.metadata_ref)
+        # A fresh clone is at the remote tip of every branch, so no pull is needed. `checkout`
+        # creates a local branch from `origin/<ref>` and detaches HEAD at a tag.
+        log("Checking out $(spec.metadata_ref) in the metadata")
+        run_logged(`git -C $metadata -c advice.detachedHead=false checkout $(spec.metadata_ref)`, log)
+        log("Updating the submodules to the commits of $(spec.metadata_ref)")
+        run_logged(`git -C $metadata submodule update --init --recursive`, log)
+    end
     if !isnothing(spec.jldataprod_branch)
         log("Checking out $(spec.jldataprod_branch) in the jldataprod config and overrides submodules")
         run_logged(`git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(jldataprod_checkout(spec.jldataprod_branch))`, log)

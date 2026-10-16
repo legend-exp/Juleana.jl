@@ -20,6 +20,8 @@ Juleana.checked
 Juleana.set_checked!
 Juleana.current
 Juleana.SetupPage
+Juleana.SetupPicker
+Juleana.read_choices
 Juleana.sync_setup!
 Juleana.setup_key!
 Juleana.setup_mouse!
@@ -65,6 +67,7 @@ Juleana.workers_selected_worker
 Juleana.ProductionForm
 Juleana.production_fields
 Juleana.production_spec
+Juleana.complete_path
 Juleana.production_key!
 Juleana.production_answer!
 Juleana.production_sync!

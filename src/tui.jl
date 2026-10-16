@@ -37,7 +37,7 @@ const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"
 const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
 const REPORTS_HINTS = (("↑↓", "move"), ("Enter", "open"), ("a", "all/run"), ("r", "reload"), ("Tab", "pane"))
 const REPORTS_OPEN_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("Esc", "close"))
-const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"))
+const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"), ("a", "all/selected runs"))
 const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
 const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"), ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
     ("e", "script"), ("r", "reload"))
@@ -379,8 +379,12 @@ function update_task!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         reports_sync!(m)
         history_sync!(m)
         dataset_sync!(m)
+        choices_sync!(m)
     elseif evt.id === :dataset
         m.setup.dataset = evt.value
+    elseif evt.id === :choices
+        key, value = evt.value
+        key == m.setup.choices_key && (m.setup.choices = value)
     elseif evt.id === :reports
         evt.value isa Exception && throw(evt.value)
         reports_result!(m.reports_page, evt.value)

@@ -19,6 +19,7 @@ mutable struct ProductionForm
     parent::String
     metadata_url::String
     checkout::Bool
+    metadata_ref::String
     jldataprod_branch::String
     dataprod_branch::String
     tier_labels::Vector{String}
@@ -31,6 +32,8 @@ mutable struct ProductionForm
     # index into `production_fields(form)`
     cursor::Int
     error::Union{Nothing,String}
+    # the candidates listed by the last Tab on a path field, empty if none
+    hint::String
     phase::Symbol
     # folder of the production being created
     path::Union{Nothing,String}
@@ -43,8 +46,8 @@ end
 
 function ProductionForm(; parent::AbstractString = haskey(ENV, "LEGEND_DATA_CONFIG") ? dirname(dirname(ENV["LEGEND_DATA_CONFIG"])) : "",
         shell::AbstractString = basename(get(ENV, "SHELL", "")), home::AbstractString = homedir())
-    return ProductionForm("", parent, METADATA_URL, true, "main", "main", String[], String[], String[], false, true,
-        shell, home, 1, nothing, :edit, nothing, false, 0, String[])
+    return ProductionForm("", parent, METADATA_URL, true, "", "main", "main", String[], String[], String[], false, true,
+        shell, home, 1, nothing, "", :edit, nothing, false, 0, String[])
 end
 
 """
@@ -56,7 +59,7 @@ The branch fields are present only if the branches are checked out.
 """
 function production_fields(form::ProductionForm)
     fields = Tuple{Symbol,Int}[(:name, 0), (:parent, 0), (:url, 0), (:checkout, 0)]
-    form.checkout && push!(fields, (:jldataprod, 0), (:dataprod, 0))
+    form.checkout && push!(fields, (:metadata_ref, 0), (:jldataprod, 0), (:dataprod, 0))
     for i in eachindex(form.tier_labels)
         push!(fields, (:tier_label, i), (:tier_path, i))
     end
@@ -68,14 +71,16 @@ function production_fields(form::ProductionForm)
     return fields
 end
 
-production_text_kind(kind::Symbol) = kind in (:name, :parent, :url, :jldataprod, :dataprod, :tier_label, :tier_path, :par)
+production_text_kind(kind::Symbol) = kind in (:name, :parent, :url, :metadata_ref, :jldataprod, :dataprod, :tier_label, :tier_path, :par)
 production_toggle_kind(kind::Symbol) = kind in (:checkout, :set_default, :copy_software)
+production_path_kind(kind::Symbol) = kind in (:parent, :tier_path, :par)
 
 # The text of a text field.
 function production_text(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
     kind === :name && return form.name
     kind === :parent && return form.parent
     kind === :url && return form.metadata_url
+    kind === :metadata_ref && return form.metadata_ref
     kind === :jldataprod && return form.jldataprod_branch
     kind === :dataprod && return form.dataprod_branch
     kind === :tier_label && return form.tier_labels[i]
@@ -90,6 +95,7 @@ function production_set_text!(form::ProductionForm, (kind, i)::Tuple{Symbol,Int}
     kind === :name ? (form.name = text) :
     kind === :parent ? (form.parent = text) :
     kind === :url ? (form.metadata_url = text) :
+    kind === :metadata_ref ? (form.metadata_ref = text) :
     kind === :jldataprod ? (form.jldataprod_branch = text) :
     kind === :dataprod ? (form.dataprod_branch = text) :
     kind === :tier_label ? (form.tier_labels[i] = text) :
@@ -135,19 +141,24 @@ function production_remove_row!(form::ProductionForm)
     return nothing
 end
 
+# The stripped text of a branch field, `nothing` if the branches are not checked out or the text is empty.
+production_branch(checkout, text) = checkout && !isempty(strip(text)) ? strip(text) : nothing
+
 """
     Juleana.production_spec(form::ProductionForm)
 
 Return the [`ProductionSpec`](@ref) that `form` describes. Surrounding blanks of the text are
-removed; the branches are `nothing` unless they are checked out, and a tier row or parameter
+removed; the reference and the branches are `nothing` unless they are checked out and not
+empty, and a tier row or parameter
 row without any text is left out.
 """
 function production_spec(form::ProductionForm)
     tiers = [strip(l) => strip(p) for (l, p) in zip(form.tier_labels, form.tier_paths) if !isempty(strip(l)) || !isempty(strip(p))]
     return ProductionSpec(;
         name = strip(form.name), parent = strip(form.parent), metadata_url = strip(form.metadata_url),
-        jldataprod_branch = form.checkout ? strip(form.jldataprod_branch) : nothing,
-        dataprod_branch = form.checkout ? strip(form.dataprod_branch) : nothing,
+        metadata_ref = production_branch(form.checkout, form.metadata_ref),
+        jldataprod_branch = production_branch(form.checkout, form.jldataprod_branch),
+        dataprod_branch = production_branch(form.checkout, form.dataprod_branch),
         tier_paths = Pair{String,String}[String(l) => String(p) for (l, p) in tiers],
         pars = String[strip(p) for p in form.pars if !isempty(strip(p))],
         form.set_default, form.copy_software, form.shell, form.home)
@@ -175,7 +186,9 @@ Handle the key `evt` in the new-production form and return `:close` when the for
 `:finished` when a key ends the display of the created production, `true` otherwise: the form
 uses every key. `send(cmd)` sends a controller command.
 
-- Up, Down, Tab and Shift-Tab move between the fields.
+- Up, Down and Shift-Tab move between the fields. Tab on a path field (parent folder, tier
+  path, parameter folder) completes the text with [`Juleana.complete_path`](@ref) and lists
+  the folders that remain; when there is nothing left to complete it moves to the next field.
 - Printable characters and Backspace edit the text field under the cursor.
 - Space or Enter flips a yes/no field. Enter on a text field moves to the next field.
 - Ctrl-N, or Enter on a `[+]` field, adds a row to the list under the cursor (extra tier
@@ -196,13 +209,14 @@ function production_key!(form::ProductionForm, evt::Tachikoma.KeyEvent, send)
     form.cursor = clamp(form.cursor, 1, length(fields))
     field = fields[form.cursor]
     kind, key, char = field[1], evt.key, evt.char
-    form.error = nothing
+    form.error, form.hint = nothing, ""
     if key == :escape
         return :close
     elseif key == :up
         form.cursor = max(1, form.cursor - 1)
     elseif key == :down
         form.cursor = min(length(fields), form.cursor + 1)
+    elseif key == :tab && production_path_kind(kind) && production_complete!(form, field)
     elseif key == :tab || key == :backtab
         form.cursor = mod1(form.cursor + (key == :tab ? 1 : -1), length(fields))
     elseif key == :ctrl && char == 's'
@@ -228,6 +242,50 @@ function production_key!(form::ProductionForm, evt::Tachikoma.KeyEvent, send)
         production_set_text!(form, field, production_text(form, field) * char)
     end
     return true
+end
+
+"""
+    Juleana.complete_path(text; home = homedir())
+
+Complete the folder path `text` against the file system: return `(; text, candidates)` where
+`candidates` are the names (with a trailing `/`) of the folders in the parent folder of
+`text` whose names start with the last component of `text`, and `text` is the input extended
+by the longest common prefix of the candidates. A leading `~` is replaced by `home`. Hidden
+folders are candidates only if the last component starts with a `.`. A relative path, or a
+parent folder that does not exist or cannot be read, has no candidates and `text` is
+returned unchanged. Reads one folder and does not descend into any.
+"""
+function complete_path(text::AbstractString; home::AbstractString = homedir())
+    expanded = text == "~" || startswith(text, "~/") ? home * text[2:end] : String(text)
+    isabspath(expanded) || return (; text = String(text), candidates = String[])
+    dir, prefix = endswith(expanded, '/') ? (expanded, "") : splitdir(expanded)
+    names = try
+        readdir(dir)
+    catch e
+        e isa Base.IOError || rethrow()
+        return (; text = expanded, candidates = String[])
+    end
+    candidates = [n * "/" for n in names if startswith(n, prefix) && (!startswith(n, ".") || startswith(prefix, ".")) && isdir(joinpath(dir, n))]
+    isempty(candidates) && return (; text = expanded, candidates)
+    common = first(candidates)
+    for c in candidates
+        common = join(first(p) for p in Iterators.takewhile(p -> p[1] == p[2], zip(common, c)))
+    end
+    return (; text = joinpath(dir, common), candidates)
+end
+
+# Tab on the path field `field`: extend its text and list the remaining candidates in the
+# hint. Returns whether the text changed or candidates are listed, that is, whether Tab did
+# something other than move on.
+function production_complete!(form::ProductionForm, field)
+    text = production_text(form, field)
+    completed, candidates = complete_path(text; form.home)
+    production_set_text!(form, field, completed)
+    if length(candidates) > 1
+        shown = first(candidates, 8)
+        form.hint = join(shown, "  ") * (length(candidates) > length(shown) ? "  and $(length(candidates) - length(shown)) more" : "")
+    end
+    return completed != text || length(candidates) > 1
 end
 
 """
@@ -274,6 +332,7 @@ function production_label(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
     kind === :parent && return "Parent folder"
     kind === :url && return "Metadata URL"
     kind === :checkout && return "Check out metadata branches"
+    kind === :metadata_ref && return "  legend-metadata branch or tag"
     kind === :jldataprod && return "  jldataprod branch"
     kind === :dataprod && return "  dataprod branch"
     kind === :tier_label && return "Tier path $i label"
@@ -344,9 +403,10 @@ function render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf
         label = production_text_kind(kind) || production_toggle_kind(kind) ? rpad(production_label(form, field), label_width) : production_label(form, field)
         put(inner.y + row - 1, vcat([((focused ? "> " : "  ") * label, label_style)], value))
     end
+    isempty(error_rows) && !isempty(form.hint) && put(Tachikoma.bottom(inner) - 1, [(form.hint, dim)])
     for (j, line) in enumerate(error_rows)
         put(Tachikoma.bottom(inner) - length(error_rows) + j - 1, [(line, error_style)])
     end
-    put(Tachikoma.bottom(inner), [("Ctrl-S create   Ctrl-N/Ctrl-D add/remove row   Esc close", dim)])
+    put(Tachikoma.bottom(inner), [("Tab complete path/next   Ctrl-S create   Ctrl-N/Ctrl-D add/remove row   Esc close", dim)])
     return nothing
 end

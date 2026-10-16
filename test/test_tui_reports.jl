@@ -61,7 +61,7 @@ function loaded_page(rows = INDEX_ROWS; source = :run)
     Juleana.reports_visit!(page, nothing)
     page.source = source
     request = only(Juleana.take_requests!(page))
-    Juleana.reports_result!(page, (; request = merge(request, (; source)), value = rows))
+    Juleana.reports_result!(page, (; request = merge(request, (; source)), value = rows, history = nothing))
     return page
 end
 
@@ -80,6 +80,30 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
             "# Title", "Date: x", "", "```", "Detector  Status   Error", "────────  ───────  ────────",
             "V01       Failure  no peaks", "V02       Success  -", "```", "after", "```", "A", "─", "```", ""], "\n")
         @test Juleana.tables_as_code("no table\n") == "no table\n"
+
+        # HTML tags in the cells are removed
+        html = "| Filekey | Status |\n|:---|:---|\n| k1 | <span style=\"color:red\">Failure</span> |\n"
+        @test Juleana.tables_as_code(html) == "```\nFilekey  Status\n───────  ───────\nk1       Failure\n```\n"
+
+        # a wide table is narrowed and its long cells wrap within their column
+        detectors = join(("\"D$(lpad(i, 5, '0'))A\"" for i in 1:30), ", ")
+        wide = "| Filekey | Status | Number of Detectors | Failed Detectors |\n|:---|:---|:---|:---|\n" *
+               "| l200-p00-r000-cal-20250101T000000Z | <span style=\"color:red\">Failure</span> | 0/30 | [$detectors] |\n" *
+               "| l200-p00-r000-cal-20250101T000100Z | <span style=\"color:green\">Success</span> | 30/30 | - |\n"
+        lines = split(Juleana.tables_as_code(wide; width = 80), '\n')
+        @test lines[1] == "```" && lines[end-1] == "```"
+        @test maximum(textwidth, lines) <= 80
+        @test !any(occursin("<", l) for l in lines)
+        # every detector survives the wrapping
+        @test count("\"D", join(lines)) == 30
+        @test count(l -> startswith(l, "l200-p00-r000"), lines) == 2
+        # the long cell continues on the lines below the status
+        failure = findfirst(l -> occursin("Failure", l), lines)
+        @test occursin("\"D", lines[failure]) && occursin("\"D", lines[failure+1])
+        @test Juleana.wrap_cell("", 5) == [""]
+        @test Juleana.wrap_cell("abcdefghij kl", 4) == ["abcd", "efgh", "ij", "kl"]
+        # the default width fits a viewer of 100 columns
+        @test maximum(textwidth, split(Juleana.tables_as_code(wide), '\n')) <= 100
     end
 
     @testset "groups, counts and colors" begin
@@ -165,9 +189,9 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test request.kind === :index && request.source === :all
         @test find_text(render_reports_page(page), "Reports (all on disk)") !== nothing
         # an answer to an older read is dropped
-        Juleana.reports_result!(page, (; request = merge(request, (; generation = request.generation - 1)), value = OVERVIEW_ROWS))
+        Juleana.reports_result!(page, (; request = merge(request, (; generation = request.generation - 1)), value = OVERVIEW_ROWS, history = nothing))
         @test !page.loaded && page.reading
-        Juleana.reports_result!(page, (; request, value = OVERVIEW_ROWS))
+        Juleana.reports_result!(page, (; request, value = OVERVIEW_ROWS, history = nothing))
         @test page.loaded && !page.reading
         @test [g.name for g in page.groups] == ["dsp", "energy_calibration"]
         tb = render_reports_page(page)
@@ -325,6 +349,30 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test !Juleana.reports_mouse!(page, MouseEvent(5, 3, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false))
     end
 
+    @testset "processing history entry" begin
+        page = Juleana.ReportsPage()
+        Juleana.reports_visit!(page, nothing)
+        request = only(Juleana.take_requests!(page))
+        path = joinpath(mktempdir(), "history.md")
+        Juleana.reports_result!(page, (; request, value = OVERVIEW_ROWS, history = path))
+        rows = Juleana.reports_rows(page)
+        @test rows[1].key == (:history,) && rows[1].report && isnothing(rows[1].group)
+        @test rows[2].group.name == "dsp"
+        tb = render_reports_page(page)
+        @test find_text(tb, "Processing history") !== nothing
+        # the cursor starts on the history row; folding keys leave it alone
+        @test page.cursor === nothing || page.cursor == (:history,)
+        @test press(page, :left) && press(page, :right) && Juleana.cursor_group(page) === nothing
+        @test find_text(render_reports_page(page), "Failures") !== nothing
+        @test press(page, :enter)
+        @test only(Juleana.take_requests!(page)) == (; kind = :open, path)
+        @test page.viewer_path == path
+        # no history file, no entry
+        Juleana.close_viewer!(page)
+        Juleana.reports_result!(page, (; request = merge(request, (; generation = page.generation)), value = OVERVIEW_ROWS, history = nothing))
+        @test isnothing(page.history) && !any(r -> r.key == (:history,), Juleana.reports_rows(page))
+    end
+
     @testset "reading a report file" begin
         # an `:open` request does not use the controller
         ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
@@ -421,6 +469,10 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test find_text(tb, "Reports (current run)") !== nothing && find_text(tb, "▾ energy_calibration") !== nothing
         @test find_text(tb, "p02-r006  ✗ failed   10-03 12:00Z") !== nothing && find_text(tb, "p02-r007  – missing") !== nothing
         @test find_text(tb, "ok 0  warn 0  fail 1  miss 1") !== nothing
+        # the processing run wrote the history, the first row; the cursor starts on it
+        @test find_text(tb, "Processing history") !== nothing && page.cursor == (:history,)
+        Tachikoma.update!(m, KeyEvent(:down))
+        tb = render_model(m)
         @test find_text(tb, "V02  1 run: p02-r006") !== nothing && find_text(tb, "fit failed") !== nothing
         keys_row = row_text(tb, 31)
         @test occursin("↑↓ move  Enter open  a all/run  r reload  Tab pane", keys_row)
@@ -440,12 +492,14 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         tb = render_model(m)
         @test find_text(tb, "Reports (all on disk)") !== nothing && find_text(tb, "miss") === nothing
         # the failures of the processor are read in the background
+        Tachikoma.update!(m, KeyEvent(:down))
         @test settle!(() -> haskey(page.summaries, page.groups[1].key), m)
         @test find_text(render_model(m), "V02  1 run: p02-r006") !== nothing
         Tachikoma.update!(m, KeyEvent('a'))
         @test settle!(() -> page.loaded && !page.reading && page.source === :run, m)
 
         # open a report; `q` closes it and does not quit
+        Tachikoma.update!(m, KeyEvent(:down))
         Tachikoma.update!(m, KeyEvent(:down))
         Tachikoma.update!(m, KeyEvent(:enter))
         @test page.viewer_path == report(6)

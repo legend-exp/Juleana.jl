@@ -8,7 +8,8 @@ using TerminalLoggers
 # ParallelProcessingTools initializes a process by importing itself into Main; load it
 # here so that initialization never has to resolve the package on its own.
 import ParallelProcessingTools
-using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
+using Base.ScopedValues: with
+using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, DataRun,
     process_succeeded, process_warning, process_failed
 
 @testset "juleana" begin
@@ -120,6 +121,25 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus,
             (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", "")))
         end
         @test viaDo == ok
+
+        # The busy-worker label of a channel row is its detector, that of other items the item itself.
+        DetLog = NamedTuple{(:Detector, :usability, :Status, :X, :Error)}
+        row = (detector = DetectorId(:V00048B), usability = :on, channel = 1)
+        store, key = Juleana.ProgressStore(), (DataPeriod(3), DataRun(0), :label_test)
+        Juleana.reset_progress!(store, [key])
+        labels = String[]
+        # a stop flag makes the items go through the stoppable pool, which reports the busy worker
+        with(Juleana.PROGRESS_STEP => (store, key), Juleana.PROCESSING_STOP => Threads.Atomic{Bool}(false)) do
+            parallel([row], DetLog) do r
+                push!(labels, only(Juleana.busy_workers(store)).item)
+                (processed = true, log = DetLog((r.detector, r.usability, ProcessStatus(1), "-", "")))
+            end
+            parallel([fk], FkLog) do k
+                push!(labels, only(Juleana.busy_workers(store)).item)
+                (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", "")))
+            end
+        end
+        @test labels == ["V00048B", string(fk)]
 
         # Without workers the item runs on the main process, which onworker does not terminate.
         slow = parallel(k -> (sleep(5); (processed = true,)), [fk], FkLog; timeout = 0.2)

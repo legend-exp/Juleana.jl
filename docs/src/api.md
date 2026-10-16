@@ -14,6 +14,7 @@ Juleana.run_tui
 Juleana.parse_commandline
 Juleana.production_config_dir
 Juleana.default_config_file
+Juleana.install_default_config
 Juleana.parse_period_runs
 Juleana.init_process
 DataflowSession
@@ -70,6 +71,8 @@ CancelAll
 PostponeIdleCancel
 EditStartScript
 CreateProduction
+SelectProduction
+SelectDataset
 Juleana.check_idle!(::DataflowController)
 ```
 

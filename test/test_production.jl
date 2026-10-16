@@ -61,6 +61,7 @@ end
             @test_throws "must be an absolute path" Juleana.check_production(spec(parent = "relative"))
             @test_throws "$inside exists" Juleana.check_production(spec(name = "rawdata"))
             @test_throws "the branch name \"x;y\"" Juleana.check_production(spec(dataprod_branch = "x;y"))
+            @test_throws "the branch name \"-f\"" Juleana.check_production(spec(metadata_ref = "-f"))
             @test_throws "tier labels must be unique" Juleana.check_production(spec(tier_paths = ["raw" => inside, "raw" => outside]))
             @test_throws "the tier label \"r w\"" Juleana.check_production(spec(tier_paths = ["r w" => inside]))
             @test_throws "is not a folder" Juleana.check_production(spec(tier_paths = ["raw" => joinpath(root, "missing")]))
@@ -106,6 +107,42 @@ end
             # a failing clone throws
             @test_throws "failed with exit code" Juleana.create_production(Juleana.ProductionSpec(; name = "third", parent,
                 metadata_url = joinpath(root, "missing"), copy_software = false); log = _ -> nothing)
+        end
+
+        @testset "metadata ref" begin
+            # `main` records the hardware at its first commit, `release` and the tag `v1` at its `dev` branch
+            recorded = test_repo(joinpath(root, "recorded"), "README.md")
+            git(recorded, "submodule", "add", hardware, "hardware")
+            git(recorded, "submodule", "add", jlconfig, joinpath("jldataprod", "config"))
+            git(recorded, "commit", "-m", "submodules")
+            git(recorded, "checkout", "-b", "release")
+            git(joinpath(recorded, "hardware"), "fetch", "origin")
+            git(joinpath(recorded, "hardware"), "checkout", "dev")
+            git(recorded, "commit", "-am", "release")
+            git(recorded, "tag", "v1")
+            git(recorded, "checkout", "main")
+            metadata = recorded
+            for ref in ("release", "v1")
+                lines = String[]
+                Juleana.create_production(Juleana.ProductionSpec(; name = "ref-$ref", parent, metadata_url = metadata,
+                    metadata_ref = ref, copy_software = false); log = line -> push!(lines, line))
+                meta = joinpath(parent, "ref-$ref", "legend-metadata")
+                # the submodules are at the commits the ref records
+                @test isfile(joinpath(meta, "hardware", "dev.txt"))
+                @test any(contains("Checking out $ref"), lines) && any(contains("Updating the submodules"), lines)
+            end
+            Juleana.create_production(Juleana.ProductionSpec(; name = "ref-main", parent, metadata_url = metadata, copy_software = false); log = _ -> nothing)
+            @test !isfile(joinpath(parent, "ref-main", "legend-metadata", "hardware", "dev.txt"))
+            # a branch is checked out as a branch, a tag is detached
+            @test strip(read(`git -C $(joinpath(parent, "ref-release", "legend-metadata")) branch --show-current`, String)) == "release"
+            @test isempty(strip(read(`git -C $(joinpath(parent, "ref-v1", "legend-metadata")) branch --show-current`, String)))
+            # the branches apply on top of the ref
+            Juleana.create_production(Juleana.ProductionSpec(; name = "ref-top", parent, metadata_url = metadata,
+                metadata_ref = "v1", jldataprod_branch = "jl-dev", copy_software = false); log = _ -> nothing)
+            top = joinpath(parent, "ref-top", "legend-metadata")
+            @test isfile(joinpath(top, "hardware", "dev.txt")) && isfile(joinpath(top, "jldataprod", "config", "jl-dev.txt"))
+            @test_throws "failed with exit code" Juleana.create_production(Juleana.ProductionSpec(; name = "ref-bad", parent,
+                metadata_url = metadata, metadata_ref = "nope", copy_software = false); log = _ -> nothing)
         end
 
         @testset "software snapshot" begin

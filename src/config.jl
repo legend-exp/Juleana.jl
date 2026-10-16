@@ -10,8 +10,9 @@ interactive session it returns `nothing`.
 
 Options (see `juleana --help` for the full text):
 - `--config`, `-c`: path of the processing config file. Without it, the
-  [`Juleana.default_config_file`](@ref) is used, or `nothing` when `LEGEND_DATA_CONFIG`
-  is not set (no data production is selected).
+  [`Juleana.install_default_config`](@ref) file of the data production is used (copied
+  from the config shipped with Juleana if the production has none), or `nothing` when
+  `LEGEND_DATA_CONFIG` is not set (no data production is selected).
 - `--periods`, `-p`: periods, each optionally with runs: `6` (all runs of p06), `6,1`
   (r001), `6,1-3` (r001 to r003), `6,1,4-6`. Each occurrence gives one vector of these
   strings, so `-p 3 4 -p 6,1` gives `[["3", "4"], ["6,1"]]`; see
@@ -19,6 +20,8 @@ Options (see `juleana --help` for the full text):
 - `--runs`, `-r`: run numbers for the periods given without runs, as one vector per
   occurrence.
 - `--runmode`, `--rm`: `local` or `slurm`, replacing the config's run mode.
+- `--dataset`: name of the dataset in the metadata `datasets/runlists` that selects the runs;
+  `"default"` when not given.
 - `--log_path`, `-o`: log directory; `""` when not given.
 - Flags, `false` when not given: `--no-tui`, `--new-production`, `--reprocess`, `--only_runs` (`--or`),
   `--only_partitions` (`--op`), `--submit_jobs`, `--ignore_config`,
@@ -39,7 +42,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
                             add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
-            help = "path to config file; default: config/processing_config.json in the data production, else the config shipped with Juleana"
+            help = "path to config file; default: config/processing_config.json in the data production, copied there from the config shipped with Juleana if missing"
             arg_type = String
         "--reprocess"
             help = "reprocess all channels while deleting old data"
@@ -70,6 +73,10 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
         "--ignore_config"
             help = "ignore all settings and config and only take command line arguments"
             action = :store_true
+        "--dataset"
+            help = "dataset of the run lists in the metadata (datasets/runlists) that selects the runs"
+            arg_type = String
+            default = "default"
         "--log_path", "-o"
             help = "path to store log files in"
             arg_type = String
@@ -90,7 +97,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
     end
     parsed_args = parse_args(append!(String[], args), settings)
     !isnothing(parsed_args) && isnothing(parsed_args["config"]) && haskey(ENV, "LEGEND_DATA_CONFIG") &&
-        (parsed_args["config"] = default_config_file())
+        (parsed_args["config"] = install_default_config())
     return parsed_args
 end
 
@@ -117,13 +124,28 @@ end
 """
     Juleana.default_config_file()
 
-Return the processing config file used without `--config`: `processing_config.json`
-in the [`Juleana.production_config_dir`](@ref) if it exists, else the
-`config/processing_config.json` shipped with Juleana.
+Return the path of the default processing config file of the data production,
+`processing_config.json` in the [`Juleana.production_config_dir`](@ref). The file need
+not exist; see [`Juleana.install_default_config`](@ref).
 """
-function default_config_file()
-    path = joinpath(production_config_dir(), "processing_config.json")
-    return isfile(path) ? path : joinpath(pkgdir(Juleana), "config", "processing_config.json")
+default_config_file() = joinpath(production_config_dir(), "processing_config.json")
+
+"""
+    Juleana.install_default_config()
+
+Return the [`Juleana.default_config_file`](@ref). If the file does not exist, first
+create the [`Juleana.production_config_dir`](@ref) and copy the
+`config/processing_config.json` shipped with Juleana into it, logging the copy. An
+existing file is never overwritten.
+"""
+function install_default_config()
+    path = default_config_file()
+    if !isfile(path)
+        shipped = joinpath(pkgdir(Juleana), "config", "processing_config.json")
+        cp(shipped, joinpath(mkpath(dirname(path)), basename(path)))
+        @info "Copied the processing config shipped with Juleana ($shipped) to $path"
+    end
+    return path
 end
 
 """
@@ -188,7 +210,7 @@ Build the processing setup from the output of [`parse_commandline`](@ref) and re
 `(l200, processing_config, periods)`.
 
 Reads the config file, applies the command line overrides, sets `ENV` from the
-config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)`,
+config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)` for the `--dataset`,
 and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
 named by the current UTC time (`yyyy-mm-ddTHH:MM:SSZ`). `periods` are the selected periods that are available
 on disk, or all available periods when the config selects all.
@@ -215,7 +237,10 @@ function setup_processing(parsed_args::AbstractDict)
     end
 
     @info "Loading Legend MetaData"
-    l200 = LegendData(:l200)
+    dataset = Symbol(parsed_args["dataset"])
+    l200 = LegendData(:l200; dataset)
+    dataset == :default || haskey(l200.metadata.datasets.runlists, dataset) ||
+        throw(ArgumentError("dataset $dataset is not in the metadata datasets/runlists"))
 
     log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], utc_timestamp()) : parsed_args["log_path"])
     processing_config = ProcessingConfig(config_dict; cli..., log_path)

@@ -11,6 +11,20 @@ const HISTORY_CELL_STEP = HISTORY_CELL_WIDTH + 1
 # Rows scrolled by one step of the mouse wheel.
 const HISTORY_WHEEL_ROWS = 1
 
+# A run column of the History page: the index `p` of its period in `grid.periods`, the run,
+# its position `k` (from 0) among the `n` columns of the period and its header text.
+struct HistoryColumn
+    p::Int
+    run::DataRun
+    k::Int
+    n::Int
+    label::String
+end
+
+# Text and theme color of a cell as drawn: the icon between spaces, or the slice of the
+# bracketed icon that a run column shows of a partition-level cell.
+const HistoryLook = NamedTuple{(:text, :color),Tuple{String,Symbol}}
+
 """
     HistoryPage()
 
@@ -18,6 +32,11 @@ State of the History page of the terminal user interface: the grid of the proces
 of every processor (rows) in every run (columns, grouped by period) as
 [`Juleana.history_grid`](@ref) returns it, the cursor cell, the scroll position, the open
 report and the requests for reading the file system.
+
+The columns are the periods and runs that the session has selected, or, with `all_runs`
+(toggled by `a`), all periods and runs of the data production. Everything the drawing needs
+about the grid (column headers, row labels, the text and color of each cell) is computed
+when the grid, `all_runs` or the selection changes, not when the page is drawn.
 Keys are handled by [`Juleana.history_key!`](@ref) and [`Juleana.history_mouse!`](@ref), the
 page is drawn by [`Juleana.render_history`](@ref).
 
@@ -28,9 +47,18 @@ The cursor is a row and a run column; on a partition-level row the cell is that 
 mutable struct HistoryPage
     grid::Union{Nothing,NamedTuple}
     # one `(; p, run)` per run column: index of its period in `grid.periods` and the run
-    columns::Vector{Any}
+    columns::Vector{HistoryColumn}
     # offset in characters of each column from the first one
     offsets::Vector{Int}
+    # whether all runs of the production are shown instead of the selected ones
+    all_runs::Bool
+    # selected runs of each selected period, as `selected_period_runs` returns them
+    selection::Union{Nothing,Dict{DataPeriod,Vector{DataRun}}}
+    # label of each row with the marker of partition-level rows, and the widest row name
+    labels::Vector{String}
+    label_width::Int
+    # `looks[row, column]`
+    looks::Matrix{HistoryLook}
     # whether a read of the grid is under way
     reading::Bool
     error::Union{Nothing,String}
@@ -55,7 +83,7 @@ mutable struct HistoryPage
     cells::Tachikoma.Rect
 end
 
-HistoryPage() = HistoryPage(nothing, Any[], Int[], false, nothing, 0, nothing, 1, 1, 1, 1, 1, nothing, nothing, nothing, Any[],
+HistoryPage() = HistoryPage(nothing, HistoryColumn[], Int[], false, nothing, String[], 0, Matrix{HistoryLook}(undef, 0, 0), false, nothing, 0, nothing, 1, 1, 1, 1, 1, nothing, nothing, nothing, Any[],
     Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
 """
@@ -95,15 +123,51 @@ function read_history_page(ctrl::DataflowController, request)
     return (; request, value)
 end
 
-# Run columns of the periods of `grid`, and the offset of each column from the first one:
-# one extra character separates two periods.
-function history_columns(grid)
-    columns = Any[(; p, run) for (p, entry) in pairs(grid.periods) for run in entry.runs]
+# Run number without the leading `r` and zeros, `0` for run 0.
+function run_number(run)
+    s = lstrip(chopprefix(string(run), "r"), '0')
+    return isempty(s) ? "0" : s
+end
+
+# The slice of the partition-level cell with `icon` that the `k`-th (from 0) of `n` run
+# columns shows: the icon centered between brackets over the width of the `n` columns.
+function partition_slot(icon, n, k)
+    width = HISTORY_CELL_STEP * n - 1
+    left = (width - 3) ÷ 2
+    chars = (HISTORY_CELL_STEP * k + 1):min(HISTORY_CELL_STEP * (k + 1), width)
+    return String([i == 1 ? '[' : i == width ? ']' : i == left + 2 ? only(icon) : ' ' for i in chars])
+end
+
+# Compute the columns, their offsets, the row labels and the looks of the cells of
+# `page.grid` for the shown runs: all of them with `page.all_runs`, else the selected ones.
+# One extra character separates two periods.
+function history_layout!(page::HistoryPage)
+    (; grid, selection) = page
+    columns = HistoryColumn[]
+    for (p, entry) in pairs(grid.periods)
+        runs = page.all_runs ? entry.runs : filter(in(get(selection, entry.period, DataRun[])), entry.runs)
+        append!(columns, HistoryColumn(p, run, k - 1, length(runs), lpad(run_number(run), HISTORY_CELL_WIDTH)) for (k, run) in enumerate(runs))
+    end
     offsets = zeros(Int, length(columns))
     for c in 2:length(columns)
         offsets[c] = offsets[c - 1] + HISTORY_CELL_STEP + (columns[c].p != columns[c - 1].p)
     end
-    return columns, offsets
+    page.columns, page.offsets = columns, offsets
+    page.labels = [(row.level === :partition ? "p " : "  ") * history_row_label(row) for row in grid.rows]
+    page.label_width = maximum(textwidth(history_row_label(row)) for row in grid.rows; init = 0)
+    page.looks = Matrix{HistoryLook}(undef, length(grid.rows), length(columns))
+    for (i, row) in pairs(grid.rows), (c, col) in pairs(columns)
+        period = grid.periods[col.p].period
+        if row.level === :partition
+            icon, color = history_look(get(row.cells, (period, nothing), nothing))
+            page.looks[i, c] = (; text = partition_slot(icon, col.n, col.k), color)
+        else
+            icon, color = history_look(get(row.cells, (period, col.run), nothing))
+            page.looks[i, c] = (; text = " " * icon * " ", color)
+        end
+    end
+    clamp_history_cursor!(page)
+    return nothing
 end
 
 # Keep the cursor inside the grid.
@@ -131,8 +195,7 @@ function history_result!(page::HistoryPage, answer)
         page.error = failed ? answer.error : nothing
         failed && return nothing
         page.grid = answer.value
-        page.columns, page.offsets = history_columns(page.grid)
-        clamp_history_cursor!(page)
+        history_layout!(page)
     elseif request.path == page.viewer_path
         if failed
             page.viewer_message = answer.error
@@ -159,10 +222,16 @@ end
 
 Queue a read of the grid if the controller snapshot `snap` (or `nothing`) shows a loaded
 session or a processing run that started or finished since the shown grid was read. While
-no session is loaded the page drops its grid.
+no session is loaded the page drops its grid. A change of the selected periods and runs of
+`snap` changes the shown columns without a new read.
 """
 function history_visit!(page::HistoryPage, snap)
     mark = reports_mark(snap)
+    selection = isnothing(mark) ? nothing : selected_period_runs(snap)
+    if selection != page.selection
+        page.selection = selection
+        isnothing(page.grid) || isnothing(selection) || history_layout!(page)
+    end
     mark == page.mark && return nothing
     page.mark = mark
     if isnothing(mark)
@@ -270,6 +339,8 @@ Otherwise:
     Home and End move it to the first and the last run.
   - Enter on a cell that comes from a report opens the report.
   - `r` reads the grid anew.
+  - `a` switches between the selected periods and runs of the session (the default) and
+    all periods and runs of the data production.
   - Other keys, such as `1` to `7` and `q`, are not used.
 """
 function history_key!(page::HistoryPage, evt::Tachikoma.KeyEvent)::Bool
@@ -304,6 +375,9 @@ function history_key!(page::HistoryPage, evt::Tachikoma.KeyEvent)::Bool
         !isnothing(sel) && !isnothing(sel.cell) && sel.cell.source === :report && open_report!(page, sel.cell.path)
     elseif key == :char && evt.char == 'r'
         request_history!(page)
+    elseif key == :char && evt.char == 'a'
+        page.all_runs = !page.all_runs
+        isnothing(page.grid) || history_layout!(page)
     else
         return false
     end
@@ -346,13 +420,6 @@ function history_look(cell)
     cell.source === :report ? (REPORT_ICONS[cell.state], REPORT_COLORS[cell.state]) : (HISTORY_ICONS[cell.state], HISTORY_COLORS[cell.state])
 end
 
-# The text of a partition-level cell over `n` run columns: the icon centered between brackets.
-function partition_cell_text(icon, n)
-    width = HISTORY_CELL_STEP * n - 1
-    left = (width - 2 - 1) ÷ 2
-    return "[" * " "^left * icon * " "^(width - 3 - left) * "]"
-end
-
 # Legend of the icons.
 const HISTORY_LEGEND = [
     ("report: ", :text_dim), (REPORT_ICONS.ok * " ok  ", REPORT_COLORS.ok), (REPORT_ICONS.warning * " warning  ", REPORT_COLORS.warning),
@@ -360,12 +427,6 @@ const HISTORY_LEGEND = [
     ("history: ", :text_dim), (HISTORY_ICONS.failed * " failed  ", HISTORY_COLORS.failed),
     (HISTORY_ICONS.stopped * " stopped  ", HISTORY_COLORS.stopped), (HISTORY_ICONS.cancelled * " cancelled  ", HISTORY_COLORS.cancelled),
     ("[ ] partition", :text_dim)]
-
-# Run number without the leading `r` and zeros, `0` for run 0.
-function run_number(run)
-    s = lstrip(chopprefix(string(run), "r"), '0')
-    return isempty(s) ? "0" : s
-end
 
 # Draw the grid of `page` into `inner`, the area inside the block.
 function render_history_grid(page::HistoryPage, inner, buf)
@@ -377,7 +438,7 @@ function render_history_grid(page::HistoryPage, inner, buf)
     end
     height = inner.height - 4
     height < 1 && return nothing
-    name_width = clamp(maximum(textwidth(history_row_label(r)) for r in rows) + 2, 4, max(4, inner.width ÷ 3))
+    name_width = clamp(page.label_width + 2, 4, max(4, inner.width ÷ 3))
     gx, gy = inner.x + name_width + 1, inner.y + 2
     avail = x_max - gx + 1
     avail < HISTORY_CELL_WIDTH && return nothing
@@ -398,41 +459,34 @@ function render_history_grid(page::HistoryPage, inner, buf)
     last_col = something(findlast(c -> fits(page.left, c), page.left:length(columns)), 1) + page.left - 1
     shift = offsets[page.left]
     # headers: the period over its runs, then the run numbers
-    for p in unique(columns[c].p for c in page.left:last_col)
-        cs = [c for c in page.left:last_col if columns[c].p == p]
-        x = gx + offsets[first(cs)] - shift
-        span = offsets[last(cs)] - offsets[first(cs)] + HISTORY_CELL_WIDTH
+    c = page.left
+    while c <= last_col
+        p, first_c = columns[c].p, c
+        c = min(last_col, c + columns[c].n - columns[c].k - 1)
+        x = gx + offsets[first_c] - shift
+        span = offsets[c] - offsets[first_c] + HISTORY_CELL_WIDTH
         Tachikoma.set_string!(buf, x, inner.y, clip_text(string(periods[p].period), span), Tachikoma.tstyle(isodd(p) ? :primary : :accent, bold = true); max_x = x_max)
+        c += 1
     end
+    dim = Tachikoma.tstyle(:text_dim)
     for c in page.left:last_col
-        Tachikoma.set_string!(buf, gx + offsets[c] - shift, inner.y + 1, lpad(run_number(columns[c].run), HISTORY_CELL_WIDTH),
-            Tachikoma.tstyle(:text_dim); max_x = x_max)
+        Tachikoma.set_string!(buf, gx + offsets[c] - shift, inner.y + 1, columns[c].label, dim; max_x = x_max)
     end
     highlight = Tachikoma.tstyle(:border)
     cursor_p = columns[page.col].p
     for r in 0:(height - 1)
         i = page.top + r
         i <= length(rows) || break
-        row, y = rows[i], gy + r
-        name = clip_text((row.level === :partition ? "p " : "  ") * history_row_label(row), name_width)
+        y = gy + r
+        name = clip_text(page.labels[i], name_width)
         Tachikoma.set_string!(buf, inner.x, y, name, Tachikoma.tstyle(i == page.row ? :text_bright : :text, bold = i == page.row); max_x = x_max)
+        partition = rows[i].level === :partition
         for c in page.left:last_col
             x = gx + offsets[c] - shift
-            period = periods[columns[c].p].period
-            if row.level === :partition
-                icon, color = history_look(get(row.cells, (period, nothing), nothing))
-                n = count(cc -> cc.p == columns[c].p, columns)
-                k = c - findfirst(cc -> cc.p == columns[c].p, columns)
-                text = collect(partition_cell_text(icon, n))
-                slot = String(text[(HISTORY_CELL_STEP * k + 1):min(HISTORY_CELL_STEP * (k + 1), length(text))])
-                selected = i == page.row && columns[c].p == cursor_p
-                put_spans!(buf, x, y, min(x_max, x + textwidth(slot) - 1), [(slot, Tachikoma.tstyle(color))], selected ? highlight : nothing)
-            else
-                icon, color = history_look(get(row.cells, (period, columns[c].run), nothing))
-                selected = i == page.row && c == page.col
-                put_spans!(buf, x, y, min(x_max, x + HISTORY_CELL_WIDTH - 1), [(" " * icon * " ", Tachikoma.tstyle(color, bold = true))],
-                    selected ? highlight : nothing)
-            end
+            (; text, color) = page.looks[i, c]
+            selected = i == page.row && (partition ? columns[c].p == cursor_p : c == page.col)
+            span = [(text, Tachikoma.tstyle(color, bold = !partition))]
+            put_spans!(buf, x, y, min(x_max, x + textwidth(text) - 1), span, selected ? highlight : nothing)
         end
     end
     legend = [(text, Tachikoma.tstyle(color)) for (text, color) in HISTORY_LEGEND]
@@ -453,7 +507,8 @@ partition-level cell spans the runs of its period, as `[ ✓ ]`. The cell under 
 is highlighted, the grid scrolls to keep it visible while the names stay in place, and the
 last two lines show the legend and the description of the cell under the cursor: processor, period and run,
 state, processing date in UTC and source. While no session is loaded or a read is under way the page says so, and
-the error of a failed read replaces the grid.
+the error of a failed read replaces the grid. The title says whether the columns are the
+selected runs or all runs (`a`).
 
 While a report is open the viewer, a `Tachikoma.MarkdownPane` titled with the file name, fills
 the whole area.
@@ -467,7 +522,8 @@ function render_history(page::HistoryPage, area::Tachikoma.Rect, buf::Tachikoma.
         return nothing
     end
     (area.width < 3 || area.height < 3) && return nothing
-    inner = Tachikoma.render(pane_block(page.reading && !isnothing(page.grid) ? "History (reading…)" : "History", true), area, buf)
+    title = "History, " * (page.all_runs ? "all runs" : "selected runs") * (page.reading && !isnothing(page.grid) ? " (reading…)" : "")
+    inner = Tachikoma.render(pane_block(title, true), area, buf)
     x_max = Tachikoma.right(inner)
     message(text, color) = Tachikoma.set_string!(buf, inner.x, inner.y, text, Tachikoma.tstyle(color); max_x = x_max)
     if !isnothing(page.error)

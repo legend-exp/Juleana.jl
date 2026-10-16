@@ -20,6 +20,8 @@ Test.@testset "ExplicitImports" begin
             :Progress,
             # The only source of GC counts and pause times, for the interface timing (`InterfaceTiming`).
             :gc_num, :GC_Num,
+            # The exception of a failed `readdir`, for the path completion (`complete_path`).
+            :IOError,
             # Non-public names of the LEGEND and utility packages used by the processors.
             :fast_flatten, :set_timelimit, :_fix_vov, :AchatBlue, :BEGeOrange, :CoaxGreen,
             :add_watermarks!, :parameterplot!, :tottime, :totallocated, :format_bytes,

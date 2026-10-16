@@ -53,7 +53,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test form.checkout && form.jldataprod_branch == "main" && form.dataprod_branch == "main"
             @test form.copy_software && !form.set_default && form.phase === :edit
             @test first.(Juleana.production_fields(form)) ==
-                [:name, :parent, :url, :checkout, :jldataprod, :dataprod, :add_tier, :add_par, :set_default, :copy_software, :create]
+                [:name, :parent, :url, :checkout, :metadata_ref, :jldataprod, :dataprod, :add_tier, :add_par, :set_default, :copy_software, :create]
             withenv("LEGEND_DATA_CONFIG" => nothing) do
                 @test ProductionForm().parent == ""
             end
@@ -90,6 +90,63 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             Juleana.production_key!(form, KeyEvent(:char, 'z', Tachikoma.key_release), identity)
             @test form.name == before
             @test Juleana.production_key!(form, KeyEvent(:escape), identity) === :close
+        end
+
+        @testset "path completion" begin
+            root = realpath(mktempdir())
+            foreach(d -> mkpath(joinpath(root, d)), ["alpha/one", "alpha/two", "alpine", "beta", ".hidden", "home/x"])
+            write(joinpath(root, "alfile"), "")
+            complete(text) = Juleana.complete_path(text; home = joinpath(root, "home"))
+            # a single folder completes with a trailing slash, files are not candidates
+            @test complete(joinpath(root, "be")) == (; text = joinpath(root, "beta") * "/", candidates = ["beta/"])
+            # several folders complete to the common prefix and are listed
+            @test complete(joinpath(root, "a")) == (; text = joinpath(root, "alp"), candidates = ["alpha/", "alpine/"])
+            @test complete(joinpath(root, "alpha") * "/") == (; text = joinpath(root, "alpha") * "/", candidates = ["one/", "two/"])
+            # nothing to add: unchanged, hidden folders only for a dot, no match, missing folder, relative
+            @test complete(joinpath(root, "beta") * "/").candidates == String[]
+            @test complete(joinpath(root, "")).candidates == ["alpha/", "alpine/", "beta/", "home/"]
+            @test complete(joinpath(root, ".")) == (; text = joinpath(root, ".hidden") * "/", candidates = [".hidden/"])
+            @test complete(joinpath(root, "zz")) == (; text = joinpath(root, "zz"), candidates = String[])
+            @test complete(joinpath(root, "missing", "a")).candidates == String[]
+            @test complete("relative") == (; text = "relative", candidates = String[])
+            # a leading ~ is expanded
+            @test complete("~/") == (; text = joinpath(root, "home", "x") * "/", candidates = ["x/"])
+            @test complete("~/x").text == joinpath(root, "home", "x") * "/"
+
+            form = ProductionForm(; parent = joinpath(root, "a"), home = joinpath(root, "home"))
+            form.cursor = 2
+            sent, _ = production_press!(form, KeyEvent(:tab))
+            # extends the text and lists the candidates, the cursor stays
+            @test form.cursor == 2 && form.parent == joinpath(root, "alp") && form.hint == "alpha/  alpine/"
+            @test find_text(render_production_form(form), "alpha/  alpine/") !== nothing
+            production_press!(form, KeyEvent(:tab))
+            @test form.cursor == 2 && form.hint == "alpha/  alpine/"
+            production_press!(form, KeyEvent('h'), KeyEvent(:tab))
+            @test form.parent == joinpath(root, "alpha") * "/" && form.cursor == 2 && form.hint == ""
+            # nothing left to complete: Tab moves on, Shift-Tab moves back
+            form.parent = joinpath(root, "beta") * "/"
+            production_press!(form, KeyEvent(:tab))
+            @test form.cursor == 3 && form.parent == joinpath(root, "beta") * "/"
+            production_press!(form, KeyEvent(:backtab))
+            @test form.cursor == 2
+            # the listing is limited
+            many = mkpath(joinpath(root, "many"))
+            foreach(i -> mkpath(joinpath(many, "d$i")), 10:21)
+            form.parent = many * "/d"
+            form.cursor = 2
+            production_press!(form, KeyEvent(:tab))
+            @test endswith(form.hint, "d17/  and 4 more") && form.parent == many * "/d"
+            # Tab on a field that is not a path moves on
+            form.cursor = 1
+            production_press!(form, KeyEvent(:tab))
+            @test form.cursor == 2
+            form.tier_labels, form.tier_paths, form.pars = ["x"], [joinpath(root, "be")], [joinpath(root, "be")]
+            for kind in (:tier_path, :par)
+                form.cursor = findfirst(f -> f[1] === kind, Juleana.production_fields(form))
+                production_press!(form, KeyEvent(:tab))
+                @test Juleana.production_text(form, Juleana.production_fields(form)[form.cursor]) == joinpath(root, "beta") * "/"
+            end
+            @test occursin("Tab complete", production_screen(render_production_form(form)))
         end
 
         @testset "list rows" begin
@@ -135,7 +192,11 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test spec.shell == "zsh" && spec.home == "/h"
             form.checkout, form.jldataprod_branch, form.dataprod_branch = true, "dev", " main"
             spec = Juleana.production_spec(form)
-            @test spec.jldataprod_branch == "dev" && spec.dataprod_branch == "main"
+            @test spec.jldataprod_branch == "dev" && spec.dataprod_branch == "main" && isnothing(spec.metadata_ref)
+            form.metadata_ref = " v1.0 "
+            @test Juleana.production_spec(form).metadata_ref == "v1.0"
+            form.checkout = false
+            @test isnothing(Juleana.production_spec(form).metadata_ref)
         end
 
         @testset "invalid input is shown and sends nothing" begin

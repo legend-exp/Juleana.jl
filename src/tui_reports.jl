@@ -14,7 +14,7 @@ const REPORT_WHEEL_LINES = 3
     ReportsPage()
 
 State of the Reports page of the terminal user interface: the reports grouped by processor,
-the row under the cursor, which groups the user folded or unfolded, the open report and the
+the processing history, the row under the cursor, which groups the user folded or unfolded, the open report and the
 requests for reading the file system. The page lists all reports on disk (`source` is
 `:all`, [`report_overview`](@ref)), which it starts with, or the reports of the steps of the
 current or last processing run (`:run`, rows of [`report_index`](@ref)), and the failures
@@ -33,6 +33,8 @@ mutable struct ReportsPage
     # `:all` or `:run`
     source::Symbol
     groups::Vector{Any}
+    # path of the processing history file, `nothing` if it does not exist
+    history::Union{Nothing,String}
     # whether `groups` holds the result of a read of `source`
     loaded::Bool
     # whether a read of the reports is under way
@@ -72,7 +74,7 @@ mutable struct ReportsPage
     fail_rect::Tachikoma.Rect
 end
 
-ReportsPage() = ReportsPage(:all, Any[], false, false, nothing, 0, false, nothing, nothing, 1, 1, 1,
+ReportsPage() = ReportsPage(:all, Any[], nothing, false, false, nothing, 0, false, nothing, nothing, 1, 1, 1,
     Dict{Any,Bool}(), 1, 1, 1, 0, nothing, Dict{Any,Any}(), Set{Any}(), nothing, nothing, nothing, Any[],
     Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
@@ -84,14 +86,44 @@ the colored status words of their reports, so that the words remain.
 """
 strip_span_tags(text::AbstractString) = replace(text, r"</?span\b[^>]*>" => "")
 
+# Width of a table in a viewer, in characters; wider tables wrap their long cells.
+const REPORT_TABLE_WIDTH = 100
+
+# Narrowest width a wide column is shrunk to.
+const REPORT_MIN_COLUMN_WIDTH = 12
+
+# Lines of at most `width` characters that hold the words of `cell`. A word longer than
+# `width` is split.
+function wrap_cell(cell::AbstractString, width::Int)
+    lines = String[]
+    current = ""
+    for word in split(cell)
+        for piece in (textwidth(word) <= width ? (word,) : (String(p) for p in Iterators.partition(word, width)))
+            if isempty(current)
+                current = piece
+            elseif textwidth(current) + 1 + textwidth(piece) <= width
+                current *= " " * piece
+            else
+                push!(lines, current)
+                current = piece
+            end
+        end
+    end
+    push!(lines, current)
+    return lines
+end
+
 """
-    Juleana.tables_as_code(text::AbstractString)
+    Juleana.tables_as_code(text::AbstractString; width = Juleana.REPORT_TABLE_WIDTH)
 
 Return `text` with each Markdown table (consecutive lines that start with `|`) replaced by a
 fenced code block that holds the table as aligned text, the header followed by a rule. The
-Markdown renderer of Tachikoma leaves tables out; a code block shows their cells.
+Markdown renderer of Tachikoma leaves tables out; a code block shows their cells. HTML tags
+in the cells are removed and their text is kept. A table wider than `width` characters is
+narrowed by limiting its widest columns, down to at least `Juleana.REPORT_MIN_COLUMN_WIDTH`
+characters each, and a cell longer than its column continues on the following lines of its row.
 """
-function tables_as_code(text::AbstractString)
+function tables_as_code(text::AbstractString; width::Integer = REPORT_TABLE_WIDTH)
     out = String[]
     table = Vector{String}[]
     function flush_table()
@@ -100,17 +132,26 @@ function tables_as_code(text::AbstractString)
         isempty(rows) && return nothing
         ncols = maximum(length, rows)
         widths = [maximum((textwidth(r[i]) for r in rows if i <= length(r)); init = 0) for i in 1:ncols]
-        line(r) = rstrip(join((rpad(get(r, i, ""), widths[i]) for i in 1:ncols), "  "))
+        # narrow the widest column until the table fits
+        while sum(widths) + 2 * (ncols - 1) > width && maximum(widths) > REPORT_MIN_COLUMN_WIDTH
+            widths[argmax(widths)] -= 1
+        end
+        function push_row(r)
+            cells = [wrap_cell(get(r, i, ""), max(widths[i], 1)) for i in 1:ncols]
+            for k in 1:maximum(length, cells)
+                push!(out, rstrip(join((rpad(get(cells[i], k, ""), widths[i]) for i in 1:ncols), "  ")))
+            end
+        end
         push!(out, "```")
-        push!(out, line(first(rows)))
+        push_row(first(rows))
         push!(out, join(("─"^w for w in widths), "  "))
-        append!(out, line.(rows[2:end]))
+        foreach(push_row, rows[2:end])
         push!(out, "```")
         return nothing
     end
     for l in split(text, '\n')
         if startswith(strip(l), "|")
-            push!(table, table_cells(l))
+            push!(table, status_text.(table_cells(l)))
         else
             isempty(table) || flush_table()
             push!(out, l)
@@ -138,9 +179,11 @@ overview_groups(overview) = Any[
     (; key = (o.name, o.level, string(o.category)), name = display_name(Symbol(o.name)), o.level, category = string(o.category), o.reports,
         counts = report_counts(o.reports), rows = nothing) for o in overview]
 
-# Displayed rows: a group row followed by the rows of its reports if it is unfolded.
+# Displayed rows: the processing history if its file exists, then a group row followed by the
+# rows of its reports if it is unfolded. The history row is a report row without a group.
 function reports_rows(page::ReportsPage)
     rows = @NamedTuple{key::Tuple, report::Bool, entry::Any, group::Any, unfolded::Bool}[]
+    isnothing(page.history) || push!(rows, (; key = (:history,), report = true, entry = (; path = page.history), group = nothing, unfolded = true))
     for g in page.groups
         unfolded = get(page.expanded, g.key) do
             g.counts.failed > 0
@@ -225,13 +268,21 @@ and return `(; request, value)`, or `(; request, error)` with the message of the
 if the read failed. The value of an `:index` request is the rows of
 `report_index(ctrl)` or the entries of `report_overview(ctrl)` (see [`report_index`](@ref)), that of a `:failures`
 request the rows `(; process, period, run, failures)` of its reports, and that of an `:open`
-request the viewer of the file's text, or `nothing` if there is no such file. The viewer is
-built here, so that converting the text does not hold up the interface.
+request the viewer of the file's text, or `nothing` if there is no such file. The answer to an
+`:index` request also has the field `history`, the path of the processing history file
+([`Juleana.history_path`](@ref)) or `nothing` if the file does not exist. The viewer is built here,
+so that converting the text does not hold up the interface.
 """
 function read_reports(ctrl::DataflowController, request)
+    history = nothing
     value = try
         if request.kind === :index
-            request.source === :run ? report_index(ctrl) : report_overview(ctrl)
+            rows = request.source === :run ? report_index(ctrl) : report_overview(ctrl)
+            session = @lock ctrl.lock ctrl.session
+            isnothing(session) && throw(ArgumentError("history_path: no session is loaded"))
+            path = history_path(session.l200)
+            history = isfile(path) ? path : nothing
+            rows
         elseif request.kind === :failures
             [(; process = request.group, period, run, read_report(path).failures) for (period, run, path) in request.reports]
         else
@@ -240,6 +291,7 @@ function read_reports(ctrl::DataflowController, request)
     catch e
         return (; request, error = first(split(sprint(showerror, e), '\n')))
     end
+    request.kind === :index && return (; request, value, history)
     return (; request, value)
 end
 
@@ -271,6 +323,7 @@ function reports_result!(page::ReportsPage, answer)
         page.reading = false
         page.error = failed ? answer.error : nothing
         failed && return nothing
+        page.history = answer.history
         page.groups = request.source === :run ? run_groups(answer.value) : overview_groups(answer.value)
         page.loaded = true
         request_failures!(page)
@@ -395,6 +448,8 @@ function handle_reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)
         idx == 0 && return true
         if key == :enter && rows[idx].report
             open_report!(page, rows[idx].entry.path)
+        elseif isnothing(rows[idx].group)
+            return true
         else
             g = rows[idx].group
             unfold = key == :enter ? !rows[idx].unfolded : key == :right
@@ -463,6 +518,8 @@ end
 
 report_counts_text(c, with_missing) = "ok $(c.ok)  warn $(c.warning)  fail $(c.failed)" * (with_missing ? "  miss $(c.missing)" : "")
 
+history_spans() = [("▪ ", Tachikoma.tstyle(:primary, bold = true)), ("Processing history", Tachikoma.tstyle(:primary, bold = true))]
+
 report_label(r) = isnothing(r.run) ? r.period : "$(r.period)-$(r.run)"
 
 function report_spans(r, label_width)
@@ -516,7 +573,7 @@ function render_report_list(page::ReportsPage, area, buf)
         row = page.top + r
         row <= length(rows) || break
         entry = rows[row]
-        spans = entry.report ? report_spans(entry.entry, label_width) : report_group_spans(entry.entry, name_width, entry.unfolded, with_missing)
+        spans = isnothing(entry.group) ? history_spans() : entry.report ? report_spans(entry.entry, label_width) : report_group_spans(entry.entry, name_width, entry.unfolded, with_missing)
         put_spans!(buf, inner.x, inner.y + r, x_max, spans, row == idx ? highlight : nothing)
     end
     if inner.height >= 3

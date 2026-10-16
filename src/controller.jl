@@ -213,7 +213,7 @@ struct CancelAll <: ControllerCommand end
 Create the data production `spec` describes with [`Juleana.create_production`](@ref) in the
 background and switch the session to it: cancel all worker allocations (their workers use
 the data of the previous production), set `LEGEND_DATA_CONFIG` of this process to the new
-`config.json`, and load a session with the [`Juleana.default_config_file`](@ref) of the new
+`config.json`, and load a session with the [`Juleana.install_default_config`](@ref) file of the new
 production and a new log folder. The lines of the creation are kept for
 [`production_log`](@ref Juleana.production_log). Possible while no session is loaded or
 no processing runs; the controller is `:loading` meanwhile and returns to its previous
@@ -221,6 +221,34 @@ state if the creation or the load fails.
 """
 struct CreateProduction <: ControllerCommand
     spec::ProductionSpec
+end
+
+"""
+    SelectProduction(path::AbstractString)
+
+Switch the session to the existing data production in the folder `path`, which must hold a
+`config.json`: cancel all worker allocations, set `LEGEND_DATA_CONFIG` of this process to
+that file, reset the dataset to `default`, and load a session with the
+[`Juleana.install_default_config`](@ref) file of the production and a new log folder.
+Possible while no session is loaded or no processing runs; the controller is `:loading`
+meanwhile and is `:idle` without a session if the load fails.
+"""
+struct SelectProduction <: ControllerCommand
+    path::String
+    SelectProduction(path) = new(abspath(path))
+end
+
+"""
+    SelectDataset(dataset::Symbol)
+
+Reload the session for the dataset `dataset`, a name in the metadata `datasets/runlists` of the
+data production or `:default` (every run), and cancel all worker allocations. The dataset is
+the `--dataset` option. Possible while no session is loaded or no processing runs; a dataset
+that is not in the metadata makes the load fail, leaving the controller `:idle` without a
+session.
+"""
+struct SelectDataset <: ControllerCommand
+    dataset::Symbol
 end
 
 """
@@ -647,11 +675,46 @@ function apply!(ctrl::DataflowController, cmd::CreateProduction)
         ENV["LEGEND_DATA_CONFIG"] = config
         @lock ctrl.lock begin
             ctrl.session = nothing
-            ctrl.args["config"], ctrl.args["log_path"] = default_config_file(), ""
+            ctrl.args["config"], ctrl.args["log_path"] = install_default_config(), ""
         end
         log("Loading the new production $(dirname(config))")
         session = ctrl.loader(ctrl.args)
         @lock ctrl.lock install_session!(ctrl, session)
+    end
+end
+
+# Cancel the workers and load a session with `ctrl.args` as changed by `prepare`, which runs
+# in the background task. The session is dropped first, so a failed load leaves none.
+function reload_session!(prepare, ctrl::DataflowController)
+    load_in_background!(ctrl, c -> isnothing(c.session) ? :idle : :ready) do
+        cancel_all!(ctrl.workers)
+        prepare()
+        @lock ctrl.lock ctrl.session = nothing
+        session = ctrl.loader(ctrl.args)
+        @lock ctrl.lock install_session!(ctrl, session)
+    end
+end
+
+function apply!(ctrl::DataflowController, cmd::SelectProduction)
+    require_state(ctrl, cmd, :idle, :ready)
+    config = joinpath(cmd.path, "config.json")
+    isfile(config) || throw(ArgumentError("$(cmd.path) is not a data production: it has no config.json"))
+    reload_session!(ctrl) do
+        ENV["LEGEND_DATA_CONFIG"] = config
+        @lock ctrl.lock begin
+            ctrl.args["config"], ctrl.args["log_path"], ctrl.args["dataset"] = install_default_config(), "", "default"
+        end
+        @info "Loading the data production $(cmd.path)"
+    end
+end
+
+function apply!(ctrl::DataflowController, cmd::SelectDataset)
+    require_state(ctrl, cmd, :idle, :ready)
+    reload_session!(ctrl) do
+        @lock ctrl.lock begin
+            ctrl.args["log_path"], ctrl.args["dataset"] = "", string(cmd.dataset)
+        end
+        @info "Loading the dataset $(cmd.dataset)"
     end
 end
 
@@ -699,7 +762,7 @@ const ProcessorInfo = @NamedTuple{name::Symbol, level::Symbol, category::Symbol,
     accepted::Union{Nothing,Vector{Symbol}}, overridden::Vector{Symbol}}
 const ControllerSnapshot = @NamedTuple{state::Symbol, outcome::Union{Nothing,Symbol}, last_error::Union{Nothing,String},
     started::Union{Nothing,DateTime}, finished::Union{Nothing,DateTime}, config_file::Union{Nothing,String},
-    log_path::Union{Nothing,String}, available_periods::Vector{DataPeriod},
+    log_path::Union{Nothing,String}, dataset::String, available_periods::Vector{DataPeriod},
     available_runs::Dict{DataPeriod,Vector{DataRun}}, periods::Vector{DataPeriod},
     runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}}, run_steps::Vector{Symbol},
     partition_steps::Vector{Symbol}, processors::Vector{ProcessorInfo}, reprocess::Union{Nothing,Bool},
@@ -715,7 +778,7 @@ the controller state:
 - `state`, `outcome` (`:finished`, `:failed`, `:stopped` or `nothing` of the last
   processing run), `last_error` (message or `nothing`), `started`, `finished` (UTC
   times of the last processing run or `nothing`);
-- `config_file`, `log_path`;
+- `config_file`, `log_path`, `dataset` (the name of the dataset, `"default"` for every run);
 - `available_periods`, `available_runs` (`Dict` period => runs on disk), `periods`
   (selected periods), `runs` (selected runs: `nothing` for all runs, a vector for the
   same runs in every period, or a dict of runs per period where a period without an
@@ -752,6 +815,7 @@ function snapshot(ctrl::DataflowController)
             ctrl.state, ctrl.outcome, ctrl.last_error, ctrl.started, ctrl.finished,
             config_file = get(ctrl.args, "config", nothing),
             log_path = isnothing(session) ? nothing : session.config.log_path,
+            dataset = string(get(ctrl.args, "dataset", "default")),
             available_periods = copy(ctrl.available_periods),
             available_runs = Dict(p => copy(r) for (p, r) in ctrl.available_runs),
             periods = copy(ctrl.periods),
@@ -798,13 +862,13 @@ end
     report_overview(ctrl::DataflowController)
 
 Return the `report_overview(l200)` of all reports in the report
-folder of the session of `ctrl`, whatever the current selection. Throws an
+folder of the session of `ctrl`, sorted by the ranks of the processors of its config, whatever the current selection. Throws an
 `ArgumentError` when no session is loaded.
 """
 function report_overview(ctrl::DataflowController)
     session = @lock ctrl.lock ctrl.session
     isnothing(session) && throw(ArgumentError("report_overview: no session is loaded"))
-    return report_overview(session.l200)
+    return report_overview(session.l200; processors = vcat(collect(values(session.config.processors)), collect(values(session.config.p_processors))))
 end
 
 """
