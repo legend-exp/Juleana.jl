@@ -464,7 +464,9 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         parent = mktempdir()
         mkpath(joinpath(parent, "other"))
         write(joinpath(parent, "other", "config.json"), "{}")
-        withenv("LEGEND_DATA_CONFIG" => joinpath(parent, "current", "config.json")) do
+        # a site override stays in front of the production
+        site = joinpath(parent, "site.yaml")
+        withenv("LEGEND_DATA_CONFIG" => "$site:$(joinpath(parent, "current", "config.json"))") do
             loaded = Ref{Any}(nothing)
             ctrl = DataflowController(Dict{String,Any}("config" => shipped_config, "log_path" => "old", "dataset" => "default"); processors,
                 loader = args -> (loaded[] = copy(args); new_session()))
@@ -476,11 +478,11 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             dispatch!(ctrl, SelectProduction(joinpath(parent, "other")))
             wait(ctrl)
             @test snapshot(ctrl).state === :ready && snapshot(ctrl).dataset == "default"
-            @test ENV["LEGEND_DATA_CONFIG"] == joinpath(parent, "other", "config.json")
+            @test ENV["LEGEND_DATA_CONFIG"] == "$site:$(joinpath(parent, "other", "config.json"))"
             @test loaded[]["config"] == Juleana.default_config_file() && loaded[]["dataset"] == "default"
             # a folder without config.json is no production
             @test_throws "no config.json" dispatch!(ctrl, SelectProduction(joinpath(parent, "missing")))
-            @test ENV["LEGEND_DATA_CONFIG"] == joinpath(parent, "other", "config.json")
+            @test ENV["LEGEND_DATA_CONFIG"] == "$site:$(joinpath(parent, "other", "config.json"))"
             # a failing load leaves no session
             bad = DataflowController(Dict{String,Any}("config" => shipped_config, "dataset" => "default"); processors,
                 loader = _ -> error("dataset nope is not in the run lists"))

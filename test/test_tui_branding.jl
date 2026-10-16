@@ -243,10 +243,10 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 tb = branding_render(m, 120, 36)
                 @test occursin(r"jl-v1  …[^│]*dir30│$", row_text(tb, 3))
             end
-            # the first of several config files names the production
-            withenv("LEGEND_DATA_CONFIG" => "/a/b/jl-v1/config.json:/c/d/jl-v2/config.json") do
+            # the last of several config files names the production, the ones before are overrides
+            withenv("LEGEND_DATA_CONFIG" => "/c/d/site.yaml:/a/b/jl-v1/config.json") do
                 tb = branding_render(m, 120, 36)
-                @test endswith(row_text(tb, 3), "jl-v1  /a/b│") && find_text(tb, "jl-v2") === nothing
+                @test endswith(row_text(tb, 3), "jl-v1  /a/b│") && find_text(tb, "site") === nothing
             end
             withenv("LEGEND_DATA_CONFIG" => nothing) do
                 tb = branding_render(m, 120, 36)

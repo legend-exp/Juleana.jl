@@ -111,14 +111,20 @@ const REPORT = """
         withenv("LEGEND_DATA_CONFIG" => "$(joinpath(production, "a.json")):$(joinpath(production, "b.json"))") do
             @test Juleana.production_config_dir() == joinpath(production, "config")
         end
-        withenv("LEGEND_DATA_CONFIG" => "$(joinpath(production, "a.json")):$(joinpath(other, "b.json"))") do
-            @test_throws "the files of LEGEND_DATA_CONFIG are in several folders" Juleana.production_config_dir()
+        # a site override before the data config of the production
+        site = joinpath(other, "site.yaml")
+        withenv("LEGEND_DATA_CONFIG" => "$site:$(joinpath(production, "config.json"))") do
+            @test Juleana.data_config_files() == [site, joinpath(production, "config.json")]
+            @test Juleana.production_config_dir() == joinpath(production, "config")
+            @test Juleana.current_production() == (basename(production), dirname(production))
+            @test Juleana.with_production_config("/elsewhere/config.json") == "$site:/elsewhere/config.json"
         end
         withenv("LEGEND_DATA_CONFIG" => nothing) do
             # without a data production there is no default config
             @test isnothing(Juleana.parse_commandline(String[])["config"])
             @test Juleana.parse_commandline(["--new-production"])["new_production"]
             @test_throws "the environment variable LEGEND_DATA_CONFIG is not set" Juleana.production_config_dir()
+            @test Juleana.with_production_config("/elsewhere/config.json") == "/elsewhere/config.json"
         end
     end
 
