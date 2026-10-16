@@ -285,6 +285,14 @@ function find_data_tier(l200::LegendData, keys...)
     return nothing
 end
 
+"""
+    Juleana.available_periods(l200::LegendData)
+    Juleana.available_runs(l200::LegendData, period::DataPeriod)
+
+Return the periods, or the runs of `period`, that are on disk (see `find_data_tier`)
+and in the `runinfo` of `l200`, which holds the runs of the dataset of `l200`. A period
+is available if it has an available run.
+"""
 function available_periods(l200::LegendData)
     tc = find_data_tier(l200)
     possible_periods = if isnothing(tc)
@@ -305,7 +313,9 @@ function available_runs(l200::LegendData, period::DataPeriod)
         @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
         return DataRun[]
     end
-    search_disk(DataRun, l200.tier[tc..., period])
+    rinfo = runinfo(l200)
+    listed = Set(rinfo.run[rinfo.period .== period])
+    return filter(in(listed), search_disk(DataRun, l200.tier[tc..., period]))
 end
 
 # `runs === nothing` selects all runs of `period` available on disk

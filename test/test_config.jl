@@ -68,6 +68,13 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test Juleana.available_runs(l200, p2) == DataRun.([6, 7])
         @test Juleana.available_runs(l200, p16) == [DataRun(6)]
         @test (@test_logs (:warn, r"No `DataRun` found for period p99") Juleana.available_runs(l200, DataPeriod(99))) == DataRun[]
+        # runs on disk that the runinfo does not list are left out
+        extra = legend_test_data(legend_test_setup(mktempdir(), ["raw/cal/p02/r006", "raw/cal/p02/r042"]))
+        @test Juleana.available_runs(extra, p2) == [DataRun(6)]
+        # the dataset `valid` lists no runs of p16
+        valid = withenv(() -> LegendData(:l200; dataset = :valid), "LEGEND_DATA_CONFIG" => data_config)
+        @test Juleana.available_runs(valid, p2) == DataRun.([6, 7])
+        @test Juleana.available_runs(valid, p16) == DataRun[]
 
         empty_l200 = legend_test_data(legend_test_setup(mktempdir(), String[]))
         @test (@test_logs (:warn, r"No `DataPeriod` found") Juleana.available_periods(empty_l200)) == DataPeriod[]
