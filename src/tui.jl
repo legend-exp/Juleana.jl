@@ -741,17 +741,22 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
     # a logger made before the interface writes to the terminal and would garble it
     previous = global_logger(messages)
     try
-        with_theme(JULEANA_THEME) do
-            Tachikoma.app(JuleanaTUI(ctrl, messages);
-                on_stdout = text -> append_output!(messages, :stdout, text),
-                on_stderr = text -> append_output!(messages, :stderr, text))
-        end
+        run_app(JuleanaTUI(ctrl, messages), messages)
     finally
         global_logger(previous)
         # allocations run in their own process groups and would outlive this process
         dispatch!(ctrl, CancelAll())
     end
     return nothing
+end
+
+# Run the interface loop on `m` with the Juleana theme; the output of this process goes to `messages`.
+# `kwargs` are passed on to `Tachikoma.app`.
+function run_app(m::JuleanaTUI, messages::MessageBuffer; kwargs...)
+    return with_theme(JULEANA_THEME) do
+        Tachikoma.app(m; on_stdout = text -> append_output!(messages, :stdout, text),
+            on_stderr = text -> append_output!(messages, :stderr, text), kwargs...)
+    end
 end
 
 # Call `f()` with `theme` as the active Tachikoma theme and restore the previous theme afterwards.

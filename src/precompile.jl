@@ -4,10 +4,11 @@
 # and the first keys, mouse events and task results of a session appear without compiling
 # the drawing and event code: draw the startup screen, every page and the key help of an
 # interface without a session, then draw every page of an interface with made-up session
-# data while key, mouse and task events go through `Tachikoma.update!`. Nothing reads data or
-# writes files, and no task outlives the workload: the command channel is closed, so no
-# event may send a command, and the pages are marked as read and the state read as under
-# way, so that no event queues a background read.
+# data while key, mouse and task events go through `Tachikoma.update!`, and run the interface
+# loop of `run_tui` without a terminal. Nothing reads data or writes files, and no task
+# outlives the workload: the command channel is closed, so no event may send a command, and
+# the pages are marked as read and the state read as under way, so that no event queues a
+# background read.
 @setup_workload begin
     # the interface logs on its first frame; nothing is printed while precompiling
     @compile_workload Logging.with_logger(Logging.NullLogger()) do
@@ -44,12 +45,12 @@
             processor(:process_hit_phy, :run, :phy, 3, [:process_dsp_cal]; enabled = false),
             processor(:p_process_aoe_cut_cal, :partition, :cal, 1, [:process_energy_calibration_cal])]
         # an empty log folder: the interface timing writes no file when its window ends
-        snap = (; state = :running, outcome = nothing, last_error = nothing, started = t0 - Second(90), finished = nothing,
+        snap = convert(ControllerSnapshot, (; state = :running, outcome = nothing, last_error = nothing, started = t0 - Second(90), finished = nothing,
             config_file = "config/processing_config.json", log_path = "", available_periods = [p2, p3],
             available_runs = Dict(p2 => runs2, p3 => [r0]), periods = [p2, p3], runs = nothing,
             run_steps = [:process_dsp_cal, :process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
             processors, reprocess = nothing, analysis_runs_only = true, check_dependencies = true, nworkers = 2,
-            allocations = [], idle_deadline = t0 + Second(900))
+            allocations = [], idle_deadline = t0 + Second(900)))
 
         done_key, run_key, wait_key, part_key = (p2, runs2[1], :process_dsp_cal), (p2, runs2[1], :process_energy_calibration_cal),
             (p2, runs2[2], :process_dsp_cal), (p2, nothing, :p_process_aoe_cut_cal)
@@ -100,9 +101,9 @@
                     step(:p_process_aoe_cut_cal, :partition, p3, nothing, :cancelled)])])
         allocation(id, state, backend; output = String[]) = (; id, backend, job_name = "julia-$id", started = t0, finished = nothing,
             state, exit_code = nothing, job_ids = ["4711"], output)
-        overview = (; allocations = [allocation(1, :running, :slurm; output = ["starting workers"]), allocation(2, :failed, :local)],
+        overview = convert(WorkersOverview, (; allocations = [allocation(1, :running, :slurm; output = ["starting workers"]), allocation(2, :failed, :local)],
             script = (; path = "/prod/config/startjlworkers.sh", text = "#!/bin/bash\nsrun julia\n"),
-            workers = [(; pid = 2, host = "cslg4"), (; pid = 3, host = nothing)], slurm = (; queue = "JOBID NAME\n4711 julia-1\n", idle = "debug up\n"))
+            workers = [(; pid = 2, host = "cslg4"), (; pid = 3, host = nothing)], slurm = (; queue = "JOBID NAME\n4711 julia-1\n", idle = "debug up\n")))
         report_text = "# Report\n\n## Summary\n\n| detector | status |\n|---|---|\n| V00 | ok |\n| V01 | failed |\n\n```\nfit failed\n```\n"
         m.reports_page.source = :run
 
@@ -127,7 +128,7 @@
         deliver!(Tachikoma.TaskEvent(:workers, (; request = only(take_requests!(m.workers_page)), value = overview)))
         m.page = 1
         deliver!(Tachikoma.TaskEvent(:tick, nothing))
-        deliver!(Tachikoma.TaskEvent(:refresh, (0, snap, m.progress, m.busy, (; key = nothing, messages = StepMessage[]), String[])))
+        deliver!(Tachikoma.TaskEvent(:refresh, (0, snap, m.progress, m.busy, StepMessages((; key = nothing, messages = StepMessage[])), String[])))
         deliver!(Tachikoma.TaskEvent(:dataset, Dict((p2, runs2[1]) => [(; category = :cal, nkeys = 3, livetime = 100.0, start = t0, analysis = true),
             (; category = :phy, nkeys = 1, livetime = NaN, start = nothing, analysis = false)])))
         deliver!(Tachikoma.TaskEvent(:dataset, "no runinfo"))
@@ -180,11 +181,11 @@
         m.page = 4
         press(:home, :enter, :enter, :down, :down, :down, :down, :enter)
         deliver!(Tachikoma.TaskEvent(:refresh, (0, snap, m.progress, m.busy,
-            (; key = m.progress_page.open, messages = step_messages(store, run_key)), String[])))
+            StepMessages((; key = m.progress_page.open, messages = step_messages(store, run_key))), String[])))
         press(:down, :pagedown, :pageup, :end_key, 'f', :up, :escape, 'f', :right, :left)
         m.progress_page.open = run_key
         deliver!(Tachikoma.TaskEvent(:refresh, (0, snap, m.progress, m.busy,
-            (; key = run_key, messages = step_messages(store, run_key)), String[])))
+            StepMessages((; key = run_key, messages = step_messages(store, run_key))), String[])))
         press(:down, :pagedown, :pageup, :end_key, 'f', :up, :escape)
 
         # Log: level, filter, follow
@@ -267,7 +268,7 @@
         m.production.cursor = 1
         press(:enter)
         m.production.phase = :creating
-        deliver!(Tachikoma.TaskEvent(:refresh, (0, snap, m.progress, m.busy, (; key = nothing, messages = StepMessage[]), ["creating"])))
+        deliver!(Tachikoma.TaskEvent(:refresh, (0, snap, m.progress, m.busy, StepMessages((; key = nothing, messages = StepMessage[])), ["creating"])))
         press('a')
         m.production.phase = :done
         frame()
@@ -283,6 +284,22 @@
         m.page = 3
         deliver!(Tachikoma.TaskEvent(:tick, nothing))
         m.quit = false
+
+        # The interface loop of `run_tui` on a new interface, without a terminal: frames go to a buffer, keys
+        # come from a stream and the size is fixed. Escape is not scripted because the key reader drops it in
+        # the first second. Ctrl-C ends the loop after a timer tick; the last timer ends it if the key is lost.
+        let m = JuleanaTUI(DataflowController(Dict{String,Any}("config" => nothing); loader = nothing), MessageBuffer();
+                splash_seconds = 0.0)
+            input = Base.BufferStream()
+            write(input, "ab\e[A\e[B\e[C\e[D\t\e[Z\e[<0;10;3M\e[<0;10;3m\e[<64;60;20M")
+            timers = [Timer(_ -> write(input, "\x03"), 0.7), Timer(_ -> (m.quit = true), 5)]
+            try
+                run_app(m, m.messages; io = IOBuffer(), input, tty_size = (rows = 40, cols = 140))
+            finally
+                foreach(close, timers)
+                close(input)
+            end
+        end
         return nothing
     end
 end
