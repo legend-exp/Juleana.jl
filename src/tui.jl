@@ -297,6 +297,10 @@ function send_command!(m::JuleanaTUI, cmd::ControllerCommand)
     return nothing
 end
 
+# The messages of the step open on the Progress page; the field types are fixed, so that the
+# result of a read has the same type for every step.
+const StepMessages = @NamedTuple{key::Union{Nothing,ProgressKey}, messages::Vector{StepMessage}}
+
 # Read the controller state in a background task, one read at a time. The read carries
 # the number of commands answered when it started, so that a read older than an answer
 # is recognized.
@@ -308,7 +312,8 @@ function refresh!(m::JuleanaTUI)
     Tachikoma.spawn_task!(m.queue, :refresh) do
         messages = isnothing(key) ? StepMessage[] : step_messages(ctrl, key)
         check_idle!(ctrl)
-        return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), (; key, messages), creating ? production_log(ctrl) : String[])
+        return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), StepMessages((; key, messages)),
+            creating ? production_log(ctrl) : String[])
     end
     return nothing
 end

@@ -18,6 +18,19 @@ const STEP_MESSAGE_CAPACITY = 500
 const BusyItem = NamedTuple{(:worker, :item, :period, :run, :step, :since, :abandoned),
     Tuple{Int,String,DataPeriod,Union{Nothing,DataRun},Symbol,DateTime,Bool}}
 
+# Types of the value of `progress`. The field types are fixed, so that the interface code that
+# shows the progress is compiled once for every state of a run.
+const StepCounts = NamedTuple{STEP_STATES,NTuple{length(STEP_STATES),Int}}
+const StepSummary = @NamedTuple{period::DataPeriod, run::Union{Nothing,DataRun}, step::Symbol, state::Symbol,
+    total::Int, done::Int, failed::Int, notrun::Int, workers::Vector{Int}, started::Union{Nothing,DateTime},
+    finished::Union{Nothing,DateTime}, error::Union{Nothing,String}, nmessages::Int, fraction::Float64,
+    rate::Union{Nothing,Float64}, eta::Union{Nothing,Float64}}
+const GroupSummary = @NamedTuple{period::DataPeriod, run::Union{Nothing,DataRun}, nsteps::Int, counts::StepCounts,
+    fraction::Float64}
+const ProgressSummary = @NamedTuple{started::Union{Nothing,DateTime}, finished::Union{Nothing,DateTime},
+    fraction::Float64, eta::Union{Nothing,Float64}, counts::StepCounts, steps::Vector{StepSummary},
+    groups::Vector{GroupSummary}}
+
 mutable struct StepProgress
     state::Symbol
     total::Int
@@ -230,7 +243,8 @@ seconds_between(t0::DateTime, t1::DateTime) = (t1 - t0) / Millisecond(1000)
     progress(store::ProgressStore)
     progress(ctrl::DataflowController)
 
-Return a copy of the progress of the current or last processing run as a `NamedTuple`:
+Return a copy of the progress of the current or last processing run as a
+`Juleana.ProgressSummary`, a `NamedTuple` with fixed field types:
 
 - `started`, `finished`: UTC times of the run, `nothing` if not (yet) reached.
 - `fraction`: overall progress in `[0, 1]`, the mean of the step fractions. A finished,
@@ -280,7 +294,7 @@ function progress(store::ProgressStore)
             (; first_entry.period, first_entry.run, nsteps = length(entries), counts = count_states(entries),
                 fraction = sum(e -> e.fraction, entries) / length(entries))
         end
-        return (; store.started, store.finished, fraction, eta, counts = count_states(steps), steps, groups)
+        return convert(ProgressSummary, (; store.started, store.finished, fraction, eta, counts = count_states(steps), steps, groups))
     end
 end
 

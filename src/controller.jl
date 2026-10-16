@@ -692,10 +692,25 @@ function Base.wait(ctrl::DataflowController)
     return nothing
 end
 
+# Types of the value of `snapshot`. The field types are fixed, so that the interface code that
+# shows the controller state is compiled once for every state.
+const ProcessorInfo = @NamedTuple{name::Symbol, level::Symbol, category::Symbol, rank::Int, enabled::Bool,
+    selected::Bool, dependencies::Vector{Symbol}, kwargs::Dict{Symbol,Any}, config_kwargs::Dict{Symbol,Any},
+    accepted::Union{Nothing,Vector{Symbol}}, overridden::Vector{Symbol}}
+const ControllerSnapshot = @NamedTuple{state::Symbol, outcome::Union{Nothing,Symbol}, last_error::Union{Nothing,String},
+    started::Union{Nothing,DateTime}, finished::Union{Nothing,DateTime}, config_file::Union{Nothing,String},
+    log_path::Union{Nothing,String}, available_periods::Vector{DataPeriod},
+    available_runs::Dict{DataPeriod,Vector{DataRun}}, periods::Vector{DataPeriod},
+    runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}}, run_steps::Vector{Symbol},
+    partition_steps::Vector{Symbol}, processors::Vector{ProcessorInfo}, reprocess::Union{Nothing,Bool},
+    analysis_runs_only::Union{Nothing,Bool}, check_dependencies::Bool, nworkers::Int,
+    allocations::Vector{AllocationInfo}, idle_deadline::Union{Nothing,DateTime}}
+
 """
     snapshot(ctrl::DataflowController)
 
-Return a `NamedTuple` with a copy of the controller state:
+Return a `Juleana.ControllerSnapshot`, a `NamedTuple` with fixed field types, with a copy of
+the controller state:
 
 - `state`, `outcome` (`:finished`, `:failed`, `:stopped` or `nothing` of the last
   processing run), `last_error` (message or `nothing`), `started`, `finished` (UTC
@@ -721,11 +736,11 @@ function snapshot(ctrl::DataflowController)
     @lock ctrl.lock begin
         session = ctrl.session
         processors = if isnothing(session)
-            NamedTuple[]
+            ProcessorInfo[]
         else
             cfg = effective_config(ctrl)
             selected = union(session.run_steps, session.partition_steps)
-            [(; name, spec.level, spec.category, spec.rank, spec.enabled, selected = name in selected,
+            ProcessorInfo[(; name, spec.level, spec.category, spec.rank, spec.enabled, selected = name in selected,
                     dependencies = copy(spec.dependencies), kwargs = copy(spec.kwargs),
                     config_kwargs = copy(processor_spec(session.config, name).kwargs),
                     accepted = accepted_kwargs(ctrl.processors, spec),
@@ -733,7 +748,7 @@ function snapshot(ctrl::DataflowController)
                 for name in vcat(run_steps(cfg; enabled_only = false), partition_steps(cfg; enabled_only = false))
                 for spec in (processor_spec(cfg, name),)]
         end
-        return (;
+        return convert(ControllerSnapshot, (;
             ctrl.state, ctrl.outcome, ctrl.last_error, ctrl.started, ctrl.finished,
             config_file = get(ctrl.args, "config", nothing),
             log_path = isnothing(session) ? nothing : session.config.log_path,
@@ -749,7 +764,7 @@ function snapshot(ctrl::DataflowController)
             nworkers = nprocs() > 1 ? nworkers() : 0,
             allocations = allocations(ctrl.workers; output = false),
             idle_deadline = idle_deadline(ctrl.workers; processing = ctrl.state in (:running, :stopping)),
-        )
+        ))
     end
 end
 

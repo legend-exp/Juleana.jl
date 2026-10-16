@@ -124,6 +124,9 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
             @test isempty(overview.allocations) && overview.workers == []
             overview = Juleana.workers_overview(mgr)
             @test overview.script.path == script_file && only(overview.allocations).job_ids == ["101"]
+            # the overview has the same type with and without a start script and SLURM
+            @test overview isa Juleana.WorkersOverview
+            @test Juleana.workers_overview(Juleana.WorkerManager(; squeue = `juleana-no-such-command`)) isa Juleana.WorkersOverview
             @test Juleana.workers_overview(Juleana.WorkerManager(; squeue = `juleana-no-such-command`)).slurm === nothing
             # the next allocation gets its own job name
             @test Juleana.add_workers!(mgr).job_name == "julia-$(getpid())-2"

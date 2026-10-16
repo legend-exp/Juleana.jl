@@ -88,6 +88,8 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test p.counts.done == 1 && p.counts.cancelled == 1
         @test [(g.period, g.run, g.nsteps) for g in p.groups] == [(p3, r1, 1), (p3, nothing, 1)]
         @test all(e -> isnothing(e.error) && e.nmessages == 0, p.steps)
+        # the progress has the same type before, while and after a run
+        @test p isa Juleana.ProgressSummary && progress(ProgressStore()) isa Juleana.ProgressSummary
     end
 
     @testset "step messages and errors" begin

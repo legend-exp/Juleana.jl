@@ -253,15 +253,29 @@ function cancel_all!(mgr::WorkerManager)
     return mgr
 end
 
+# A copy of a worker allocation, without and with its output. The field types are fixed, so
+# that the interface code that shows allocations is compiled once for every state.
+const AllocationInfo = @NamedTuple{id::Int, backend::Symbol, job_name::Union{Nothing,String}, started::DateTime,
+    finished::Union{Nothing,DateTime}, state::Symbol, exit_code::Union{Nothing,Int}, job_ids::Vector{String}}
+const AllocationOutputInfo = @NamedTuple{id::Int, backend::Symbol, job_name::Union{Nothing,String}, started::DateTime,
+    finished::Union{Nothing,DateTime}, state::Symbol, exit_code::Union{Nothing,Int}, job_ids::Vector{String},
+    output::Vector{String}}
+
 """
     Juleana.allocations(mgr::WorkerManager; output::Bool = true)
 
 Return a copy of the allocations of `mgr` as `NamedTuple`s with the fields of
-[`Juleana.WorkerAllocation`](@ref) except `process`, and without `output` unless `output`.
+[`Juleana.WorkerAllocation`](@ref) except `process`, and without `output` unless `output`:
+a `Vector{Juleana.AllocationOutputInfo}`, or a `Vector{Juleana.AllocationInfo}` without output.
 """
 function allocations(mgr::WorkerManager; output::Bool = true)
-    @lock mgr.lock [(; a.id, a.backend, a.job_name, a.started, a.finished, a.state, a.exit_code,
-        job_ids = copy(a.job_ids), (output ? (; output = copy(a.output)) : (;))...) for a in mgr.allocations]
+    @lock mgr.lock if output
+        AllocationOutputInfo[(; a.id, a.backend, a.job_name, a.started, a.finished, a.state, a.exit_code,
+            job_ids = copy(a.job_ids), output = copy(a.output)) for a in mgr.allocations]
+    else
+        AllocationInfo[(; a.id, a.backend, a.job_name, a.started, a.finished, a.state, a.exit_code,
+            job_ids = copy(a.job_ids)) for a in mgr.allocations]
+    end
 end
 
 """
@@ -306,10 +320,16 @@ function check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(
     return true
 end
 
+# Type of the value of `workers_overview`, with fixed field types.
+const WorkersOverview = @NamedTuple{allocations::Vector{AllocationOutputInfo},
+    script::Union{String,@NamedTuple{path::String, text::String}},
+    workers::Vector{@NamedTuple{pid::Int, host::Union{Nothing,String}}},
+    slurm::Union{Nothing,@NamedTuple{queue::String, idle::String}}}
+
 """
     Juleana.workers_overview(mgr::WorkerManager)
 
-Collect what the Workers page shows and return
+Collect what the Workers page shows and return a `Juleana.WorkersOverview`
 `(; allocations, script, workers, slurm)`:
 
 - `allocations`: [`Juleana.allocations`](@ref) with their output, after
@@ -329,7 +349,7 @@ function workers_overview(mgr::WorkerManager)
     script = try
         start_script!(mgr)
     catch e
-        first(split(sprint(showerror, e), '\n'))
+        String(first(split(sprint(showerror, e), '\n')))
     end
     pids = nprocs() > 1 ? workers() : Int[]
     workers_now = @lock mgr.lock begin
@@ -350,5 +370,5 @@ function workers_overview(mgr::WorkerManager)
     end
     user = get(ENV, "USER", "")
     slurm = slurm_available ? (; queue = read(`$(mgr.squeue) -u $user`, String), idle = read(`$(mgr.sinfo) -t idle`, String)) : nothing
-    return (; allocations = allocations(mgr), script, workers = workers_now, slurm)
+    return convert(WorkersOverview, (; allocations = allocations(mgr), script, workers = workers_now, slurm))
 end

@@ -109,6 +109,9 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         snap = snapshot(ctrl)
         @test snap.state === :ready && snap.outcome === :finished && isnothing(snap.last_error)
         @test snap.finished >= snap.started
+        # the snapshot has the same type in every state, with and without a session
+        @test snap isa Juleana.ControllerSnapshot
+        @test snapshot(DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)) isa Juleana.ControllerSnapshot
         @test sort(map(c -> c[1:3], calls); by = string) ==
             sort([(:process_energy_calibration_cal, p2, DataRun(6)), (:p_process_aoe_cut_cal, p2, nothing)]; by = string)
         energy_call = only(filter(c -> c[1] === :process_energy_calibration_cal, calls))
