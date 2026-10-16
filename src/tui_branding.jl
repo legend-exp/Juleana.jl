@@ -14,6 +14,7 @@ const HELP_KEYS = (
         ("c  p", "check the cal, phy processors"),
         ("d", "add the steps that checked steps wait for"),
         ("e", "edit the keyword arguments of the processor"),
+        ("e", "edit the workers, flags and Julia settings of the run modes (Run mode row of the Options pane)"),
         ("Space  Enter", "cycle the option in the Options pane; open the picker of the data production or dataset"),
         ("s", "start processing"),
         ("x  X", "stop after the running items, stop at once"),

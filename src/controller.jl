@@ -115,6 +115,30 @@ struct SetRunmode <: ControllerCommand
 end
 
 """
+    SetRunmodeSettings(; local_n = nothing, local_julia_settings = nothing,
+        slurm_flags = nothing, slurm_julia_settings = nothing)
+
+Use the given settings of the run modes instead of those of the config, for the next
+worker allocations and the start script; running allocations are not changed. Each
+argument that is `nothing` keeps the setting in effect. `local_n` is the number of local
+workers and must be positive; `local_julia_settings`, `slurm_flags` and
+`slurm_julia_settings` are vectors of strings, the extra options of the local Julia
+processes, the flags of the SLURM job and the options of the Julia processes it starts.
+"""
+struct SetRunmodeSettings <: ControllerCommand
+    local_n::Union{Nothing,Int}
+    local_julia_settings::Union{Nothing,Vector{String}}
+    slurm_flags::Union{Nothing,Vector{String}}
+    slurm_julia_settings::Union{Nothing,Vector{String}}
+    function SetRunmodeSettings(; local_n = nothing, local_julia_settings = nothing, slurm_flags = nothing,
+            slurm_julia_settings = nothing)
+        isnothing(local_n) || local_n > 0 ||
+            throw(ArgumentError("SetRunmodeSettings: local_n must be positive, got $local_n"))
+        return new(local_n, local_julia_settings, slurm_flags, slurm_julia_settings)
+    end
+end
+
+"""
     SetKwarg(step, key, value)
 
 Override the keyword argument `key` of the processor `step` for this session. The
@@ -328,6 +352,8 @@ mutable struct DataflowController
     reprocess::Union{Nothing,Bool}
     analysis_runs_only::Union{Nothing,Bool}
     runmode::Union{Nothing,Symbol}
+    # `local_n`, `local_julia_settings`, `slurm_flags` and `slurm_julia_settings` set by `SetRunmodeSettings`
+    runmode_settings::Dict{Symbol,Any}
     check_dependencies::Bool
     kwarg_overrides::Dict{Symbol,Dict{Symbol,Any}}
     task::Union{Nothing,Task}
@@ -341,7 +367,7 @@ function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol}
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console), workers::WorkerManager = WorkerManager())
     return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(),
         Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers, String[], :idle, nothing, DataPeriod[], DataPeriod[],
-        Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, nothing, true, Dict{Symbol,Dict{Symbol,Any}}(),
+        Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing, nothing, Dict{Symbol,Any}(), true, Dict{Symbol,Dict{Symbol,Any}}(),
         nothing, nothing, nothing, nothing, nothing)
 end
 
@@ -404,13 +430,15 @@ end
     effective_config(ctrl::DataflowController)
 
 Return the session's [`ProcessingConfig`](@ref) with the kwarg overrides of the
-controller merged into the processor kwargs and its `analysis_runs_only` and `runmode`
-settings applied.
+controller merged into the processor kwargs and its `analysis_runs_only`, `runmode` and
+run mode settings (see [`SetRunmodeSettings`](@ref)) applied.
 """
 function effective_config(ctrl::DataflowController)
     cfg = ctrl.session.config
-    return ProcessingConfig(something(ctrl.runmode, cfg.runmode), cfg.submit_jobs, cfg.local_n, cfg.local_julia_settings,
-        cfg.slurm_flags, cfg.slurm_julia_settings, cfg.env_variables, cfg.periods, cfg.runs,
+    settings = ctrl.runmode_settings
+    return ProcessingConfig(something(ctrl.runmode, cfg.runmode), cfg.submit_jobs, get(settings, :local_n, cfg.local_n),
+        get(settings, :local_julia_settings, cfg.local_julia_settings), get(settings, :slurm_flags, cfg.slurm_flags),
+        get(settings, :slurm_julia_settings, cfg.slurm_julia_settings), cfg.env_variables, cfg.periods, cfg.runs,
         something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level, cfg.idle_timeout_minutes,
         with_overrides(cfg.processors, ctrl.kwarg_overrides), with_overrides(cfg.p_processors, ctrl.kwarg_overrides))
 end
@@ -544,6 +572,16 @@ function apply!(ctrl::DataflowController, cmd::SetRunmode)
     return nothing
 end
 
+function apply!(ctrl::DataflowController, cmd::SetRunmodeSettings)
+    require_state(ctrl, cmd, :ready)
+    for name in fieldnames(SetRunmodeSettings)
+        value = getfield(cmd, name)
+        isnothing(value) || (ctrl.runmode_settings[name] = value)
+    end
+    set_worker_config!(ctrl.workers, effective_config(ctrl))
+    return nothing
+end
+
 function apply!(ctrl::DataflowController, cmd::SetCheckDependencies)
     require_state(ctrl, cmd, :idle, :ready)
     ctrl.check_dependencies = cmd.check
@@ -667,6 +705,13 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
     end
     props.processing.analysis_runs_only = effective_config(ctrl).analysis_runs_only
     props.config.runmode = string(effective_config(ctrl).runmode)
+    settings = props.config.runmode_settings
+    for (name, value) in ctrl.runmode_settings
+        name === :local_n && (settings.local.n = value)
+        name === :local_julia_settings && (settings.local.julia_settings = value)
+        name === :slurm_flags && (settings.slurm.flags = value)
+        name === :slurm_julia_settings && (settings.slurm.julia_settings = value)
+    end
     path = isnothing(cmd.path) ? joinpath(mkpath(production_config_dir()), "processing_config.yaml") : cmd.path
     isfile(path) && cp(path, path * ".bak"; force = true)
     writelprops(path, props)
@@ -784,13 +829,16 @@ end
 const ProcessorInfo = @NamedTuple{name::Symbol, level::Symbol, category::Symbol, rank::Int, enabled::Bool,
     selected::Bool, dependencies::Vector{Symbol}, kwargs::Dict{Symbol,Any}, config_kwargs::Dict{Symbol,Any},
     accepted::Union{Nothing,Vector{Symbol}}, overridden::Vector{Symbol}}
+const RunmodeSettings = @NamedTuple{local_n::Int, local_julia_settings::Vector{String}, slurm_flags::Vector{String},
+    slurm_julia_settings::Vector{String}}
 const ControllerSnapshot = @NamedTuple{state::Symbol, outcome::Union{Nothing,Symbol}, last_error::Union{Nothing,String},
     started::Union{Nothing,DateTime}, finished::Union{Nothing,DateTime}, config_file::Union{Nothing,String},
     log_path::Union{Nothing,String}, dataset::String, available_periods::Vector{DataPeriod},
     available_runs::Dict{DataPeriod,Vector{DataRun}}, periods::Vector{DataPeriod},
     runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}}, run_steps::Vector{Symbol},
     partition_steps::Vector{Symbol}, processors::Vector{ProcessorInfo}, reprocess::Union{Nothing,Bool},
-    analysis_runs_only::Union{Nothing,Bool}, runmode::Union{Nothing,Symbol}, check_dependencies::Bool, nworkers::Int,
+    analysis_runs_only::Union{Nothing,Bool}, runmode::Union{Nothing,Symbol}, runmode_settings::Union{Nothing,RunmodeSettings},
+    check_dependencies::Bool, nworkers::Int,
     allocations::Vector{AllocationInfo}, idle_deadline::Union{Nothing,DateTime}}
 
 """
@@ -814,7 +862,9 @@ the controller state:
   config), `accepted` (the keyword arguments the processor function accepts besides the
   ones the dataflow passes itself, `nothing` if it accepts any) and `overridden` (names of
   the overridden kwargs);
-- `reprocess`, `analysis_runs_only` and `runmode` (the settings in effect), `check_dependencies`,
+- `reprocess`, `analysis_runs_only` and `runmode` (the settings in effect), `runmode_settings`
+  (`local_n`, `local_julia_settings`, `slurm_flags` and `slurm_julia_settings` in effect, or
+  `nothing` without a session), `check_dependencies`,
   `nworkers` (workers in the pool), `allocations` (the worker allocations, see
   [`Juleana.allocations`](@ref), without their output), `idle_deadline` (UTC time at which
   idle allocations are cancelled, or `nothing`, see [`Juleana.idle_deadline`](@ref)).
@@ -835,6 +885,13 @@ function snapshot(ctrl::DataflowController)
                 for name in vcat(run_steps(cfg; enabled_only = false), partition_steps(cfg; enabled_only = false))
                 for spec in (processor_spec(cfg, name),)]
         end
+        runmode_settings = if isnothing(session)
+            nothing
+        else
+            cfg = effective_config(ctrl)
+            (; cfg.local_n, local_julia_settings = copy(cfg.local_julia_settings), slurm_flags = copy(cfg.slurm_flags),
+                slurm_julia_settings = copy(cfg.slurm_julia_settings))
+        end
         return convert(ControllerSnapshot, (;
             ctrl.state, ctrl.outcome, ctrl.last_error, ctrl.started, ctrl.finished,
             config_file = get(ctrl.args, "config", nothing),
@@ -849,6 +906,7 @@ function snapshot(ctrl::DataflowController)
             processors, ctrl.reprocess,
             analysis_runs_only = isnothing(session) ? ctrl.analysis_runs_only : something(ctrl.analysis_runs_only, session.config.analysis_runs_only),
             runmode = isnothing(session) ? ctrl.runmode : something(ctrl.runmode, session.config.runmode),
+            runmode_settings,
             ctrl.check_dependencies,
             nworkers = nprocs() > 1 ? nworkers() : 0,
             allocations = allocations(ctrl.workers; output = false),

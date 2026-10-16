@@ -94,7 +94,8 @@ the visible page, `q` or `Ctrl+C` quits.
 
 1. **Setup**: select the periods, runs and processors, edit the keyword arguments of a
    processor (`e`) and the options (reprocess, check dependencies, analysis runs only and the
-   run mode, `local` or `slurm`, of the next worker allocations), start processing (`s`), stop it (`x` after the
+   run mode, `local` or `slurm`, of the next worker allocations; `e` on the Run mode row edits
+   the settings of both run modes, see below), start processing (`s`), stop it (`x` after the
    running items, `X` at once), reload the config (`r`), write the settings to the
    config file (`w`), and create a new data production (`N`). The Production pane shows the
    production root, the data production and the dataset. The root is the folder the
@@ -109,6 +110,17 @@ the visible page, `q` or `Ctrl+C` quits.
    `datasets/runlists`). Choosing one cancels the worker allocations and reloads the
    session; it is possible while no processing runs. The Dataset pane below shows the runinfo of the
    period or run under the cursor of the periods.
+
+   `e` on the Run mode row of the Options pane opens the editor of the run mode settings,
+   grouped under `local` and `slurm`: the number of local workers (`local_n`, a positive
+   integer) and the lists `julia_settings` (local), `flags` and `julia_settings` (SLURM). A
+   list has one row per entry, for example `--nodes=4`. `Up` and `Down` move, `Enter` edits
+   the number or entry under the cursor (and adds an entry on the heading of a list), `a`
+   adds an entry to the list under the cursor, `d` deletes the entry, and `Esc` closes the
+   editor. While a value is typed, `Enter` applies it with [`SetRunmodeSettings`](@ref) and
+   shows an error for an invalid value, and `Esc` drops it. The settings apply to the
+   next worker allocations and the start script of the session, and `w` writes them to the
+   config file.
 2. **Graph**: the processors with their dependencies, run-level processors on the left
    and partition-level processors on the right. `Space` selects a processor, `d` adds the
    steps that selected steps wait for, and `v` switches the state icons between the last
@@ -164,7 +176,8 @@ Detach with `Ctrl+b d` and attach again with `tmux attach -t juleana`.
 
 In the `slurm` run mode the start script submits SLURM jobs with the settings of
 `runmode_settings.slurm` in the config, such as the number of nodes. Edit the script on
-the Workers page to change them for the session, and start further allocations with `a`.
+the Workers page to change them for the session, or edit the settings on the Setup page
+(`e` on the Run mode row), and start further allocations with `a`.
 
 ## Creating a data production
 

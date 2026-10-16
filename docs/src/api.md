@@ -59,6 +59,7 @@ SelectSteps
 SetReprocess
 SetAnalysisRunsOnly
 SetRunmode
+SetRunmodeSettings
 SetCheckDependencies
 SetKwarg
 ResetKwargs

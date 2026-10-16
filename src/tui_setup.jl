@@ -36,7 +36,7 @@ snapshots by [`Juleana.sync_setup!`](@ref); keys are handled by
 
 `focus` is the focused pane: 1 periods, 2 run processors, 3 partition processors,
 4 options, 5 production pane, where `source` is the chosen line (1 root, 2 production,
-3 dataset). `editor` is the open [`Juleana.KwargsEditor`](@ref), `confirm` is `:write`
+3 dataset). `editor` is the open [`Juleana.KwargsEditor`](@ref) or [`Juleana.RunmodeEditor`](@ref), `confirm` is `:write`
 while writing the config waits for confirmation, and `picker` is the open
 [`Juleana.SetupPicker`](@ref). `root` is the folder the productions are listed under, or
 `nothing` for the parent folder of the current data production (see
@@ -55,7 +55,7 @@ mutable struct SetupPage
     option::Int
     # available periods, runs and processors the checklists were built for
     layout::Any
-    editor::Union{Nothing,KwargsEditor}
+    editor::Union{Nothing,KwargsEditor,RunmodeEditor}
     confirm::Union{Nothing,Symbol}
     # inside of the options pane at the last render
     options::Tachikoma.Rect
@@ -169,7 +169,8 @@ end
 Handle the key `evt` on the Setup page and return whether it was used. `snap` is the
 latest controller snapshot (or `nothing`) and `send(cmd)` sends a controller command.
 
-An open kwargs editor gets every key (see [`Juleana.kwargs_key!`](@ref)); while writing
+An open kwargs or run mode editor gets every key (see [`Juleana.kwargs_key!`](@ref) and
+[`Juleana.runmode_key!`](@ref)); while writing
 the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config folder
 of the data production and any other key cancels. An open picker gets every key: Up and
 Down move the cursor, Enter sends [`SelectProduction`](@ref) or [`SelectDataset`](@ref) for the chosen
@@ -178,8 +179,8 @@ every key goes to its text (see [`Juleana.root_key!`](@ref)). Otherwise the focu
 first; a change of its selection sends `SelectRuns` or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
 `c` and `p` select the `cal` and `phy` processors of the pane, `d` adds the steps
 the selected steps wait for and `e` opens the kwargs editor for the processor under the
-cursor; in the options pane Up and Down choose a row and Space or
-Enter cycles its value; in the production pane Up and Down choose the root, the production or the
+cursor; in the options pane Up and Down choose a row, Space or
+Enter cycles its value and `e` on the Run mode row opens the editor of the settings of the run modes; in the production pane Up and Down choose the root, the production or the
 dataset, Space or Enter edits the root in place or opens the picker of the production or dataset
 once the names are read; `s` starts processing, `x` stops it after the running items, `X`
 stops it without waiting for them, `r` reloads the config, `g` rebuilds the
@@ -191,7 +192,9 @@ the current settings to `config/processing_config.yaml` of the data production. 
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
     if !isnothing(page.editor)
-        kwargs_key!(page.editor, evt, snap, send) === :close && (page.editor = nothing)
+        close = page.editor isa KwargsEditor ? kwargs_key!(page.editor, evt, snap, send) :
+            runmode_key!(page.editor, evt, snap, send)
+        close === :close && (page.editor = nothing)
         return true
     end
     if !isnothing(page.root_edit)
@@ -237,6 +240,8 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
         send(steps_selection(page))
     elseif page.focus in (2, 3) && key == :char && char == 'e' && !isnothing(current(panes[page.focus]))
         page.editor = KwargsEditor(current(panes[page.focus]).key)
+    elseif page.focus == 4 && key == :char && char == 'e' && SETUP_OPTIONS[page.option][1] === :runmode && !isnothing(snap)
+        page.editor = RunmodeEditor()
     elseif key == :char && char == 'w' && !isnothing(snap) && !isnothing(snap.config_file)
         page.confirm = :write
     elseif page.focus == 4 && key in (:up, :down)
@@ -699,7 +704,8 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
         render_logo(logo, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf;
             max_x = Tachikoma.right(inner), max_y = Tachikoma.bottom(inner))
     end
-    isnothing(page.editor) || render_kwargs(page.editor, snap, area, buf)
+    page.editor isa KwargsEditor && render_kwargs(page.editor, snap, area, buf)
+    page.editor isa RunmodeEditor && render_runmode(page.editor, snap, area, buf)
     isnothing(page.picker) || render_picker(page, area, buf)
     if page.confirm === :write && !isnothing(snap)
         Tachikoma.render(Tachikoma.Modal(; title = "Write config",

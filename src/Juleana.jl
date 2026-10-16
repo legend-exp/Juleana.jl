@@ -103,6 +103,7 @@ include("controller.jl")
 include("no_tui.jl")
 include("tui_checklist.jl")
 include("tui_kwargs.jl")
+include("tui_runmode.jl")
 include("tui_setup.jl")
 include("tui_progress.jl")
 include("tui_log.jl")
@@ -158,7 +159,7 @@ export ProcessorGraph, processor_graph, topological_order, required_processors, 
 export run_processing, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
-    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetRunmode, SetCheckDependencies, SetKwarg,
+    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetRunmode, SetRunmodeSettings, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
     CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction, SelectProduction, SelectDataset
 

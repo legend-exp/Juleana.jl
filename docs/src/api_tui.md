@@ -84,6 +84,9 @@ Juleana.bar_segments
 Juleana.KwargsEditor
 Juleana.kwargs_key!
 Juleana.render_kwargs
+Juleana.RunmodeEditor
+Juleana.runmode_key!
+Juleana.render_runmode
 Juleana.parse_kwarg_value
 Juleana.InterfaceTiming
 Juleana.TIMING_COLUMNS
