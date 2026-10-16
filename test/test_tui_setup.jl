@@ -185,6 +185,16 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, :down, ' ')
         @test setup_refreshed!(m)
         @test m.snap.analysis_runs_only == !cfg.analysis_runs_only
+        # the run mode row is drawn and cycles between :local and :slurm
+        @test find_text(render_setup_page(m), "Run mode") !== nothing
+        other_runmode = cfg.runmode === :local ? :slurm : :local
+        @test m.snap.runmode === cfg.runmode
+        press!(m, :down, ' ')
+        @test setup_refreshed!(m)
+        @test m.snap.runmode === other_runmode
+        press!(m, ' ')
+        @test setup_refreshed!(m)
+        @test m.snap.runmode === cfg.runmode
         press!(m, :tab, :tab)
         @test m.setup.focus == 1 && m.setup.periods.focused
         press!(m, :backtab, :backtab)

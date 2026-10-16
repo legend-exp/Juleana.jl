@@ -91,6 +91,14 @@ const REPORT = """
             write(installed, "{}")
             @test_logs Juleana.parse_commandline(["-p", "3"])["config"] == installed
             @test read(installed, String) == "{}"
+            # an old processing_config.json is ignored with a warning, the yaml is installed
+            rm(installed)
+            legacy = joinpath(production, "config", "processing_config.json")
+            write(legacy, "{\"config\": {}}")
+            @test_logs (:warn, r"Ignoring .*processing_config\.json") (:info, r"Copied the processing config") Juleana.install_default_config()
+            @test read(installed) == read(shipped)
+            @test read(legacy, String) == "{\"config\": {}}"
+            @test_logs Juleana.install_default_config()
             # with --config nothing is copied
             fresh = mktempdir()
             withenv("LEGEND_DATA_CONFIG" => joinpath(fresh, "config.json")) do

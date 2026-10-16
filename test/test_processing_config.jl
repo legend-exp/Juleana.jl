@@ -45,7 +45,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         from_strings = ProcessingConfig(base)
         @test run_steps(from_strings; enabled_only = false) == run_steps(shipped; enabled_only = false)
         @test from_strings.processors[:process_dsp_cal].kwargs == spec.kwargs
-        @test sprint(show, shipped) == "ProcessingConfig(runmode=:slurm, 0/15 run and 0/11 partition processors enabled)"
+        @test sprint(show, shipped) == "ProcessingConfig(runmode=:slurm, 0/18 run and 0/12 partition processors enabled)"
         @test occursin("rank=5", sprint(show, spec))
     end
 
@@ -59,15 +59,17 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test run_steps(some) == [:process_psd_efficiencies_cal, :process_evt_phy]
         @test partition_steps(some) == [:p_process_skm_phy]
         all_steps = run_steps(shipped; enabled_only = false)
-        @test length(all_steps) == 15 && first(all_steps) === :process_peak_split_cal
+        @test length(all_steps) == 18 && first(all_steps) === :process_peak_split_cal
         @test issorted(all_steps; by = s -> shipped.processors[s].rank)
-        @test length(partition_steps(shipped; enabled_only = false)) == 11
+        @test length(partition_steps(shipped; enabled_only = false)) == 12
     end
 
     @testset "overrides" begin
-        # the JSON config sets analysis_runs_only = true and only_runs = false
-        @test ProcessingConfig(base; analysis_runs_only = false).analysis_runs_only
-        @test !ProcessingConfig(base; analysis_runs_only = false, ignore_config = true).analysis_runs_only
+        # a config with analysis_runs_only = true and only_runs = false
+        analysis = deepcopy(base)
+        analysis["processing"]["analysis_runs_only"] = true
+        @test ProcessingConfig(analysis; analysis_runs_only = false).analysis_runs_only
+        @test !ProcessingConfig(analysis; analysis_runs_only = false, ignore_config = true).analysis_runs_only
         @test !ProcessingConfig(base; ignore_config = true).analysis_runs_only
         @test ProcessingConfig(base; only_runs = true).only_runs
         @test !ProcessingConfig(base; only_runs = nothing).only_runs
@@ -191,11 +193,10 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
     @testset "registered processors" begin
         @test isnothing(check_processor_kwargs(shipped))
         processors = run_steps(shipped; enabled_only = false) ∪ partition_steps(shipped; enabled_only = false)
-        # `process_hit_cal` is a disabled config entry without a processor function
-        @test setdiff(processors, keys(Juleana.PROCESSORS)) == [:process_hit_cal]
+        @test isempty(setdiff(processors, keys(Juleana.PROCESSORS)))
 
         # Every processor entry in the shipped config, enabled or not, should match its function's keywords.
-        # Broken: the disabled `process_sipm_optimization_phy` entry passes `only_pulser`, which the function does not declare.
+        # Broken: the disabled `process_sipm_calibration_phy` entry passes `subsystems`, which the function does not declare.
         all_enabled = deepcopy(base)
         for (name, entry) in (all_enabled["processors"]..., all_enabled["p_processors"]...)
             entry["enabled"] = haskey(Juleana.PROCESSORS, Symbol(name))

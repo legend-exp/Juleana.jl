@@ -184,6 +184,21 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test ctrl.session.config.analysis_runs_only == cfg.analysis_runs_only
     end
 
+    @testset "run mode" begin
+        ctrl = DataflowController(new_session(); processors)
+        other = cfg.runmode === :local ? :slurm : :local
+        @test_throws "runmode must be :local or :slurm" SetRunmode(:cluster)
+        @test snapshot(ctrl).runmode === cfg.runmode
+        @test ctrl.workers.config.runmode === cfg.runmode
+        dispatch!(ctrl, SetRunmode(other))
+        @test snapshot(ctrl).runmode === other
+        @test Juleana.effective_config(ctrl).runmode === other
+        @test ctrl.workers.config.runmode === other
+        # the session config is unchanged
+        @test ctrl.session.config.runmode === cfg.runmode
+        @test_throws "SetRunmode is not possible while the controller is :idle" dispatch!(DataflowController(Dict{String,Any}(); processors), SetRunmode(other))
+    end
+
     @testset "failed run" begin
         failing(cfg, l200, period, run; reprocess = false) = error("stub failure")
         ctrl = DataflowController(new_session(); processors = merge(processors, Dict{Symbol,Any}(:process_energy_calibration_cal => failing)))
@@ -325,6 +340,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, SetAnalysisRunsOnly(true))
+        other_runmode = cfg.runmode === :local ? :slurm : :local
+        dispatch!(ctrl, SetRunmode(other_runmode))
         written = joinpath(root, "written_config.yaml")
         write(written, "previous")
         production = mktempdir()
@@ -344,6 +361,15 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         written_cfg = ProcessingConfig(written)
         @test written_cfg.processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 5
         @test run_steps(written_cfg) == [:process_energy_calibration_cal] && isempty(partition_steps(written_cfg))
+        # the file is YAML, not JSON, and reads back to the same config
+        text = read(written, String)
+        @test !startswith(lstrip(text), "{") && occursin(r"^config:"m, text)
+        @test occursin(r"^  analysis_runs_only: true$"m, text)
+        @test occursin(Regex("^  runmode: \"?$other_runmode\"?\$", "m"), text)
+        @test props.config.runmode == string(other_runmode)
+        @test readlprops(written) == props
+        dispatch!(ctrl, ReloadConfig())
+        @test run_steps(ctrl.session.config) == run_steps(written_cfg)
     end
 
     @testset "worker commands" begin
