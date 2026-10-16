@@ -17,14 +17,15 @@ ms(x) = round(UInt64, x * 1e6)
     @testset "window statistics" begin
         now_ns = Ref(ms(1000))
         t = manual_timing(now_ns; window_seconds = 10)
-        # four frames at gaps of 16, 16 and 100 ms; views take 2, 4, 1 and 3 ms
+        # four frames at gaps of 16, 16 and 100 ms; views take 2, 4, 1 and 3 ms and show pages 1, 2, 1, 1
         starts = (0, 16, 32, 132)
         durations = (2, 4, 1, 3)
-        for (s, d) in zip(starts, durations)
+        pages = (1, 2, 1, 1)
+        for (s, d, page) in zip(starts, durations, pages)
             now_ns[] = ms(1000 + s)
             Juleana.timing_view_begin!(t)
             now_ns[] = ms(1000 + s + d)
-            @test isnothing(Juleana.timing_view_end!(t, nothing))
+            @test isnothing(Juleana.timing_view_end!(t, nothing; page))
         end
         @test t.n_frames == 4 && t.n_gaps == 3
         @test t.view_thread == (Threads.threadid(), Threads.threadpool())
@@ -44,8 +45,10 @@ ms(x) = round(UInt64, x * 1e6)
         @test col("keys") == "0" && col("key_p50_ms") == "NA"
         @test col("update_max_ms") == "NA"
         @test col("view_thread") == "$(Threads.threadid()):$(Threads.threadpool())"
+        @test col("view_max_page") == "2"
+        @test col("page_views") == "1:3:2.0 2:1:4.0"
         # the next window starts empty and continues the frame gaps
-        @test t.n_frames == 0
+        @test t.n_frames == 0 && all(iszero, t.page_frames) && t.slowest_view_page == 0
         now_ns[] = ms(1000 + 10_100)
         Juleana.timing_view_begin!(t)
         @test t.n_gaps == 1
@@ -82,6 +85,8 @@ ms(x) = round(UInt64, x * 1e6)
         @test col("update_task_max_ms") == "30.0"
         @test col("update_key_max_ms") == "7.0"
         @test col("slowest_update") == "refresh"
+        # a `view` without a page
+        @test col("view_max_page") == "NA" && col("page_views") == "NA"
     end
 
     @testset "buffers beyond capacity are counted" begin
@@ -139,6 +144,7 @@ ms(x) = round(UInt64, x * 1e6)
     @testset "validation" begin
         @test_throws "window_seconds must be positive" Juleana.InterfaceTiming(; window_seconds = 0)
         @test_throws "capacity must be positive" Juleana.InterfaceTiming(; capacity = 0)
+        @test_throws "pages must be positive" Juleana.InterfaceTiming(; pages = 0)
     end
 end
 
@@ -154,6 +160,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             Tachikoma.view(m, frame)
         end
         @test m.timing.n_frames == 3 && m.timing.n_gaps == 2
+        @test m.timing.page_frames[m.page] == 3
         @test m.timing.view_thread == (Threads.threadid(), Threads.threadpool())
         Tachikoma.update!(m, KeyEvent('?'))
         Tachikoma.update!(m, MouseEvent(1, 1, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false))

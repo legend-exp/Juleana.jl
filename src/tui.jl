@@ -637,7 +637,7 @@ end
 function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
     timing_view_begin!(m.timing)
     draw_interface!(m, f)
-    timing_view_end!(m.timing, m.snap)
+    timing_view_end!(m.timing, m.snap; m.page)
     return nothing
 end
 
