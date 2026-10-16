@@ -44,7 +44,7 @@ mutable struct ProductionForm
     log::Vector{String}
 end
 
-function ProductionForm(; parent::AbstractString = haskey(ENV, "LEGEND_DATA_CONFIG") ? dirname(dirname(ENV["LEGEND_DATA_CONFIG"])) : "",
+function ProductionForm(; parent::AbstractString = haskey(ENV, "LEGEND_DATA_CONFIG") ? dirname(dirname(abspath(last(data_config_files())))) : "",
         shell::AbstractString = basename(get(ENV, "SHELL", "")), home::AbstractString = homedir())
     return ProductionForm("", parent, METADATA_URL, true, "", "main", "main", String[], String[], String[], false, true,
         shell, home, 1, nothing, "", :edit, nothing, false, 0, String[])

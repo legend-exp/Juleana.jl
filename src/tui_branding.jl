@@ -205,12 +205,12 @@ function render_splash(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffe
     return nothing
 end
 
-# Name and root of the data production named by `LEGEND_DATA_CONFIG` (the first file if
-# several are given): the folder that holds the config file, and its parent. `nothing` if
+# Name and root of the data production named by `LEGEND_DATA_CONFIG` (the last file, see
+# `data_config_files`): the folder that holds its data config, and its parent. `nothing` if
 # the variable is not set.
 function current_production()
     haskey(ENV, "LEGEND_DATA_CONFIG") || return nothing
-    folder = dirname(abspath(first(split(ENV["LEGEND_DATA_CONFIG"], r":(?!\\)"))))
+    folder = dirname(abspath(last(data_config_files())))
     return (basename(folder), dirname(folder))
 end
 

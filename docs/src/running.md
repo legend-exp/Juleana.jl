@@ -25,6 +25,17 @@ Processing needs access to the LEGEND data and metadata through the `LEGEND_DATA
 environment variable (see the [overview](index.md)). The data production
 named there also holds the `config` folder described [below](@ref "Config folder of the data production").
 
+`LEGEND_DATA_CONFIG` may name several files separated by colons. The last one is the data
+config of the production; the ones before it are overrides, e.g. of the computing site,
+that apply to every production:
+
+```bash
+export LEGEND_DATA_CONFIG=/ptmp/legend/config_viper.yaml:/ptmp/legend/ref/jl-v0.8.1/config.json
+```
+
+Selecting or creating a production in Juleana replaces only the last file and keeps the
+overrides.
+
 ## Starting
 
 ```bash

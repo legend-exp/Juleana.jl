@@ -102,24 +102,41 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
 end
 
 """
+    Juleana.data_config_files()
+
+Return the files named by the environment variable `LEGEND_DATA_CONFIG`, which separates
+them by colons as LegendDataManagement reads them. The last file is the data config of the
+data production; the files before it are overrides, e.g. of the computing site, that
+LegendDataManagement applies on top of it for every production.
+
+Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set.
+"""
+function data_config_files()
+    haskey(ENV, "LEGEND_DATA_CONFIG") ||
+        throw(ArgumentError("data_config_files: the environment variable LEGEND_DATA_CONFIG is not set"))
+    return String.(split(ENV["LEGEND_DATA_CONFIG"], r":(?!\\)"))
+end
+
+"""
+    Juleana.with_production_config(config::AbstractString)
+
+Return the value of `LEGEND_DATA_CONFIG` that selects the data production whose data config
+is `config`: the override files of [`Juleana.data_config_files`](@ref) followed by `config`,
+or `config` alone if `LEGEND_DATA_CONFIG` is not set.
+"""
+with_production_config(config::AbstractString) =
+    join(vcat(haskey(ENV, "LEGEND_DATA_CONFIG") ? data_config_files()[1:end-1] : String[], config), ":")
+
+"""
     Juleana.production_config_dir()
 
 Return the path of the `config` folder of the data production: the folder `config` next
-to the data config file named by the environment variable `LEGEND_DATA_CONFIG`, the
-folder that `\$_` stands for in that file. The folder need not exist.
+to the data config of the production, the last file of [`Juleana.data_config_files`](@ref),
+in the folder that `\$_` stands for in that file. The folder need not exist.
 
-Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set, or names several files
-in different folders.
+Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set.
 """
-function production_config_dir()
-    haskey(ENV, "LEGEND_DATA_CONFIG") ||
-        throw(ArgumentError("production_config_dir: the environment variable LEGEND_DATA_CONFIG is not set"))
-    # several files are separated by colons, as LegendDataManagement reads them
-    dirs = unique(dirname.(abspath.(split(ENV["LEGEND_DATA_CONFIG"], r":(?!\\)"))))
-    length(dirs) == 1 || throw(ArgumentError(
-        "production_config_dir: the files of LEGEND_DATA_CONFIG are in several folders: $(join(dirs, ", "))"))
-    return joinpath(only(dirs), "config")
-end
+production_config_dir() = joinpath(dirname(abspath(last(data_config_files()))), "config")
 
 """
     Juleana.default_config_file()

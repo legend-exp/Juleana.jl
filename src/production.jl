@@ -223,7 +223,7 @@ function create_production(spec::ProductionSpec; log = line -> @info(line))
     end
     if spec.set_default
         rc = shell_rc_file(spec.shell, spec.home)
-        line = "export LEGEND_DATA_CONFIG=$config"
+        line = "export LEGEND_DATA_CONFIG=$(with_production_config(config))"
         lines = isfile(rc) ? readlines(rc) : String[]
         exports = findall(startswith("export LEGEND_DATA_CONFIG="), lines)
         isempty(exports) ? push!(lines, line) : (lines[exports] .= line)

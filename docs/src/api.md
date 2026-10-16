@@ -12,6 +12,8 @@ Juleana.setup_session
 Juleana.run_no_tui
 Juleana.run_tui
 Juleana.parse_commandline
+Juleana.data_config_files
+Juleana.with_production_config
 Juleana.production_config_dir
 Juleana.default_config_file
 Juleana.install_default_config

@@ -739,7 +739,7 @@ function apply!(ctrl::DataflowController, cmd::CreateProduction)
     load_in_background!(ctrl, c -> isnothing(c.session) ? :idle : :ready) do
         config = create_production(cmd.spec; log)
         cancel_all!(ctrl.workers)
-        ENV["LEGEND_DATA_CONFIG"] = config
+        ENV["LEGEND_DATA_CONFIG"] = with_production_config(config)
         @lock ctrl.lock begin
             ctrl.session = nothing
             ctrl.args["config"], ctrl.args["log_path"] = install_default_config(), ""
@@ -769,7 +769,7 @@ function apply!(ctrl::DataflowController, cmd::SelectProduction)
     isnothing(i) && throw(ArgumentError("$(cmd.path) is not a data production: it has no config.json or config.yaml"))
     config = configs[i]
     reload_session!(ctrl) do
-        ENV["LEGEND_DATA_CONFIG"] = config
+        ENV["LEGEND_DATA_CONFIG"] = with_production_config(config)
         @lock ctrl.lock begin
             ctrl.args["config"], ctrl.args["log_path"], ctrl.args["dataset"] = install_default_config(), "", "default"
         end
