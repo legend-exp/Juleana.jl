@@ -182,7 +182,6 @@ processors:
     category: phy
     rank: 16
     kwargs:
-      subsystems: [geds, spms, pmts, aux]
       reprocess: false
       timeout: 0
     dependencies: []

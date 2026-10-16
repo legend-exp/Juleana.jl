@@ -40,8 +40,6 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test shipped.p_processors[:p_process_energy_cal].category === :cal
         @test shipped.p_processors[:p_process_skm_phy].category === :phy
 
-        @test shipped.processors[:process_sipm_calibration_phy].kwargs[:subsystems] == [:geds, :spms, :pmts, :aux]
-
         from_strings = ProcessingConfig(base)
         @test run_steps(from_strings; enabled_only = false) == run_steps(shipped; enabled_only = false)
         @test from_strings.processors[:process_dsp_cal].kwargs == spec.kwargs
@@ -196,12 +194,11 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test isempty(setdiff(processors, keys(Juleana.PROCESSORS)))
 
         # Every processor entry in the shipped config, enabled or not, should match its function's keywords.
-        # Broken: the disabled `process_sipm_calibration_phy` entry passes `subsystems`, which the function does not declare.
         all_enabled = deepcopy(base)
         for (name, entry) in (all_enabled["processors"]..., all_enabled["p_processors"]...)
             entry["enabled"] = haskey(Juleana.PROCESSORS, Symbol(name))
         end
-        @test_broken isnothing(check_processor_kwargs(ProcessingConfig(all_enabled)))
+        @test isnothing(check_processor_kwargs(ProcessingConfig(all_enabled)))
         dsp = deepcopy(base)
         dsp["processors"]["process_dsp_cal"]["enabled"] = true
         @test isnothing(check_processor_kwargs(ProcessingConfig(dsp)))
