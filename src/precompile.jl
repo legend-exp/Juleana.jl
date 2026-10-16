@@ -43,8 +43,9 @@
             processor(:process_energy_calibration_cal, :run, :cal, 2, [:process_dsp_cal]; kwargs = Dict{Symbol,Any}(:max_wvfs => 10)),
             processor(:process_hit_phy, :run, :phy, 3, [:process_dsp_cal]; enabled = false),
             processor(:p_process_aoe_cut_cal, :partition, :cal, 1, [:process_energy_calibration_cal])]
+        # an empty log folder: the interface timing writes no file when its window ends
         snap = (; state = :running, outcome = nothing, last_error = nothing, started = t0 - Second(90), finished = nothing,
-            config_file = "config/processing_config.json", log_path = "log", available_periods = [p2, p3],
+            config_file = "config/processing_config.json", log_path = "", available_periods = [p2, p3],
             available_runs = Dict(p2 => runs2, p3 => [r0]), periods = [p2, p3], runs = nothing,
             run_steps = [:process_dsp_cal, :process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
             processors, reprocess = nothing, analysis_runs_only = true, check_dependencies = true, nworkers = 2,
