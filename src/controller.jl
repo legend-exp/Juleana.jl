@@ -30,7 +30,7 @@ struct ReloadConfig <: ControllerCommand end
     SelectPeriods(periods)
 
 Select the periods to process, given as `DataPeriod`s or anything `DataPeriod` accepts.
-Every period must be available on disk. Periods that stay selected keep their runs.
+Every period must be in the runinfo of the dataset. Periods that stay selected keep their runs.
 """
 struct SelectPeriods <: ControllerCommand
     periods::Vector{DataPeriod}
@@ -47,7 +47,7 @@ Select the runs to process.
   selected period; every run must be available in at least one selected period.
 - A dict of period => runs (keys and values as `DataPeriod` and `DataRun` accept)
   selects exactly these periods, each with its runs, where `nothing` stands for all runs
-  of the period. Every period and every run of it must be available on disk.
+  of the period. Every period and every run of it must be in the dataset.
 """
 struct SelectRuns <: ControllerCommand
     runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Union{Nothing,Vector{DataRun}}}}
@@ -344,7 +344,7 @@ function Base.show(io::IO, ctrl::DataflowController)
     print(io, ")")
 end
 
-# Take over `session` and scan the periods and runs on disk; the caller holds the lock.
+# Take over `session` and list the periods and runs of its dataset; the caller holds the lock.
 function install_session!(ctrl::DataflowController, session::DataflowSession)
     ctrl.session = session
     ctrl.periods = copy(session.periods)
@@ -448,7 +448,7 @@ end
 
 function check_available_periods(ctrl::DataflowController, periods)
     unknown = setdiff(periods, ctrl.available_periods)
-    isempty(unknown) || throw(ArgumentError("periods not available on disk: $(join(string.(unknown), ", "))"))
+    isempty(unknown) || throw(ArgumentError("periods not in the dataset: $(join(string.(unknown), ", "))"))
     return nothing
 end
 
@@ -779,7 +779,7 @@ the controller state:
   processing run), `last_error` (message or `nothing`), `started`, `finished` (UTC
   times of the last processing run or `nothing`);
 - `config_file`, `log_path`, `dataset` (the name of the dataset, `"default"` for every run);
-- `available_periods`, `available_runs` (`Dict` period => runs on disk), `periods`
+- `available_periods`, `available_runs` (`Dict` period => runs of the dataset), `periods`
   (selected periods), `runs` (selected runs: `nothing` for all runs, a vector for the
   same runs in every period, or a dict of runs per period where a period without an
   entry keeps all its runs), `run_steps`, `partition_steps` (selected steps in

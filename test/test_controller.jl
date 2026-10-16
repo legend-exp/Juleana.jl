@@ -68,7 +68,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         ctrl = DataflowController(new_session(); processors)
         @test_throws "StopProcessing is not possible while the controller is :ready" dispatch!(ctrl, StopProcessing())
         @test_throws "LoadSession is not possible while the controller is :ready" dispatch!(ctrl, LoadSession())
-        @test_throws "periods not available on disk: p99" dispatch!(ctrl, SelectPeriods([99]))
+        @test_throws "periods not in the dataset: p99" dispatch!(ctrl, SelectPeriods([99]))
         @test_throws "runs not available in the selected periods: r009" dispatch!(ctrl, SelectRuns([9]))
         @test_throws "not in `processors` of the config: process_bogus" dispatch!(ctrl, SelectSteps([:process_bogus], Symbol[]))
         @test_throws "not in `p_processors` of the config: process_energy_calibration_cal" dispatch!(ctrl, SelectSteps(Symbol[], [:process_energy_calibration_cal]))
@@ -145,7 +145,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # p03 keeps all its runs
         @test snap.runs == Dict(p2 => [DataRun(7)])
         @test_throws "runs not available in p02: r009" dispatch!(ctrl, SelectRuns(Dict(2 => [9])))
-        @test_throws "periods not available on disk: p99" dispatch!(ctrl, SelectRuns(Dict(99 => nothing)))
+        @test_throws "periods not in the dataset: p99" dispatch!(ctrl, SelectRuns(Dict(99 => nothing)))
         @test snapshot(ctrl).runs == Dict(p2 => [DataRun(7)])
 
         dispatch!(ctrl, StartProcessing())

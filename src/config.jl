@@ -212,8 +212,8 @@ Build the processing setup from the output of [`parse_commandline`](@ref) and re
 Reads the config file, applies the command line overrides, sets `ENV` from the
 config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)` for the `--dataset`,
 and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
-named by the current UTC time (`yyyy-mm-ddTHH:MM:SSZ`). `periods` are the selected periods that are available
-on disk, or all available periods when the config selects all.
+named by the current UTC time (`yyyy-mm-ddTHH:MM:SSZ`). `periods` are the selected periods that are in the
+dataset, or all periods of the dataset when the config selects all.
 """
 function setup_processing(parsed_args::AbstractDict)
     config_dict = readlprops(parsed_args["config"])
@@ -253,79 +253,46 @@ function setup_processing(parsed_args::AbstractDict)
     processing_config.submit_jobs && @info "Will submit $(processing_config.runmode) jobs"
     parsed_args["reprocess"] && @info "Reprocess all processors"
 
-    # restrict the selected periods to those available on disk
-    on_disk = available_periods(l200)
+    # restrict the selected periods to those of the dataset
+    available = available_periods(l200)
     periods = if isnothing(processing_config.periods)
-        on_disk
+        available
     else
-        filter(in(on_disk), processing_config.periods)
+        filter(in(available), processing_config.periods)
     end
     @info "Process periods: $(string.(periods))"
     if runs isa AbstractDict
         @info "Process runs: " * join(("$p: $(join(string.(r), ", "))" for (p, r) in sort!(collect(runs); by = first)), "; ")
     else
         runs = processing_config.runs
-        @info isnothing(runs) ? "Process all runs on disk for each period" : "Process runs: $(string.(runs))"
+        @info isnothing(runs) ? "Process all runs of the dataset for each period" : "Process runs: $(string.(runs))"
     end
 
     return l200, processing_config, periods
 end
 
 """
-    find_data_tier(l200::LegendData, keys...)
-
-Return the first `(tier, category)` among the `raw`, `jldsp` and `jlevt` tiers and the
-`cal` and `phy` categories whose directory `l200.tier[tier, category, keys...]` exists,
-or `nothing` if none does.
-"""
-function find_data_tier(l200::LegendData, keys...)
-    for t in (:raw, :jldsp, :jlevt), c in (:cal, :phy)
-        ispath(l200.tier[t, c, keys...]) && return (t, c)
-    end
-    return nothing
-end
-
-"""
     Juleana.available_periods(l200::LegendData)
     Juleana.available_runs(l200::LegendData, period::DataPeriod)
 
-Return the periods, or the runs of `period`, that are on disk (see `find_data_tier`)
-and in the `runinfo` of `l200`, which holds the runs of the dataset of `l200`. A period
-is available if it has an available run.
+Return the periods, or the runs of `period`, in the `runinfo` of `l200`, which holds the
+runs of the dataset of `l200`, sorted. The data on disk is not checked.
 """
-function available_periods(l200::LegendData)
-    tc = find_data_tier(l200)
-    possible_periods = if isnothing(tc)
-        @warn "No `DataPeriod` found in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
-        DataPeriod[]
-    else
-        search_disk(DataPeriod, l200.tier[tc...])
-    end
-    # filter out periods that are not available on disk
-    available_runs_dict = Dict{DataPeriod, Vector{DataRun}}(possible_periods .=> available_runs.(Ref(l200), possible_periods))
-    filter!(p -> !isempty(available_runs_dict[p]), possible_periods)
-    possible_periods
-end
+available_periods(l200::LegendData) = sort!(unique(runinfo(l200).period))
 
 function available_runs(l200::LegendData, period::DataPeriod)
-    tc = find_data_tier(l200, period)
-    if isnothing(tc)
-        @warn "No `DataRun` found for period $period in `raw`, `jldsp` or `jlevt` for either `cal` or `phy`"
-        return DataRun[]
-    end
     rinfo = runinfo(l200)
-    listed = Set(rinfo.run[rinfo.period .== period])
-    return filter(in(listed), search_disk(DataRun, l200.tier[tc..., period]))
+    return sort!(rinfo.run[rinfo.period .== period])
 end
 
-# `runs === nothing` selects all runs of `period` available on disk
+# `runs === nothing` selects all available runs of `period`
 function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{AbstractVector{DataRun}, Nothing})
-    on_disk = available_runs(l200, period)
-    isnothing(runs) && return on_disk
+    available = available_runs(l200, period)
+    isnothing(runs) && return available
     for run in runs
-        run in on_disk || @warn "Run $run not found in period $period"
+        run in available || @warn "Run $run not found in period $period"
     end
-    return DataRun[r for r in runs if r in on_disk]
+    return DataRun[r for r in runs if r in available]
 end
 
 # Runs given per period; a period without an entry keeps all its runs.

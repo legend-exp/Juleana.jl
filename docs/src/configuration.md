@@ -56,7 +56,7 @@ The `periods` and `runs` to process, each either a list of numbers or `"all"`:
 ```
 
 processes all available runs of period 3. `"periods": "all"` processes all periods
-available on disk. The other keys are flags:
+of the dataset. The other keys are flags:
 
 1. **`analysis_runs_only`**: process only runs marked as analysis runs in
    `legend-metadata`, i.e. runs that passed the quality criteria for the final analysis.

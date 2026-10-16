@@ -76,7 +76,7 @@ SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
-# Selected runs of each selected period in `snap` that are on disk.
+# Selected runs of each selected period in `snap` that are in the dataset.
 function selected_period_runs(snap)
     return Dict(p => (snap.runs isa AbstractDict ? intersect(snap.available_runs[p], get(snap.runs, p, snap.available_runs[p])) :
         isnothing(snap.runs) ? snap.available_runs[p] : intersect(snap.available_runs[p], snap.runs))
