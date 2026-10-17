@@ -225,7 +225,8 @@ Return the items that workers are running, oldest first, as `NamedTuple`s with `
 `item` (the item's label), `period`, `run` (`nothing` for partition-level steps), `step`,
 `since` (UTC time the worker got the item) and `abandoned`. An abandoned item belongs to a
 processing run that was stopped without waiting for it; its worker stays busy until the
-item's call returns, which for an unresponsive worker never happens.
+item's call returns, which for an unresponsive worker never happens. For a controller, the
+items of workers that have ended are left out: they wait for a retry on another worker.
 """
 busy_workers(store::ProgressStore) = @lock store.lock sort!(collect(values(store.busy)); by = b -> b.since)
 

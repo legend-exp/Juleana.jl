@@ -147,6 +147,19 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test Juleana.items_queued!(store, a, 1) == first_id + 3
     end
 
+    @testset "busy workers of a controller" begin
+        ctrl = DataflowController(Dict{String,Any}())
+        a = (p3, r1, :run_a)
+        Juleana.reset_progress!(ctrl.progress, [a])
+        Juleana.set_step_state!(ctrl.progress, a, :running)
+        first_id = Juleana.items_queued!(ctrl.progress, a, 2)
+        Juleana.item_started!(ctrl.progress, a, first_id, 1, "fk1")
+        # the worker of this item has ended
+        Juleana.item_started!(ctrl.progress, a, first_id + 1, maximum(Juleana.procs()) + 1, "fk2")
+        @test length(busy_workers(ctrl.progress)) == 2
+        @test [b.item for b in busy_workers(ctrl)] == ["fk1"]
+    end
+
     cfg = ProcessingConfig(;
         processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
         p_processors = Dict(:p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal,

@@ -918,7 +918,8 @@ function snapshot(ctrl::DataflowController)
 end
 
 progress(ctrl::DataflowController) = progress(ctrl.progress)
-busy_workers(ctrl::DataflowController) = busy_workers(ctrl.progress)
+# An item whose worker has ended waits for a retry on another worker, so it is not busy.
+busy_workers(ctrl::DataflowController) = filter(b -> b.worker in procs(), busy_workers(ctrl.progress))
 step_messages(ctrl::DataflowController, key) = step_messages(ctrl.progress, key)
 
 """

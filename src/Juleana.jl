@@ -56,7 +56,7 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
     get_peaks_survival_fractions, lq_ctc_correction, lq_norm, peakhists_gamma,
     set_timelimit, simple_calibration, sipm_simple_calibration
 using Base.ScopedValues: ScopedValue, with
-using Distributed: AbstractWorkerPool, myid, nprocs, nworkers, remotecall_fetch, workers
+using Distributed: AbstractWorkerPool, myid, nprocs, nworkers, procs, remotecall_fetch, workers
 using Logging: Logging, AbstractLogger, LogLevel, global_logger
 using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
 import Makie
