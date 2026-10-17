@@ -96,7 +96,8 @@ function runprocs_mode(cfg::ProcessingConfig)
         return OnSlurm(
             slurm_flags = Cmd(cfg.slurm_flags),
             julia_flags = `--startup-file=no $(cfg.slurm_julia_settings)`,
-            redirect_output = false,
+            # the workers' output reaches this process with their worker IDs, like for local workers
+            redirect_output = true,
             env = cfg.env_variables
         )
     else

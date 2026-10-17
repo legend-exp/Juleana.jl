@@ -229,6 +229,7 @@ const REPORT = """
         @test mode isa Juleana.ParallelProcessingTools.OnSlurm
         @test mode.slurm_flags == `--nodes=2`
         @test mode.julia_flags == `--startup-file=no`
+        @test mode.redirect_output
         @test mode.env == env_variables
     end
 
