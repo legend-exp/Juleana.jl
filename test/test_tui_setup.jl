@@ -74,8 +74,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test Juleana.checked(page.part_procs) == [:p_process_aoe_cut_cal]
         @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration_cal, :process_dsp_cal]
         dsp = page.run_procs.groups[1].items[2]
-        @test dsp.tags == ["cal", "rank 2"]
-        @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 1"]
+        @test dsp.tags == ["cal", "rank 02"]
+        @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 01"]
 
         tb = render_setup_page(m)
         for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config",

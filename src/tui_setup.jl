@@ -102,7 +102,7 @@ function setup_tag_style(tag)
     return nothing
 end
 
-processor_tags(p) = [string(p.category), "rank $(p.rank)"]
+processor_tags(p) = [string(p.category), "rank $(lpad(p.rank, 2, '0'))"]
 
 """
     Juleana.sync_setup!(page::SetupPage, snap; pending::Bool = false)

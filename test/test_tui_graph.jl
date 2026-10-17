@@ -213,7 +213,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         @test style(:r_b).fg == Tachikoma.tstyle(:warning).fg && style(:r_a).fg == Tachikoma.tstyle(:warning).fg
         @test style(:r_c).fg == Tachikoma.tstyle(:secondary).fg
         @test style(:r_off).fg == Tachikoma.tstyle(:text_dim).fg && style(:p_y).fg == Tachikoma.tstyle(:text).fg
-        @test locate(tb, "p_x: requires 2, required by 1  phy  rank 1") !== nothing
+        @test locate(tb, "p_x: requires 2, required by 1  phy  rank 01") !== nothing
         # the edge from r_b to p_x connects highlighted nodes: its arrow is yellow
         arrow = locate(tb, "▶●")
         @test style_at(tb, arrow.x, arrow.y).fg == Tachikoma.tstyle(:warning).fg
