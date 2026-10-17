@@ -28,7 +28,7 @@ const JULEANA_THEME = Tachikoma.Theme(
 const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
     Tachikoma.ColorRGB(0x95, 0x58, 0xb2))
 
-# Keys shown below the status row, as `(key, description)` per page: Setup, Graph, Progress, Log, others.
+# Keys shown on the bottom row, as `(key, description)` per page: Setup, Graph, Progress, Log, others.
 const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
 const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add required"), ("h", "unselected"), ("v", "last run/disk"))
@@ -48,7 +48,7 @@ const PRODUCTION_HINTS = (("↑↓ Tab", "field"), ("Space", "toggle"), ("Ctrl-N
 const PRODUCTION_DONE_HINTS = (("any key", "continue"),)
 const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "help"))
 
-# Seconds a new warning or error stays in the status bar.
+# Seconds a new warning or error stays in the status panel.
 const ALERT_SECONDS = 10.0
 
 # One line kept by a `MessageBuffer`.
@@ -290,7 +290,7 @@ Tachikoma.task_queue(m::JuleanaTUI) = m.queue
     Juleana.send_command!(m::JuleanaTUI, cmd::ControllerCommand)
 
 Queue `cmd` for the controller of `m`; the commands are dispatched one after another in
-a background task. A rejected command shows its error in the status bar.
+a background task. A rejected command shows its error in the status panel.
 """
 function send_command!(m::JuleanaTUI, cmd::ControllerCommand)
     m.pending += 1
@@ -576,55 +576,84 @@ function dataset_sync!(m::JuleanaTUI)
     return nothing
 end
 
+# Rows of the status panel under the tabs: its border and two lines.
+const STATUS_HEIGHT = 4
+
 format_duration(seconds::Real) = (s = round(Int, seconds); join(lpad.((s ÷ 3600, (s % 3600) ÷ 60, s % 60), 2, '0'), ":"))
 
-# Spans of the status row: spinner while the controller works, controller state, last run,
-# workers and the countdown to the cancel of idle worker allocations, progress and elapsed time on the left, separated by dots; on the right a
-# rejected command, else the latest alert, else the error of the last load or run.
+# Spans of the first line of the status panel: spinner while the controller works, the
+# controller state, the last run, the workers and the countdown to the cancel of idle worker
+# allocations on the left, separated by dots; on the right a rejected command, else the latest
+# alert, else the error of the last load or run.
 function status_spans(m::JuleanaTUI)
-    sep = Tachikoma.Span("  · ", Tachikoma.tstyle(:border))
+    sep = ("  ·  ", Tachikoma.tstyle(:border))
     snap = m.snap
     state = isnothing(snap) ? :starting : snap.state
-    state_style = state === :ready ? Tachikoma.tstyle(:success) : state === :running ? Tachikoma.tstyle(:accent, bold = true) :
-        state === :stopping ? Tachikoma.tstyle(:warning, bold = true) : Tachikoma.tstyle(:warning)
-    left = Tachikoma.Span[Tachikoma.Span(" ")]
+    state_style = state === :ready ? Tachikoma.tstyle(:success, bold = true) : state === :running ? Tachikoma.tstyle(:accent, bold = true) :
+        Tachikoma.tstyle(:warning, bold = true)
+    left = Tuple{String,Tachikoma.Style}[]
     state in (:loading, :running, :stopping) &&
-        push!(left, Tachikoma.Span(string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))]) * " ", state_style))
-    push!(left, Tachikoma.Span(string(state), state_style))
+        push!(left, (string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))]) * " ", state_style))
+    push!(left, (uppercase(string(state)), state_style))
     if !isnothing(snap)
         if !isnothing(snap.outcome)
             outcome_color = snap.outcome === :finished ? :success : snap.outcome === :failed ? :error : :warning
-            push!(left, sep, Tachikoma.Span("last run: ", Tachikoma.tstyle(:text)), Tachikoma.Span(string(snap.outcome), Tachikoma.tstyle(outcome_color)))
+            push!(left, sep, ("last run: ", Tachikoma.tstyle(:text)), (string(snap.outcome), Tachikoma.tstyle(outcome_color, bold = true)))
         end
         abandoned = count(b -> b.abandoned, m.busy)
-        push!(left, sep, Tachikoma.Span("workers $(snap.nworkers)", Tachikoma.tstyle(:primary)))
-        isempty(m.busy) || push!(left, Tachikoma.Span(", $(length(m.busy)) busy", Tachikoma.tstyle(:secondary)))
-        abandoned > 0 && push!(left, Tachikoma.Span(", $abandoned abandoned", Tachikoma.tstyle(:warning)))
+        push!(left, sep, ("workers $(snap.nworkers)", Tachikoma.tstyle(:primary, bold = true)))
+        isempty(m.busy) || push!(left, (", $(length(m.busy)) busy", Tachikoma.tstyle(:secondary, bold = true)))
+        abandoned > 0 && push!(left, (", $abandoned abandoned", Tachikoma.tstyle(:warning)))
         if !isnothing(snap.idle_deadline)
             # the countdown to the cancel of idle worker allocations
             left_s = max(0, (snap.idle_deadline - now(UTC)) / Millisecond(1000))
-            push!(left, Tachikoma.Span(", idle cancel in $(format_duration(left_s))", Tachikoma.tstyle(left_s < 300 ? :warning : :text_dim)))
-        end
-        if !isnothing(snap.started) && !isnothing(m.progress)
-            push!(left, sep, Tachikoma.Span("$(round(Int, 100 * m.progress.fraction))%", Tachikoma.tstyle(:accent)))
-            stop_time = something(snap.finished, now(UTC))
-            push!(left, sep, Tachikoma.Span(format_duration((stop_time - snap.started) / Millisecond(1000)), Tachikoma.tstyle(:text_dim)))
+            push!(left, (", idle cancel in $(format_duration(left_s))", Tachikoma.tstyle(left_s < 300 ? :warning : :text_dim)))
         end
     end
-    right = Tachikoma.Span[]
+    right = Tuple{String,Tachikoma.Style}[]
     if !isnothing(m.command_error)
-        push!(right, Tachikoma.Span(" " * first(split(m.command_error, '\n')) * " ", Tachikoma.tstyle(:error, bold = true)))
+        push!(right, (first(split(m.command_error, '\n')), Tachikoma.tstyle(:error, bold = true)))
     else
         alert = @lock m.messages.lock m.messages.alert
         if !isnothing(alert) && time() - alert.time < ALERT_SECONDS
             style = alert.level >= Logging.Error ? Tachikoma.tstyle(:error, bold = true) : Tachikoma.tstyle(:warning)
-            push!(right, Tachikoma.Span(" " * alert.text * " ", style))
+            push!(right, (alert.text, style))
         elseif !isnothing(snap) && !isnothing(snap.last_error)
             # stays until the next load or run, so that a failed load does not look like a hang
-            push!(right, Tachikoma.Span(" " * first(split(snap.last_error, '\n')) * " ", Tachikoma.tstyle(:error, bold = true)))
+            push!(right, (first(split(snap.last_error, '\n')), Tachikoma.tstyle(:error, bold = true)))
         end
     end
     return left, right
+end
+
+# Draw the status panel into `area`: a box with the spans of `status_spans` on the first line
+# and, once a processing run started, a bar over the second line with the progress and the
+# elapsed time of the run.
+function render_status(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    inner = Tachikoma.render(Tachikoma.Block(; border_style = Tachikoma.tstyle(:border)), area, buf)
+    (inner.width < 1 || inner.height < 1) && return nothing
+    x_max = Tachikoma.right(inner)
+    left, right = status_spans(m)
+    used = inner.x + 1 + sum(s -> textwidth(first(s)), left; init = 0)
+    room = x_max - used - 3
+    if !isempty(right) && room >= 8
+        text = first(only(right))
+        text = textwidth(text) <= room ? text : first(text, room - 1) * "…"
+        put_spans!(buf, x_max - textwidth(text), inner.y, x_max, [(text, last(only(right)))])
+    end
+    put_spans!(buf, inner.x + 1, inner.y, min(x_max, used), left)
+    inner.height >= 2 || return nothing
+    snap = m.snap
+    line = Tachikoma.Rect(inner.x + 1, inner.y + 1, max(0, inner.width - 2), 1)
+    if isnothing(snap) || isnothing(snap.started) || isnothing(m.progress)
+        Tachikoma.set_string!(buf, line.x, line.y, "No processing run in this session.", Tachikoma.tstyle(:text_dim); max_x = x_max)
+    else
+        elapsed = format_duration((something(snap.finished, now(UTC)) - snap.started) / Millisecond(1000))
+        label = "$(round(Int, 100 * m.progress.fraction))%   $elapsed"
+        color = snap.state in (:running, :stopping) ? :accent : snap.outcome === :finished ? :success : snap.outcome === :failed ? :error : :warning
+        Tachikoma.render(Tachikoma.Gauge(m.progress.fraction; label, filled_style = Tachikoma.tstyle(color)), line, buf)
+    end
+    return nothing
 end
 
 # Draw the frame of the screen into `area` and return the area inside it: a rounded box
@@ -656,9 +685,9 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     tabs.active = m.page
     tab_h = Tachikoma.tab_height(tabs.tab_style.decoration)
     layout = Tachikoma.Layout(
-        Tachikoma.Vertical, [Tachikoma.Fixed(tab_h), Tachikoma.Fill(), Tachikoma.Fixed(1), Tachikoma.Fixed(1)]
+        Tachikoma.Vertical, [Tachikoma.Fixed(tab_h), Tachikoma.Fixed(STATUS_HEIGHT), Tachikoma.Fill(), Tachikoma.Fixed(1)]
     )
-    tab_area, body_area, status_area, keys_area = Tachikoma.split_layout(layout, render_frame(f.area, f.buffer))
+    tab_area, status_area, body_area, keys_area = Tachikoma.split_layout(layout, render_frame(f.area, f.buffer))
 
     Tachikoma.render(tabs, tab_area, f.buffer)
     render_corner_logo(m, tab_area, f.buffer)
@@ -682,8 +711,7 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     elseif m.page == 7
         render_history(m.history_page, body_area, f.buffer)
     end
-    left, right = status_spans(m)
-    Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
+    render_status(m, status_area, f.buffer)
     hints = (!isnothing(m.production) ? (m.production.phase === :done ? PRODUCTION_DONE_HINTS : m.production.phase === :creating ? () : PRODUCTION_HINTS) :
         m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (!isnothing(m.workers_page.form) ? WORKERS_FORM_HINTS : isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
         m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
@@ -722,7 +750,7 @@ output and without starting workers: it reads the config and the LEGEND data and
 the dependency graph. Log
 messages of this process and the output of its workers are kept in a
 [`Juleana.MessageBuffer`](@ref) instead of being printed; the newest warning or error is shown
-in the status bar, and the error of a failed load stays there. This process also writes
+in the status panel, and the error of a failed load stays there. This process also writes
 its log file as in [`setup_session`](@ref). The previous global logger is restored when
 the interface closes, and every worker allocation started from the interface is
 cancelled (see [`CancelAll`](@ref)). A startup screen with the logo is shown until the session has loaded;

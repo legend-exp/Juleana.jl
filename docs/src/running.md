@@ -101,7 +101,10 @@ the data production, after a confirmation; an existing file is kept as
 ## The interface
 
 The tabs at the top open the pages, also with the keys `1` to `7`. `?` shows all keys of
-the visible page, `q` or `Ctrl+C` quits.
+the visible page, `q` or `Ctrl+C` quits. The status panel under the tabs shows the state
+of the session, the outcome of the last run, the workers and the countdown to the cancel
+of idle workers, with the newest warning or error on the right; once a processing run
+started, a bar below shows its progress and elapsed time. The bottom row lists the keys.
 
 1. **Setup**: select the periods, runs and processors, edit the keyword arguments of a
    processor (`e`) and the options (reprocess, check dependencies, analysis runs only and the
@@ -168,7 +171,7 @@ SLURM jobs that carry the job name of the allocation. Quitting `juleana` cancels
 allocations.
 
 Idle allocations are cancelled after `idle_timeout_minutes` of the
-[config](@ref Configuration) (default 20, `0` disables) without processing. The status bar
+[config](@ref Configuration) (default 20, `0` disables) without processing. The status panel under the tabs
 shows the countdown; `p` on the Workers page postpones the cancel.
 
 ## Running on a login node
