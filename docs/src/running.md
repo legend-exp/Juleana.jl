@@ -125,7 +125,7 @@ the visible page, `q` or `Ctrl+C` quits.
    `e` on the Run mode row of the Options pane opens the editor of the run mode settings,
    grouped under `local` and `slurm`: the number of local workers (`local_n`, a positive
    integer) and the lists `julia_settings` (local), `flags` and `julia_settings` (SLURM). A
-   list has one row per entry, for example `--nodes=4`. `Up` and `Down` move, `Enter` edits
+   list has one row per entry, for example `--nodes=1`. `Up` and `Down` move, `Enter` edits
    the number or entry under the cursor (and adds an entry on the heading of a list), `a`
    adds an entry to the list under the cursor, `d` deletes the entry, and `Esc` closes the
    editor. While a value is typed, `Enter` applies it with [`SetRunmodeSettings`](@ref) and
