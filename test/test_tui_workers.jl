@@ -1,7 +1,7 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 using Juleana
-using Juleana: AddWorkers, CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript
+using Juleana: AddWorkers, CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, SetRunmodeSettings
 using Tachikoma: Tachikoma, KeyEvent, TestBackend, Rect, find_text, row_text, style_at
 using LegendDataManagement: DataPeriod, DataRun
 using Dates: DateTime, Minute, Second
@@ -290,6 +290,56 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         fresh = Juleana.WorkersPage()
         press!(fresh, KeyEvent('e'))
         @test occursin("has not been read yet", workers_screen(render_workers_page(fresh, snap)))
+    end
+
+    @testset "SLURM options" begin
+        flags = ["--time=01:00:00", "--mem-bind=local", "--nodes=1", "--mem=480GB"]
+        @test Juleana.slurm_option(flags, "time") == "01:00:00" && isnothing(Juleana.slurm_option(flags, "partition"))
+        # `--mem-bind` is not `--mem`
+        @test Juleana.slurm_option(["--mem-bind=local"], "mem") === nothing
+        @test Juleana.set_slurm_option(flags, "mem", "30GB") == ["--time=01:00:00", "--mem-bind=local", "--nodes=1", "--mem=30GB"]
+        @test Juleana.set_slurm_option(flags, "partition", "interactive")[end] == "--partition=interactive"
+        @test Juleana.set_slurm_option(flags, "nodes", "") == ["--time=01:00:00", "--mem-bind=local", "--mem=480GB"]
+        @test Juleana.set_slurm_option(flags, "partition", "") == flags
+        @test_throws "time limit: expected minutes, hh:mm:ss or d-hh:mm:ss, got `1h`" Juleana.set_slurm_option(flags, "time", "1h")
+        @test_throws "nodes: expected a positive integer, got `0`" Juleana.set_slurm_option(flags, "nodes", "0")
+        @test_throws "the flag `-N4` sets nodes" Juleana.set_slurm_option(["-N4"], "nodes", "2")
+        @test_throws "the flag `--nodes` sets nodes" Juleana.set_slurm_option(["--nodes", "4"], "nodes", "2")
+        @test Juleana.set_slurm_option(flags, "time", "2-00:00:00")[1] == "--time=2-00:00:00"
+    end
+
+    @testset "SLURM form" begin
+        settings = (; local_n = 4, local_julia_settings = String[], slurm_flags = ["--time=01:00:00", "--cpu-bind=cores", "--nodes=1"],
+            slurm_julia_settings = String[])
+        fsnap = (; snap..., runmode_settings = settings)
+        page = loaded_page()
+        sent = Any[]
+        press(keys...) = [Juleana.workers_key!(page, k isa Char ? KeyEvent(k) : KeyEvent(k), cmd -> push!(sent, cmd); snap = fsnap) for k in keys]
+        # without the run mode settings the form does not open
+        @test !Juleana.workers_key!(page, KeyEvent('o'), cmd -> push!(sent, cmd); snap = (; snap..., runmode_settings = nothing))
+        @test press('o') == [true] && page.form isa Juleana.SlurmForm
+        @test !Juleana.workers_mouse!(page, Tachikoma.MouseEvent(5, 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        tb = render_workers_page(page, fsnap)
+        @test find_text(tb, "SLURM settings (this session)") !== nothing
+        @test find_text(tb, "not set") !== nothing && find_text(tb, "01:00:00") !== nothing
+        @test find_text(tb, "other flags: --cpu-bind=cores") !== nothing
+        # every key goes to the form, also the page keys
+        press(:down, :enter, 'a')
+        @test isempty(sent) && page.form.text == "01:00:00a"
+        press(:enter)
+        @test isempty(sent) && occursin("time limit: expected", page.form.error)
+        @test find_text(render_workers_page(page, fsnap), "time limit: expected") !== nothing
+        press(:backspace, :backspace, :backspace, :backspace, :backspace, :backspace, :backspace, :backspace, :backspace, '9', '0', :enter)
+        @test only(sent) isa SetRunmodeSettings && only(sent).slurm_flags == ["--time=90", "--cpu-bind=cores", "--nodes=1"]
+        @test isnothing(page.form.text) && isnothing(page.form.error)
+        # an empty value removes the option, Escape drops a typed text and then closes the form
+        empty!(sent)
+        press(:down, :enter, :backspace, :enter)
+        @test only(sent).slurm_flags == ["--time=01:00:00", "--cpu-bind=cores"]
+        press(:enter, '7', :escape)
+        @test length(sent) == 1 && isnothing(page.form.text)
+        press(:escape)
+        @test isnothing(page.form)
     end
 
     @testset "small areas" begin
