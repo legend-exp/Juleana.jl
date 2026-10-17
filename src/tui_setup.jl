@@ -94,17 +94,15 @@ function selected_period_runs(snap)
         for p in snap.periods if haskey(snap.available_runs, p))
 end
 
-# Style of a processor tag in the checklists: category, rank, dependencies.
+# Style of a processor tag in the checklists: category, rank.
 function setup_tag_style(tag)
     tag == "cal" && return Tachikoma.tstyle(:primary)
     tag == "phy" && return Tachikoma.tstyle(:secondary)
     startswith(tag, "rank ") && return Tachikoma.tstyle(:text_dim)
-    startswith(tag, "deps: ") && return Tachikoma.tstyle(:warning)
     return nothing
 end
 
-processor_tags(p) = vcat(string(p.category), "rank $(p.rank)",
-    isempty(p.dependencies) ? String[] : ["deps: " * join(p.dependencies, ", ")])
+processor_tags(p) = [string(p.category), "rank $(p.rank)"]
 
 """
     Juleana.sync_setup!(page::SetupPage, snap; pending::Bool = false)

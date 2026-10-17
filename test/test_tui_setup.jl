@@ -37,7 +37,6 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test style("cal").fg == Tachikoma.tstyle(:primary).fg
         @test style("phy").fg == Tachikoma.tstyle(:secondary).fg
         @test style("rank 3").fg == Tachikoma.tstyle(:text_dim).fg
-        @test style("deps: a, b").fg == Tachikoma.tstyle(:warning).fg
         @test isnothing(style("2 runs"))
     end
 
@@ -76,7 +75,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration_cal, :process_dsp_cal]
         dsp = page.run_procs.groups[1].items[2]
         @test dsp.tags == ["cal", "rank 2"]
-        @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 1", "deps: process_dsp_cal"]
+        @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 1"]
 
         tb = render_setup_page(m)
         for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config",
