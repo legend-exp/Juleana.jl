@@ -119,11 +119,12 @@ end
         slurm_flags = nothing, slurm_julia_settings = nothing)
 
 Use the given settings of the run modes instead of those of the config, for the next
-worker allocations and the start script; running allocations are not changed. Each
-argument that is `nothing` keeps the setting in effect. `local_n` is the number of local
-workers and must be positive; `local_julia_settings`, `slurm_flags` and
-`slurm_julia_settings` are vectors of strings, the extra options of the local Julia
-processes, the flags of the SLURM job and the options of the Julia processes it starts.
+worker allocations and the start script; running allocations are not changed. Also
+possible during a processing run, which keeps its config. Each argument that is `nothing`
+keeps the setting in effect. `local_n` is the number of local workers and must be
+positive; `local_julia_settings`, `slurm_flags` and `slurm_julia_settings` are vectors of
+strings, the extra options of the local Julia processes, the flags of the SLURM job and
+the options of the Julia processes it starts.
 """
 struct SetRunmodeSettings <: ControllerCommand
     local_n::Union{Nothing,Int}
@@ -573,7 +574,8 @@ function apply!(ctrl::DataflowController, cmd::SetRunmode)
 end
 
 function apply!(ctrl::DataflowController, cmd::SetRunmodeSettings)
-    require_state(ctrl, cmd, :ready)
+    # a processing run keeps the config it started with; only new allocations use the settings
+    require_state(ctrl, cmd, :ready, :running, :stopping)
     for name in fieldnames(SetRunmodeSettings)
         value = getfield(cmd, name)
         isnothing(value) || (ctrl.runmode_settings[name] = value)

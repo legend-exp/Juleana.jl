@@ -50,6 +50,12 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         dispatch!(ctrl, SetRunmode(:slurm))
         @test ctrl.workers.config.runmode === :slurm && ctrl.workers.config.slurm_flags == ["--nodes=4"]
 
+        # during a processing run, the settings apply to the next allocations
+        ctrl.state = :running
+        dispatch!(ctrl, SetRunmodeSettings(; slurm_flags = ["--nodes=2"]))
+        @test ctrl.workers.config.slurm_flags == ["--nodes=2"]
+        ctrl.state = :ready
+
         idle = DataflowController(Dict{String,Any}())
         @test isnothing(snapshot(idle).runmode_settings)
         @test_throws "SetRunmodeSettings is not possible while the controller is :idle" dispatch!(idle, SetRunmodeSettings(; local_n = 2))

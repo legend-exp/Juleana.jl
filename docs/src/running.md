@@ -197,7 +197,8 @@ page opens a form of the common options: partition, time limit, nodes, workers p
 form changes the SLURM flags of the session, like the editor of the run mode settings on
 the Setup page (`e` on the Run mode row), and `w` on the Setup page writes them to the
 config. The script on the Workers page can also be edited directly. Start further
-allocations with `a`; running allocations keep their settings.
+allocations with `a`; running allocations keep their settings. The settings can also be
+changed during a processing run, for the allocations started afterwards.
 
 ## Creating a data production
 
