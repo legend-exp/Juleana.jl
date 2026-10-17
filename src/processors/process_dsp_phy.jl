@@ -1,0 +1,405 @@
+"""
+    process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
+        reprocess::Bool=false, timeout::Real=0,
+        max_wvfs::Int=10000, use_partition_pars::Bool=false)
+
+Run the DSP on the `phy` raw data of a run for the additional detectors, PMTs, SiPMs (`spms`) and HPGe detectors (`geds`).
+
+For every raw `phy` file of the run, the channel groups are processed in this order: the
+detectors listed under `additional_detectors` in the DSP configuration, the PMTs, the SiPMs
+(with their per-detector thresholds), and the HPGe detectors (with their pole-zero decay time
+and energy and A/E filter optimization parameters). A SiPM or HPGe detector is skipped and
+reported as failed if its parameters are missing (for HPGe detectors also a parameter listed
+in `required_fltopt`, or `required_aoeopt` for usable detectors with a valid or present low
+A/E status), or if its DSP throws an error. With `use_partition_pars=true`, an HPGe detector
+that is not `:on` and whose run is in no `cal` partition takes its parameters from the partition
+with the closest run.
+
+# Inputs
+- `raw` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `dataprod_config(l200).dsp(filekey)`, `dataprod_config(l200).sipm(filekey)` and `dataprod_config(l200).pmt(filekey)`
+- `l200.par[pars_type, :pz]`, `l200.par[pars_type, :fltopt]`, `l200.par[pars_type, :aoeopt]` and `l200.par[pars_type, :sipmopt]`, with `pars_type` being `:ppars` if `use_partition_pars` is `true` and `:rpars` otherwise
+- the QC evaluator from `load_qc_evaluator(l200, filekey)`
+
+# Outputs
+- `jldsp` tier file for each filekey, with one table per detector
+- run report `:dsp_phy`, with one row per filekey (number of processed detectors, failed detectors, time, allocations)
+
+# Keywords
+- `reprocess`: remove the existing `jldsp` files and process all detectors again; otherwise detectors already present in a file are skipped
+- `timeout`: seconds allowed per filekey in `parallel` (0 = no limit)
+- `max_wvfs`: not used by this processor
+- `use_partition_pars`: read the HPGe decay time and optimization parameters from the partition-level parameters (`:ppars`) instead of the run-level parameters (`:rpars`)
+
+# Returns
+Return `nothing`.
+"""
+function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=10000, use_partition_pars::Bool=false)
+    
+    @info "Process DSP for period $period and run $run"
+
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, period, run]))
+    
+    filekey = start_filekey(l200, (period, run, :phy))
+    @info "Found start filekey $filekey"
+
+    chinfo      = channelinfo(l200, filekey; system=:geds, only_processable=true)
+    chinfo_sipm = channelinfo(l200, filekey; system=:spms, only_processable=true)
+    chinfo_pmts = channelinfo(l200, filekey; system=:pmts, only_processable=true)
+    @info "Loaded channel info with $(length(chinfo)) detectors"
+
+    dsp_config_pd = dataprod_config(l200).dsp(filekey)
+    @debug "Loaded DSP config: $(lstring(dsp_config_pd))"
+    dsp_meta_sipm = dataprod_config(l200).sipm(filekey)
+    @debug "Loaded SiPM DSP config: $(lstring(dsp_meta_sipm))"
+    dsp_meta_pmt = dataprod_config(l200).pmt(filekey)
+    @debug "Loaded PMT DSP config: $(lstring(dsp_meta_pmt))"
+
+    f_evaluate_qc = load_qc_evaluator(l200, filekey)
+
+    pars_type = ifelse(use_partition_pars, :ppars, :rpars)
+    @info "Use $(ifelse(use_partition_pars, "partition", "run"))-based pars from $pars_type for DSP optimization parameters"
+    
+    pars_tau = get_values(l200.par[pars_type, :pz](filekey))
+    @debug "Loaded decay times"
+
+    pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
+    @debug "Loaded optimization parameters"
+
+    @debug "Check if all HPGe detectors have optimization parameters"
+    for chinfo_det in chinfo
+        ch = chinfo_det.channel
+        det = chinfo_det.detector
+        # for detectors not `:on`, use the pars of the partition with the closest run when the run is in no partition
+        if use_partition_pars && !haskey(pars_tau, det) && !haskey(pars_fltoptimization, det) && chinfo_det.usability != :on && isempty(partitioninfo(l200, det, :cal, period, run))
+            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for detector"
+            parts = partitioninfo(l200, det, :cal, period)
+            if isempty(parts)
+                @warn "Detector $det ($ch) is in no cal partition of $period, skip detector $ch"
+                continue
+            end
+            closest_runs_distance = Real[]
+            for p in parts
+                pinfo = filter(row -> row.period == period, partitioninfo(l200, det, p))
+                closest_run = pinfo.run[argmin([abs(r.no - run.no) for r in pinfo.run])]
+                push!(closest_runs_distance, abs(closest_run.no - run.no))
+            end
+            part = parts[argmin(closest_runs_distance)]
+            try
+                merge!(pars_tau, get_values(l200.par.ppars.pz[det, part]))
+            catch e
+                @warn "No decay time for detector $det, skip detector $ch"
+                continue
+            end
+            try
+                merge!(pars_fltoptimization, get_values(l200.par.ppars.fltopt[det, part]))
+            catch e
+                @warn "No flt optimization parameters for detector $det, skip detector $ch"
+                continue
+            end
+            try
+                merge!(pars_fltoptimization, get_values(l200.par.ppars.aoeopt[det, part]))
+            catch e
+                @warn "No aoe flt optimization parameters for detector $det, skip detector $ch"
+                continue
+            end
+        end
+    end
+
+    mkpath(data_path(l200.par[pars_type, :sipmopt]))
+    pars_sipm = get_values(l200.par[pars_type, :sipmopt](filekey))
+    @debug "Loaded sipm parameters"
+    
+    if reprocess @info "Reprocess all filekeys and detectors"
+    else @info "Only reprocess filekeys and detectors that are not processed yet" end
+
+    # create log line Tuple
+    log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+
+    # get worker pool
+
+    # flush stdout
+    flush(stdout)
+
+    function filekey_dsp(fk::FileKey)
+        dsp_timer = TimerOutput()
+        # raw and dsp filename
+        rawfilename = l200.tier[:raw, fk]
+        @info "Processing file: $(basename(rawfilename))"
+        dspfilename = l200.tier[:jldsp, fk]
+        @info "Using output file: $(basename(dspfilename))"
+        # number of processed detectors
+        n_detectors = 0
+        # detector ids of failed detectors
+        failed_detectors = DetectorId[]
+        # start processing
+        write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+                @timeit dsp_timer "Startup" begin
+                    if reprocess && isfile(outfilename)
+                        @info "Reprocess $(basename(outfilename)), remove old DSP."
+                        rm(outfilename, force=true)
+                    end
+                end
+
+                # open output file
+                lh5open(outfilename, "cw") do outdata
+                    # get processed detectors
+                    processed_detectors = haskey(outdata, :jldsp) ? keys(outdata[:jldsp]) : String[]
+
+                    @info "Start DSP"
+                    @timeit dsp_timer "DSP" begin
+                        if haskey(dsp_config_pd, :additional_detectors)
+                            # process additional detectors
+                            for det in DetectorId.(keys(dsp_config_pd.additional_detectors))
+                                ch = channelinfo(l200, filekey, det).channel
+
+                                dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
+                                dsp_config_det = DSPConfig(dsp_config_pd_det)
+                                @debug "Loaded DSP config: $(lstring(dsp_config_det))"
+
+                                # check if detector can be processed
+                                if "$det" in processed_detectors && !reprocess
+                                    @info "Detector $det ($ch) already processed, skip"
+                                    n_detectors += 1
+                                    continue
+                                end
+
+                                @debug "Processing detector $det ($ch)"
+                                @timeit dsp_timer "DSP $det" begin
+                                    # process data
+                                    outdata_det = nothing
+                                    try
+                                        raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                        outdata_det = legend_dsp_function(dsp_config_pd.additional_detectors[Symbol(det)], "dsp.additional_detectors.$det")(raw_data_det, dsp_config_det)
+                                    catch e
+                                        if e isa TaskFailedException
+                                            e = e.task.exception
+                                        end
+                                        @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
+                                        push!(failed_detectors, det)
+                                        continue
+                                    end
+                                    # save data to hdf5
+                                    outdata[:jldsp, det] = outdata_det
+                                    # free memory
+                                    GC.gc()
+                                    # count number of detectors processed and Successful
+                                    n_detectors += 1
+                                end
+                            end
+                        end
+
+                        # loop over detectors
+                        @showprogress desc="Filekey PMTS: $fk" output=stdout enabled=(stdout isa Base.TTY) for chinfo_det in chinfo_pmts
+
+                                ch = chinfo_det.channel
+                                det = chinfo_det.detector
+            
+                                # check if detector can be processed
+                                if "$det" in processed_detectors && !reprocess
+                                    @info "Detector $det ($ch) already processed, skip"
+                                    n_detectors += 1
+                                    continue
+                                end
+            
+                                @debug "Processing detector $det ($ch)"
+                                @timeit dsp_timer "DSP $det" begin
+                                    # get metadata
+                                    dsp_meta_det = merge(dsp_meta_pmt.default, get(dsp_meta_pmt, det, PropDict()))
+                                    # process detector
+                                    outdata_det = nothing
+                                    try
+                                        raw_data_det = read_ldata(l200, DataTier(:raw), fk, det; ignore_missing=true)
+                                        if isnothing(raw_data_det)
+                                            @warn "No raw data found for PMT detector $det ($ch) in $fk, skip"
+                                            n_detectors += 1
+                                            continue
+                                        end
+                                        outdata_det = dsp_pmts(raw_data_det, dsp_meta_det)
+                                    catch e
+                                        if e isa TaskFailedException
+                                            e = e.task.exception
+                                        end
+                                        @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
+                                        push!(failed_detectors, det)
+                                        continue
+                                    end
+                                    # save data to hdf5
+                                    outdata[:jldsp, det] = outdata_det
+                                    # free memory
+                                    GC.gc()
+                                    # count number of detectors processed and Successful
+                                    n_detectors += 1
+                                    # flush streams
+                                    flush(stdout)
+                                    flush(stderr)
+                                end
+                        end
+
+                        # loop over detectors
+                        @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_det in chinfo_sipm
+
+                            ch = chinfo_det.channel
+                            det = chinfo_det.detector
+        
+                            # check if detector can be processed
+                            if !haskey(pars_sipm, det)
+                                @warn "No thresholds for detector $det, skip detector $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+                            if "$det" in processed_detectors && !reprocess
+                                @info "Detector $det ($ch) already processed, skip"
+                                n_detectors += 1
+                                continue
+                            end
+        
+                            @debug "Processing detector $det ($ch)"
+                            @timeit dsp_timer "DSP $det" begin
+                                # get metadata
+                                dsp_meta_det = merge(dsp_meta_sipm.default, get(dsp_meta_sipm, det, PropDict()))
+                                # process detector
+                                outdata_det = nothing
+                                try
+                                    raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                    outdata_det = dsp_sipm_compressed(raw_data_det, dsp_meta_det, pars_sipm[det])
+                                catch e
+                                    if e isa TaskFailedException
+                                        e = e.task.exception
+                                    end
+                                    @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
+                                    push!(failed_detectors, det)
+                                    continue
+                                end
+                                # save data to hdf5
+                                outdata[:jldsp, det] = outdata_det
+                                # free memory
+                                GC.gc()
+                                # count number of detectors processed and Successful
+                                n_detectors += 1
+                                # flush streams
+                                flush(stdout)
+                                flush(stderr)
+                            end
+                        end
+
+                        # loop over detectors
+                        @showprogress desc="Filekey HPGe: $fk" output=stdout for chinfo_det in chinfo
+
+                            ch = chinfo_det.channel
+                            det = chinfo_det.detector
+
+                            dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
+                            dsp_config_det = DSPConfig(dsp_config_pd_det)
+                            @debug "Loaded DSP config: $(lstring(dsp_config_det))"
+
+                            # check if detector can be processed
+                            if "$det" in processed_detectors && !reprocess
+                                @info "Detector $det ($ch) already processed, skip"
+                                n_detectors += 1
+                                continue
+                            end
+
+                            # check for decay time
+                            if !haskey(pars_tau, det)
+                                @warn "No decay time for detector $det, skip detector $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+                            # check if detector has values for RT and FT for different filters
+                            if !haskey(pars_fltoptimization, det)
+                                @warn "No optimization parameters for detector $det, skip detector $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+
+                            # check if detector has all required flt opt pars
+                            if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det.required_fltopt)))
+                                @warn "Not all required energy filter optimization parameters for detector $det, skip detector $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+
+                            # check if detector has all required aoe opt pars
+                            if chinfo_det.usability == :on && chinfo_det.low_aoe_status in [:valid, :present] && !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det.required_aoeopt)))
+                                @warn "Not all required A/E optimization parameters for detector $det, skip detector $ch"
+                                push!(failed_detectors, det)
+                                continue
+                            end
+
+                            @debug "Processing detector $det ($ch)"
+                            @timeit dsp_timer "DSP $det" begin
+                                # process data
+                                outdata_det = nothing
+                                try
+                                    raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
+                                    outdata_det = dsp_icpc_compressed(raw_data_det, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc)
+                                catch e
+                                    if e isa TaskFailedException
+                                        e = e.task.exception
+                                    end
+                                    @error "Error processing detector $det ($ch) in $(fk): $(truncate_error(e))"
+                                    push!(failed_detectors, det)
+                                    continue
+                                end
+                                # save data to hdf5
+                                outdata[:jldsp, det] = outdata_det
+                                # free memory
+                                GC.gc()
+                                # count number of detectors processed and Successful
+                                n_detectors += 1
+                                # flush streams
+                                flush(stdout)
+                                flush(stderr)
+                            end
+                        end
+                    end
+                end
+                @info "Finished processing file: $(basename(rawfilename))"
+        end
+        if n_detectors == 0
+            @warn "No detectors processed in $(basename(rawfilename))"
+        end
+
+        # create total timer by summing over memory usage and time
+        total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(dsp_timer)))
+        total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
+        
+        # create log
+        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo)+length(get(dsp_config_pd, :additional_detectors, []))+length(chinfo_sipm)+length(chinfo_pmts))", string.(failed_detectors), total_time, total_allocated, ""))
+
+        return (timer = dsp_timer, log = log_fk, processed = true)
+    end
+
+    # get start time
+    start_time = now()
+
+    # execute in parallel
+    result_dsp = parallel(filekey_dsp, filekeys, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_dsp_phy")
+    
+    @info "Finished DSP for period $period and run $run"
+
+    report = lreport()
+    lreport!(report, "# Main Log")
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_dsp)]))
+    lreport!(report, "Date of processing: $(utc_timestamp())")
+    lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
+    lreport!(report, dsp_cal_log_text)
+    lreport!(report, "# Metadata")
+    lreport!(report, create_metadatatbl(filekey))
+    lreport!(report, "# Results")
+    lreport!(report, create_logtbl(result_dsp))
+    lreport!(report, "# Total Timing")
+    lreport!(report, "```")
+    lreport!(report, "$(get_totalTimer(result_dsp))")
+    lreport!(report, "```")
+
+    @info "Write log report"
+    writelreport(get_rreportfilename(l200, filekey, :dsp_phy), report)
+    @info report
+
+    # flush stdout
+    flush(stdout)
+end
+
+register_processor!(process_dsp_phy)

@@ -18,13 +18,25 @@ DocMeta.setdocmeta!(
 makedocs(
     sitename = "Juleana",
     modules = [Juleana],
+    checkdocs = :exports,
     format = Documenter.HTML(
         prettyurls = !("local" in ARGS),
         canonical = "https://legend-exp.github.io/Juleana.jl/stable/"
     ),
     pages = [
         "Home" => "index.md",
-        "API" => "api.md",
+        "Running the dataflow" => "running.md",
+        "Configuration" => "configuration.md",
+        "Processors" => [
+            "Overview" => "processors.md",
+            "HPGe calibration" => "processors_hpge.md",
+            "Pulse shape discrimination" => "processors_psd.md",
+            "SiPMs, events and stability" => "processors_phy.md",
+        ],
+        "API" => [
+            "Dataflow" => "api.md",
+            "Terminal interface" => "api_tui.md",
+        ],
         "LICENSE" => "LICENSE.md"
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
