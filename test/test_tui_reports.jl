@@ -116,6 +116,10 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
         @test find_text(tb, "ok 1  warn 0  fail 2  miss 1") !== nothing
         @test find_text(tb, "ok 1  warn 1  fail 0  miss 0") !== nothing
         @test find_text(tb, "partition") !== nothing && find_text(tb, "run") !== nothing
+        # the category follows the level, in the color of its tag on the Setup page
+        @test find_text(tb, "run        cal  ok 1") !== nothing
+        pos = locate_text(tb, "cal  ok")
+        @test style_at(tb, pos.x, pos.y).fg == Tachikoma.tstyle(:primary).fg
         # the groups with failures are unfolded, the group without is not
         @test find_text(tb, "▾ energy_calibration") !== nothing
         @test find_text(tb, "▸ dsp") !== nothing

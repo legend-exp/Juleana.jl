@@ -6,6 +6,8 @@ const REPORT_ICONS = (ok = "✓", warning = "!", failed = "✗", missing = "–"
 
 # Width of the level column of a group row: `partition`.
 const REPORT_LEVEL_WIDTH = 9
+# Width of the category column of a group row: `cal` or `phy`.
+const REPORT_CATEGORY_WIDTH = 3
 
 # Rows scrolled by one step of the mouse wheel in the failures pane.
 const REPORT_WHEEL_LINES = 3
@@ -508,6 +510,7 @@ function report_group_spans(g, name_width, unfolded, with_missing)
     spans = [
         ((unfolded ? "▾ " : "▸ ") * rpad(clip_text(g.name, name_width), name_width) * " ", Tachikoma.tstyle(:primary, bold = true)),
         (rpad(string(g.level), REPORT_LEVEL_WIDTH) * "  ", Tachikoma.tstyle(:text_dim)),
+        (rpad(g.category, REPORT_CATEGORY_WIDTH) * "  ", something(setup_tag_style(g.category), Tachikoma.tstyle(:text_dim))),
         ("ok $(c.ok)", Tachikoma.tstyle(REPORT_COLORS.ok)),
         ("  warn $(c.warning)", Tachikoma.tstyle(REPORT_COLORS.warning)),
         ("  fail $(c.failed)", Tachikoma.tstyle(REPORT_COLORS.failed)),
@@ -566,7 +569,7 @@ function render_report_list(page::ReportsPage, area, buf)
     idx < page.top && (page.top = idx)
     idx > page.top + height - 1 && (page.top = idx - height + 1)
 
-    name_width = clamp(report_columns(page).name, 1, max(8, inner.width - 4 - REPORT_LEVEL_WIDTH - report_columns(page).counts))
+    name_width = clamp(report_columns(page).name, 1, max(8, inner.width - 4 - REPORT_LEVEL_WIDTH - 2 - REPORT_CATEGORY_WIDTH - report_columns(page).counts))
     label_width = clamp(maximum((textwidth(report_label(r)) for g in page.groups for r in g.reports); init = 1), 1, max(1, inner.width ÷ 3))
     highlight = Tachikoma.tstyle(:border)
     for r in 0:(height - 1)
@@ -613,7 +616,7 @@ function render_failures(page::ReportsPage, area, buf)
     page.fail_height, page.fail_lines = 1, 0
     (area.width < 3 || area.height < 3) && return nothing
     g = page.loaded && isnothing(page.error) ? cursor_group(page) : nothing
-    title = isnothing(g) ? "Failures" : "Failures: " * g.name
+    title = isnothing(g) ? "Failures" : "Failures: $(g.name) $(g.level) $(g.category)"
     inner = Tachikoma.render(pane_block(clip_text(title, max(0, area.width - 6)), page.focus == 2), area, buf)
     isnothing(g) && return nothing
     if g.key != page.fail_group
@@ -646,8 +649,8 @@ end
     Juleana.render_reports(page::ReportsPage, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the Reports page into `area` of `buf`. The left block, about 45% of the width, lists the
-reports grouped by processor: a group row shows the fold arrow, the name, the level and the
-number of reports that are ok, have warnings, failed and (for the current run) are missing; the
+reports grouped by processor: a group row shows the fold arrow, the name, the level, the
+category and the number of reports that are ok, have warnings, failed and (for the current run) are missing; the
 rows of an unfolded group show the period and run, the state and the processing date in UTC. The
 right block shows the failures of the processor under the cursor, per detector the runs it
 failed in and its distinct errors. The block with the focus has a heavy border. While a read is
@@ -665,7 +668,7 @@ function render_reports(page::ReportsPage, area::Tachikoma.Rect, buf::Tachikoma.
     left_width = round(Int, 0.45 * area.width)
     if page.loaded && isnothing(page.error) && !isempty(page.groups)
         cols = report_columns(page)
-        left_width = clamp(2 + 2 + cols.name + 1 + REPORT_LEVEL_WIDTH + 2 + cols.counts + 2, left_width, round(Int, 0.6 * area.width))
+        left_width = clamp(2 + 2 + cols.name + 1 + REPORT_LEVEL_WIDTH + 2 + REPORT_CATEGORY_WIDTH + 2 + cols.counts + 2, left_width, round(Int, 0.6 * area.width))
     end
     render_report_list(page, Tachikoma.Rect(area.x, area.y, left_width, area.height), buf)
     render_failures(page, Tachikoma.Rect(area.x + left_width, area.y, area.width - left_width, area.height), buf)
