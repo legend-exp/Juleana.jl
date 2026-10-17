@@ -43,6 +43,7 @@ const HELP_KEYS = (
         ("C", "cancel all allocations (asks; y confirms)"),
         ("p", "postpone the cancel of idle allocations"),
         ("r", "read the overview again"),
+        ("o", "edit the SLURM options: partition, time, nodes, workers, threads, memory"),
         ("e", "edit the start script (Ctrl-S saves, Esc closes)"),
         ("Mouse", "click a row, wheel scrolls the output"),
     ),

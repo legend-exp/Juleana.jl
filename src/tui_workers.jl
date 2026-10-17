@@ -18,7 +18,8 @@ const WORKERS_OUTPUT_LINE = r"^\s*From worker (\d+):\t(.*)$"
 State of the Workers page of the terminal user interface: the latest overview of the worker
 allocations, the workers and SLURM as [`Juleana.workers_overview`](@ref) returns it, the
 focused pane, the selected allocation and worker, the scroll positions of the output panes,
-a pending confirmation, the start script editor and the requests for reading the overview.
+a pending confirmation, the start script editor, the form of the SLURM options (see
+[`Juleana.SlurmForm`](@ref)) and the requests for reading the overview.
 Keys are handled by [`Juleana.workers_key!`](@ref) and [`Juleana.workers_mouse!`](@ref), the
 page is drawn by [`Juleana.render_workers`](@ref).
 
@@ -51,6 +52,7 @@ mutable struct WorkersPage
     confirm::Union{Nothing,Symbol}
     confirm_id::Int
     editor::Union{Nothing,Tachikoma.TextArea}
+    form::Union{Nothing,SlurmForm}
     # message shown in place of the editor
     notice::Union{Nothing,String}
     const requests::Vector{Any}
@@ -61,7 +63,7 @@ mutable struct WorkersPage
     worker_out::Tachikoma.Rect
 end
 
-WorkersPage() = WorkersPage(nothing, nothing, false, -Inf, 1, :workers, nothing, nothing, 1, 1, 1, 0, 0, nothing, 0, nothing, nothing, Any[],
+WorkersPage() = WorkersPage(nothing, nothing, false, -Inf, 1, :workers, nothing, nothing, 1, 1, 1, 0, 0, nothing, 0, nothing, nothing, nothing, Any[],
     Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 
 """
@@ -211,10 +213,10 @@ function open_script_editor!(page::WorkersPage)
 end
 
 """
-    Juleana.workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send)::Bool
+    Juleana.workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = nothing)::Bool
 
-Apply the key event `evt` to `page`. `send(cmd)` queues the controller command `cmd`. Return
-`true` if the key was used and `false` otherwise.
+Apply the key event `evt` to `page`. `send(cmd)` queues the controller command `cmd` and `snap`
+is the latest controller snapshot. Return `true` if the key was used and `false` otherwise.
 
   - Tab and Shift-Tab switch between the allocations and the workers or SLURM pane.
   - Up and Down move the selection in the focused list; over the SLURM text they scroll it.
@@ -229,12 +231,18 @@ Apply the key event `evt` to `page`. `send(cmd)` queues the controller command `
   - `e` opens the start script in a full-page editor, or shows why there is none. In the
     editor Ctrl-S sends [`EditStartScript`](@ref) with the text and closes it, Escape closes
     it without saving, and every other key edits the text. A shown message closes with any key.
-  - Other keys, such as `1` to `7` and `q`, are not used while no editor, message or question is open.
+  - `o` opens the form of the SLURM options, such as the time limit and the number of nodes,
+    if `snap` has the run mode settings; [`Juleana.slurm_form_key!`](@ref) handles the keys
+    while it is open.
+  - Other keys, such as `1` to `7` and `q`, are not used while no editor, form, message or question is open.
 """
-function workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send)::Bool
-    modal = !isnothing(page.editor) || !isnothing(page.notice) || !isnothing(page.confirm)
+function workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = nothing)::Bool
+    modal = !isnothing(page.editor) || !isnothing(page.form) || !isnothing(page.notice) || !isnothing(page.confirm)
     evt.action == Tachikoma.key_release && return modal
-    if !isnothing(page.editor)
+    if !isnothing(page.form)
+        slurm_form_key!(page.form, evt, snap, send) === :close && (page.form = nothing)
+        return true
+    elseif !isnothing(page.editor)
         if evt.key == :escape
             page.editor = nothing
         elseif evt.key == :ctrl && evt.char == 's'
@@ -283,6 +291,9 @@ function workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send)::Bool
         workers_stale!(page)
     elseif key == :char && evt.char == 'e'
         open_script_editor!(page)
+    elseif key == :char && evt.char == 'o'
+        (isnothing(snap) || isnothing(snap.runmode_settings)) && return false
+        page.form = SlurmForm()
     else
         return false
     end
@@ -298,7 +309,7 @@ text) under the pointer by three lines. The mouse does nothing while the editor,
 question is open. Return `true` if the event was used.
 """
 function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
-    (!isnothing(page.editor) || !isnothing(page.notice) || !isnothing(page.confirm)) && return false
+    (!isnothing(page.editor) || !isnothing(page.form) || !isnothing(page.notice) || !isnothing(page.confirm)) && return false
     evt.action == Tachikoma.mouse_press || return false
     if evt.button == Tachikoma.mouse_left
         if Base.contains(page.alloc_list, evt.x, evt.y)
@@ -448,7 +459,8 @@ below. If the overview has SLURM output, the right pane can show it instead (`sq
 `sinfo -t idle`) over the whole column. The focused pane has the heavy border.
 
 While the start script is edited the editor fills the whole area. A message about the
-start script and the question before a cancel are drawn over the page.
+start script, the form of the SLURM options and the question before a cancel are drawn
+over the page.
 """
 function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
         at::DateTime = now(UTC))
@@ -491,7 +503,7 @@ function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.
         for (r, line) in enumerate(text[page.slurm_top:min(end, page.slurm_top + inner.height - 1)])
             Tachikoma.set_string!(buf, inner.x, inner.y + r - 1, replace(line, '\t' => " "), Tachikoma.tstyle(:text); max_x = Tachikoma.right(inner))
         end
-        return workers_render_modals(page, area, buf)
+        return workers_render_modals(page, snap, area, buf)
     end
     wtop, wbottom = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Percent(40), Tachikoma.Fill()]), right)
     inner = Tachikoma.render(pane_block(tab_title, page.focus == 2), wtop, buf)
@@ -510,12 +522,15 @@ function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.
     title = isnothing(worker) ? "Output of the worker" : "Output of worker $(worker.pid)"
     lines = isnothing(worker) ? Tuple{String,Tachikoma.Style}[] : workers_output_lines(entries, worker.pid)
     page.worker_back, page.worker_out = workers_draw_output!(buf, wbottom, title, lines, page.worker_back, page.focus == 2)
-    return workers_render_modals(page, area, buf)
+    return workers_render_modals(page, snap, area, buf)
 end
 
-# Draw the message about the start script and the question before a cancel over `area`.
-function workers_render_modals(page::WorkersPage, area, buf)
-    if !isnothing(page.notice)
+# Draw the form of the SLURM options, the message about the start script or the question
+# before a cancel over `area`.
+function workers_render_modals(page::WorkersPage, snap, area, buf)
+    if !isnothing(page.form)
+        render_slurm_form(page.form, snap, area, buf)
+    elseif !isnothing(page.notice)
         Tachikoma.render(Tachikoma.Modal(; title = "Start script", message = page.notice * "\n\nany key: close",
             confirm_label = "", cancel_label = ""), area, buf)
     elseif !isnothing(page.confirm)

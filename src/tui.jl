@@ -40,8 +40,9 @@ const REPORTS_OPEN_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("Esc", "close"))
 const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"), ("a", "all/selected runs"))
 const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
 const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"), ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
-    ("e", "script"), ("r", "reload"))
+    ("o", "options"), ("e", "script"), ("r", "reload"))
 const WORKERS_EDIT_HINTS = (("Ctrl-S", "save"), ("Esc", "close"))
+const WORKERS_FORM_HINTS = (("↑↓", "option"), ("Enter", "edit/set"), ("Esc", "close"))
 const PRODUCTION_HINTS = (("↑↓ Tab", "field"), ("Space", "toggle"), ("Ctrl-N", "add row"), ("Ctrl-D", "remove row"),
     ("Ctrl-S", "create"), ("Esc", "close"))
 const PRODUCTION_DONE_HINTS = (("any key", "continue"),)
@@ -467,7 +468,7 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
         return nothing
     end
     m.page == 2 && !ctrl_c && graph_key!(m.graph_page, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
-    m.page == 3 && !ctrl_c && workers_key!(m.workers_page, evt, cmd -> send_command!(m, cmd)) && return nothing
+    m.page == 3 && !ctrl_c && workers_key!(m.workers_page, evt, cmd -> send_command!(m, cmd); m.snap) && return nothing
     if m.page == 4 && !ctrl_c
         open = m.progress_page.open
         used = progress_key!(m.progress_page, evt, m.progress)
@@ -684,12 +685,12 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     left, right = status_spans(m)
     Tachikoma.render(Tachikoma.StatusBar(; left, right), status_area, f.buffer)
     hints = (!isnothing(m.production) ? (m.production.phase === :done ? PRODUCTION_DONE_HINTS : m.production.phase === :creating ? () : PRODUCTION_HINTS) :
-        m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
+        m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (!isnothing(m.workers_page.form) ? WORKERS_FORM_HINTS : isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
         m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
         m.page == 7 ? (isnothing(m.history_page.viewer_path) ? HISTORY_HINTS : HISTORY_OPEN_HINTS) : ())
     spans = Tuple{String,Tachikoma.Style}[]
     # `q` closes an open report instead of quitting and is text in the editor
-    for (key, description) in (hints..., (!isnothing(m.production) || m.page == 3 && !isnothing(m.workers_page.editor) || m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
+    for (key, description) in (hints..., (!isnothing(m.production) || m.page == 3 && (!isnothing(m.workers_page.editor) || !isnothing(m.workers_page.form)) || m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
         push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
     end
     put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)

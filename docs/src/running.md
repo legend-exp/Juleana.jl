@@ -186,9 +186,14 @@ Detach with `Ctrl+b d` and attach again with `tmux attach -t juleana`.
 ### SLURM workers
 
 In the `slurm` run mode the start script submits SLURM jobs with the settings of
-`runmode_settings.slurm` in the config, such as the number of nodes. Edit the script on
-the Workers page to change them for the session, or edit the settings on the Setup page
-(`e` on the Run mode row), and start further allocations with `a`.
+`runmode_settings.slurm` in the config, such as the number of nodes. `o` on the Workers
+page opens a form of the common options: partition, time limit, nodes, workers per node
+(`--ntasks-per-node`), threads per worker (`--cpus-per-task`) and memory per node
+(`--mem`). `Enter` edits the option under the cursor, and an empty value removes it. The
+form changes the SLURM flags of the session, like the editor of the run mode settings on
+the Setup page (`e` on the Run mode row), and `w` on the Setup page writes them to the
+config. The script on the Workers page can also be edited directly. Start further
+allocations with `a`; running allocations keep their settings.
 
 ## Creating a data production
 
