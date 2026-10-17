@@ -29,6 +29,9 @@ The run mode, the worker settings, environment variables and logging:
    - **`julia_settings`**: options passed to the `julia` processes of the workers, such
      as `--heap-size-hint`; see the
      [`julia` command line documentation](https://docs.julialang.org/en/v1/manual/command-line-interface/).
+     Without `--threads` in `local.julia_settings`, each local worker gets the number of
+     CPU threads of the host divided by `local.n` (at least one), so the workers together
+     use each CPU thread once.
 4. **`env_variables`**: environment variables set for the dataflow and its workers,
    for example to select a data set. Set `JULIA_WORKER_TIMEOUT` for a stable connection
    of the ParallelProcessingTools workers; `JULIA_DEBUG` enables debug messages of the

@@ -222,8 +222,15 @@ const REPORT = """
             local_julia_settings = ["--heap-size-hint=2G"]))
         @test mode isa Juleana.ParallelProcessingTools.OnLocalhost
         @test mode.n == 3
-        @test mode.julia_flags == `--startup-file=no --heap-size-hint=2G`
+        @test mode.julia_flags == `--startup-file=no --threads=$(Juleana.local_worker_threads(3)) --heap-size-hint=2G`
         @test mode.env == env_variables
+        # a thread count in the settings replaces the one shared out
+        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3,
+            local_julia_settings = ["--threads=5"]))
+        @test mode.julia_flags == `--startup-file=no --threads=5`
+        @test Juleana.local_worker_threads(Sys.CPU_THREADS) == 1
+        @test Juleana.local_worker_threads(2 * Sys.CPU_THREADS) == 1
+        @test Juleana.local_worker_threads(1) == Sys.CPU_THREADS
         mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, runmode = :slurm,
             slurm_flags = ["--nodes=2"], env_variables))
         @test mode isa Juleana.ParallelProcessingTools.OnSlurm

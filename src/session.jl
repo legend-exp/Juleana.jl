@@ -87,10 +87,14 @@ end
 
 # ParallelProcessingTools run mode that starts the workers configured in `cfg`. Workers
 # start without the user's `startup.jl`, whose packages need not be in the workers'
-# environment; the configured Julia flags come after it and can override it.
+# environment; the configured Julia flags come after it and can override it. Local workers
+# without `--threads`/`-t` in their settings share the CPU threads of the host: otherwise
+# each would get the thread count of this process and the host would be oversubscribed.
 function runprocs_mode(cfg::ProcessingConfig)
     if cfg.runmode == :local
-        return OnLocalhost(n = cfg.local_n, julia_flags = `--startup-file=no $(cfg.local_julia_settings)`,
+        threads = any(f -> startswith(f, "--threads") || startswith(f, "-t"), cfg.local_julia_settings) ? `` :
+            `--threads=$(local_worker_threads(cfg.local_n))`
+        return OnLocalhost(n = cfg.local_n, julia_flags = `--startup-file=no $threads $(cfg.local_julia_settings)`,
             env = cfg.env_variables)
     elseif cfg.runmode == :slurm
         return OnSlurm(
@@ -104,6 +108,10 @@ function runprocs_mode(cfg::ProcessingConfig)
         throw(ArgumentError("unsupported runmode $(repr(cfg.runmode))"))
     end
 end
+
+# Julia threads of each of `n` local workers so that together they use every CPU thread
+# of the host once.
+local_worker_threads(n::Integer) = max(1, Sys.CPU_THREADS ÷ n)
 
 """
     init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
