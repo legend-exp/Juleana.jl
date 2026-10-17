@@ -190,7 +190,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                         end
 
                         # loop over detectors
-                        @showprogress desc="Filekey PMTS: $fk" output=stdout for chinfo_det in chinfo_pmts
+                        @showprogress desc="Filekey PMTS: $fk" output=stdout enabled=(stdout isa Base.TTY) for chinfo_det in chinfo_pmts
 
                                 ch = chinfo_det.channel
                                 det = chinfo_det.detector
