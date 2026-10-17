@@ -70,7 +70,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             end
             @test find_text(tb, "Loading the session") !== nothing
             @test find_text(tb, "W workers") !== nothing
-            @test find_text(tb, "starting") !== nothing
+            @test find_text(tb, "STARTING") !== nothing
             Tachikoma.update!(m, KeyEvent('3'))
             @test find_text(render_tui(m), "Allocations") !== nothing
         end
@@ -84,10 +84,10 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 [Juleana.TITLE_COLORS[mod1(i, 3)] for i in 1:7]
             @test find_text(tb, "1 Setup") !== nothing && find_text(tb, "4 Progress") !== nothing &&
                 find_text(tb, "5 Log") !== nothing && find_text(tb, "6 Reports") !== nothing
-            @test find_text(tb, "starting") !== nothing
+            @test find_text(tb, "STARTING") !== nothing
             @test refreshed!(m)
             tb = render_tui(m, 120, 32)
-            @test find_text(tb, "ready") !== nothing && find_text(tb, "workers 0") !== nothing
+            @test find_text(tb, "READY") !== nothing && find_text(tb, "workers 0") !== nothing
             keys_row = row_text(tb, 31)
             @test occursin("W workers", keys_row) && occursin("q quit", keys_row)
             Tachikoma.update!(m, KeyEvent('4'))
@@ -242,7 +242,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test settle!(() -> !isnothing(m.snap) && m.snap.state === :ready, m)
             @test loaded[]
             tb = render_tui(m)
-            @test find_text(tb, " ready") !== nothing
+            @test find_text(tb, "READY") !== nothing
             @test find_text(tb, "workers 0") !== nothing
             Tachikoma.cleanup!(m)
             @test m.timer.cancelled[]

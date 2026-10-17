@@ -692,7 +692,8 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     Tachikoma.render(tabs, tab_area, f.buffer)
     render_corner_logo(m, tab_area, f.buffer)
     if splash_active(m)
-        render_splash(m, body_area, f.buffer)
+        # the startup screen also takes the rows of the status panel
+        render_splash(m, Tachikoma.Rect(body_area.x, status_area.y, body_area.width, body_area.height + status_area.height), f.buffer)
     elseif !isnothing(m.production)
         render_production(m.production, m.snap, body_area, f.buffer; ticks = m.ticks)
     elseif m.page == 1
@@ -711,7 +712,7 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     elseif m.page == 7
         render_history(m.history_page, body_area, f.buffer)
     end
-    render_status(m, status_area, f.buffer)
+    splash_active(m) || render_status(m, status_area, f.buffer)
     hints = (!isnothing(m.production) ? (m.production.phase === :done ? PRODUCTION_DONE_HINTS : m.production.phase === :creating ? () : PRODUCTION_HINTS) :
         m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (!isnothing(m.workers_page.form) ? WORKERS_FORM_HINTS : isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
         m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :

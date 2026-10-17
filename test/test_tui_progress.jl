@@ -353,7 +353,7 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test !m.progress_page.follow
         Tachikoma.update!(m, KeyEvent('f'))
         @test m.progress_page.follow
-        wheel = MouseEvent(5, 10, Tachikoma.mouse_scroll_down, Tachikoma.mouse_press, false, false, false)
+        wheel = MouseEvent(5, 13, Tachikoma.mouse_scroll_down, Tachikoma.mouse_press, false, false, false)
         Tachikoma.update!(m, wheel)
         @test !m.progress_page.follow
         Tachikoma.update!(m, KeyEvent('1'))
