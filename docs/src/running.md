@@ -141,7 +141,8 @@ the visible page, `q` or `Ctrl+C` quits.
    on a step shows its messages.
 5. **Log**: the messages of the session, filtered by level (`l`) or text (`/`).
 6. **Reports**: the Markdown reports of the steps, in processing order, and the failures
-   they list; `Enter` opens a report. The first entry, if the file exists, is the
+   they list; `Enter` opens a report. How a report counts as ok, warn or fail is described
+   under [Report status](@ref). The first entry, if the file exists, is the
    processing history `history.md`.
 7. **History**: the processing state of every processor in the runs on disk. The columns are
    the periods and runs selected in the session; `a` switches to all periods and runs of the

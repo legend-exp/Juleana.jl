@@ -20,6 +20,32 @@ The processors are documented by topic:
 - [SiPMs, events and stability](processors_phy.md): SiPM optimization and calibration,
   event building, skims and stability plots.
 
+## Report status
+
+Every processor writes a Markdown report per run (or per period for a partition
+processor) with one row per detector, file or partition. A row has the status `Success`,
+`Warning` or `Failure`: `Failure` when the work for that item threw an error, `Warning`
+when the processor found a value it flags but could still use, such as a decay time
+outside 350–700 µs.
+
+[`master_status`](@ref) combines the rows into the `Processor Status` at the top of the
+report. A row with a `usability` column counts according to the usability of its
+detector, a row without one counts as `on`:
+
+| Row status | `on`    | `ac`    | `off`   |
+|:-----------|:--------|:--------|:--------|
+| Success    | –       | –       | –       |
+| Warning    | failure | warning | –       |
+| Failure    | failure | failure | warning |
+
+The processor status is `Failure` if any row counts as a failure, otherwise `Warning` if
+any row counts as a warning, otherwise `Success`. A report without rows is a `Failure`.
+
+The Reports page counts each report as `ok`, `warn` or `fail` from its `Processor Status`
+(see [`Juleana.read_report`](@ref)); a report without that table counts as `fail` if any
+row failed, `warn` if any row has a warning, and `ok` otherwise. For the current run, a
+report that does not exist is counted as `miss`.
+
 ## Adding a processor
 
 Each processor is a function in its own file in `src/processors/`, included by
