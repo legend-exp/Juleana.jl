@@ -37,6 +37,7 @@ Juleana.disk_state
 run_processing
 ProcessingStopped
 Juleana.wait_for
+Juleana.partition_periods
 ```
 
 ## Controller
@@ -123,6 +124,7 @@ processor_graph
 topological_order
 required_processors
 dependent_processors
+waited_processors
 layered_layout
 partition_steps
 check_processor_kwargs

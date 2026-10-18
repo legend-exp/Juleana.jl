@@ -41,8 +41,12 @@ setup, and which processors run with which keyword arguments (see
 order of their `rank`. A processor can depend on processors of the other level: a run
 processor that depends on a partition processor waits until that partition processor,
 and every partition processor ranked before it, has finished for the period, and the
-other way around for all runs of the period. Different runs, periods and the two levels
-run concurrently. [`run_processing`](@ref) implements this schedule.
+other way around for all runs of the period. A selected processor also waits for what
+the processors ranked before it wait for, even when those are not selected, so it waits
+for exactly what the [processor graph](@ref processor_graph) shows. A partition
+processor waits for its run dependencies in all selected periods that share a default
+partition with its period. Different runs, periods and the two levels run concurrently.
+[`run_processing`](@ref) implements this schedule.
 
 **Outputs.** Processors read and write the data tiers through `LegendDataManagement`:
 

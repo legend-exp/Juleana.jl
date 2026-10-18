@@ -83,6 +83,28 @@ using Test
             p_processors = Dict(:p1 => pspec(:p1, 1; deps = [:r1])))
     end
 
+    @testset "waited processors" begin
+        # r1 → r2 → r3 (run), p1 depends on r2, p2 has no dependencies, r4 depends on p2
+        specs = [rspec(:r1, 1), rspec(:r2, 2), rspec(:r3, 3), rspec(:r4, 4; deps = [:p2]),
+            pspec(:p1, 1; deps = [:r2]), pspec(:p2, 2)]
+        g = processor_graph(specs)
+        # all selected: each step waits for its direct predecessors
+        w = waited_processors(g, [:r1, :r2, :r3, :r4, :p1, :p2])
+        @test w[:r1] == Pair{Symbol,Bool}[]
+        @test w[:r2] == [:r1 => true]
+        @test w[:p1] == [:r1 => false, :r2 => false]
+        @test w[:p2] == [:p1 => false]
+        @test w[:r4] == [:p1 => false, :p2 => false, :r3 => true]
+        # p2 waits for what the unselected p1 before it waits for, in all runs
+        @test waited_processors(g, [:r1, :r2, :p2])[:p2] == [:r1 => false, :r2 => false]
+        # r4 waits for r2 through the unselected p1 and p2, so in all runs, and for r2
+        # in its own run through r3: the wait in all runs covers both
+        @test waited_processors(g, [:r2, :r4])[:r4] == [:r2 => false]
+        # through run steps only, the wait is for the same run
+        @test waited_processors(g, [:r1, :r3])[:r3] == [:r1 => true]
+        @test isempty(waited_processors(g, [:p2])[:p2])
+    end
+
     @testset "configs and snapshot entries" begin
         cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         g = processor_graph(cfg)

@@ -33,6 +33,23 @@ function wait_for(ready, what::AbstractString; abort::Threads.Atomic{Bool}, time
 end
 
 """
+    partition_periods(l200::LegendData, period::DataPeriod)
+
+Return the sorted periods that share a default `cal` or `phy` partition with `period`,
+`period` included. The default partitions in `datasets.cal_groupings` and
+`datasets.phy_groupings` are the widest: the partitions of single detectors lie within
+them.
+"""
+function partition_periods(l200::LegendData, period::DataPeriod)
+    periods = Set([period])
+    for category in (:cal, :phy), periods_runs in values(l200.metadata.datasets[Symbol("$(category)_groupings")].default)
+        partition = DataPeriod.(collect(keys(periods_runs)))
+        period in partition && union!(periods, partition)
+    end
+    return sort!(collect(periods))
+end
+
+"""
     run_processing(cfg::ProcessingConfig, l200, periods, run_steps, partition_steps,
         run_status, partition_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
@@ -55,13 +72,17 @@ run level, for each run), and steps that are not scheduled must start as `true`;
 otherwise a dependency on them waits until `dependency_timeout`. `run_status` lists the
 runs to process: every run of a period that has an entry in the first step's table.
 
-With `check_dependencies`:
-- a run step waits until each of its dependencies, and every partition step ranked
-  before them, has finished for its period;
-- a partition step waits until each of its dependencies, and every run step ranked
-  before them, has finished for all runs of its period;
-- a partition step whose processor returns `true` waits after processing until the
-  same step has finished for the previous period.
+With `check_dependencies`, a step waits for the steps that [`waited_processors`](@ref)
+returns for it in the [`processor_graph`](@ref) of `cfg`, with `run_steps` and
+`partition_steps` as the selected steps:
+- a run step for the same run, or, when the graph reaches it through a partition step,
+  for all runs of the periods given by [`partition_periods`](@ref) that are in `periods`;
+- a run step that a partition step waits for, for all runs of the periods given by
+  `partition_periods` that are in `periods`: a partition can contain runs of later
+  periods;
+- a partition step for the same period.
+A partition step whose processor returns `true` also waits after processing until the
+same step has finished for the previous period.
 
 A wait that exceeds `dependency_timeout` seconds throws. When any task throws, the other
 tasks stop at their next wait, and the exceptions are rethrown once all tasks have
@@ -93,11 +114,21 @@ function run_processing(
     isempty(unregistered) ||
         throw(ArgumentError("run_processing: unregistered processor(s) $(join(unregistered, ", "))"))
     abort = Threads.Atomic{Bool}(false)
-    # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
-    possible_steps = _sorted_steps(cfg.processors, false)
-    possible_p_steps = _sorted_steps(cfg.p_processors, false)
-    # A dependency on a step implies every step of the same level ranked before it.
-    ranked_upto(steps, deps) = unique(reduce(vcat, (steps[1:findfirst(==(d), steps)] for d in deps); init = Symbol[]))
+    waits = check_dependencies ? waited_processors(processor_graph(cfg), vcat(run_steps, partition_steps)) : nothing
+    span, span_lock = Dict{DataPeriod,Vector{DataPeriod}}(), ReentrantLock()
+    # periods whose runs a step of `period` waits for when it waits for all runs
+    span_periods(period) = @lock span_lock get!(() -> filter(in(periods), partition_periods(l200, period)), span, period)
+    # Wait until the steps that `process` waits for have finished, for `period` and, at run level, `run`.
+    function wait_for_steps(process, period, run = nothing)
+        isempty(waits[process]) && return nothing
+        done(step, same_run) = haskey(cfg.p_processors, step) ? partition_status[period][step] :
+            same_run ? run_status[period][step][run] : all(q -> all(values(run_status[q][step])), span_periods(period))
+        what = join((haskey(cfg.p_processors, step) || same_run ? "$step" : "$step of $(join(span_periods(period), ", "))"
+            for (step, same_run) in waits[process]), ", ")
+        wait_for("$what before $process of $(isnothing(run) ? period : "$period-$run")"; abort, stop, timeout = dependency_timeout) do
+            all(((step, same_run),) -> done(step, same_run), waits[process])
+        end
+    end
     overrides = isnothing(reprocess) ? (;) : (; reprocess)
     # every step lists the same runs of the period
     period_runs = Dict(period => sort!(collect(keys(last(first(run_status[period]))))) for period in periods if !isempty(run_steps))
@@ -126,12 +157,7 @@ function run_processing(
             stop[] && throw(ProcessingStopped())
             @info "$process"
             spec = cfg.p_processors[process]
-            if check_dependencies
-                deps = ranked_upto(possible_steps, spec.dependencies)
-                wait_for("run steps $(join(deps, ", ")) of $period before $process"; abort, stop, timeout = dependency_timeout) do
-                    all(dep -> all(values(run_status[period][dep])), deps)
-                end
-            end
+            check_dependencies && wait_for_steps(process, period)
             only_first_period = DataPeriod(period.no - 1) in periods
             kwargs = merge(NamedTuple(spec.kwargs), (; only_first_period), overrides)
             tracked((period, nothing, process)) do
@@ -163,12 +189,7 @@ function run_processing(
                 @warn "$period-$run-$(spec.category) is not in runinfo, skip $process"
                 mark((period, run, process), :skipped)
             else
-                if check_dependencies
-                    deps = ranked_upto(possible_p_steps, spec.dependencies)
-                    wait_for("partition steps $(join(deps, ", ")) of $period before $process"; abort, stop, timeout = dependency_timeout) do
-                        all(dep -> partition_status[period][dep], deps)
-                    end
-                end
+                check_dependencies && wait_for_steps(process, period, run)
                 tracked((period, run, process)) do
                     processors[process](cfg, l200, period, run; merge(NamedTuple(spec.kwargs), overrides)...)
                 end

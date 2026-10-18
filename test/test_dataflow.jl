@@ -4,9 +4,15 @@ using Juleana
 using Test
 using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun
 
-# Stands in for `LegendData`: every run is in the run info.
+# Stands in for `LegendData`: every run is in the run info, and every period is its own
+# partition.
 struct FakeData end
 LegendDataManagement.is_lrun(::FakeData, key) = true
+Juleana.partition_periods(::FakeData, period) = [period]
+# Periods 3 and 4 share a partition.
+struct SpanData end
+LegendDataManagement.is_lrun(::SpanData, key) = true
+Juleana.partition_periods(::SpanData, period) = period.no in (3, 4) ? DataPeriod.([3, 4]) : [period]
 # Runs that are in the run info but are no analysis runs.
 struct NoAnalysisData end
 LegendDataManagement.is_lrun(::NoAnalysisData, key) = true
@@ -192,6 +198,24 @@ const REPORT = """
         messages = [sprint(showerror, Juleana.original_exception(x)) for x in err.exceptions]
         @test any(contains("p03 failed"), messages)
         @test any(contains("another processing task failed"), messages)
+
+        # A partition step waits for the run dependencies of the unselected partition
+        # steps ranked before it, and for those runs in all periods of its partitions.
+        empty!(calls)
+        run_slow(cfg, l200, period, run; reprocess::Bool = false) = (sleep(period == p4 ? 0.6 : 0.2); record!(:run_a, period); nothing)
+        p_part_d(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = false) = (record!(:p_part_d, period); false)
+        cfg_d = ProcessingConfig(;
+            processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
+            p_processors = Dict(
+                :p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1, dependencies = [:run_a]),
+                :p_part_d => ProcessorSpec(; name = :p_part_d, level = :partition, category = :cal, rank = 2)))
+        run_status, partition_status = stub_status([p3, p4], runs, [:run_a], [:p_part_d])
+        @test_logs (:warn, "Waiting for run_a of p03, p04 before p_part_d of p03") match_mode = :any run_processing(cfg_d,
+            SpanData(), [p3, p4], [:run_a], [:p_part_d], run_status, partition_status;
+            processors = Dict{Symbol,Any}(:run_a => run_slow, :p_part_d => p_part_d), dependency_timeout = 60)
+        # both partition steps start only after all four runs
+        @test count(==(:run_a) ∘ first, calls[1:4]) == 4
+        @test sort(calls[5:6]) == [(:p_part_d, p3), (:p_part_d, p4)]
     end
 
     @testset "skipped runs" begin

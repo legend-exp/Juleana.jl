@@ -136,6 +136,45 @@ function required_processors(g::ProcessorGraph, names)
 end
 
 """
+    waited_processors(g::ProcessorGraph, selected)
+
+Return a `Dict` that maps each processor in `selected` to the selected processors it waits
+for: the nearest selected processors before it in `g`, reached through edges of any kind
+and through processors that are not selected. A processor that is not selected passes on
+what it waits for, so selecting a processor without the ones ranked before it keeps their
+requirements.
+
+Each entry is a vector of pairs `name => same_run`. `same_run` is `true` for a run-level
+processor that a run-level processor waits for through run-level processors only: the
+wait is for the same run. Otherwise a run-level processor is waited for in all runs, and
+a partition-level processor in the same period.
+"""
+function waited_processors(g::ProcessorGraph, selected)
+    index = Dict(n => i for (i, n) in pairs(g.names))
+    chosen = Set{Int}(index[Symbol(n)] for n in selected)
+    result = Dict{Symbol,Vector{Pair{Symbol,Bool}}}()
+    for v in chosen
+        waits = Dict{Int,Bool}()
+        # `same_run`: the path from the node to `v` has only run-level processors
+        seen = Set{Tuple{Int,Bool}}()
+        todo = [(v, g.levels[v] === :run)]
+        while !isempty(todo)
+            w, same_run = pop!(todo)
+            for u in Graphs.inneighbors(g.graph, w)
+                if u in chosen
+                    waits[u] = get(waits, u, true) && same_run && g.levels[u] === :run
+                else
+                    state = (u, same_run && g.levels[u] === :run)
+                    state in seen || (push!(seen, state); push!(todo, state))
+                end
+            end
+        end
+        result[g.names[v]] = sort!([g.names[u] => s for (u, s) in waits]; by = first)
+    end
+    return result
+end
+
+"""
     dependent_processors(g::ProcessorGraph, names)
 
 Return the set of the processors in `names` together with all processors that require

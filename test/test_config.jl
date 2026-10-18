@@ -121,6 +121,9 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         session.runs = nothing
         @test occursin("all runs", sprint(show, session))
 
+        # p02 is the only period of its default partitions
+        @test Juleana.partition_periods(l200, p2) == [p2]
+
         # `run_processing(session)` runs the session's steps and marks them as finished
         calls = Tuple{Symbol,DataPeriod,Any}[]
         calls_lock = ReentrantLock()

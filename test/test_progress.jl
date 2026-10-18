@@ -9,6 +9,7 @@ using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, 
 # Stand in for `LegendData`: every run is in the run info, or no run is an analysis run.
 struct ProgressData end
 LegendDataManagement.is_lrun(::ProgressData, key) = true
+Juleana.partition_periods(::ProgressData, period) = [period]
 struct ProgressNoAnalysisData end
 LegendDataManagement.is_lrun(::ProgressNoAnalysisData, key) = true
 LegendDataManagement.is_analysis_run(::ProgressNoAnalysisData, key) = false

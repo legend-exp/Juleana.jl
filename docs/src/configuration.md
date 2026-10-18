@@ -98,7 +98,10 @@ All fields are required:
 5. **`dependencies`**: processors of the other level that must finish first. A run
    processor that depends on a partition processor starts only when that processor and
    all partition processors ranked before it have finished for the period; a partition
-   processor that depends on a run processor waits for it in all runs of the period.
+   processor that depends on a run processor waits for it in all runs of the period and
+   of the other selected periods that share a default partition with it. A processor
+   also waits for the dependencies of the processors of its level ranked before it,
+   whether these are selected or not.
    Every dependency must name a configured processor of the other level, and processor
    names must be unique across `processors` and `p_processors`.
 
