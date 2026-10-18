@@ -82,6 +82,7 @@ session = Juleana.setup_session(["-c", "config/processing_config.yaml"])
 | `--runmode`, `--rm` | Run mode, `local` or `slurm`, replacing `config.runmode` |
 | `--ignore_config` | Use only the command line values of the flags above instead of the config |
 | `--log_path`, `-o` | Directory for log files |
+| `--theme`         | Color theme of the interface for this start, such as `night-owl` or `juleana`; see [The interface](@ref) |
 
 A flag given on the command line overrides the config value only when it is set; with
 `--ignore_config` an absent flag means `false`. Without `--log_path` the logs go to a
@@ -105,6 +106,12 @@ the visible page, `q` or `Ctrl+C` quits. The status panel under the tabs shows t
 of the session, the outcome of the last run, the workers and the countdown to the cancel
 of idle workers, with the newest warning or error on the right; once a processing run
 started, a bar below shows its progress and elapsed time. The bottom row lists the keys.
+
+`T` switches to the next color theme: `night-owl` (the default, after the btop theme of
+that name), `juleana` (the colors of the logo) and the themes of Tachikoma. The chosen
+theme is saved in `prefs/Juleana/theme` in the Julia depot and used at the next start;
+`--theme` selects one for a single start. The themes use the 256-color palette and leave
+the background of the terminal unchanged.
 
 1. **Setup**: select the periods, runs and processors, edit the keyword arguments of a
    processor (`e`) and the options (reprocess, check dependencies, analysis runs only and the

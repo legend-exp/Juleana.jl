@@ -23,6 +23,7 @@ Options (see `juleana --help` for the full text):
 - `--dataset`: name of the dataset in the metadata `datasets/runlists` that selects the runs;
   `"default"` when not given.
 - `--log_path`, `-o`: log directory; `""` when not given.
+- `--theme`: name of the color theme of the interface; `nothing` when not given.
 - Flags, `false` when not given: `--no-tui`, `--new-production`, `--reprocess`, `--only_runs` (`--or`),
   `--only_partitions` (`--op`), `--submit_jobs`, `--ignore_config`,
   `--analysis_runs_only`.
@@ -73,6 +74,9 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
         "--ignore_config"
             help = "ignore all settings and config and only take command line arguments"
             action = :store_true
+        "--theme"
+            help = "color theme of the terminal user interface, such as night-owl or juleana; default: the theme last chosen with T"
+            arg_type = String
         "--dataset"
             help = "dataset of the run lists in the metadata (datasets/runlists) that selects the runs"
             arg_type = String

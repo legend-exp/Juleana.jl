@@ -2,28 +2,6 @@
 
 const TUI_PAGES = ("Setup", "Graph", "Workers", "Progress", "Log", "Reports", "History")
 
-# Colors of the interface, from the colors of the logo (red `#cb3c33`, green `#389826`,
-# purple `#9558b2`): `border` and `secondary` muted purple, `border_focus`, `primary` and
-# `success` green, `accent` light purple for the cursor and running items, `title` salmon
-# red, `error` pure red so that the two reds differ; text and warning as in Tachikoma's
-# default theme.
-const JULEANA_THEME = Tachikoma.Theme(
-    "juleana",
-    Tachikoma.Color256(234),  # bg
-    Tachikoma.Color256(96),   # border
-    Tachikoma.Color256(77),   # border_focus
-    Tachikoma.Color256(252),  # text
-    Tachikoma.Color256(242),  # text_dim
-    Tachikoma.Color256(159),  # text_bright
-    Tachikoma.Color256(71),   # primary
-    Tachikoma.Color256(133),  # secondary
-    Tachikoma.Color256(140),  # accent
-    Tachikoma.Color256(77),   # success
-    Tachikoma.Color256(214),  # warning
-    Tachikoma.Color256(196),  # error
-    Tachikoma.Color256(167),   # title
-)
-
 # Colors of the letters of the logo title, in the order of the letters of `JuLeAna`.
 const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
     Tachikoma.ColorRGB(0x95, 0x58, 0xb2))
@@ -482,6 +460,8 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
         processing(m) ? (m.dialog = :quit) : (m.quit = true)
     elseif evt.key == :char && evt.char == '?'
         m.help = true
+    elseif evt.key == :char && evt.char == 'T'
+        next_theme!()
     elseif evt.key == :char && '1' <= evt.char <= '0' + n
         m.page = evt.char - '0'
     end
@@ -760,6 +740,7 @@ The log file records the thread setup (`Interface threads`) after the session ha
 """
 function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         loader = args -> setup_session(args; console = false, start_workers = false))
+    theme = tui_theme(something(get(parsed_args, "theme", nothing), load_theme_name()))
     messages = MessageBuffer()
     # The log file exists only once the session has loaded: log the thread setup then.
     default_threads, interactive_threads = Threads.nthreads(:default), Threads.nthreads(:interactive)
@@ -775,7 +756,7 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
     # a logger made before the interface writes to the terminal and would garble it
     previous = global_logger(messages)
     try
-        run_app(JuleanaTUI(ctrl, messages), messages)
+        run_app(JuleanaTUI(ctrl, messages), messages; theme)
     finally
         global_logger(previous)
         # allocations run in their own process groups and would outlive this process
@@ -784,10 +765,10 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
     return nothing
 end
 
-# Run the interface loop on `m` with the Juleana theme; the output of this process goes to `messages`.
+# Run the interface loop on `m` with `theme`; the output of this process goes to `messages`.
 # `kwargs` are passed on to `Tachikoma.app`.
-function run_app(m::JuleanaTUI, messages::MessageBuffer; kwargs...)
-    return with_theme(JULEANA_THEME) do
+function run_app(m::JuleanaTUI, messages::MessageBuffer; theme::Tachikoma.Theme = tui_theme(load_theme_name()), kwargs...)
+    return with_theme(theme) do
         Tachikoma.app(m; on_stdout = text -> append_output!(messages, :stdout, text),
             on_stderr = text -> append_output!(messages, :stderr, text), kwargs...)
     end

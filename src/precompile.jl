@@ -307,7 +307,7 @@
             write(input, "ab\e[A\e[B\e[C\e[D\t\e[Z\e[<0;10;3M\e[<0;10;3m\e[<64;60;20M")
             timers = [Timer(_ -> write(input, "\x03"), 0.7), Timer(_ -> (m.quit = true), 5)]
             try
-                run_app(m, m.messages; io = IOBuffer(), input, tty_size = (rows = 40, cols = 140))
+                run_app(m, m.messages; theme = NIGHT_OWL_THEME, io = IOBuffer(), input, tty_size = (rows = 40, cols = 140))
             finally
                 foreach(close, timers)
                 close(input)

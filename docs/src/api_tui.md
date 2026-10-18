@@ -5,6 +5,11 @@ The types and functions behind the pages of the terminal user interface that
 
 ```@docs
 Juleana.JuleanaTUI
+Juleana.TUI_THEMES
+Juleana.tui_theme
+Juleana.theme_preference_path
+Juleana.load_theme_name
+Juleana.next_theme!
 Juleana.send_command!
 Juleana.MessageBuffer
 Juleana.append_output!

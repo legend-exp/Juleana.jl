@@ -89,6 +89,7 @@ const HELP_KEYS = (
         ("1-7", "open a page"),
         ("q  Ctrl-C", "quit"),
         ("?", "show these keys"),
+        ("T", "next color theme, kept for the next start"),
         ("Ctrl-G", "toggle mouse reporting (off allows selecting text)"),
     ),
 )
