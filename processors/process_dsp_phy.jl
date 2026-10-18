@@ -105,7 +105,7 @@ function process_dsp_phy(processing_config::PropDict, l200::LegendData, period::
                 # open output file
                 outdata = lh5open(outfilename, "cw")
                 # get processed detectors
-                processed_detectors = haskey(outdata, :jldsp) ? keys(outdata[:jldsp]) : String[]
+                processed_detectors = haskey(outdata, "jldsp") ? string.(keys(outdata["jldsp"])) : String[]
 
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
