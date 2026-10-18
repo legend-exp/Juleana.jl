@@ -125,6 +125,26 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test Tachikoma.theme() === before
             @test_throws "boom" Juleana.with_theme(() -> error("boom"), Juleana.JULEANA_THEME)
             @test Tachikoma.theme() === before
+
+            @test first(Juleana.TUI_THEMES) === Juleana.NIGHT_OWL_THEME
+            @test allunique(t.name for t in Juleana.TUI_THEMES)
+            @test Juleana.tui_theme("juleana") === Juleana.JULEANA_THEME
+            @test_throws "unknown theme `nope`; the themes are night-owl, juleana" Juleana.tui_theme("nope")
+            pref = joinpath(mktempdir(), "prefs", "theme")
+            @test Juleana.load_theme_name(pref) == "night-owl"
+            # `T` moves on to the next theme and saves it
+            Juleana.with_theme(Juleana.NIGHT_OWL_THEME) do
+                @test Juleana.next_theme!(pref) === Juleana.JULEANA_THEME
+                @test Tachikoma.theme() === Juleana.JULEANA_THEME
+            end
+            @test Juleana.load_theme_name(pref) == "juleana"
+            Juleana.with_theme(last(Juleana.TUI_THEMES)) do
+                @test Juleana.next_theme!(pref) === Juleana.NIGHT_OWL_THEME
+            end
+            write(pref, "gone")
+            @test (@test_logs (:warn, r"saved theme `gone`") Juleana.load_theme_name(pref)) == "night-owl"
+            @test Juleana.parse_commandline(["-c", "x.yaml", "--theme", "juleana"])["theme"] == "juleana"
+            @test isnothing(Juleana.parse_commandline(["-c", "x.yaml"])["theme"])
         end
 
         @testset "page switching" begin
@@ -234,7 +254,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 return new_session(parsed_args)
             end
             ctrl = DataflowController(args; processors, loader = slow_loader)
-            m = Juleana.JuleanaTUI(ctrl)
+            # without the startup screen, which covers the status panel
+            m = Juleana.JuleanaTUI(ctrl; splash_seconds = 0.0)
             t0 = time()
             Juleana.start!(m)
             # start! returns before the session is loaded
@@ -251,7 +272,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "a failed load stays visible" begin
-            m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = _ -> error("no data config")))
+            m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = _ -> error("no data config")); splash_seconds = 0.0)
             with_logger(Logging.NullLogger()) do
                 Juleana.start!(m)
                 @test settle!(() -> !isnothing(m.snap) && m.snap.state === :idle && !isnothing(m.snap.last_error), m)
