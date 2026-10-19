@@ -131,7 +131,7 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         partition_stub(cfg, l200, period; kwargs...) = (lock(() -> push!(calls, (:partition, period, nothing)), calls_lock); false)
         Juleana.reset_dependency_graph!(session)
         run_processing(session; processors = Dict{Symbol,Any}(
-            :process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal => partition_stub), dependency_timeout = 60)
+            :process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal => partition_stub))
         @test sort(calls; by = string) == sort([[(:run, p2, r) for r in DataRun.(0:7)]; (:partition, p2, nothing)]; by = string)
         @test all(values(session.run_status[p2][:process_energy_calibration_cal]))
         @test session.partition_status[p2][:p_process_aoe_cut_cal]

@@ -1,9 +1,5 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
-# Kinds of edges of a `ProcessorGraph`, strongest first: a step of both an edge of a
-# stronger and of a weaker kind keeps the stronger one.
-const EDGE_KINDS = (:declared, :implied, :order)
-
 """
     ProcessorGraph
 
@@ -11,24 +7,15 @@ Dependency graph of the run-level and partition-level processors of a configurat
 returned by [`processor_graph`](@ref).
 
 Node `i` is the processor `names[i]` of level `levels[i]` (`:run` or `:partition`) and
-rank `ranks[i]`. An edge `u → v` of `graph` (a `Graphs.SimpleDiGraph`) means that `u`
-must finish before `v`, in a period, starts; `kinds[(u, v)]` says why:
-
-- `:declared`: `v` names `u` in its `dependencies`.
-- `:implied`: `v` names a processor of `u`'s level ranked at or after `u`, and
-  [`run_processing`](@ref) waits for all processors of a level up to the named one.
-- `:order`: `u` and `v` are processors of the same level with `v` next in rank order;
-  the steps of a level run one after another in this order.
-
-Edges of the kinds `:declared` and `:implied` are requirements: [`required_processors`](@ref)
-follows them. `:order` edges only order the processors that are selected together.
+rank `ranks[i]`. An edge `u → v` of `graph` (a `Graphs.SimpleDiGraph`) means that `v`
+names `u` in its `dependencies`: `u` must finish before `v`, in a period, starts.
+Processors that no path connects can run at the same time.
 """
 struct ProcessorGraph
     names::Vector{Symbol}
     levels::Vector{Symbol}
     ranks::Vector{Int}
     graph::Graphs.SimpleDiGraph{Int}
-    kinds::Dict{Tuple{Int,Int},Symbol}
 end
 
 """
@@ -40,8 +27,8 @@ Return the [`ProcessorGraph`](@ref) of all processors of `cfg`, enabled or not, 
 `:partition`), `rank` and `dependencies` like [`ProcessorSpec`](@ref).
 
 Throws an `ArgumentError` if a processor name occurs twice, a dependency names an unknown
-processor, or the edges form a cycle: processing would then wait forever. The error names
-the processors of the cycle.
+processor, or the dependencies form a cycle: processing would then wait forever. The
+error names the processors of the cycle.
 """
 processor_graph(cfg::ProcessingConfig) = processor_graph(vcat(collect(values(cfg.processors)), collect(values(cfg.p_processors))))
 
@@ -50,41 +37,18 @@ function processor_graph(specs)
     names = [Symbol(s.name) for s in specs]
     allunique(names) || throw(ArgumentError("processor graph: processor names must be unique, got $(names)"))
     index = Dict(n => i for (i, n) in pairs(names))
-    levels = [Symbol(s.level) for s in specs]
-    ranks = [Int(s.rank) for s in specs]
-    # processors of each level in run order, as `run_steps`/`partition_steps` sort them
-    order = Dict(level => sort!([i for i in eachindex(names) if levels[i] === level]; by = i -> (ranks[i], names[i]))
-        for level in unique(levels))
-
-    kinds = Dict{Tuple{Int,Int},Symbol}()
-    strength(kind) = findfirst(==(kind), EDGE_KINDS)
-    function add!(u, v, kind)
-        old = get(kinds, (u, v), kind)
-        kinds[(u, v)] = strength(old) < strength(kind) ? old : kind
-    end
+    graph = Graphs.SimpleDiGraph(length(names))
     for (v, s) in pairs(specs), dep in s.dependencies
         u = get(index, Symbol(dep), nothing)
         isnothing(u) && throw(ArgumentError("processor graph: `$(names[v])` depends on unknown processor `$dep`"))
-        add!(u, v, :declared)
-        steps = order[levels[u]]
-        for w in steps[firstindex(steps):findfirst(==(u), steps)]
-            w == u || add!(w, v, :implied)
-        end
-    end
-    for steps in values(order), k in firstindex(steps):lastindex(steps)-1
-        add!(steps[k], steps[k+1], :order)
-    end
-
-    graph = Graphs.SimpleDiGraph(length(names))
-    for (u, v) in keys(kinds)
         Graphs.add_edge!(graph, u, v)
     end
     if Graphs.is_cyclic(graph)
-        cycles = filter(c -> length(c) > 1, Graphs.strongly_connected_components(graph))
-        throw(ArgumentError("processor graph: the dependencies and ranks of these processors form a cycle, " *
+        cycles = filter(c -> length(c) > 1 || Graphs.has_edge(graph, c[1], c[1]), Graphs.strongly_connected_components(graph))
+        throw(ArgumentError("processor graph: the dependencies of these processors form a cycle, " *
             "so processing would wait forever: " * join((join(sort(names[c]), ", ") for c in cycles), "; ")))
     end
-    return ProcessorGraph(names, levels, ranks, graph, kinds)
+    return ProcessorGraph(names, [Symbol(s.level) for s in specs], [Int(s.rank) for s in specs], graph)
 end
 
 """
@@ -116,10 +80,8 @@ end
 """
     required_processors(g::ProcessorGraph, names)
 
-Return the set of the processors in `names` together with all processors they require,
-directly or through other required processors: the sources of `:declared` and
-`:implied` edges, followed transitively. Processors that are only ordered before them
-by rank are not added.
+Return the set of the processors in `names` together with all processors they depend on,
+directly or through other processors.
 """
 function required_processors(g::ProcessorGraph, names)
     index = Dict(n => i for (i, n) in pairs(g.names))
@@ -128,7 +90,6 @@ function required_processors(g::ProcessorGraph, names)
     while !isempty(todo)
         v = pop!(todo)
         for u in Graphs.inneighbors(g.graph, v)
-            g.kinds[(u, v)] === :order && continue
             g.names[u] in chosen || (push!(chosen, g.names[u]); push!(todo, u))
         end
     end
@@ -139,10 +100,9 @@ end
     waited_processors(g::ProcessorGraph, selected)
 
 Return a `Dict` that maps each processor in `selected` to the selected processors it waits
-for: the nearest selected processors before it in `g`, reached through edges of any kind
-and through processors that are not selected. A processor that is not selected passes on
-what it waits for, so selecting a processor without the ones ranked before it keeps their
-requirements.
+for: the nearest selected processors before it in `g`, reached through processors that
+are not selected. A processor that is not selected passes on what it waits for, so
+selecting a processor without the ones it depends on keeps their requirements.
 
 Each entry is a vector of pairs `name => same_run`. `same_run` is `true` for a run-level
 processor that a run-level processor waits for through run-level processors only: the
@@ -177,9 +137,8 @@ end
 """
     dependent_processors(g::ProcessorGraph, names)
 
-Return the set of the processors in `names` together with all processors that require
-one of them, directly or through other processors: the targets of `:declared` and
-`:implied` edges, followed transitively. This is the reverse of
+Return the set of the processors in `names` together with all processors that depend on
+one of them, directly or through other processors. This is the reverse of
 [`required_processors`](@ref): `b` is in `required_processors(g, [a])` exactly if `a` is
 in `dependent_processors(g, [b])`.
 """
@@ -190,7 +149,6 @@ function dependent_processors(g::ProcessorGraph, names)
     while !isempty(todo)
         u = pop!(todo)
         for v in Graphs.outneighbors(g.graph, u)
-            g.kinds[(u, v)] === :order && continue
             g.names[v] in chosen || (push!(chosen, g.names[v]); push!(todo, v))
         end
     end
@@ -198,30 +156,28 @@ function dependent_processors(g::ProcessorGraph, names)
 end
 
 """
-    layered_layout(g::ProcessorGraph; kinds = (:declared, :order))
+    layered_layout(g::ProcessorGraph)
 
 Place the processors of `g` in layers for drawing: return a vector with one `(layer,
 position)` pair per node of `g`, both starting at 1. The layer of a processor is one more
-than the highest layer of the processors it waits for through edges of the given
-`kinds`, so these edges always point to a higher layer. Within a layer, processors are
+than the highest layer of the processors it depends on, so every edge points to a higher
+layer. Within a layer, processors are
 ordered to reduce edge crossings: by the mean position of their neighbors in the layers
 above, then below, a few times over.
 """
-function layered_layout(g::ProcessorGraph; kinds = (:declared, :order))
-    all(in(EDGE_KINDS), kinds) || throw(ArgumentError("layered_layout: unknown edge kind in $(kinds), expected some of $(EDGE_KINDS)"))
-    use(u, v) = g.kinds[(u, v)] in kinds
+function layered_layout(g::ProcessorGraph)
     nodes = Graphs.vertices(g.graph)
     layer = ones(Int, length(nodes))
     for v in topological_nodes(g), u in Graphs.inneighbors(g.graph, v)
-        use(u, v) && (layer[v] = max(layer[v], layer[u] + 1))
+        layer[v] = max(layer[v], layer[u] + 1)
     end
     layers = [sort!([v for v in nodes if layer[v] == l]; by = v -> (g.levels[v] === :run ? 0 : 1, g.ranks[v], g.names[v]))
         for l in 1:maximum(layer; init = 0)]
     position = zeros(Int, length(nodes))
     renumber!(l) = foreach(((p, v),) -> position[v] = p, pairs(layers[l]))
     foreach(renumber!, eachindex(layers))
-    for _ in 1:4, (range, neighbors) in ((2:length(layers), v -> filter(u -> use(u, v), Graphs.inneighbors(g.graph, v))),
-            (length(layers)-1:-1:1, v -> filter(w -> use(v, w), Graphs.outneighbors(g.graph, v))))
+    for _ in 1:4, (range, neighbors) in ((2:length(layers), v -> Graphs.inneighbors(g.graph, v)),
+            (length(layers)-1:-1:1, v -> Graphs.outneighbors(g.graph, v)))
         for l in range
             barycenter(v) = (ns = neighbors(v); isempty(ns) ? position[v] : sum(position[ns]) / length(ns))
             sort!(layers[l]; by = barycenter)

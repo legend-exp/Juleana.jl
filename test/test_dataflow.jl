@@ -175,32 +175,32 @@ const REPORT = """
         # The partition step waits for its run dependency in all runs of the period.
         run_status, partition_status = stub_status([p3], runs, [:run_a], [:p_part_b])
         run_processing(cfg, FakeData(), [p3], [:run_a], [:p_part_b], run_status, partition_status;
-            processors = stubs, dependency_timeout = 60)
+            processors = stubs)
         @test calls == [(:run_a, p3), (:run_a, p3), (:p_part_b, p3)]
         @test all(values(run_status[p3][:run_a])) && partition_status[p3][:p_part_b]
 
         @test_throws "unregistered processor(s) p_part_b" run_processing(cfg, FakeData(), [p3], Symbol[], [:p_part_b],
             stub_status([p3], runs, [:run_a], [:p_part_b])...; processors = Dict{Symbol,Any}(:run_a => run_a))
 
-        # A processor returning `true` waits for the previous period; when that one throws,
-        # the waiting chain stops too and both errors are rethrown.
+        # A processor returning `true` finishes after the previous period; when that one
+        # throws, only its failure is reported.
         p_part_c(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = false) =
-            period == p3 ? error("p03 failed") : true
+            period == p3 ? (sleep(0.2); error("p03 failed")) : true
         cfg_c = ProcessingConfig(; processors = Dict{Symbol,ProcessorSpec}(),
             p_processors = Dict(:p_part_c => ProcessorSpec(; name = :p_part_c, level = :partition, category = :cal, rank = 1)))
+        store = ProgressStore()
         err = try
             run_processing(cfg_c, FakeData(), [p3, p4], Symbol[], [:p_part_c], stub_status([p3, p4], runs, Symbol[], [:p_part_c])...;
-                processors = Dict{Symbol,Any}(:p_part_c => p_part_c), dependency_timeout = 60)
+                processors = Dict{Symbol,Any}(:p_part_c => p_part_c), progress_store = store)
         catch e
             e
         end
         @test err isa CompositeException
-        messages = [sprint(showerror, Juleana.original_exception(x)) for x in err.exceptions]
-        @test any(contains("p03 failed"), messages)
-        @test any(contains("another processing task failed"), messages)
+        @test [sprint(showerror, Juleana.original_exception(x)) for x in err.exceptions] == ["p03 failed"]
+        @test Dict(e.period => e.state for e in progress(store).steps) == Dict(p3 => :failed, p4 => :cancelled)
 
         # A partition step waits for the run dependencies of the unselected partition
-        # steps ranked before it, and for those runs in all periods of its partitions.
+        # step before it, and for those runs in all periods of its partitions.
         empty!(calls)
         run_slow(cfg, l200, period, run; reprocess::Bool = false) = (sleep(period == p4 ? 0.6 : 0.2); record!(:run_a, period); nothing)
         p_part_d(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = false) = (record!(:p_part_d, period); false)
@@ -208,14 +208,53 @@ const REPORT = """
             processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
             p_processors = Dict(
                 :p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1, dependencies = [:run_a]),
-                :p_part_d => ProcessorSpec(; name = :p_part_d, level = :partition, category = :cal, rank = 2)))
-        run_status, partition_status = stub_status([p3, p4], runs, [:run_a], [:p_part_d])
-        @test_logs (:warn, "Waiting for run_a of p03, p04 before p_part_d of p03") match_mode = :any run_processing(cfg_d,
-            SpanData(), [p3, p4], [:run_a], [:p_part_d], run_status, partition_status;
-            processors = Dict{Symbol,Any}(:run_a => run_slow, :p_part_d => p_part_d), dependency_timeout = 60)
+                :p_part_d => ProcessorSpec(; name = :p_part_d, level = :partition, category = :cal, rank = 2, dependencies = [:p_part_b])))
+        run_processing(cfg_d, SpanData(), [p3, p4], [:run_a], [:p_part_d], stub_status([p3, p4], runs, [:run_a], [:p_part_d])...;
+            processors = Dict{Symbol,Any}(:run_a => run_slow, :p_part_d => p_part_d))
         # both partition steps start only after all four runs
         @test count(==(:run_a) ∘ first, calls[1:4]) == 4
         @test sort(calls[5:6]) == [(:p_part_d, p3), (:p_part_d, p4)]
+    end
+
+    @testset "parallel steps" begin
+        p3 = DataPeriod(3)
+        runs = DataRun.(1:2)
+        events = Tuple{Symbol,Symbol,DataRun}[]
+        events_lock = ReentrantLock()
+        log!(what, step, run) = lock(() -> push!(events, (what, step, run)), events_lock)
+        step(name) = (cfg, l200, period, run; reprocess::Bool = false) -> (log!(:start, name, run); sleep(0.3); log!(:end, name, run); nothing)
+        spec(name, rank, deps = Symbol[]) = ProcessorSpec(; name, level = :run, category = :cal, rank, dependencies = deps)
+        # a and b do not depend on each other; c depends on both
+        cfg = ProcessingConfig(; processors = Dict(:a => spec(:a, 2), :b => spec(:b, 1), :c => spec(:c, 3, [:a, :b])),
+            p_processors = Dict{Symbol,ProcessorSpec}())
+        stubs = Dict{Symbol,Any}(n => step(n) for n in (:a, :b, :c))
+        steps = [:b, :a, :c]
+        run_processing(cfg, FakeData(), [p3], steps, Symbol[], stub_status([p3], runs, steps, Symbol[])...; processors = stubs)
+        position(what, name, run) = findfirst(==((what, name, run)), events)
+        for r in runs
+            # a and b of a run overlap, c starts after both
+            @test position(:start, :a, r) < position(:end, :b, r) && position(:start, :b, r) < position(:end, :a, r)
+            @test position(:start, :c, r) > max(position(:end, :a, r), position(:end, :b, r))
+        end
+
+        # with one step at a time, the ready steps start by rank, then run
+        empty!(events)
+        run_processing(cfg, FakeData(), [p3], steps, Symbol[], stub_status([p3], runs, steps, Symbol[])...;
+            processors = stubs, max_parallel_steps = 1)
+        @test [(n, r) for (what, n, r) in events if what === :start] ==
+            [(:b, runs[1]), (:b, runs[2]), (:a, runs[1]), (:a, runs[2]), (:c, runs[1]), (:c, runs[2])]
+        @test_throws "max_parallel_steps must be zero (no limit) or positive" run_processing(cfg, FakeData(), [p3], steps, Symbol[],
+            stub_status([p3], runs, steps, Symbol[])...; processors = stubs, max_parallel_steps = -1)
+
+        # without dependency checks, a step still waits for its own level, but not for the other
+        empty!(events)
+        cfg_x = ProcessingConfig(; processors = Dict(:a => spec(:a, 1), :c => spec(:c, 2, [:a, :p])),
+            p_processors = Dict(:p => ProcessorSpec(; name = :p, level = :partition, category = :cal, rank = 1)))
+        p_stub(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = false) = (sleep(1.0); log!(:end, :p, runs[1]); false)
+        run_processing(cfg_x, FakeData(), [p3], [:a, :c], [:p], stub_status([p3], runs, [:a, :c], [:p])...;
+            processors = Dict{Symbol,Any}(:a => step(:a), :c => step(:c), :p => p_stub), check_dependencies = false)
+        @test position(:start, :c, runs[1]) > position(:end, :a, runs[1])
+        @test position(:start, :c, runs[1]) < position(:end, :p, runs[1])
     end
 
     @testset "skipped runs" begin

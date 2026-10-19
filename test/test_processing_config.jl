@@ -34,7 +34,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test shipped.log_path == ""
         spec = shipped.processors[:process_dsp_cal]
         @test spec.level === :run && spec.category === :cal && spec.rank == 5 && !spec.enabled
-        @test spec.dependencies == [:p_process_aoe_optimization_cal, :p_process_filter_optimization_cal, :p_process_decay_time_cal]
+        @test spec.dependencies == [:p_process_aoe_optimization_cal, :process_aoe_optimization_cal]
         @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true)
         @test shipped.p_processors[:p_process_energy_cal].level === :partition
         @test shipped.p_processors[:p_process_energy_cal].category === :cal
@@ -126,6 +126,37 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test isempty(run_steps(none)) && isempty(partition_steps(none))
     end
 
+    @testset "order of the processors" begin
+        edited(f) = (d = deepcopy(base); f(d); d)
+        # the shipped config without `processing.order` and without dependencies
+        plain = edited() do d
+            delete!(d["processing"], "order")
+            foreach(s -> s["dependencies"] = String[], vcat(collect(values(d["processors"])), collect(values(d["p_processors"]))))
+        end
+        # without `processing.order`, each processor also depends on the one before it in rank order
+        ranked = @test_logs (:warn, r"run in rank order") match_mode = :any ProcessingConfig(plain)
+        @test ranked.processors[:process_decay_time_cal].dependencies == [:process_peak_split_cal]
+        @test ranked.p_processors[:p_process_filter_optimization_cal].dependencies == [:p_process_decay_time_cal]
+        @test isempty(ranked.processors[:process_peak_split_cal].dependencies)
+        # with `order: dependencies` only the listed dependencies count
+        plain["processing"]["order"] = "dependencies"
+        declared = ProcessingConfig(plain)
+        @test isempty(declared.processors[:process_decay_time_cal].dependencies)
+        plain["processing"]["order"] = "rank"
+        deps(cfg) = Dict(n => s.dependencies for (n, s) in merge(cfg.processors, cfg.p_processors))
+        @test deps(ProcessingConfig(plain)) == deps(ranked)
+        @test_throws "`processing.order` must be \"rank\" or \"dependencies\", got \"name\"" ProcessingConfig(edited(d -> d["processing"]["order"] = "name"))
+
+        # equal ranks are ordered by name; a dependency on the predecessor is not repeated
+        spec(name, rank, deps = Symbol[]) = ProcessorSpec(; name, level = :run, category = :cal, rank, dependencies = deps)
+        chained = Juleana.rank_order_dependencies(Dict(:b => spec(:b, 1), :a => spec(:a, 1), :c => spec(:c, 2, [:b])))
+        @test [chained[n].dependencies for n in (:a, :b, :c)] == [Symbol[], [:a], [:b]]
+
+        @test declared.max_parallel_steps == 0
+        @test ProcessingConfig(edited(d -> d["processing"]["max_parallel_steps"] = 4)).max_parallel_steps == 4
+        @test_throws "`processing.max_parallel_steps` must be a $Int" ProcessingConfig(edited(d -> d["processing"]["max_parallel_steps"] = "4"))
+    end
+
     @testset "constructors" begin
         samefields(a, b) = all(f -> getfield(a, f) == getfield(b, f), fieldnames(typeof(a)))
 
@@ -154,7 +185,9 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "key `processors.x.dependencies` names unknown processor `missing`" ProcessingConfig(; processors = Dict(:x => orphan), p_processors = Dict{Symbol,ProcessorSpec}())
         first_run = ProcessorSpec(; name = :a, level = :run, category = :cal, rank = 1)
         second_run = ProcessorSpec(; name = :b, level = :run, category = :cal, rank = 2, dependencies = [:a])
-        @test_throws "key `processors.b.dependencies` names `a` of the same level; dependencies must name processors of the other level" ProcessingConfig(; processors = Dict(:a => first_run, :b => second_run), p_processors = Dict{Symbol,ProcessorSpec}())
+        # dependencies may name processors of the same level
+        @test ProcessingConfig(; processors = Dict(:a => first_run, :b => second_run), p_processors = Dict{Symbol,ProcessorSpec}()).processors[:b].dependencies == [:a]
+        @test_throws "`processing.max_parallel_steps` must be zero or positive" positional(max_parallel_steps = -1)
         idle = ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1, enabled = false)
         @test isempty(run_steps(ProcessingConfig(; processors = Dict(:x => idle), p_processors = Dict{Symbol,ProcessorSpec}())))
 

@@ -37,16 +37,15 @@ The [Processors](@ref) page lists all of them with their inputs and outputs.
 setup, and which processors run with which keyword arguments (see
 [Configuration](@ref)). It is loaded into a [`ProcessingConfig`](@ref).
 
-**Rank and dependencies.** Within one run or one partition the processors run in the
-order of their `rank`. A processor can depend on processors of the other level: a run
-processor that depends on a partition processor waits until that partition processor,
-and every partition processor ranked before it, has finished for the period, and the
-other way around for all runs of the period. A selected processor also waits for what
-the processors ranked before it wait for, even when those are not selected, so it waits
-for exactly what the [processor graph](@ref processor_graph) shows. A partition
-processor waits for its run dependencies in all selected periods that share a default
-partition with its period. Different runs, periods and the two levels run concurrently.
-[`run_processing`](@ref) implements this schedule.
+**Dependencies.** A processor lists the processors it needs in `dependencies`, of
+either level. A processor starts for a run or a period as soon as the processors it
+depends on have finished: for a run processor in the same run, for a partition processor
+in all runs of its period and of the other selected periods that share a default
+partition with it. Processors that do not depend on each other run at the same time, and
+so do different runs and periods. A selected processor also waits for what the
+processors it depends on wait for, even when those are not selected, so it waits for
+exactly what the [processor graph](@ref processor_graph) shows. Among processors that
+are ready, lower `rank`s start first. [`run_processing`](@ref) implements this schedule.
 
 **Outputs.** Processors read and write the data tiers through `LegendDataManagement`:
 

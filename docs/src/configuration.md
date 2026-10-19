@@ -65,6 +65,18 @@ of the dataset. The other keys are flags:
 2. **`only_runs`**: run only the run-level processors.
 3. **`only_partitions`**: run only the partition-level processors.
 
+Two keys are optional:
+
+- **`order`**: `"dependencies"` or `"rank"` (the default). With `"dependencies"` the
+  `dependencies` of the processors alone decide the order, and processors that do not
+  depend on each other run at the same time. With `"rank"` the processors of each level
+  run one after another in the order of `rank`, then name: when the config is loaded,
+  every processor gets a dependency on the processor before it, and a warning asks to
+  switch to `"dependencies"`.
+- **`max_parallel_steps`**: the maximum number of processor steps (one processor for
+  one run, or for one period at partition level) that run at the same time; `0`, the
+  default, sets no limit. The steps share the workers either way.
+
 ## `processors` and `p_processors`
 
 The run-level processors (`processors`) and partition-level processors (`p_processors`)
@@ -88,22 +100,22 @@ All fields are required:
 
 1. **`enabled`**: whether the processor runs.
 2. **`category`**: `"cal"` or `"phy"`, the data category the processor works on.
-3. **`rank`**: position in the processing order; processors run sorted by rank.
+3. **`rank`**: position in listings, and the tie rule of the scheduling: among steps
+   that are ready to start, lower ranks start first.
 4. **`kwargs`**: keyword arguments passed to the processor; the [Processors](@ref) page
    lists the keywords of each processor. Every enabled processor must accept all of its
    configured keywords, plus `reprocess` and, for partition processors,
    `only_first_period`, which the dataflow passes on its own. This is checked when the
    dataflow starts. The `--reprocess` command line flag sets `reprocess` to `true` for
    every processor.
-5. **`dependencies`**: processors of the other level that must finish first. A run
-   processor that depends on a partition processor starts only when that processor and
-   all partition processors ranked before it have finished for the period; a partition
-   processor that depends on a run processor waits for it in all runs of the period and
-   of the other selected periods that share a default partition with it. A processor
-   also waits for the dependencies of the processors of its level ranked before it,
-   whether these are selected or not.
-   Every dependency must name a configured processor of the other level, and processor
-   names must be unique across `processors` and `p_processors`.
+5. **`dependencies`**: processors of either level that must finish first. A run
+   processor waits for a run processor in the same run and for a partition processor in
+   its period. A partition processor waits for a run processor in all runs of its period
+   and of the other selected periods that share a default partition with it. A
+   processor that is not selected passes its dependencies on: a selected processor
+   waits for the selected processors that its unselected dependencies depend on.
+   Every dependency must name a configured processor, the dependencies must not form a
+   cycle, and processor names must be unique across `processors` and `p_processors`.
 
 A key or dependency that uses a former processor name from `Juleana.RENAMED_PROCESSORS`
 (for example `process_decay_time` for `process_decay_time_cal`) is read as the current

@@ -32,7 +32,7 @@ entry(name, level, rank; deps = Symbol[], enabled = true, category = :cal) =
     (; name, level, category, rank, enabled, dependencies = deps)
 
 # Run level r_a, r_b, r_c (needs p_x), r_off; partition level p_x (needs r_b), p_y
-# (needs r_a and r_b). Topological order: r_a r_b p_x r_c r_off p_y.
+# (needs r_a and r_b). Topological order: r_a r_b r_off p_x r_c p_y.
 function graph_snapshot(; run_steps = Symbol[], partition_steps = Symbol[])
     processors = [entry(:r_a, :run, 1), entry(:r_b, :run, 2), entry(:r_c, :run, 3; deps = [:p_x]),
         entry(:r_off, :run, 4; enabled = false), entry(:p_x, :partition, 1; deps = [:r_b], category = :phy),
@@ -40,7 +40,7 @@ function graph_snapshot(; run_steps = Symbol[], partition_steps = Symbol[])
     return (; processors, run_steps, partition_steps)
 end
 
-const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
+const GRAPH_ORDER = [:r_a, :r_b, :r_off, :p_x, :r_c, :p_y]
 
 @testset "Graph page" begin
     snap = graph_snapshot()
@@ -74,10 +74,10 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         rows = GRAPH_ORDER
         edges = Juleana.graph_edges(g, rows)
         row(n) = findfirst(==(n), rows)
-        # r_b -> p_x, r_b -> p_y, r_a -> p_y, p_x -> r_c; the implied r_a -> p_x is not drawn
+        # r_b -> p_x, r_b -> p_y, r_a -> p_y, p_x -> r_c
         @test edges == sort([(row(:r_b), row(:p_x)), (row(:r_b), row(:p_y)), (row(:r_a), row(:p_y)), (row(:p_x), row(:r_c))])
         track, ntracks = Juleana.assign_tracks(edges)
-        # r_a spans rows 1-6, r_b rows 2-6, p_x rows 3-4: all overlap
+        # r_a spans rows 1-6, r_b rows 2-6, p_x rows 4-5: all overlap
         @test track[row(:r_a)] != track[row(:r_b)] != track[row(:p_x)] != track[row(:r_a)]
         @test ntracks == 3
         # spans that do not overlap share a track
@@ -192,6 +192,17 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
 
         @test Juleana.last_run_state([:done, :done]) === :done
         @test Juleana.last_run_state([:done, :skipped]) === :done
+        # an edge inside a lane leaves the lane to its track and comes back with an arrow
+        lane_snap = (; processors = [entry(:r_a, :run, 1), entry(:r_b, :run, 2; deps = [:r_a]),
+            entry(:p_x, :partition, 1), entry(:p_y, :partition, 2; deps = [:p_x])], run_steps = Symbol[], partition_steps = Symbol[])
+        lane_g = processor_graph(lane_snap.processors)
+        lane_rows = topological_order(lane_g)
+        @test Juleana.graph_edges(lane_g, lane_rows) == sort([(findfirst(==(:r_a), lane_rows), findfirst(==(:r_b), lane_rows)),
+            (findfirst(==(:p_x), lane_rows), findfirst(==(:p_y), lane_rows))])
+        lane_tb = render_graph_page(Juleana.GraphPage(), lane_snap, nothing)
+        lane_text(n) = row_text(lane_tb, locate(lane_tb, string(n) * " ").y)
+        @test occursin("┐", lane_text(:r_a)) && occursin("◀", lane_text(:r_b))
+        @test occursin("┌", lane_text(:p_x)) && occursin("▶●", lane_text(:p_y))
         @test Juleana.last_run_state([:done, :waiting]) === nothing
         @test Juleana.last_run_state([:failed, :running]) === :running
         @test Juleana.last_run_state([:done, :failed, :waiting]) === :failed
@@ -208,12 +219,12 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         sel = graph_snapshot(; run_steps = [:r_a, :r_b, :r_c], partition_steps = [:p_x, :p_y])
         tb = render_graph_page(page, sel, nothing)
         style(n) = (p = locate(tb, string(n) * " "); style_at(tb, p.x, p.y))
-        # p_x requires r_b and r_a, and r_c requires p_x
+        # p_x requires r_b, and r_c requires p_x
         @test style(:p_x).fg == Tachikoma.tstyle(:accent).fg && style(:p_x).bold
-        @test style(:r_b).fg == Tachikoma.tstyle(:warning).fg && style(:r_a).fg == Tachikoma.tstyle(:warning).fg
+        @test style(:r_b).fg == Tachikoma.tstyle(:warning).fg && style(:r_a).fg == Tachikoma.tstyle(:text).fg
         @test style(:r_c).fg == Tachikoma.tstyle(:secondary).fg
         @test style(:r_off).fg == Tachikoma.tstyle(:text_dim).fg && style(:p_y).fg == Tachikoma.tstyle(:text).fg
-        @test locate(tb, "p_x: requires 2, required by 1  phy  rank 01") !== nothing
+        @test locate(tb, "p_x: requires 1, required by 1  phy  rank 01") !== nothing
         # the edge from r_b to p_x connects highlighted nodes: its arrow is yellow
         arrow = locate(tb, "▶●")
         @test style_at(tb, arrow.x, arrow.y).fg == Tachikoma.tstyle(:warning).fg
@@ -260,6 +271,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         graph_press(page, snap4, sent, ' ')
         @test sent[2].run_steps == [:r_a, :r_b] && sent[2].partition_steps == [:p_y]
         graph_press(page, snap4, sent, :down)
+        graph_press(page, snap4, sent, :down)
         graph_press(page, snap4, sent, ' ')
         @test page.cursor == :p_x && sent[3].run_steps == [:r_a] && sent[3].partition_steps == [:p_x, :p_y]
     end
@@ -269,7 +281,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         sent = []
         snap5 = graph_snapshot(; run_steps = [:r_c])
         @test graph_press(page, snap5, sent, 'd')
-        @test sent[1].run_steps == [:r_a, :r_b, :r_c] && sent[1].partition_steps == [:p_x]
+        @test sent[1].run_steps == [:r_b, :r_c] && sent[1].partition_steps == [:p_x]
         snap6 = graph_snapshot(; partition_steps = [:p_y])
         graph_press(page, snap6, sent, 'd')
         @test sent[2].run_steps == [:r_a, :r_b] && sent[2].partition_steps == [:p_y]
@@ -284,7 +296,7 @@ const GRAPH_ORDER = [:r_a, :r_b, :p_x, :r_c, :r_off, :p_y]
         @test Juleana.graph_mouse!(page, click(pos.x, pos.y), snap) && page.cursor == :p_y
         pos = locate(tb, "r_b ")
         @test Juleana.graph_mouse!(page, click(3, pos.y), snap) && page.cursor == :r_b
-        @test Juleana.graph_mouse!(page, wheel(Tachikoma.mouse_scroll_down), snap) && page.cursor == :p_x
+        @test Juleana.graph_mouse!(page, wheel(Tachikoma.mouse_scroll_down), snap) && page.cursor == :r_off
         @test Juleana.graph_mouse!(page, wheel(Tachikoma.mouse_scroll_up), snap) && page.cursor == :r_b
         # outside the rows and the block, and releases, do nothing
         @test !Juleana.graph_mouse!(page, click(3, 1), snap)

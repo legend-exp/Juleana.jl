@@ -12,8 +12,9 @@ Fields:
   `p_processors`.
 - `enabled::Bool`: whether the processor is selected for execution by default.
 - `category::Symbol`: data category the processor acts on, `:cal` or `:phy`.
-- `rank::Int`: position in the processing order; lower ranks run first.
-- `dependencies::Vector{Symbol}`: processors of the other level that must finish first.
+- `rank::Int`: position in listings and tie rule: among processors that are ready to run,
+  lower ranks start first.
+- `dependencies::Vector{Symbol}`: processors of either level that must finish first.
 - `kwargs::Dict{Symbol,Any}`: keyword arguments passed to the processor function.
 
 The positional constructor takes the fields in the order listed above,
@@ -66,6 +67,8 @@ Fields:
 - `analysis_runs_only::Bool`: process only runs marked as analysis runs.
 - `only_partitions::Bool`: process only partition-level processors.
 - `only_runs::Bool`: process only run-level processors.
+- `max_parallel_steps::Int`: maximum number of steps that run at the same time; `0`
+  sets no limit.
 - `log_path::String`: directory for log files; `""` when not resolved.
 - `log_level::LogLevel`: level of the records written to the log files.
 - `idle_timeout_minutes::Float64`: minutes without processing after which the worker
@@ -77,12 +80,12 @@ Besides the positional constructor and the config-file constructors documented b
 `ProcessingConfig(; processors, p_processors, runmode=:local, ...)` builds a config from
 keywords named like the fields. Every field except the two processor tables has a
 default: empty flag and settings lists, no environment variables, `periods` and `runs`
-of `nothing`, all `Bool` fields `false`, `local_n = 1`, `log_path = ""`,
+of `nothing`, all `Bool` fields `false`, `max_parallel_steps = 0`, `local_n = 1`, `log_path = ""`,
 `log_level = Logging.Info` and `idle_timeout_minutes = 20`. Every
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
-`local_n < 1`, `idle_timeout_minutes` is negative or not finite, both `only_runs` and `only_partitions` are set, a table key differs from
+`local_n < 1`, `max_parallel_steps < 0`, `idle_timeout_minutes` is negative or not finite, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
-processor or one of its own level, or the dependencies and ranks form a cycle (see [`processor_graph`](@ref)).
+processor, or the dependencies form a cycle (see [`processor_graph`](@ref)).
 
 See [`run_steps`](@ref), [`partition_steps`](@ref) and [`check_processor_kwargs`](@ref).
 """
@@ -99,6 +102,7 @@ struct ProcessingConfig
     analysis_runs_only::Bool
     only_partitions::Bool
     only_runs::Bool
+    max_parallel_steps::Int
     log_path::String
     log_level::LogLevel
     idle_timeout_minutes::Float64
@@ -107,12 +111,14 @@ struct ProcessingConfig
 
     function ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, log_path, log_level, idle_timeout_minutes, processors, p_processors)
+            only_partitions, only_runs, max_parallel_steps, log_path, log_level, idle_timeout_minutes, processors, p_processors)
         cfg = new(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, log_path, log_level, idle_timeout_minutes, processors, p_processors)
+            only_partitions, only_runs, max_parallel_steps, log_path, log_level, idle_timeout_minutes, processors, p_processors)
         cfg.runmode in (:local, :slurm) ||
             throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(cfg.runmode))"))
+        cfg.max_parallel_steps >= 0 ||
+            throw(ArgumentError("processing_config: key `processing.max_parallel_steps` must be zero or positive, got $(cfg.max_parallel_steps)"))
         cfg.local_n > 0 ||
             throw(ArgumentError("processing_config: key `config.runmode_settings.local.n` must be positive, got $(cfg.local_n)"))
         isfinite(cfg.idle_timeout_minutes) && cfg.idle_timeout_minutes >= 0 ||
@@ -129,14 +135,12 @@ struct ProcessingConfig
         duplicates = intersect(keys(cfg.processors), keys(cfg.p_processors))
         isempty(duplicates) ||
             throw(ArgumentError("processing_config: processor names in both `processors` and `p_processors`: $(join(duplicates, ", "))"))
-        for (section, specs, others) in (("processors", cfg.processors, cfg.p_processors), ("p_processors", cfg.p_processors, cfg.processors)),
+        for (section, specs) in (("processors", cfg.processors), ("p_processors", cfg.p_processors)),
                 spec in values(specs), dep in spec.dependencies
-            haskey(others, dep) && continue
-            haskey(specs, dep) &&
-                throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names `$dep` of the same level; dependencies must name processors of the other level"))
-            throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
+            haskey(cfg.processors, dep) || haskey(cfg.p_processors, dep) ||
+                throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
         end
-        # dependencies and ranks that form a cycle would make processing wait forever
+        # dependencies that form a cycle would make processing wait forever
         processor_graph(cfg)
         return cfg
     end
@@ -146,11 +150,11 @@ ProcessingConfig(;
         processors, p_processors, runmode = :local, submit_jobs = false, local_n = 1,
         local_julia_settings = String[], slurm_flags = String[], slurm_julia_settings = String[],
         env_variables = Dict{String,String}(), periods = nothing, runs = nothing,
-        analysis_runs_only = false, only_partitions = false, only_runs = false, log_path = "",
+        analysis_runs_only = false, only_partitions = false, only_runs = false, max_parallel_steps = 0, log_path = "",
         log_level = Logging.Info, idle_timeout_minutes = 20
     ) = ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
         slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-        only_partitions, only_runs, log_path, log_level, idle_timeout_minutes, processors, p_processors)
+        only_partitions, only_runs, max_parallel_steps, log_path, log_level, idle_timeout_minutes, processors, p_processors)
 
 # Recursively convert nested dictionaries to `Dict{Symbol,Any}`.
 _symbolkeys(x) = x
@@ -246,6 +250,24 @@ function _current_names(tables::Tuple)
     return renamed
 end
 
+"""
+    rank_order_dependencies(specs::AbstractDict{Symbol,ProcessorSpec})
+
+Return a copy of the processor table `specs` (one level) in which every processor also
+depends on the processor before it in the order of rank, then name. The dependencies
+then express that the processors run one after another in rank order.
+"""
+function rank_order_dependencies(specs::AbstractDict{Symbol,ProcessorSpec})
+    order = sort!(collect(keys(specs)); by = n -> (specs[n].rank, n))
+    out = Dict{Symbol,ProcessorSpec}()
+    for (k, name) in pairs(order)
+        s = specs[name]
+        deps = k == firstindex(order) || order[k-1] in s.dependencies ? copy(s.dependencies) : vcat(s.dependencies, order[k-1])
+        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps, s.kwargs)
+    end
+    return out
+end
+
 function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, reprocess::Bool)
     specs = Dict{Symbol,ProcessorSpec}()
     for (name, entry) in table
@@ -288,13 +310,20 @@ The config must contain exactly these keys; a missing or unknown key throws an
   (`"debug"`, `"info"`, `"warn"` or `"error"`), and optionally `idle_timeout_minutes`
   (a number, default 20)
 - `processing`: `periods` and `runs` (each `"all"` or a list), `analysis_runs_only`,
-  `only_partitions`, `only_runs` (all `Bool`)
+  `only_partitions`, `only_runs` (all `Bool`), and optionally `order` (`"rank"`, the
+  default, or `"dependencies"`) and `max_parallel_steps` (an `Int`, default 0: no limit)
 - `processors`, `p_processors`: tables of processor name to
   `{enabled::Bool, category ("cal" or "phy"), rank::Int, kwargs, dependencies}`
 
 Processor names must be unique across both tables, every dependency must name a
-configured processor, and at least one processor must be enabled. String lists in
-`kwargs` become `Vector{Symbol}`.
+configured processor of either level, and at least one processor must be enabled. String
+lists in `kwargs` become `Vector{Symbol}`.
+
+With `order = "dependencies"` the `dependencies` alone order the processors: processors
+that do not depend on each other, directly or through others, run at the same time. With
+`order = "rank"` the processors of each level also run one after another in the order of
+rank, then name: every processor gets a dependency on the one before it (see
+[`rank_order_dependencies`](@ref)), and a warning asks to change the config.
 
 A key of `processors` or `p_processors`, or an entry of a `dependencies` list, that
 is a name from [`RENAMED_PROCESSORS`](@ref) is read as the current name and logs a
@@ -322,7 +351,7 @@ julia> config = Dict(
                    "slurm" => Dict("flags" => [], "julia_settings" => [])),
                "env_variables" => Dict(), "log_level" => "info"),
            "processing" => Dict("periods" => [3], "runs" => "all", "analysis_runs_only" => false,
-               "only_partitions" => false, "only_runs" => false),
+               "only_partitions" => false, "only_runs" => false, "order" => "dependencies"),
            "processors" => Dict("process_energy_calibration_cal" => Dict("enabled" => true,
                "category" => "cal", "rank" => 1, "kwargs" => Dict(), "dependencies" => [])),
            "p_processors" => Dict());
@@ -361,7 +390,11 @@ function ProcessingConfig(
     slurm_settings = _typed(settings, :slurm, AbstractDict, "config.runmode_settings.")
     _check_keys(slurm_settings, (:flags, :julia_settings), "config.runmode_settings.slurm.")
     processing = _typed(d, :processing, AbstractDict, "")
-    _check_keys(processing, (:periods, :runs, :analysis_runs_only, :only_partitions, :only_runs), "processing.")
+    _check_keys(processing, (:periods, :runs, :analysis_runs_only, :only_partitions, :only_runs), "processing.";
+        optional = (:order, :max_parallel_steps))
+    order = haskey(processing, :order) ? _typed(processing, :order, AbstractString, "processing.") : "rank"
+    order in ("rank", "dependencies") ||
+        throw(ArgumentError("processing_config: key `processing.order` must be \"rank\" or \"dependencies\", got $(repr(order))"))
 
     function flag(cli, section, key, path)
         value = _typed(section, key, Bool, path)
@@ -393,6 +426,10 @@ function ProcessingConfig(
         _typed(d, :processors, AbstractDict, ""), _typed(d, :p_processors, AbstractDict, "")))
     processors = _processor_specs(current_processors, :run, :processors, reprocess)
     p_processors = _processor_specs(current_p_processors, :partition, :p_processors, reprocess)
+    if order == "rank"
+        @warn "processing_config: the processors of a level run in rank order; set `processing.order` to \"dependencies\" and list the order in the `dependencies` of each processor"
+        processors, p_processors = rank_order_dependencies(processors), rank_order_dependencies(p_processors)
+    end
 
     return ProcessingConfig(
         sel_runmode, sel_submit_jobs, n,
@@ -400,7 +437,8 @@ function ProcessingConfig(
         _strings(slurm_settings, :flags, "config.runmode_settings.slurm."),
         _strings(slurm_settings, :julia_settings, "config.runmode_settings.slurm."),
         env_variables, sel_periods, sel_runs,
-        sel_analysis_runs_only, sel_only_partitions, sel_only_runs, log_path,
+        sel_analysis_runs_only, sel_only_partitions, sel_only_runs,
+        haskey(processing, :max_parallel_steps) ? _typed(processing, :max_parallel_steps, Int, "processing.") : 0, log_path,
         parse_log_level(_typed(config, :log_level, AbstractString, "config.")),
         haskey(config, :idle_timeout_minutes) ? _typed(config, :idle_timeout_minutes, Real, "config.") : 20,
         processors, p_processors

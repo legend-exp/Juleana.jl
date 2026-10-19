@@ -61,7 +61,8 @@ end
     SelectSteps(run_steps, partition_steps)
 
 Select the run-level and partition-level processors to run, by name. Every name must be
-a processor of that level in the config, enabled or not. The steps run in rank order.
+a processor of that level in the config, enabled or not. The steps run in the order of
+their dependencies, see [`run_processing`](@ref).
 """
 struct SelectSteps <: ControllerCommand
     run_steps::Vector{Symbol}
@@ -440,7 +441,7 @@ function effective_config(ctrl::DataflowController)
     return ProcessingConfig(something(ctrl.runmode, cfg.runmode), cfg.submit_jobs, get(settings, :local_n, cfg.local_n),
         get(settings, :local_julia_settings, cfg.local_julia_settings), get(settings, :slurm_flags, cfg.slurm_flags),
         get(settings, :slurm_julia_settings, cfg.slurm_julia_settings), cfg.env_variables, cfg.periods, cfg.runs,
-        something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.log_path, cfg.log_level, cfg.idle_timeout_minutes,
+        something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.max_parallel_steps, cfg.log_path, cfg.log_level, cfg.idle_timeout_minutes,
         with_overrides(cfg.processors, ctrl.kwarg_overrides), with_overrides(cfg.p_processors, ctrl.kwarg_overrides))
 end
 

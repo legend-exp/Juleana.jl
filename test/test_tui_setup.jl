@@ -160,14 +160,14 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test setup_refreshed!(m)
         @test isempty(m.snap.run_steps)
 
-        # `d` adds the dependency of the partition step and the run steps ranked before it
+        # `d` adds the dependency of the partition step
         press!(m, :tab, 'n', 'd')
         @test setup_refreshed!(m)
         @test isempty(m.snap.partition_steps) && isempty(m.snap.run_steps)
         press!(m, 'a', 'd')
         @test setup_refreshed!(m)
         @test m.snap.partition_steps == [:p_process_aoe_cut_cal]
-        @test m.snap.run_steps == [:process_energy_calibration_cal, :process_dsp_cal]
+        @test m.snap.run_steps == [:process_dsp_cal]
 
         # options pane
         press!(m, :tab)

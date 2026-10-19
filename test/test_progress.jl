@@ -183,7 +183,7 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         store = ProgressStore()
         run_status, partition_status = progress_status([p3], [r1, r2], [:run_a], [:p_part_b])
         task = Threads.@spawn run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b], run_status, partition_status;
-            processors = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b), dependency_timeout = 60, progress_store = store)
+            processors = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b), progress_store = store)
         run_entries() = filter(e -> e.step === :run_a, progress(store).steps)
 
         # without workers, the pool hands the main process to one item at a time
@@ -215,7 +215,7 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         stubs = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b)
         store = ProgressStore()
         @test_throws CompositeException run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
-            progress_status([p3], [r1], [:run_a], [:p_part_b])...; processors = stubs, dependency_timeout = 60, progress_store = store)
+            progress_status([p3], [r1], [:run_a], [:p_part_b])...; processors = stubs, progress_store = store)
         states = Dict(e.step => e.state for e in progress(store).steps)
         # the partition step waited for the failed run step and never started
         @test states == Dict(:run_a => :failed, :p_part_b => :cancelled)
@@ -232,7 +232,7 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         Logging.with_logger(buf) do
             @test_throws CompositeException run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
                 progress_status([p3], [r1], [:run_a], [:p_part_b])...;
-                processors = Dict{Symbol,Any}(:run_a => run_logging, :p_part_b => p_part_b), dependency_timeout = 60,
+                processors = Dict{Symbol,Any}(:run_a => run_logging, :p_part_b => p_part_b),
                 progress_store = store)
         end
         msgs = step_messages(store, (p3, r1, :run_a))

@@ -6,11 +6,10 @@ using Test
 @testset "processor graph" begin
     rspec(name, rank; deps = Symbol[]) = ProcessorSpec(; name, level = :run, category = :cal, rank, dependencies = deps)
     pspec(name, rank; deps = Symbol[]) = ProcessorSpec(; name, level = :partition, category = :cal, rank, dependencies = deps)
-    kind(g, u, v) = get(g.kinds, (findfirst(==(u), g.names), findfirst(==(v), g.names)), nothing)
-    # every edge of the given kinds goes from a lower to a higher layer, and the positions
-    # of each layer are 1:n
-    function valid_layout(g, layout; kinds = (:declared, :order))
-        edges_ok = all(((u, v),) -> !(g.kinds[(u, v)] in kinds) || first(layout[u]) < first(layout[v]), keys(g.kinds))
+    edge(g, u, v) = Juleana.Graphs.has_edge(g.graph, findfirst(==(u), g.names), findfirst(==(v), g.names))
+    # every edge goes from a lower to a higher layer, and the positions of each layer are 1:n
+    function valid_layout(g, layout)
+        edges_ok = all(e -> first(layout[Juleana.Graphs.src(e)]) < first(layout[Juleana.Graphs.dst(e)]), Juleana.Graphs.edges(g.graph))
         layers_ok = all(unique(first.(layout))) do l
             sort([p for (k, p) in layout if k == l]) == 1:count(x -> first(x) == l, layout)
         end
@@ -18,50 +17,41 @@ using Test
     end
 
     @testset "chain within a level" begin
-        g = processor_graph([rspec(:c, 3), rspec(:a, 1), rspec(:b, 2)])
+        g = processor_graph([rspec(:c, 3; deps = [:b]), rspec(:a, 1), rspec(:b, 2; deps = [:a])])
         @test topological_order(g) == [:a, :b, :c]
-        @test kind(g, :a, :b) === :order && kind(g, :b, :c) === :order && isnothing(kind(g, :a, :c))
-        # ordered steps do not require each other
-        @test required_processors(g, [:c]) == Set([:c])
+        @test edge(g, :a, :b) && edge(g, :b, :c) && !edge(g, :a, :c)
+        @test required_processors(g, [:c]) == Set([:a, :b, :c])
         layout = layered_layout(g)
         @test [first(layout[findfirst(==(n), g.names)]) for n in (:a, :b, :c)] == [1, 2, 3]
         @test valid_layout(g, layout)
-        # equal ranks are ordered by name, as `run_steps` does
+        # processors without dependencies are not ordered by rank: both are in the first layer
+        g = processor_graph([rspec(:y, 1), rspec(:x, 2)])
+        @test isempty(Juleana.Graphs.edges(g.graph)) && first.(layered_layout(g)) == [1, 1]
+        # equal ranks are listed by name
         @test topological_order(processor_graph([rspec(:y, 1), rspec(:x, 1)])) == [:x, :y]
     end
 
-    @testset "cross-level dependencies" begin
-        specs = [rspec(:r1, 1), rspec(:r2, 2), rspec(:r3, 3; deps = [:p2]), pspec(:p1, 1; deps = [:r2]), pspec(:p2, 2)]
+    @testset "dependencies across levels" begin
+        specs = [rspec(:r1, 1), rspec(:r2, 2; deps = [:r1]), rspec(:r3, 3; deps = [:r2, :p2]), pspec(:p1, 1; deps = [:r2]),
+            pspec(:p2, 2; deps = [:p1])]
         g = processor_graph(specs)
-        @test kind(g, :r2, :p1) === :declared
-        # waiting for r2 means waiting for every run step ranked up to r2
-        @test kind(g, :r1, :p1) === :implied
-        @test kind(g, :p2, :r3) === :declared && kind(g, :p1, :r3) === :implied
-        @test kind(g, :p1, :p2) === :order
+        @test edge(g, :r2, :p1) && edge(g, :p2, :r3) && edge(g, :p1, :p2)
+        @test !edge(g, :r1, :p1)
         @test required_processors(g, [:r3]) == Set([:r3, :p2, :p1, :r2, :r1])
-        @test required_processors(g, [:p2]) == Set([:p2])
-        @test dependent_processors(g, [:r2]) == Set([:r2, :p1, :r3])
+        @test required_processors(g, [:p2]) == Set([:p2, :p1, :r2, :r1])
+        @test dependent_processors(g, [:r2]) == Set([:r2, :p1, :p2, :r3])
         @test dependent_processors(g, [:p2]) == Set([:p2, :r3])
         @test dependent_processors(g, [:r3]) == Set([:r3])
         @test all(a -> all(b -> (b in required_processors(g, [a])) == (a in dependent_processors(g, [b])), g.names), g.names)
         order = topological_order(g)
-        for ((u, v), _) in g.kinds
-            @test findfirst(==(g.names[u]), order) < findfirst(==(g.names[v]), order)
+        for e in Juleana.Graphs.edges(g.graph)
+            @test findfirst(==(g.names[Juleana.Graphs.src(e)]), order) < findfirst(==(g.names[Juleana.Graphs.dst(e)]), order)
         end
         @test valid_layout(g, layered_layout(g))
-        @test valid_layout(g, layered_layout(g; kinds = Juleana.EDGE_KINDS); kinds = Juleana.EDGE_KINDS)
-        @test_throws "unknown edge kind" layered_layout(g; kinds = (:bogus,))
-    end
-
-    @testset "a declared edge is not weakened by a rank order" begin
-        # p2 depends on r1, and r1 is ranked before r2, which p2 also waits for
-        g = processor_graph([rspec(:r1, 1), rspec(:r2, 2), pspec(:p2, 1; deps = [:r2, :r1])])
-        @test kind(g, :r1, :p2) === :declared && kind(g, :r2, :p2) === :declared
-        @test kind(g, :r1, :r2) === :order
     end
 
     @testset "diamond" begin
-        g = processor_graph([rspec(:a, 1), pspec(:b, 1; deps = [:a]), pspec(:c, 2; deps = [:a]), rspec(:d, 2; deps = [:c])])
+        g = processor_graph([rspec(:a, 1), pspec(:b, 1; deps = [:a]), pspec(:c, 2; deps = [:a, :b]), rspec(:d, 2; deps = [:c])])
         @test required_processors(g, [:d]) == Set([:a, :b, :c, :d])
         layout = layered_layout(g)
         @test valid_layout(g, layout)
@@ -69,8 +59,7 @@ using Test
     end
 
     @testset "cycles and bad input" begin
-        # r2 waits for p1, which waits for r2 through r3's rank
-        @test_throws "form a cycle" processor_graph([rspec(:r2, 2; deps = [:p1]), rspec(:r3, 3), pspec(:p1, 1; deps = [:r3])])
+        @test_throws "form a cycle" processor_graph([rspec(:r2, 2; deps = [:p1]), rspec(:r3, 3; deps = [:r2]), pspec(:p1, 1; deps = [:r3])])
         err = try
             processor_graph([rspec(:r1, 1; deps = [:p1]), pspec(:p1, 1; deps = [:r1]), rspec(:r0, 0)])
         catch e
@@ -84,19 +73,19 @@ using Test
     end
 
     @testset "waited processors" begin
-        # r1 → r2 → r3 (run), p1 depends on r2, p2 has no dependencies, r4 depends on p2
-        specs = [rspec(:r1, 1), rspec(:r2, 2), rspec(:r3, 3), rspec(:r4, 4; deps = [:p2]),
-            pspec(:p1, 1; deps = [:r2]), pspec(:p2, 2)]
+        # r1 → r2 → r3 → r4 (run), r2 → p1 → p2 → r4
+        specs = [rspec(:r1, 1), rspec(:r2, 2; deps = [:r1]), rspec(:r3, 3; deps = [:r2]), rspec(:r4, 4; deps = [:r3, :p2]),
+            pspec(:p1, 1; deps = [:r2]), pspec(:p2, 2; deps = [:p1])]
         g = processor_graph(specs)
         # all selected: each step waits for its direct predecessors
         w = waited_processors(g, [:r1, :r2, :r3, :r4, :p1, :p2])
         @test w[:r1] == Pair{Symbol,Bool}[]
         @test w[:r2] == [:r1 => true]
-        @test w[:p1] == [:r1 => false, :r2 => false]
+        @test w[:p1] == [:r2 => false]
         @test w[:p2] == [:p1 => false]
-        @test w[:r4] == [:p1 => false, :p2 => false, :r3 => true]
+        @test w[:r4] == [:p2 => false, :r3 => true]
         # p2 waits for what the unselected p1 before it waits for, in all runs
-        @test waited_processors(g, [:r1, :r2, :p2])[:p2] == [:r1 => false, :r2 => false]
+        @test waited_processors(g, [:r1, :r2, :p2])[:p2] == [:r2 => false]
         # r4 waits for r2 through the unselected p1 and p2, so in all runs, and for r2
         # in its own run through r3: the wait in all runs covers both
         @test waited_processors(g, [:r2, :r4])[:r4] == [:r2 => false]

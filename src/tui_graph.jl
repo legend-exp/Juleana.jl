@@ -172,14 +172,13 @@ function processor_states(prog)
     return Dict(n => s for (n, states) in by_name for s in (last_run_state(states),) if !isnothing(s))
 end
 
-# Declared edges between displayed processors of different lanes, as `(source row,
-# target row)` pairs sorted by source row, then target row. Edges inside a lane are
-# not drawn; the lane line shows their order.
+# Declared edges between displayed processors, as `(source row, target row)` pairs sorted
+# by source row, then target row.
 function graph_edges(g::ProcessorGraph, rows)
     rowof = Dict(n => i for (i, n) in pairs(rows))
     edges = Tuple{Int,Int}[]
-    for ((u, v), kind) in g.kinds
-        kind === :declared && g.levels[u] !== g.levels[v] || continue
+    for e in Graphs.edges(g.graph)
+        u, v = Graphs.src(e), Graphs.dst(e)
         ru, rv = get(rowof, g.names[u], 0), get(rowof, g.names[v], 0)
         ru > 0 && rv > 0 && push!(edges, (ru, rv))
     end
@@ -249,9 +248,9 @@ done, or stopped. While `page.disk` is `true` the icon is instead the
 `✗` failed, `–` missing, `!` warning or `✓` ok, and the last line also shows the counts of
 the processor under the cursor. Unselected processors are dim, and are left out while `page.show_unselected`
 is `false`. Each declared dependency is an edge from the required processor down to
-the one that waits for it, in the space between the lanes; every processor with edges
-to later processors has a vertical track there, and tracks with overlapping spans have
-different columns. Dependencies implied by rank are not drawn.
+the one that waits for it, in the space between the lanes, also between processors of the
+same lane; every processor with edges to later processors has a vertical track there, and
+tracks with overlapping spans have different columns.
 
 The processor under the cursor is bold; the processors it requires are yellow and the
 processors that require it are purple, as are the edges between them. The view scrolls to keep
