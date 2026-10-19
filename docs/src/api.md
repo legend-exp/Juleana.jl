@@ -35,6 +35,8 @@ Juleana.history_grid
 Juleana.disk_counts
 Juleana.disk_state
 run_processing
+run_step
+StepItemsDone
 ProcessingStopped
 Juleana.partition_periods
 Juleana.rank_order_dependencies

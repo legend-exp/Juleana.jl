@@ -121,6 +121,10 @@ attempts after a worker loss or a timeout; an error thrown by `f` is not retried
 Element types without a [`failure_log`](@ref) method for `log_nt` are rejected with an
 `ArgumentError` before any work starts.
 
+Inside [`run_step`](@ref), only the items it selects run, one after another in the calling
+process; an error in an item is thrown, and `parallel` then throws [`StepItemsDone`](@ref)
+with the results instead of returning.
+
 Inside [`run_processing`](@ref), a stop of the processing run takes effect here: items that
 have not been handed to a worker are not run, items already running finish, and `parallel`
 then throws [`ProcessingStopped`](@ref) instead of returning. When the run is stopped without
@@ -142,6 +146,14 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     for T in unique(typeof.(iterator))
         hasmethod(failure_log, Tuple{Type{log_nt}, T, String}) ||
             throw(ArgumentError("parallel: no failure_log method for items of type $T"))
+    end
+    select = LOCAL_ITEMS[]
+    if !isnothing(select)
+        # inside `run_step`: the selected items run here, one after another, and errors are thrown
+        items = filter(select, vec(collect(iterator)))
+        isempty(items) && throw(ArgumentError("parallel: no item is selected; the items are " *
+            join((hasproperty(itr, :detector) ? string(itr.detector) : string(itr) for itr in iterator), ", ")))
+        throw(StepItemsDone(Any[itr => f(itr) for itr in items]))
     end
     stop = PROCESSING_STOP[]
     pool = isnothing(stop) ? ppt_worker_pool() : StoppablePool(ppt_worker_pool(), stop)

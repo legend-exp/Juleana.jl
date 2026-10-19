@@ -2,7 +2,7 @@
 
 using Juleana
 using Test
-using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun
+using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey
 
 # Stands in for `LegendData`: every run is in the run info, and every period is its own
 # partition.
@@ -255,6 +255,52 @@ const REPORT = """
             processors = Dict{Symbol,Any}(:a => step(:a), :c => step(:c), :p => p_stub), check_dependencies = false)
         @test position(:start, :c, runs[1]) > position(:end, :a, runs[1])
         @test position(:start, :c, runs[1]) < position(:end, :p, runs[1])
+    end
+
+    @testset "run_step" begin
+        Row = NamedTuple{(:Detector, :Status, :Error)}
+        items = [(detector = :V1, usability = :on), (detector = :V2, usability = :on), (detector = :V3, usability = :off)]
+        calls = []
+        function run_proc(cfg, l200, period, run; reprocess = false, scale = 1)
+            push!(calls, (; period, run, reprocess, scale, thread = Threads.threadid()))
+            parallel(items, Row) do itr
+                itr.detector === :V3 && error("V3 fails")
+                (processed = true, log = Row((itr.detector, 1, "")), value = scale * parse(Int, string(itr.detector)[2:end]))
+            end
+            error("the processor must end in parallel")
+        end
+        part_proc(cfg, l200, period; reprocess = false, only_first_period = true) =
+            (push!(calls, (; period, only_first_period)); parallel(item -> (processed = true, log = Row((item.detector, 1, ""))), items, Row))
+        no_parallel(cfg, l200, period, run; reprocess = false) = nothing
+        cfg = ProcessingConfig(;
+            processors = Dict(:run_proc => ProcessorSpec(; name = :run_proc, level = :run, category = :cal, rank = 1, kwargs = Dict(:scale => 2)),
+                :no_parallel => ProcessorSpec(; name = :no_parallel, level = :run, category = :cal, rank = 2)),
+            p_processors = Dict(:part_proc => ProcessorSpec(; name = :part_proc, level = :partition, category = :cal, rank = 1)))
+        processors = Dict{Symbol,Any}(:run_proc => run_proc, :part_proc => part_proc, :no_parallel => no_parallel)
+        step(args...; kw...) = run_step(args...; config = cfg, l200 = :l200, processors, kw...)
+
+        # only the chosen detectors run, in this process; the config kwargs apply, reprocess is on
+        results = step(:run_proc, 3, 1; detectors = ["V2"])
+        @test results == [items[2] => (processed = true, log = Row((:V2, 1, "")), value = 4)]
+        @test only(calls) == (; period = DataPeriod(3), run = DataRun(1), reprocess = true, scale = 2, thread = Threads.threadid())
+        @test last.(step(:run_proc, 3, 1; scale = 3, select = itr -> itr.usability === :on)) .|> (r -> r.value) == [3, 6]
+        # an error in an item is thrown as it is
+        @test_throws "V3 fails" step(:run_proc, 3, 1; detectors = [:V3])
+        @test_throws "no item is selected; the items are V1, V2, V3" step(:run_proc, 3, 1; detectors = [:V9])
+        # partition level
+        @test first.(step(:part_proc, 3; detectors = [:V1, :V3])) == items[[1, 3]]
+        @test last(calls) == (; period = DataPeriod(3), only_first_period = false)
+
+        @test_throws "the run-level processor `run_proc` needs a run" step(:run_proc, 3)
+        @test_throws "the partition-level processor `part_proc` takes no run" step(:part_proc, 3, 1)
+        @test_throws "unregistered processor `missing_proc`" step(:missing_proc, 3, 1)
+        @test_throws "`no_parallel` returned without calling `parallel`" step(:no_parallel, 3, 1)
+        file_items(cfg, l200, period, run; reprocess = false) = parallel(fk -> nothing, [FileKey("l200-p03-r001-cal-20230311T235840Z")], Row)
+        @test_throws "have no detector, select them with `select`" run_step(:file_items, 3, 1; config = ProcessingConfig(;
+            processors = Dict(:file_items => ProcessorSpec(; name = :file_items, level = :run, category = :cal, rank = 1)), p_processors = Dict{Symbol,ProcessorSpec}()),
+            l200 = :l200, processors = Dict{Symbol,Any}(:file_items => file_items), detectors = [:V1])
+        # outside run_step, parallel is unchanged
+        @test last.(parallel(itr -> (processed = true, log = Row((itr.detector, 1, ""))), items[1:2], Row)) .|> (r -> r.processed) == [true, true]
     end
 
     @testset "skipped runs" begin

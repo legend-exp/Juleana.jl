@@ -64,6 +64,26 @@ using Juleana
 session = Juleana.setup_session(["-c", "config/processing_config.yaml"])
 ```
 
+## Debugging a processor in the REPL
+
+[`run_step`](@ref) runs one processor for one period, and for a run-level processor one
+run, in the REPL process, for the detectors you choose. The items of the processor run
+one after another without workers, so an error is thrown in the REPL with its full stack
+trace. The processor ends after its items: parameters, validity and reports are not
+written. With `LEGEND_DATA_CONFIG` set to the data production:
+
+```julia
+using Revise, Juleana, Infiltrator
+results = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
+```
+
+To look at the data of a detector, put `Main.@infiltrate` into the processor where you
+want to stop, for example at the start of the function that handles one detector, and
+call `run_step` again: Revise loads the change, and the REPL stops there with all local
+variables of the detector. Processor keyword arguments are passed on, e.g.
+`run_step(...; timeout = 0)`; `reprocess` is `true` unless you pass it. The config is
+`config/processing_config.yaml` of the data production unless `config` names another file.
+
 ## Command line options
 
 | Option            | Description |
