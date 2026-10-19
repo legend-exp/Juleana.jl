@@ -123,7 +123,9 @@ Element types without a [`failure_log`](@ref) method for `log_nt` are rejected w
 
 Inside [`run_step`](@ref), `f` sees the detector selection of `run_step` also on the
 workers (see [`redo_detector`](@ref)); with `outputs = :temp`, items whose `detector` is not
-selected are not run and are missing from the result.
+selected are not run and are missing from the result. For items with a `detector` field,
+`parallel` throws an `ArgumentError` before any work starts if a chosen detector is not
+among them.
 
 Inside [`run_processing`](@ref), a stop of the processing run takes effect here: items that
 have not been handed to a worker are not run, items already running finish, and `parallel`
@@ -149,6 +151,12 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     end
     # ScopedValues do not reach the workers: the item function sets those of `run_step` again
     selection, write = DETECTOR_SELECTION[], WRITE_PARS[]
+    if !isnothing(selection) && all(itr -> hasproperty(itr, :detector), iterator)
+        item_detectors = Set(string(itr.detector) for itr in iterator)
+        unknown = setdiff(selection, item_detectors)
+        isempty(unknown) || throw(ArgumentError("parallel: the detectors $(join(sort!(collect(unknown)), ", ")) chosen in " *
+            "`run_step` are not among the items; the items have the detectors $(join(sort!(collect(item_detectors)), ", "))"))
+    end
     if !isnothing(selection) && !write
         # `run_step` with temporary outputs: detectors that are not selected are not run
         iterator = filter(itr -> !hasproperty(itr, :detector) || string(itr.detector) in selection, vec(iterator))

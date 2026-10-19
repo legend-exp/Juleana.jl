@@ -329,7 +329,12 @@ const REPORT = """
         @test_throws "unregistered processor `missing_proc`" step(:missing_proc, 3, 1)
         @test_throws "`outputs` is :tmp, expected :temp or :production" step(:run_proc, 3, 1; outputs = :tmp)
         @test_throws "processor `process_evt_phy` cannot select detectors" run_step(:process_evt_phy, 3, 1; detectors = [:V1])
-        @test !isfile(pars_file)
+        # a chosen detector that is not among the items stops the step before any item runs
+        n_calls = length(calls)
+        for outputs in (:temp, :production)
+            @test_throws "the detectors V9 chosen in `run_step` are not among the items; the items have the detectors V1, V2, V3" step(:run_proc, 3, 1; detectors = [:V2, :V9], outputs)
+        end
+        @test length(calls) == n_calls + 2 && !isfile(pars_file)
 
         # the selection reaches the workers
         original_pool = ppt_worker_pool()
