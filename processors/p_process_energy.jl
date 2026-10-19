@@ -183,7 +183,11 @@ function p_process_energy(processing_config::PropDict, l200::LegendData, period:
                 try
                     fwhm_fit = [result_fit[p].fwhm for p in th228_names_qc_fwhm_fit]
                     pp_fit = [th228_lines_dict[p] for p in th228_names_qc_fwhm_fit]    
-                    result_fwhm, report_fwhm = fit_fwhm(energy_config_det.fwhm_pol_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
+
+                    # Use a quadratic FWHM² model for energies without CTC.
+                    fwhm_order = endswith(string(e_type), "_ctc") ? energy_config_det.fwhm_pol_order : 2
+
+                    result_fwhm, report_fwhm = fit_fwhm(fwhm_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
                     @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 catch e
                     @error "Error in $e_type FWHM fitting for detector $det: $(truncate_error(e))"
