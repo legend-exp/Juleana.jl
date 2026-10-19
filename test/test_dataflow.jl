@@ -2,7 +2,10 @@
 
 using Juleana
 using Test
-using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey
+using Distributed: addprocs, myid, rmprocs, @everywhere
+using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, LegendData, lreport
+using LegendDataManagement.LDMUtils: create_logtbl
+using ParallelProcessingTools: FlexWorkerPool, ppt_worker_pool, ppt_worker_pool!
 
 # Stands in for `LegendData`: every run is in the run info, and every period is its own
 # partition.
@@ -258,49 +261,95 @@ const REPORT = """
     end
 
     @testset "run_step" begin
-        Row = NamedTuple{(:Detector, :Status, :Error)}
+        Row = NamedTuple{(:Detector, :usability, :Status, :Error)}
         items = [(detector = :V1, usability = :on), (detector = :V2, usability = :on), (detector = :V3, usability = :off)]
+        prod = mktempdir()
+        setup = LegendDataManagement.SetupConfig(sort([["metadata"] => mkpath(joinpath(prod, "metadata")),
+            ["par"] => mkpath(joinpath(prod, "par")), ["tier"] => mkpath(joinpath(prod, "tier"))]), "valid")
+        l200 = LegendData(setup, :l200, :default)
+        pars_file = joinpath(prod, "pars.yaml")
         calls = []
+        # Stands in for a processor: V1 and V2 are already processed, plots go to the plot tier.
         function run_proc(cfg, l200, period, run; reprocess = false, scale = 1)
-            push!(calls, (; period, run, reprocess, scale, thread = Threads.threadid()))
-            parallel(items, Row) do itr
-                itr.detector === :V3 && error("V3 fails")
-                (processed = true, log = Row((itr.detector, 1, "")), value = scale * parse(Int, string(itr.detector)[2:end]))
+            push!(calls, (; period, run, reprocess, scale))
+            result = parallel(items, Row) do itr
+                det = itr.detector
+                if !reprocess && !Juleana.redo_detector(det) && det in (:V1, :V2)
+                    return (processed = false, log = Row((det, :on, 1, "Already processed --> skipped.")))
+                end
+                plot_dir = mkpath(joinpath(l200.tier[:jlplt], "rplt", "cal", string(period), string(run), "proc"))
+                Juleana.CairoMakie.save(joinpath(plot_dir, "l200-$period-$run-cal-$det-proc_fit.png"), Juleana.Makie.Figure(size = (40, 30)))
+                (processed = true, log = Row((det, :on, 1, "")), value = scale)
             end
-            error("the processor must end in parallel")
+            Juleana.write_pars(pars_file, Juleana.PropDict(:n => length(result)))
+            Juleana.write_report(joinpath(mkpath(l200.tier[:jlrep]), "proc.md"), lreport("# Results", create_logtbl(result)))
+            return nothing
         end
         part_proc(cfg, l200, period; reprocess = false, only_first_period = true) =
-            (push!(calls, (; period, only_first_period)); parallel(item -> (processed = true, log = Row((item.detector, 1, ""))), items, Row))
-        no_parallel(cfg, l200, period, run; reprocess = false) = nothing
+            (push!(calls, (; period, only_first_period)); nothing)
         cfg = ProcessingConfig(;
-            processors = Dict(:run_proc => ProcessorSpec(; name = :run_proc, level = :run, category = :cal, rank = 1, kwargs = Dict(:scale => 2)),
-                :no_parallel => ProcessorSpec(; name = :no_parallel, level = :run, category = :cal, rank = 2)),
+            processors = Dict(:run_proc => ProcessorSpec(; name = :run_proc, level = :run, category = :cal, rank = 1, kwargs = Dict(:scale => 2))),
             p_processors = Dict(:part_proc => ProcessorSpec(; name = :part_proc, level = :partition, category = :cal, rank = 1)))
-        processors = Dict{Symbol,Any}(:run_proc => run_proc, :part_proc => part_proc, :no_parallel => no_parallel)
-        step(args...; kw...) = run_step(args...; config = cfg, l200 = :l200, processors, kw...)
+        processors = Dict{Symbol,Any}(:run_proc => run_proc, :part_proc => part_proc)
+        step(args...; kw...) = run_step(args...; config = cfg, l200, processors, kw...)
 
-        # only the chosen detectors run, in this process; the config kwargs apply, reprocess is on
-        results = step(:run_proc, 3, 1; detectors = ["V2"])
-        @test results == [items[2] => (processed = true, log = Row((:V2, 1, "")), value = 4)]
-        @test only(calls) == (; period = DataPeriod(3), run = DataRun(1), reprocess = true, scale = 2, thread = Threads.threadid())
-        @test last.(step(:run_proc, 3, 1; scale = 3, select = itr -> itr.usability === :on)) .|> (r -> r.value) == [3, 6]
-        # an error in an item is thrown as it is
-        @test_throws "V3 fails" step(:run_proc, 3, 1; detectors = [:V3])
-        @test_throws "no item is selected; the items are V1, V2, V3" step(:run_proc, 3, 1; detectors = [:V9])
+        # temporary outputs: only V2 runs, nothing is written to the production
+        out = step(:run_proc, 3, 1; detectors = ["V2"])
+        @test last(calls) == (; period = DataPeriod(3), run = DataRun(1), reprocess = false, scale = 2)
+        @test first.(out.results) == items[2:2] && last(only(out.results)).value == 2
+        @test !isfile(pars_file) && !isdir(joinpath(prod, "tier", "jlplt")) && !isdir(joinpath(prod, "tier", "jlrep"))
+        @test isfile(joinpath(out.output_dir, "jlrep", "proc.md"))
+        report = read(out.report, String)
+        @test occursin("# run_proc: p03 r001", report) && occursin("Detectors: V2", report)
+        @test occursin("## V2", report) && occursin("### l200-p03-r001-cal-V2-proc_fit", report)
+        @test occursin("<img src=\"data:image/png;base64,", report) && !occursin("V1", report)
+
+        # production outputs: the other detectors are skipped as processed, everything is written there
+        out = step(:run_proc, 3, 1; detectors = [:V2], outputs = :production, scale = 3)
+        @test last(calls).scale == 3 && first.(out.results) == items
+        @test [r.log.Error for r in last.(out.results)] == ["Already processed --> skipped.", "", ""]
+        @test isfile(pars_file) && isfile(joinpath(prod, "tier", "jlrep", "proc.md"))
+        report = read(out.report, String)
+        @test occursin("## V2", report) && !occursin("## V3", report) && !occursin("V1", report) && !occursin("| V3", report)
+        rm(pars_file)
+
+        # all detectors: reprocess is on unless given
+        out = step(:run_proc, 3, 1)
+        @test last(calls).reprocess && first.(out.results) == items && occursin("Detectors: all", read(out.report, String))
+        @test occursin("## V1", read(out.report, String))
+        step(:run_proc, 3, 1; reprocess = false)
+        @test !last(calls).reprocess
         # partition level
-        @test first.(step(:part_proc, 3; detectors = [:V1, :V3])) == items[[1, 3]]
+        step(:part_proc, 3; detectors = [:V1])
         @test last(calls) == (; period = DataPeriod(3), only_first_period = false)
 
         @test_throws "the run-level processor `run_proc` needs a run" step(:run_proc, 3)
         @test_throws "the partition-level processor `part_proc` takes no run" step(:part_proc, 3, 1)
         @test_throws "unregistered processor `missing_proc`" step(:missing_proc, 3, 1)
-        @test_throws "`no_parallel` returned without calling `parallel`" step(:no_parallel, 3, 1)
-        file_items(cfg, l200, period, run; reprocess = false) = parallel(fk -> nothing, [FileKey("l200-p03-r001-cal-20230311T235840Z")], Row)
-        @test_throws "have no detector, select them with `select`" run_step(:file_items, 3, 1; config = ProcessingConfig(;
-            processors = Dict(:file_items => ProcessorSpec(; name = :file_items, level = :run, category = :cal, rank = 1)), p_processors = Dict{Symbol,ProcessorSpec}()),
-            l200 = :l200, processors = Dict{Symbol,Any}(:file_items => file_items), detectors = [:V1])
-        # outside run_step, parallel is unchanged
-        @test last.(parallel(itr -> (processed = true, log = Row((itr.detector, 1, ""))), items[1:2], Row)) .|> (r -> r.processed) == [true, true]
+        @test_throws "`outputs` is :tmp, expected :temp or :production" step(:run_proc, 3, 1; outputs = :tmp)
+        @test_throws "processor `process_evt_phy` cannot select detectors" run_step(:process_evt_phy, 3, 1; detectors = [:V1])
+        @test !isfile(pars_file)
+
+        # the selection reaches the workers
+        original_pool = ppt_worker_pool()
+        pool = FlexWorkerPool(withmyid = false, label = "run_step test"; maxoccupancy = 1)
+        ppt_worker_pool!(pool)
+        pid = only(addprocs(1; exeflags = "--project=$(Base.active_project())"))
+        try
+            @everywhere [pid] using Juleana
+            push!(pool, pid)
+            on_worker(cfg, l200, period, run; reprocess = false) = parallel(items, Row) do itr
+                (processed = true, log = Row((itr.detector, :on, 1, "")), worker = myid(), redo = Juleana.redo_detector(itr.detector))
+            end
+            out = run_step(:on_worker, 3, 1; config = ProcessingConfig(;
+                processors = Dict(:on_worker => ProcessorSpec(; name = :on_worker, level = :run, category = :cal, rank = 1)),
+                p_processors = Dict{Symbol,ProcessorSpec}()), l200, processors = Dict{Symbol,Any}(:on_worker => on_worker),
+                detectors = [:V1, :V3], outputs = :production)
+            @test [(r.worker, r.redo) for r in last.(out.results)] == [(pid, true), (pid, false), (pid, true)]
+        finally
+            ppt_worker_pool!(original_pool)
+            rmprocs(pid)
+        end
     end
 
     @testset "skipped runs" begin

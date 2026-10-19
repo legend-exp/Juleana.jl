@@ -19,6 +19,7 @@ logger installed on the head and all workers.
 module Juleana
 
 using ArgParse: @add_arg_table!, ArgParseSettings, parse_args
+using Base64: base64encode
 import CairoMakie
 # Loading CommonMark activates Tachikoma's Markdown extension, which the report viewer renders with.
 import CommonMark
@@ -46,7 +47,7 @@ using LegendDSP: LegendDSP, DSPConfig, dsp_decay_times, dsp_icpc_compressed, dsp
     get_qc_ml_func
 using LegendEventAnalysis: LegendEventAnalysis, TimeEvolution, calibrate_all,
     calibrate_ged_detector_data, flag_coincidences, rate, relative, smooth
-using LegendHDF5IO: lh5open
+using LegendHDF5IO: delete_entry!, lh5open
 import LegendMakie
 using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_peak, fit_aoe_compton,
     fit_aoe_compton_combined, fit_aoe_corrections, fit_calibration, fit_enc_sigmas,
@@ -159,7 +160,7 @@ export master_status, detector_status, truncate_string, truncate_error
 export load_qc_evaluator
 export ProcessingConfig, ProcessorSpec, run_steps, partition_steps, check_processor_kwargs
 export ProcessorGraph, processor_graph, topological_order, required_processors, dependent_processors, waited_processors, layered_layout
-export run_processing, run_step, StepItemsDone, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
+export run_processing, run_step, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
     SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetRunmode, SetRunmodeSettings, SetCheckDependencies, SetKwarg,

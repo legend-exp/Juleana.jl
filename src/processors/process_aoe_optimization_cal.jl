@@ -60,7 +60,7 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
     @debug "Loaded optimization config: $(lstring(optimization_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.aoeopt), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.aoeopt), string(period)))
     pars_db = PropDict(l200.par.rpars.aoeopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -92,7 +92,7 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing filters"
             for filter_type in aoe_filter
                 if haskey(pars_db[det], filter_type)
@@ -238,8 +238,8 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
     @info "Finished SG filter optimization"
 
     pars_db = create_pars(pars_db, result_sg)
-    writelprops(l200.par.rpars.aoeopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.aoeopt, filekey, (period, run))
+    write_pars(l200.par.rpars.aoeopt[period], run, pars_db)
+    write_validity(l200.par.rpars.aoeopt, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -255,7 +255,7 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
 
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :aoe_optimization), report)
+    write_report(get_rreportfilename(l200, filekey, :aoe_optimization), report)
     @info report
 
     # flush stdout

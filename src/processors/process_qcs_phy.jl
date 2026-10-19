@@ -45,7 +45,7 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     @debug "Loaded QC config: $(lstring(qc_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.qcs), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.qcs), string(period)))
     pars_file = Symbol("$(run)-phy")
     pars_db = PropDict(l200.par.rpars.qcs[period, pars_file])
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -82,7 +82,7 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
         qcsfilename = l200.tier[:jlqcs, filekey, det]
         qc_config_det = merge(qc_config.default, get(qc_config, chinfo_det.usability, PropDict()), get(qc_config, det, PropDict()))
 
-        if !reprocess && haskey(pars_db, det) && haskey(pars_db[det].survival_fractions, :pulser) && haskey(pars_db[det].survival_fractions, :forced_trigger) && haskey(pars_db[det].survival_fractions.pulser, :is_valid_dsp) && haskey(pars_db[det], :n_pulser) && haskey(pars_db[det], :n_forced) && haskey(pars_db[det], :n_physics) && haskey(pars_db[det], :n_invalid_dsp_single_pulse) && isfile(qcsfilename)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det) && haskey(pars_db[det].survival_fractions, :pulser) && haskey(pars_db[det].survival_fractions, :forced_trigger) && haskey(pars_db[det].survival_fractions.pulser, :is_valid_dsp) && haskey(pars_db[det], :n_pulser) && haskey(pars_db[det], :n_forced) && haskey(pars_db[det], :n_physics) && haskey(pars_db[det], :n_invalid_dsp_single_pulse) && isfile(qcsfilename)
             sf = pars_db[det].survival_fractions
             log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), sf.pulser.is_single_pulse, sf.forced_trigger.is_empty_trace, pars_db[det].n_pulser, pars_db[det].n_forced, pars_db[det].n_physics, pars_db[det].n_invalid_dsp_single_pulse, "Already processed --> skipped."))
             @debug "Detector $det already processed"
@@ -166,8 +166,8 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     @info "Finished physics QC detector processing"
 
     pars_db = create_pars(pars_db, result_qc)
-    writelprops(l200.par.rpars.qcs[period], pars_file, pars_db)
-    writevalidity(l200.par.rpars.qcs, filekey, "$(period)/$(pars_file).yaml"; category=:phy)
+    write_pars(l200.par.rpars.qcs[period], pars_file, pars_db)
+    write_validity(l200.par.rpars.qcs, filekey, "$(period)/$(pars_file).yaml"; category=:phy)
     @info "Saved QC-survival pars to disk"
 
     # plot the final survival fractions for all detectors from the parameter database
@@ -195,7 +195,7 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     report_filename = get_rreportfilename(l200, filekey, :qcs_phy)
 
     @info "Write log report"
-    writelreport(report_filename, report)
+    write_report(report_filename, report)
     @info report
     Base.empty!(fig)
 
@@ -203,4 +203,4 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     flush(stdout)
 end
 
-register_processor!(process_qcs_phy)
+register_processor!(process_qcs_phy; output_tiers = [:jlqcs])

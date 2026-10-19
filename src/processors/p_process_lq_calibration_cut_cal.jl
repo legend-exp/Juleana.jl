@@ -70,11 +70,11 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
 
         @info "Processing detector $det ($ch)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.lq), string(det)))
+        make_par_dir(joinpath(data_path(l200.par.ppars.lq), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.lq), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.lq[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.lq), "$det"))
+            make_par_dir(joinpath(data_path(l200.par.ppars.lq), "$det"))
             PropDict()
         end
 
@@ -148,7 +148,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
             return (processed = processed_dict, log = log_info_dict, validity = validity_det, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db_det, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
                 if !haskey(pars_db_det[det], lq_type)
@@ -372,8 +372,8 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
         result_lq_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
 
         pars_db_det = create_pars(pars_db_det, result_lq_det)
-        writelprops(l200.par.ppars.lq[det], part, pars_db_det)
-        writevalidity(l200.par.ppars.lq[det], filekey_det, part)
+        write_pars(l200.par.ppars.lq[det], part, pars_db_det)
+        write_validity(l200.par.ppars.lq[det], filekey_det, part)
 
         return result_det
     end
@@ -386,7 +386,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
 
     @info "Write $period validity"
     validity_all = create_validity(result_lq)
-    writevalidity(l200.par.ppars.lq, validity_all)
+    write_validity(l200.par.ppars.lq, validity_all)
 
 
     report = lreport()
@@ -401,7 +401,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
     lreport!(report, create_logtbl(result_lq))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :lq_calibration_cut), report)
+    write_report(get_preportfilename(l200, filekey, :lq_calibration_cut), report)
     @info report
 
     # flush stdout

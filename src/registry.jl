@@ -11,16 +11,21 @@ config. Every file in `src/processors/` adds its processor with
 const PROCESSORS = Dict{Symbol,Function}()
 
 """
-    register_processor!(f)
+    register_processor!(f; output_tiers = Symbol[], detector_selection::Bool = true)
 
 Add the processor function `f` to [`PROCESSORS`](@ref) under `nameof(f)` and return `f`.
-Throw an `ArgumentError` when a processor of that name is already registered.
+`output_tiers` are the data tiers the processor writes, for example `[:jldsp]`;
+`detector_selection` is `false` for a processor that does not process the detectors
+[`redo_detector`](@ref) names again. Both go to [`PROCESSOR_TRAITS`](@ref) for
+[`run_step`](@ref). Throw an `ArgumentError` when a processor of that name is already
+registered.
 """
-function register_processor!(f)
+function register_processor!(f; output_tiers = Symbol[], detector_selection::Bool = true)
     name = nameof(f)
     haskey(PROCESSORS, name) &&
         throw(ArgumentError("register_processor!: processor `$name` is already registered"))
     PROCESSORS[name] = f
+    PROCESSOR_TRAITS[name] = (output_tiers = Symbol.(collect(output_tiers)), detector_selection)
     return f
 end
 

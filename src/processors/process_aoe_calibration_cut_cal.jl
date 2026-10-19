@@ -57,7 +57,7 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
     @debug "Loaded aoe config: $(lstring(aoe_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.aoe), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.aoe), string(period)))
     pars_db = PropDict(l200.par.rpars.aoe[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -100,7 +100,7 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
         # sigma_high_sided = ifelse(chinfo_det.high_aoe_status == :valid, aoe_config_det.sigma_high_sided, Inf)
         sigma_high_sided = aoe_config_det.sigma_high_sided
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing energy types"
             for aoe_type in aoe_types
                 if haskey(pars_db[det], aoe_type)
@@ -430,8 +430,8 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
     @info "Finished AoE calibration"
 
     pars_db = create_pars(pars_db, result_aoe)
-    writelprops(l200.par.rpars.aoe[period], run, pars_db)
-    writevalidity(l200.par.rpars.aoe, filekey, (period, run))
+    write_pars(l200.par.rpars.aoe[period], run, pars_db)
+    write_validity(l200.par.rpars.aoe, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -446,7 +446,7 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :aoe_calibration_cut), report)
+    write_report(get_rreportfilename(l200, filekey, :aoe_calibration_cut), report)
     @info report
 
     # flush stdout

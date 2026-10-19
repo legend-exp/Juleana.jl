@@ -51,7 +51,7 @@ function process_psd_efficiencies_cal(processing_config, l200::LegendData, perio
     @debug "Loaded psd config: $(lstring(psd_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.psd), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.psd), string(period)))
     pars_db = PropDict(l200.par.rpars.psd[period, run])
 
     pars_type = ifelse(use_partition_pars, :ppars, :rpars)
@@ -93,7 +93,7 @@ function process_psd_efficiencies_cal(processing_config, l200::LegendData, perio
         psd_classifiers = collect(keys(psd_config_det.psd_classifiers))
         psd_classifiers_dict = psd_config_det.psd_classifiers
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing energy types"
             for psd_classifier in psd_classifiers
                 if haskey(pars_db[det], psd_classifier)
@@ -288,8 +288,8 @@ function process_psd_efficiencies_cal(processing_config, l200::LegendData, perio
     @info "Finished PSD efficiencies"
 
     pars_db = create_pars(pars_db, result_psd)
-    writelprops(l200.par.rpars.psd[period], run, pars_db)
-    writevalidity(l200.par.rpars.psd, filekey, (period, run))
+    write_pars(l200.par.rpars.psd[period], run, pars_db)
+    write_validity(l200.par.rpars.psd, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -304,7 +304,7 @@ function process_psd_efficiencies_cal(processing_config, l200::LegendData, perio
     lreport!(report, create_logtbl(result_psd))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :psd_efficiencies), report)
+    write_report(get_rreportfilename(l200, filekey, :psd_efficiencies), report)
     @info report
 
     # flush stdout

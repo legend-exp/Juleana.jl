@@ -244,11 +244,11 @@ function process_peak_split_cal(processing_config, l200::LegendData, period::Dat
     lreport!(report, create_logtbl(result_peaksplit))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :peak_split), report)
+    write_report(get_rreportfilename(l200, filekey, :peak_split), report)
     @info report
 
     # flush stdout
     flush(stdout)
 end # function
 
-register_processor!(process_peak_split_cal)
+register_processor!(process_peak_split_cal; output_tiers = [:jlpks], detector_selection = false)

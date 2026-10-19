@@ -106,7 +106,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
         end
     end
 
-    mkpath(data_path(l200.par[pars_type, :sipmopt]))
+    make_par_dir(data_path(l200.par[pars_type, :sipmopt]))
     pars_sipm = get_values(l200.par[pars_type, :sipmopt](filekey))
     @debug "Loaded sipm parameters"
     
@@ -144,7 +144,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                 # open output file
                 lh5open(outfilename, "cw") do outdata
                     # get processed detectors
-                    processed_detectors = haskey(outdata, :jldsp) ? keys(outdata[:jldsp]) : String[]
+                    processed_detectors = haskey(outdata, :jldsp) ? string.(keys(outdata[:jldsp])) : String[]
 
                     @info "Start DSP"
                     @timeit dsp_timer "DSP" begin
@@ -158,7 +158,8 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                 @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
                                 # check if detector can be processed
-                                if "$det" in processed_detectors && !reprocess
+                                detector_selected(det) || continue
+                                if "$det" in processed_detectors && !reprocess && !redo_detector(det)
                                     @info "Detector $det ($ch) already processed, skip"
                                     n_detectors += 1
                                     continue
@@ -180,6 +181,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                         continue
                                     end
                                     # save data to hdf5
+                                    "$det" in processed_detectors && delete_entry!(outdata, "jldsp/$det")
                                     outdata[:jldsp, det] = outdata_det
                                     # free memory
                                     GC.gc()
@@ -196,7 +198,8 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                 det = chinfo_det.detector
             
                                 # check if detector can be processed
-                                if "$det" in processed_detectors && !reprocess
+                                detector_selected(det) || continue
+                                if "$det" in processed_detectors && !reprocess && !redo_detector(det)
                                     @info "Detector $det ($ch) already processed, skip"
                                     n_detectors += 1
                                     continue
@@ -225,6 +228,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                         continue
                                     end
                                     # save data to hdf5
+                                    "$det" in processed_detectors && delete_entry!(outdata, "jldsp/$det")
                                     outdata[:jldsp, det] = outdata_det
                                     # free memory
                                     GC.gc()
@@ -248,7 +252,8 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                 push!(failed_detectors, det)
                                 continue
                             end
-                            if "$det" in processed_detectors && !reprocess
+                            detector_selected(det) || continue
+                            if "$det" in processed_detectors && !reprocess && !redo_detector(det)
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
                                 continue
@@ -272,6 +277,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                     continue
                                 end
                                 # save data to hdf5
+                                "$det" in processed_detectors && delete_entry!(outdata, "jldsp/$det")
                                 outdata[:jldsp, det] = outdata_det
                                 # free memory
                                 GC.gc()
@@ -294,7 +300,8 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                             @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
                             # check if detector can be processed
-                            if "$det" in processed_detectors && !reprocess
+                            detector_selected(det) || continue
+                            if "$det" in processed_detectors && !reprocess && !redo_detector(det)
                                 @info "Detector $det ($ch) already processed, skip"
                                 n_detectors += 1
                                 continue
@@ -343,6 +350,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
                                     continue
                                 end
                                 # save data to hdf5
+                                "$det" in processed_detectors && delete_entry!(outdata, "jldsp/$det")
                                 outdata[:jldsp, det] = outdata_det
                                 # free memory
                                 GC.gc()
@@ -395,11 +403,11 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :dsp_phy), report)
+    write_report(get_rreportfilename(l200, filekey, :dsp_phy), report)
     @info report
 
     # flush stdout
     flush(stdout)
 end
 
-register_processor!(process_dsp_phy)
+register_processor!(process_dsp_phy; output_tiers = [:jldsp])

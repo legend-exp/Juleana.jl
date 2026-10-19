@@ -45,7 +45,7 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
     @debug "Loaded optimization config: $(lstring(optimization_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.fltopt), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.fltopt), string(period)))
     pars_db = PropDict(l200.par.rpars.fltopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -80,7 +80,7 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
@@ -251,8 +251,8 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
     @info "Finished filter optimization"
 
     pars_db = create_pars(pars_db, result_flt)
-    writelprops(l200.par.rpars.fltopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.fltopt, filekey, (period, run))
+    write_pars(l200.par.rpars.fltopt[period], run, pars_db)
+    write_validity(l200.par.rpars.fltopt, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -267,7 +267,7 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
     lreport!(report, create_logtbl(result_flt))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :filter_optimization), report)
+    write_report(get_rreportfilename(l200, filekey, :filter_optimization), report)
     @info report
     
     # flush stdout

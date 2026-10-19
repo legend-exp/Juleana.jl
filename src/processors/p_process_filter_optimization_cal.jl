@@ -62,11 +62,11 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
 
         @debug "Processing detector $det ($ch)"
         
-        mkpath(joinpath(data_path(l200.par.ppars.fltopt), string(det)))
+        make_par_dir(joinpath(data_path(l200.par.ppars.fltopt), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.yaml"))
             PropDict(l200.par.ppars.fltopt[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.fltopt), "$det"))
+            make_par_dir(joinpath(data_path(l200.par.ppars.fltopt), "$det"))
             PropDict()
         end
 
@@ -112,7 +112,7 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
             return (processed = processed_dict, log = log_info_dict, validity = validity_det, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db_det, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db_det[det], filter_type)
@@ -275,8 +275,8 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
         result_flt_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
         
         pars_db_det = create_pars(pars_db_det, result_flt_det)
-        writelprops(l200.par.ppars.fltopt[det], part, pars_db_det)
-        writevalidity(l200.par.ppars.fltopt[det], filekey_det, part)
+        write_pars(l200.par.ppars.fltopt[det], part, pars_db_det)
+        write_validity(l200.par.ppars.fltopt[det], filekey_det, part)
 
         # return results
         return result_det
@@ -291,7 +291,7 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
 
     @info "Write $period validity"
     validity_all = create_validity(result_flt)
-    writevalidity(l200.par.ppars.fltopt, validity_all)
+    write_validity(l200.par.ppars.fltopt, validity_all)
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -305,7 +305,7 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
     lreport!(report, create_logtbl(result_flt))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :filter_optimization), report)
+    write_report(get_preportfilename(l200, filekey, :filter_optimization), report)
     @info report
     
     # flush stdout

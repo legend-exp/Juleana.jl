@@ -77,7 +77,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.sipmcal), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.sipmcal[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.sipmcal), "$det"))
+            make_par_dir(joinpath(data_path(l200.par.ppars.sipmcal), "$det"))
             PropDict()
         end
 
@@ -121,7 +121,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
             return (processed = processed_dict, log = log_info_dict, validity = validity_det, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db_det, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db_det[det], e_type)
@@ -275,8 +275,8 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
         result_sipm_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
 
         pars_db_det = create_pars(pars_db_det, result_sipm_det)
-        writelprops(l200.par.ppars.sipmcal[det], part, pars_db_det)
-        writevalidity(l200.par.ppars.sipmcal[det], filekey_det, part)
+        write_pars(l200.par.ppars.sipmcal[det], part, pars_db_det)
+        write_validity(l200.par.ppars.sipmcal[det], filekey_det, part)
 
         # return results
         return result_det
@@ -292,7 +292,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
 
     @info "Write $period validity"
     validity_all = create_validity(result_sipm_calibration)
-    writevalidity(l200.par.ppars.sipmcal, validity_all)
+    write_validity(l200.par.ppars.sipmcal, validity_all)
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -306,7 +306,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
     lreport!(report, create_logtbl(result_sipm_calibration))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :sipm_calibration_phy), report)
+    write_report(get_preportfilename(l200, filekey, :sipm_calibration_phy), report)
     @info report
     
     # flush stdout

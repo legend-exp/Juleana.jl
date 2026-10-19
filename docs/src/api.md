@@ -36,7 +36,6 @@ Juleana.disk_counts
 Juleana.disk_state
 run_processing
 run_step
-StepItemsDone
 ProcessingStopped
 Juleana.partition_periods
 Juleana.rank_order_dependencies
@@ -132,6 +131,7 @@ partition_steps
 check_processor_kwargs
 Juleana.PROCESSORS
 Juleana.register_processor!
+Juleana.PROCESSOR_TRAITS
 Juleana.display_name
 Juleana.RENAMED_PROCESSORS
 ```
@@ -146,6 +146,12 @@ detector_status
 truncate_string
 truncate_error
 load_qc_evaluator
+Juleana.redo_detector
+Juleana.detector_selected
+Juleana.write_pars
+Juleana.write_validity
+Juleana.make_par_dir
+Juleana.write_report
 ```
 
 ## Logging

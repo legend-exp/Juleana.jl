@@ -171,10 +171,10 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
     lreport!(report, create_logtbl(result_stability))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :stability_plots_phy), report)
+    write_report(get_rreportfilename(l200, filekey, :stability_plots_phy), report)
     @info report
 
     flush(stdout)
 end
 
-register_processor!(process_stability_plots_phy)
+register_processor!(process_stability_plots_phy; detector_selection = false)

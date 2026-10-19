@@ -41,7 +41,7 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
     @debug "Loaded CTC parameters"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.ecal), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.ecal), string(period)))
     pars_db = PropDict(l200.par.rpars.ecal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -71,7 +71,7 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
 
         energy_types = Symbol.(energy_config_det.energy_types)
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
@@ -264,8 +264,8 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
     @info "Finished energy calibration"
 
     pars_db = create_pars(pars_db, result_energy)
-    writelprops(l200.par.rpars.ecal[period], run, pars_db)
-    writevalidity(l200.par.rpars.ecal, filekey, (period, run))
+    write_pars(l200.par.rpars.ecal[period], run, pars_db)
+    write_validity(l200.par.rpars.ecal, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -280,7 +280,7 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
     lreport!(report, create_logtbl(result_energy))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :energy_calibration), report)
+    write_report(get_rreportfilename(l200, filekey, :energy_calibration), report)
     @info report
 
     # flush stdout

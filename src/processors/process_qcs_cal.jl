@@ -47,7 +47,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     @debug "Loaded QC config: $(lstring(qc_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.qcs), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.qcs), string(period)))
     pars_db = PropDict(l200.par.rpars.qcs[period, run])
     pars_db = ifelse(reprocess, PropDict(), pars_db)
     if reprocess @info "Reprocess all detectors" end
@@ -76,7 +76,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
         qc_config_det = merge(qc_config.default, get(qc_config, chinfo_det.usability, PropDict()), get(qc_config, det, PropDict()))
         energy_config_det = merge(energy_config.default, get(energy_config, det, PropDict()))
 
-        if !reprocess && haskey(pars_db, det) && haskey(pars_db[det], :n_single_pulse) && haskey(pars_db[det], :n_invalid_e_single_pulse) && isfile(qcsfilename)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det) && haskey(pars_db[det], :n_single_pulse) && haskey(pars_db[det], :n_invalid_e_single_pulse) && isfile(qcsfilename)
             sf = pars_db[det].survival_fractions
             log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), sf.pulser.is_single_pulse, sf.Tl208FEP.is_single_pulse, pars_db[det].n_pulser, pars_db[det].n_single_pulse, pars_db[det].n_invalid_e_single_pulse, "Already processed --> skipped."))
             @debug "Detector $det already processed"
@@ -184,8 +184,8 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     @info "Finished QC detector processing"
 
     pars_db = create_pars(pars_db, result_qc)
-    writelprops(l200.par.rpars.qcs[period], run, pars_db)
-    writevalidity(l200.par.rpars.qcs, filekey, (period, run); category=:cal)
+    write_pars(l200.par.rpars.qcs[period], run, pars_db)
+    write_validity(l200.par.rpars.qcs, filekey, (period, run); category=:cal)
     @info "Saved QC-survival pars to disk"
 
     # plot the final survival fractions for all detectors from the parameter database
@@ -213,7 +213,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     report_filename = get_rreportfilename(l200, filekey, :qcs_cal)
 
     @info "Write log report"
-    writelreport(report_filename, report)
+    write_report(report_filename, report)
     @info report
     Base.empty!(fig)
 
@@ -221,4 +221,4 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     flush(stdout)
 end
 
-register_processor!(process_qcs_cal)
+register_processor!(process_qcs_cal; output_tiers = [:jlqcs])

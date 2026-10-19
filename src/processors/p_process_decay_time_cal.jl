@@ -66,11 +66,11 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         det = chinfo_det.detector
         part = chinfo_det.partition
 
-        mkpath(joinpath(data_path(l200.par.ppars.pz), string(det)))
+        make_par_dir(joinpath(data_path(l200.par.ppars.pz), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.pz), "$det", "$part.yaml"))
             PropDict(l200.par.ppars.pz[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.pz), "$det"))
+            make_par_dir(joinpath(data_path(l200.par.ppars.pz), "$det"))
             PropDict()
         end
 
@@ -88,7 +88,7 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
             return (processed = false, log = log_det, validity = validity_det, skipped = true)
         end 
 
-        if !reprocess && haskey(pars_db_det, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $det already processed, skip"
             log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), pars_db_det[det].τ, pars_db_det[det].fit.σ, "Already processed --> skipped."))
             return (processed = false, log = log_det, validity = validity_det)
@@ -190,8 +190,8 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         result_pz_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
         
         pars_db_det = create_pars(pars_db_det, result_pz_det)
-        writelprops(l200.par.ppars.pz[det], part, pars_db_det)
-        writevalidity(l200.par.ppars.pz[det], filekey_det, part)
+        write_pars(l200.par.ppars.pz[det], part, pars_db_det)
+        write_validity(l200.par.ppars.pz[det], filekey_det, part)
         @info "Saved pars to disk for detector $det ($ch)"
 
         return result_det
@@ -207,7 +207,7 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
 
     @info "Write $period validity"
     validity_all = create_validity(result_pz)
-    writevalidity(l200.par.ppars.pz, validity_all)
+    write_validity(l200.par.ppars.pz, validity_all)
 
     # create log report
     report = lreport()
@@ -222,7 +222,7 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
     lreport!(report, create_logtbl(result_pz))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :decay_time), report)
+    write_report(get_preportfilename(l200, filekey, :decay_time), report)
     @info report
     
     # flush stdout

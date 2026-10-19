@@ -64,25 +64,33 @@ using Juleana
 session = Juleana.setup_session(["-c", "config/processing_config.yaml"])
 ```
 
-## Debugging a processor in the REPL
+## Running one processor for chosen detectors
 
 [`run_step`](@ref) runs one processor for one period, and for a run-level processor one
-run, in the REPL process, for the detectors you choose. The items of the processor run
-one after another without workers, so an error is thrown in the REPL with its full stack
-trace. The processor ends after its items: parameters, validity and reports are not
-written. With `LEGEND_DATA_CONFIG` set to the data production:
+run, from a Julia session, for the detectors you choose. With `LEGEND_DATA_CONFIG` set to
+the data production:
 
 ```julia
-using Revise, Juleana, Infiltrator
-results = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
+using Juleana
+step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
 ```
 
-To look at the data of a detector, put `Main.@infiltrate` into the processor where you
-want to stop, for example at the start of the function that handles one detector, and
-call `run_step` again: Revise loads the change, and the REPL stops there with all local
-variables of the detector. Processor keyword arguments are passed on, e.g.
-`run_step(...; timeout = 0)`; `reprocess` is `true` unless you pass it. The config is
-`config/processing_config.yaml` of the data production unless `config` names another file.
+The chosen detectors are processed again, also when they already have parameters. By
+default (`outputs = :temp`), the plots, reports and data files of the processor go to a
+new temporary directory, and no parameters or validity are written; the other detectors
+are not run. With `outputs = :production`, everything is written to the data production:
+the other detectors are skipped as already processed, so the parameters and the report of
+the run stay complete.
+
+`step.report` is a single Markdown file with the report rows of the chosen detectors and,
+below them, the plots of each detector. Processor keyword arguments are passed on, e.g.
+`run_step(...; timeout = 0)`, and `config` names another config file than
+`config/processing_config.yaml` of the data production. Items run on the workers when
+workers are started, otherwise in the session itself.
+
+The processors that do not support chosen detectors (`process_evt_phy`,
+`p_process_skm_phy`, `process_peak_split_cal` and the stability plots) run for all
+detectors, without `detectors`.
 
 ## Command line options
 

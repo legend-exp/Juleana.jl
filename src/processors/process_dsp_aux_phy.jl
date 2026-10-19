@@ -80,7 +80,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
         @info "Processing DSP for auxiliary detector $det ($ch)"
         dspfilename = l200.tier[:jlaux, filekey, det]
 
-        if !reprocess && isfile(dspfilename)
+        if !reprocess && !redo_detector(det) && isfile(dspfilename)
             try
                 n_evts = length(read_ldata(:timestamp, l200, DataTier(:jlaux), filekey, det))
                 @info "DSP for auxiliary detector $det ($ch) already exists, skip"
@@ -152,10 +152,10 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
     lreport!(report, create_logtbl(result_dsp_aux))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :dsp_aux_phy), report)
+    write_report(get_rreportfilename(l200, filekey, :dsp_aux_phy), report)
     @info report
 
     flush(stdout)
 end
 
-register_processor!(process_dsp_aux_phy)
+register_processor!(process_dsp_aux_phy; output_tiers = [:jlaux])

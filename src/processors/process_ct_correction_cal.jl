@@ -37,7 +37,7 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
     @debug "Loaded energy config: $(lstring(energy_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.ctc), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.ctc), string(period)))
     pars_db = PropDict(l200.par.rpars.ctc[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -74,7 +74,7 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
 
         energy_types = Symbol.(ctc_config_det.energy_types)
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
@@ -171,8 +171,8 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
     @info "Finished CT correction"
 
     pars_db = create_pars(pars_db, result_ctc)
-    writelprops(l200.par.rpars.ctc[period], run, pars_db)
-    writevalidity(l200.par.rpars.ctc, filekey, (period, run))
+    write_pars(l200.par.rpars.ctc[period], run, pars_db)
+    write_validity(l200.par.rpars.ctc, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -187,7 +187,7 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
     lreport!(report, create_logtbl(result_ctc))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :ct_correction), report)
+    write_report(get_rreportfilename(l200, filekey, :ct_correction), report)
     @info report
 
     # flush stdout

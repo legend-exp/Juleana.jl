@@ -62,7 +62,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     @debug "Loaded QC config: $(lstring(qc_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.sipmopt), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.sipmopt), string(period)))
     pars_db = PropDict(l200.par.rpars.sipmopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -101,7 +101,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
         log_info_dict  = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing filters"
             for filter_type in e_filter
                 if haskey(pars_db[det], filter_type)
@@ -251,8 +251,8 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     @info "Finished SiPM optimization extraction"
 
     pars_db = create_pars(pars_db, result_sipm_optimization)
-    writelprops(l200.par.rpars.sipmopt[period], run, pars_db)
-    writevalidity(l200.par.rpars.sipmopt, filekey, (period, run))
+    write_pars(l200.par.rpars.sipmopt[period], run, pars_db)
+    write_validity(l200.par.rpars.sipmopt, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -267,7 +267,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
     lreport!(report, create_logtbl(result_sipm_optimization))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :sipm_optimization_phy), report)
+    write_report(get_rreportfilename(l200, filekey, :sipm_optimization_phy), report)
     @info report
     
     # flush stdout

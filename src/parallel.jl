@@ -121,9 +121,9 @@ attempts after a worker loss or a timeout; an error thrown by `f` is not retried
 Element types without a [`failure_log`](@ref) method for `log_nt` are rejected with an
 `ArgumentError` before any work starts.
 
-Inside [`run_step`](@ref), only the items it selects run, one after another in the calling
-process; an error in an item is thrown, and `parallel` then throws [`StepItemsDone`](@ref)
-with the results instead of returning.
+Inside [`run_step`](@ref), `f` sees the detector selection of `run_step` also on the
+workers (see [`redo_detector`](@ref)); with `outputs = :temp`, items whose `detector` is not
+selected are not run and are missing from the result.
 
 Inside [`run_processing`](@ref), a stop of the processing run takes effect here: items that
 have not been handed to a worker are not run, items already running finish, and `parallel`
@@ -147,14 +147,13 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
         hasmethod(failure_log, Tuple{Type{log_nt}, T, String}) ||
             throw(ArgumentError("parallel: no failure_log method for items of type $T"))
     end
-    select = LOCAL_ITEMS[]
-    if !isnothing(select)
-        # inside `run_step`: the selected items run here, one after another, and errors are thrown
-        items = filter(select, vec(collect(iterator)))
-        isempty(items) && throw(ArgumentError("parallel: no item is selected; the items are " *
-            join((hasproperty(itr, :detector) ? string(itr.detector) : string(itr) for itr in iterator), ", ")))
-        throw(StepItemsDone(Any[itr => f(itr) for itr in items]))
+    # ScopedValues do not reach the workers: the item function sets those of `run_step` again
+    selection, write = DETECTOR_SELECTION[], WRITE_PARS[]
+    if !isnothing(selection) && !write
+        # `run_step` with temporary outputs: detectors that are not selected are not run
+        iterator = filter(itr -> !hasproperty(itr, :detector) || string(itr.detector) in selection, vec(iterator))
     end
+    run_item(itr) = with(() -> f(itr), DETECTOR_SELECTION => selection, WRITE_PARS => write)
     stop = PROCESSING_STOP[]
     pool = isnothing(stop) ? ppt_worker_pool() : StoppablePool(ppt_worker_pool(), stop)
     step = PROGRESS_STEP[]
@@ -174,7 +173,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
                 with(ITEM_STARTED => started) do
                     onworker(; pool, tries=retry ? 3 : 1, label="$itr", maxtime=timeout) do
                         try
-                            return itr => f(itr), :done
+                            return itr => run_item(itr), :done
                         catch e
                             # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
                             @debug "Write Error log for $(itr): $e"
@@ -212,5 +211,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
 
     flush(stdout)
     !isnothing(stop) && stop[] && throw(ProcessingStopped())
+    record = STEP_RECORD[]
+    isnothing(record) || append!(record.results, vec(result))
     return result
 end

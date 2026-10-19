@@ -4,6 +4,7 @@ version = "0.2.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 CommonMark = "a80b9123-70ca-4bc0-993e-6e3bcb318db6"
 ConcurrentCollections = "5060bff5-0b44-40c5-b522-fcd3ca5cecdd"
@@ -50,6 +51,7 @@ UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 
 [compat]
 ArgParse = "1"
+Base64 = "1"
 CairoMakie = "0.15"
 CommonMark = "1"
 ConcurrentCollections = "0.1"

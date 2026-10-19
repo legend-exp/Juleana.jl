@@ -134,7 +134,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     lreport!(report, create_logtbl(result_skm))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :skm_phy), report)
+    write_report(get_preportfilename(l200, filekey, :skm_phy), report)
     @info report
 
     # flush stdout
@@ -143,4 +143,4 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     return true
 end
 
-register_processor!(p_process_skm_phy)
+register_processor!(p_process_skm_phy; output_tiers = [:jlskm], detector_selection = false)

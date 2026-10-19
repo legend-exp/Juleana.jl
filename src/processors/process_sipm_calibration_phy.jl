@@ -60,7 +60,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
     det_puls = chinfo_puls.detector
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.sipmcal), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.sipmcal), string(period)))
     pars_db = PropDict(l200.par.rpars.sipmcal[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -92,7 +92,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
 
         energy_types = Symbol.(collect(keys(calibration_config_det.energy_types)))
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing energy types"
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
@@ -248,8 +248,8 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
     @info "Finished SiPM calibration"
 
     pars_db = create_pars(pars_db, result_sipm_calibration)
-    writelprops(l200.par.rpars.sipmcal[period], run, pars_db)
-    writevalidity(l200.par.rpars.sipmcal, filekey, (period, run))
+    write_pars(l200.par.rpars.sipmcal[period], run, pars_db)
+    write_validity(l200.par.rpars.sipmcal, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -264,7 +264,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
     lreport!(report, create_logtbl(result_sipm_calibration))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :sipm_calibration_phy), report)
+    write_report(get_rreportfilename(l200, filekey, :sipm_calibration_phy), report)
     @info report
     
     # flush stdout

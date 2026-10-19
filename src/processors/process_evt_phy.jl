@@ -150,11 +150,11 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
     lreport!(report, "```")
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :evt_phy), report)
+    write_report(get_rreportfilename(l200, filekey, :evt_phy), report)
     @info report
 
     # flush stdout
     flush(stdout)
 end
 
-register_processor!(process_evt_phy)
+register_processor!(process_evt_phy; output_tiers = [:jlevt, :jlpmt], detector_selection = false)

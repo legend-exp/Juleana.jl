@@ -197,11 +197,11 @@ function p_process_stability_plots_phy(processing_config, l200::LegendData, peri
     lreport!(report, create_logtbl(result_stability))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :stability_plots_phy), report)
+    write_report(get_preportfilename(l200, filekey, :stability_plots_phy), report)
     @info report
 
     flush(stdout)
     return any(x -> get(last(x), :skipped, false), values(result_stability))
 end
 
-register_processor!(p_process_stability_plots_phy)
+register_processor!(p_process_stability_plots_phy; detector_selection = false)

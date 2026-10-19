@@ -74,11 +74,11 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
 
         @info "Processing detector $det ($ch)"
 
-        mkpath(joinpath(data_path(l200.par.ppars.aoecut), string(det)))
+        make_par_dir(joinpath(data_path(l200.par.ppars.aoecut), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.aoecut), "$det", "$part.yaml")) && !reprocess
             PropDict(l200.par.ppars.aoecut[det, part])
         else
-            mkpath(joinpath(data_path(l200.par.ppars.aoecut), "$det"))
+            make_par_dir(joinpath(data_path(l200.par.ppars.aoecut), "$det"))
             PropDict()
         end
 
@@ -116,7 +116,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
             return (processed = processed_dict, log = log_info_dict, validity = validity_det, skipped = true)
         end
 
-        if !reprocess && haskey(pars_db_det, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $(det) already processed, check missing filters"
             for aoe_classifier in aoe_classifiers
                 if haskey(pars_db_det[det], aoe_classifier)
@@ -264,8 +264,8 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
         result_aoe_cut_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
 
         pars_db_det = create_pars(pars_db_det, result_aoe_cut_det)
-        writelprops(l200.par.ppars.aoecut[det], part, pars_db_det)
-        writevalidity(l200.par.ppars.aoecut[det], filekey_det, part)
+        write_pars(l200.par.ppars.aoecut[det], part, pars_db_det)
+        write_validity(l200.par.ppars.aoecut[det], filekey_det, part)
 
         return result_det
     end
@@ -278,7 +278,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
 
     @info "Write $period validity"
     validity_all = create_validity(result_aoe)
-    writevalidity(l200.par.ppars.aoecut, validity_all)
+    write_validity(l200.par.ppars.aoecut, validity_all)
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -292,7 +292,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
     lreport!(report, create_logtbl(result_aoe))
 
     @info "Write log report"
-    writelreport(get_preportfilename(l200, filekey, :aoe_cut), report)
+    write_report(get_preportfilename(l200, filekey, :aoe_cut), report)
     @info report
     
     # flush stdout

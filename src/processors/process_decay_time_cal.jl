@@ -48,7 +48,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     @debug "Loaded PZ config: $(lstring(pz_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.pz), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.pz), string(period)))
     pars_db = PropDict(l200.par.rpars.pz[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -70,7 +70,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         ch  = chinfo_det.channel
         det = chinfo_det.detector
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $det already processed, skip"
             log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
             return (processed = false, log = log_det)
@@ -172,8 +172,8 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
-    writelprops(l200.par.rpars.pz[period], run, pars_db)
-    writevalidity(l200.par.rpars.pz, filekey, (period, run))
+    write_pars(l200.par.rpars.pz[period], run, pars_db)
+    write_validity(l200.par.rpars.pz, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -188,7 +188,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     lreport!(report, create_logtbl(result_pz))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :decay_time), report)
+    write_report(get_rreportfilename(l200, filekey, :decay_time), report)
     @info report
     
     # flush stdout

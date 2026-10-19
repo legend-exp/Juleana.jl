@@ -59,7 +59,7 @@ function process_lq_calibration_cut_cal(processing_config, l200::LegendData, per
     @debug "Loaded LQ config: $(lstring(lq_config))"
 
     @debug "Create pars db"
-    mkpath(joinpath(data_path(l200.par.rpars.lq), string(period)))
+    make_par_dir(joinpath(data_path(l200.par.rpars.lq), string(period)))
     pars_db = PropDict(l200.par.rpars.lq[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
@@ -122,7 +122,7 @@ function process_lq_calibration_cut_cal(processing_config, l200::LegendData, per
         qbb_pos                     = lq_config_det.qbb
         qbb_window                  = lq_config_det.qbb_window
 
-        if !reprocess && haskey(pars_db, det)
+        if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
                 if haskey(pars_db[det], lq_type)
@@ -362,8 +362,8 @@ function process_lq_calibration_cut_cal(processing_config, l200::LegendData, per
     @info "Finished LQ Cut calculation"
 
     pars_db = create_pars(pars_db, result_lq)
-    writelprops(l200.par.rpars.lq[period], run, pars_db)
-    writevalidity(l200.par.rpars.lq, filekey, (period, run))
+    write_pars(l200.par.rpars.lq[period], run, pars_db)
+    write_validity(l200.par.rpars.lq, filekey, (period, run))
     @info "Saved pars to disk"
 
     report = lreport()
@@ -378,7 +378,7 @@ function process_lq_calibration_cut_cal(processing_config, l200::LegendData, per
     lreport!(report, create_logtbl(result_lq))
 
     @info "Write log report"
-    writelreport(get_rreportfilename(l200, filekey, :lq_calibration_cut), report)
+    write_report(get_rreportfilename(l200, filekey, :lq_calibration_cut), report)
     @info report
 
     # flush stdout
