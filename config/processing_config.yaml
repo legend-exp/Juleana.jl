@@ -40,7 +40,7 @@ processors:
       timeout: 0
     dependencies: []
 
-  process_peak_split:
+  process_peak_split_cal:
     enabled: true
     n_workers: all
     category: cal
