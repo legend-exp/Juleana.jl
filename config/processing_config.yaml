@@ -24,6 +24,7 @@ config:
   idle_timeout_minutes: 20
 
 processing:
+  order: dependencies
   periods: [16, 18, 19, 20, 21, 22]
   runs: all
   analysis_runs_only: false
@@ -47,7 +48,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_peak_split_cal
 
   process_filter_optimization_cal:
     enabled: false
@@ -56,7 +58,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_decay_time_cal
 
   process_aoe_optimization_cal:
     enabled: false
@@ -65,7 +68,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_filter_optimization_cal
 
   process_dsp_cal:
     enabled: false
@@ -78,8 +82,7 @@ processors:
       use_partition_pars: true
     dependencies:
       - p_process_aoe_optimization_cal
-      - p_process_filter_optimization_cal
-      - p_process_decay_time_cal
+      - process_aoe_optimization_cal
 
   process_qcs_cal:
     enabled: false
@@ -88,7 +91,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_dsp_cal
 
   process_ct_correction_cal:
     enabled: false
@@ -97,7 +101,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_qcs_cal
 
   process_energy_calibration_cal:
     enabled: false
@@ -106,7 +111,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_ct_correction_cal
 
   process_aoe_calibration_cut_cal:
     enabled: false
@@ -115,7 +121,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_energy_calibration_cal
 
   process_lq_calibration_cut_cal:
     enabled: false
@@ -124,7 +131,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_energy_calibration_cal
 
   process_psd_efficiencies_cal:
     enabled: false
@@ -137,6 +145,8 @@ processors:
     dependencies:
       - p_process_aoe_calibration_cut_cal
       - p_process_lq_calibration_cut_cal
+      - process_aoe_calibration_cut_cal
+      - process_lq_calibration_cut_cal
 
   process_dsp_aux_phy:
     enabled: false
@@ -154,7 +164,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_dsp_aux_phy
 
   process_dsp_phy:
     enabled: false
@@ -166,6 +177,9 @@ processors:
       max_wvfs: 1000
       use_partition_pars: true
     dependencies:
+      - p_process_aoe_optimization_cal
+      - process_aoe_optimization_cal
+      - process_sipm_optimization_phy
       - p_process_sipm_optimization_phy
 
   process_qcs_phy:
@@ -175,7 +189,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_dsp_phy
 
   process_sipm_calibration_phy:
     enabled: false
@@ -184,7 +199,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_dsp_phy
 
   process_evt_phy:
     enabled: false
@@ -195,6 +211,7 @@ processors:
       timeout: 0
     dependencies:
       - p_process_sipm_calibration_phy
+      - process_sipm_calibration_phy
 
   process_stability_plots_phy:
     enabled: false
@@ -203,7 +220,8 @@ processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_evt_phy
 
 p_processors:
   p_process_decay_time_cal:
@@ -224,7 +242,7 @@ p_processors:
       reprocess: false
       timeout: 3000
     dependencies:
-      - process_peak_split_cal
+      - p_process_decay_time_cal
 
   p_process_aoe_optimization_cal:
     enabled: false
@@ -235,7 +253,7 @@ p_processors:
       timeout: 0
       max_wvfs: 35000
     dependencies:
-      - process_peak_split_cal
+      - p_process_filter_optimization_cal
 
   p_process_energy_cal:
     enabled: false
@@ -254,7 +272,8 @@ p_processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_energy_calibration_cal
 
   p_process_aoe_cut_cal:
     enabled: false
@@ -265,6 +284,7 @@ p_processors:
       timeout: 0
     dependencies:
       - process_aoe_calibration_cut_cal
+      - p_process_aoe_calibration_cut_cal
 
   p_process_lq_calibration_cut_cal:
     enabled: false
@@ -273,7 +293,8 @@ p_processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - process_energy_calibration_cal
 
   p_process_psd_efficiencies_cal:
     enabled: false
@@ -282,7 +303,10 @@ p_processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - p_process_lq_calibration_cut_cal
+      - p_process_aoe_calibration_cut_cal
+      - p_process_aoe_cut_cal
 
   p_process_sipm_optimization_phy:
     enabled: false
@@ -292,7 +316,7 @@ p_processors:
       reprocess: false
       timeout: 0
     dependencies:
-      - process_sipm_optimization_phy
+      - process_dsp_aux_phy
 
   p_process_sipm_calibration_phy:
     enabled: false
@@ -303,7 +327,6 @@ p_processors:
       timeout: 0
     dependencies:
       - process_dsp_phy
-      - process_sipm_optimization_phy
 
   p_process_skm_phy:
     enabled: false
@@ -322,4 +345,5 @@ p_processors:
     kwargs:
       reprocess: false
       timeout: 0
-    dependencies: []
+    dependencies:
+      - p_process_skm_phy
