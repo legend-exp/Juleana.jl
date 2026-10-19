@@ -265,8 +265,8 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         tb = render_workers_page(page, snap)
         text = workers_screen(tb)
         @test occursin("Start script", text) && occursin("#!/bin/bash", text) && occursin("srun julia", text) && !occursin("Allocations", text)
-        # every key edits, including the keys of other pages; Ctrl-S saves the text
-        sent, used = press!(page, KeyEvent('q'), KeyEvent('3'), KeyEvent(:ctrl, 's'))
+        # every key edits, including the keys of other pages; Ctrl-O saves the text
+        sent, used = press!(page, KeyEvent('q'), KeyEvent('3'), KeyEvent(:ctrl, 'o'))
         @test used == [true, true, true] && isnothing(page.editor)
         @test length(sent) == 1 && sent[1] isa EditStartScript && sent[1].text == "q3#!/bin/bash\nsrun julia\n"
         # Escape closes without saving

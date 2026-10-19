@@ -193,7 +193,7 @@ uses every key. `send(cmd)` sends a controller command.
 - Space or Enter flips a yes/no field. Enter on a text field moves to the next field.
 - Ctrl-N, or Enter on a `[+]` field, adds a row to the list under the cursor (extra tier
   paths, parameter folders) and Ctrl-D or Delete removes the row under the cursor.
-- Ctrl-S, or Enter on the `[ Create ]` field, checks the input with
+- Ctrl-O, or Enter on the `[ Create ]` field, checks the input with
   [`Juleana.check_production`](@ref) and sends [`CreateProduction`](@ref) for it. A problem is
   shown in the form and nothing is sent.
 - Escape closes the form.
@@ -219,7 +219,7 @@ function production_key!(form::ProductionForm, evt::Tachikoma.KeyEvent, send)
     elseif key == :tab && production_path_kind(kind) && production_complete!(form, field)
     elseif key == :tab || key == :backtab
         form.cursor = mod1(form.cursor + (key == :tab ? 1 : -1), length(fields))
-    elseif key == :ctrl && char == 's'
+    elseif key == :ctrl && char == 'o'
         production_submit!(form, send)
     elseif key == :ctrl && char == 'n'
         kind in (:tier_label, :tier_path, :add_tier) ? production_add_row!(form, :tier) :
@@ -407,6 +407,6 @@ function render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf
     for (j, line) in enumerate(error_rows)
         put(Tachikoma.bottom(inner) - length(error_rows) + j - 1, [(line, error_style)])
     end
-    put(Tachikoma.bottom(inner), [("Tab complete path/next   Ctrl-S create   Ctrl-N/Ctrl-D add/remove row   Esc close", dim)])
+    put(Tachikoma.bottom(inner), [("Tab complete path/next   Ctrl-O create   Ctrl-N/Ctrl-D add/remove row   Esc close", dim)])
     return nothing
 end

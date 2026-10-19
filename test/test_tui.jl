@@ -234,7 +234,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             Tachikoma.update!(m, KeyEvent('e'))
             @test !isnothing(page.editor)
             keys_row = row_text(render_tui(m, 120, 30), 29)
-            @test occursin("Ctrl-S save", keys_row) && !occursin("quit", keys_row)
+            @test occursin("Ctrl-O save", keys_row) && !occursin("quit", keys_row)
             Tachikoma.update!(m, KeyEvent('q'))
             @test !m.quit && m.page == 3
             Tachikoma.update!(m, KeyEvent(:escape))

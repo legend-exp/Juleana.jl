@@ -44,7 +44,7 @@ const HELP_KEYS = (
         ("p", "postpone the cancel of idle allocations"),
         ("r", "read the overview again"),
         ("o", "edit the SLURM options: partition, time, nodes, workers, threads, memory"),
-        ("e", "edit the start script (Ctrl-S saves, Esc closes)"),
+        ("e", "edit the start script (Ctrl-O saves, Esc closes)"),
         ("Mouse", "click a row, wheel scrolls the output"),
     ),
     progress = (
@@ -91,6 +91,9 @@ const HELP_KEYS = (
         ("?", "show these keys"),
         ("T", "next color theme, kept for the next start"),
         ("Ctrl-G", "toggle mouse reporting (off allows selecting text)"),
+        ("Ctrl-Y", "copy the screen as text to the clipboard"),
+        ("Ctrl-T  Ctrl-S", "Tachikoma: color themes, display settings"),
+        ("Ctrl-A  Ctrl-R", "Tachikoma: toggle animations, record the screen"),
     ),
 )
 
@@ -275,7 +278,10 @@ function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     end
     inner = Tachikoma.render(Tachikoma.Block(; title = "Keys", border_style = Tachikoma.tstyle(:accent),
         title_style = Tachikoma.tstyle(:title)), rect, buf)
-    for (i, spans) in pairs(lines)
+    # the version, link and closing hint stay visible; the key list is cut
+    footer = lines[end-1:end]
+    body = first(lines[1:end-2], max(0, inner.height - length(footer)))
+    for (i, spans) in pairs(vcat(body, footer))
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
         put_spans!(buf, inner.x + 1, y, Tachikoma.right(inner), spans)

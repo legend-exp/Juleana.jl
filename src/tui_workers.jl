@@ -229,7 +229,7 @@ is the latest controller snapshot. Return `true` if the key was used and `false`
   - `p` sends [`PostponeIdleCancel`](@ref).
   - `r` reads the overview again.
   - `e` opens the start script in a full-page editor, or shows why there is none. In the
-    editor Ctrl-S sends [`EditStartScript`](@ref) with the text and closes it, Escape closes
+    editor Ctrl-O sends [`EditStartScript`](@ref) with the text and closes it, Escape closes
     it without saving, and every other key edits the text. A shown message closes with any key.
   - `o` opens the form of the SLURM options, such as the time limit and the number of nodes,
     if `snap` has the run mode settings; [`Juleana.slurm_form_key!`](@ref) handles the keys
@@ -245,7 +245,7 @@ function workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = n
     elseif !isnothing(page.editor)
         if evt.key == :escape
             page.editor = nothing
-        elseif evt.key == :ctrl && evt.char == 's'
+        elseif evt.key == :ctrl && evt.char == 'o'
             send(EditStartScript(Tachikoma.text(page.editor)))
             page.editor = nothing
         else
@@ -436,7 +436,7 @@ end
 # Draw the start script editor over the whole `area`.
 function workers_render_editor(page::WorkersPage, area, buf)
     (area.width < 3 || area.height < 3) && return nothing
-    inner = Tachikoma.render(pane_block(clip_text("Start script  (Ctrl-S saves, Esc closes)", max(0, area.width - 6)), true), area, buf)
+    inner = Tachikoma.render(pane_block(clip_text("Start script  (Ctrl-O saves, Esc closes)", max(0, area.width - 6)), true), area, buf)
     Tachikoma.render(page.editor, inner, buf)
     return nothing
 end

@@ -211,15 +211,15 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test isnothing(form.error)
             form.name = "p1"
             form.parent = "relative"
-            sent, _ = production_press!(form, KeyEvent(:ctrl, 's'))
+            sent, _ = production_press!(form, KeyEvent(:ctrl, 'o'))
             @test isempty(sent) && occursin("absolute path", form.error)
             form.parent = parent
             form.tier_labels, form.tier_paths = ["fast"], [joinpath(parent, "missing")]
-            sent, _ = production_press!(form, KeyEvent(:ctrl, 's'))
+            sent, _ = production_press!(form, KeyEvent(:ctrl, 'o'))
             @test isempty(sent) && occursin("is not a folder", form.error)
             mkpath(joinpath(parent, "taken"))
             form.name, form.tier_labels, form.tier_paths = "taken", String[], String[]
-            sent, _ = production_press!(form, KeyEvent(:ctrl, 's'))
+            sent, _ = production_press!(form, KeyEvent(:ctrl, 'o'))
             @test isempty(sent) && occursin("exists", form.error) && form.phase === :edit
         end
 
@@ -235,19 +235,19 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test isnothing(spec.jldataprod_branch) && !spec.copy_software && !spec.set_default
             @test form.phase === :creating && form.path == joinpath(parent, "p1")
             # nothing is accepted while the production is created
-            sent, results = production_press!(form, KeyEvent(:escape), KeyEvent(:ctrl, 's'), KeyEvent('x'))
+            sent, results = production_press!(form, KeyEvent(:escape), KeyEvent(:ctrl, 'o'), KeyEvent('x'))
             @test isempty(sent) && all(==(true), results) && form.phase === :creating && form.name == "p1"
-            # Ctrl-S submits from a text field too
+            # Ctrl-O submits from a text field too
             form2 = ProductionForm(; parent)
             form2.name = "p2"
-            sent, _ = production_press!(form2, KeyEvent(:ctrl, 's'))
+            sent, _ = production_press!(form2, KeyEvent(:ctrl, 'o'))
             @test only(sent).spec.jldataprod_branch == "main" && only(sent).spec.copy_software
         end
 
         @testset "creating, created and failed" begin
             form = ProductionForm(; parent)
             form.name = "p1"
-            production_press!(form, KeyEvent(:ctrl, 's'))
+            production_press!(form, KeyEvent(:ctrl, 'o'))
             form.answer_at = 3
             loading = (; state = :loading, last_error = nothing)
             # before the command is accepted, nothing of the snapshot counts
@@ -276,7 +276,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             # a failure returns to the form with the message of the controller
             form = ProductionForm(; parent)
             form.name = "p1"
-            production_press!(form, KeyEvent(:ctrl, 's'))
+            production_press!(form, KeyEvent(:ctrl, 'o'))
             form.answer_at = 1
             Juleana.production_answer!(form, 1, nothing)
             Juleana.production_sync!(form, (; state = :idle, last_error = "git clone failed"), ["Created x"])
@@ -285,7 +285,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             # a rejected command returns to the form with its message
             form = ProductionForm(; parent)
             form.name = "p1"
-            production_press!(form, KeyEvent(:ctrl, 's'))
+            production_press!(form, KeyEvent(:ctrl, 'o'))
             form.answer_at = 1
             Juleana.production_answer!(form, 1, ArgumentError("CreateProduction is not possible while the controller is :running"))
             @test form.phase === :edit && occursin("not possible while the controller is :running", form.error)
@@ -303,7 +303,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test calls[] == 0 && m.snap.state === :idle && isnothing(m.snap.last_error) && m.pending == 0
             tb = production_render_tui(m)
             @test find_text(tb, "New data production") !== nothing && find_text(tb, "Parent folder") !== nothing
-            @test occursin("Ctrl-S create", production_screen(tb)) && !occursin("quit", production_screen(tb))
+            @test occursin("Ctrl-O create", production_screen(tb)) && !occursin("quit", production_screen(tb))
             # every page renders without a session
             Tachikoma.cleanup!(m)
 

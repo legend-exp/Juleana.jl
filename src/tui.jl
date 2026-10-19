@@ -19,10 +19,10 @@ const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r",
 const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
 const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"), ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
     ("o", "options"), ("e", "script"), ("r", "reload"))
-const WORKERS_EDIT_HINTS = (("Ctrl-S", "save"), ("Esc", "close"))
+const WORKERS_EDIT_HINTS = (("Ctrl-O", "save"), ("Esc", "close"))
 const WORKERS_FORM_HINTS = (("↑↓", "option"), ("Enter", "edit/set"), ("Esc", "close"))
 const PRODUCTION_HINTS = (("↑↓ Tab", "field"), ("Space", "toggle"), ("Ctrl-N", "add row"), ("Ctrl-D", "remove row"),
-    ("Ctrl-S", "create"), ("Esc", "close"))
+    ("Ctrl-O", "create"), ("Esc", "close"))
 const PRODUCTION_DONE_HINTS = (("any key", "continue"),)
 const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "help"))
 

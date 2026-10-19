@@ -233,7 +233,7 @@ The form asks for
 (parent folder, extra tier path, parameter folder), lists the folders that match and moves to
 the next field when there is nothing to complete, typed characters and `Backspace` edit a text
 field, `Space` or `Enter` flips a yes/no field, `Ctrl-N` adds a row to the list under the
-cursor and `Ctrl-D` removes it, `Ctrl-S` creates the production and `Esc` closes the form.
+cursor and `Ctrl-D` removes it, `Ctrl-O` creates the production and `Esc` closes the form.
 The input is checked first and the first problem is shown in the form. An existing folder
 is refused.
 

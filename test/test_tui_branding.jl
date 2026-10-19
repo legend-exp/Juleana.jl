@@ -292,6 +292,10 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test find_text(tb, "follow the running step") === nothing
             link = find_text(tb, docs_url)
             @test style_at(tb, link.x, link.y).hyperlink == docs_url
+            @test find_text(tb, "Ctrl-T  Ctrl-S") !== nothing
+            # on a low screen the key list is cut, the link and the closing hint stay
+            low = branding_render(m, 120, 14)
+            @test find_text(low, docs_url) !== nothing && find_text(low, "Esc, ? or q closes") !== nothing
             # other keys do nothing while it is open; `q` closes it without quitting
             Tachikoma.update!(m, KeyEvent('3'))
             @test m.page == 1 && m.help
