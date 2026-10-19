@@ -212,11 +212,16 @@ end
         dir = joinpath(dirname(pathof(Juleana)), "processors")
         for name in keys(Juleana.PROCESSORS)
             source = read(joinpath(dir, "$name.jl"), String)
+            # the peak splitting processors write the report named by `report_name` in `split_peaks`
+            occursin("split_peaks(", source) && (@test occursin(":$name", source); continue)
             written = [m.captures[1] for m in eachmatch(r"get_[rp]reportfilename\([^,]+,[^,]+,\s*:(\w+)\)", source)]
             @test length(written) == 1
             @test Juleana.report_name(name) == only(written)
         end
         @test Juleana.report_name(:process_dsp_cal) == "dsp_cal"
         @test Juleana.report_name(:p_process_energy_cal) == "energy"
+        @test Juleana.report_name(:process_peak_split_cal) == "peak_split"
+        @test Juleana.report_name(:process_peak_split_phy) == "peak_split_phy"
+        @test occursin("Symbol(report_name(process_name))", read(joinpath(dir, "peak_split.jl"), String))
     end
 end

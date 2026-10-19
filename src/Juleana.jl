@@ -35,8 +35,7 @@ using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, Data
     dataprod_config, get_aux_cal_propfunc, get_aux_evt_detsel_propfunc, get_exposure,
     get_ged_evt_kwargs, get_values, is_analysis_run, is_lrun, ljl_propfunc, lreport,
     lreport!, lstring, partitioninfo, process_failed, process_succeeded, process_warning,
-    read_filekeys, read_ldata, readlprops, runinfo, search_disk, start_filekey,
-    write_filekeys, writelprops, writelreport
+    read_ldata, readlprops, runinfo, search_disk, start_filekey, writelprops, writelreport
 using LegendDataManagement.LDMUtils: create_logtbl, create_metadatatbl, create_pars,
     create_validity, get_mltrainfilename, get_partition_channelinfo,
     get_partitionvalidity, get_plottitle, get_preportfilename, get_rreportfilename,
@@ -136,6 +135,7 @@ include("processors/p_process_stability_plots_phy.jl")
 include("processors/process_aoe_calibration_cut_cal.jl")
 include("processors/process_aoe_optimization_cal.jl")
 include("processors/process_ct_correction_cal.jl")
+include("processors/process_daq_energy_calibration_cal.jl")
 include("processors/process_decay_time_cal.jl")
 include("processors/process_dsp_aux_phy.jl")
 include("processors/process_dsp_cal.jl")
@@ -144,7 +144,9 @@ include("processors/process_energy_calibration_cal.jl")
 include("processors/process_evt_phy.jl")
 include("processors/process_filter_optimization_cal.jl")
 include("processors/process_lq_calibration_cut_cal.jl")
+include("processors/peak_split.jl")
 include("processors/process_peak_split_cal.jl")
+include("processors/process_peak_split_phy.jl")
 include("processors/process_psd_efficiencies_cal.jl")
 include("processors/process_qcs_cal.jl")
 include("processors/process_qcs_phy.jl")

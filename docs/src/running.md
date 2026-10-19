@@ -89,8 +89,7 @@ below them, the plots of each detector. Processor keyword arguments are passed o
 workers are started, otherwise in the session itself.
 
 The processors that do not support chosen detectors (`process_evt_phy`,
-`p_process_skm_phy`, `process_peak_split_cal` and the stability plots) run for all
-detectors, without `detectors`.
+`p_process_skm_phy` and the stability plots) run for all detectors, without `detectors`.
 
 ## Command line options
 

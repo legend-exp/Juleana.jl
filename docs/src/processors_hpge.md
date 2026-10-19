@@ -3,7 +3,9 @@
 ## Peak splitting, DSP and quality cuts
 
 ```@docs
+Juleana.process_daq_energy_calibration_cal
 Juleana.process_peak_split_cal
+Juleana.process_peak_split_phy
 Juleana.process_dsp_cal
 Juleana.process_dsp_phy
 Juleana.process_dsp_aux_phy

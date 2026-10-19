@@ -33,7 +33,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test !shipped.analysis_runs_only && !shipped.only_partitions && !shipped.only_runs
         @test shipped.log_path == ""
         spec = shipped.processors[:process_dsp_cal]
-        @test spec.level === :run && spec.category === :cal && spec.rank == 5 && !spec.enabled
+        @test spec.level === :run && spec.category === :cal && spec.rank == 6 && !spec.enabled
         @test spec.dependencies == [:p_process_aoe_optimization_cal, :process_aoe_optimization_cal]
         @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true)
         @test shipped.p_processors[:p_process_energy_cal].level === :partition
@@ -43,8 +43,8 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         from_strings = ProcessingConfig(base)
         @test run_steps(from_strings; enabled_only = false) == run_steps(shipped; enabled_only = false)
         @test from_strings.processors[:process_dsp_cal].kwargs == spec.kwargs
-        @test sprint(show, shipped) == "ProcessingConfig(runmode=:slurm, 0/18 run and 0/12 partition processors enabled)"
-        @test occursin("rank=5", sprint(show, spec))
+        @test sprint(show, shipped) == "ProcessingConfig(runmode=:slurm, 0/20 run and 0/12 partition processors enabled)"
+        @test occursin("rank=6", sprint(show, spec))
     end
 
     @testset "steps" begin
@@ -57,7 +57,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test run_steps(some) == [:process_psd_efficiencies_cal, :process_evt_phy]
         @test partition_steps(some) == [:p_process_skm_phy]
         all_steps = run_steps(shipped; enabled_only = false)
-        @test length(all_steps) == 18 && first(all_steps) === :process_peak_split_cal
+        @test length(all_steps) == 20 && first(all_steps) === :process_daq_energy_calibration_cal
         @test issorted(all_steps; by = s -> shipped.processors[s].rank)
         @test length(partition_steps(shipped; enabled_only = false)) == 12
     end
@@ -137,7 +137,8 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         ranked = @test_logs (:warn, r"run in rank order") match_mode = :any ProcessingConfig(plain)
         @test ranked.processors[:process_decay_time_cal].dependencies == [:process_peak_split_cal]
         @test ranked.p_processors[:p_process_filter_optimization_cal].dependencies == [:p_process_decay_time_cal]
-        @test isempty(ranked.processors[:process_peak_split_cal].dependencies)
+        @test ranked.processors[:process_peak_split_cal].dependencies == [:process_daq_energy_calibration_cal]
+        @test isempty(ranked.processors[:process_daq_energy_calibration_cal].dependencies)
         # with `order: dependencies` only the listed dependencies count
         plain["processing"]["order"] = "dependencies"
         declared = ProcessingConfig(plain)

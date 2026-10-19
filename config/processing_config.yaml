@@ -32,7 +32,7 @@ processing:
   only_runs: false
 
 processors:
-  process_peak_split_cal:
+  process_daq_energy_calibration_cal:
     enabled: false
     category: cal
     rank: 1
@@ -41,10 +41,30 @@ processors:
       timeout: 0
     dependencies: []
 
-  process_decay_time_cal:
+  process_peak_split_cal:
     enabled: false
     category: cal
     rank: 2
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies:
+      - process_daq_energy_calibration_cal
+
+  process_peak_split_phy:
+    enabled: false
+    category: phy
+    rank: 13
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies:
+      - process_daq_energy_calibration_cal
+
+  process_decay_time_cal:
+    enabled: false
+    category: cal
+    rank: 3
     kwargs:
       reprocess: false
       timeout: 0
@@ -54,7 +74,7 @@ processors:
   process_filter_optimization_cal:
     enabled: false
     category: cal
-    rank: 3
+    rank: 4
     kwargs:
       reprocess: false
       timeout: 0
@@ -64,7 +84,7 @@ processors:
   process_aoe_optimization_cal:
     enabled: false
     category: cal
-    rank: 4
+    rank: 5
     kwargs:
       reprocess: false
       timeout: 0
@@ -74,7 +94,7 @@ processors:
   process_dsp_cal:
     enabled: false
     category: cal
-    rank: 5
+    rank: 6
     kwargs:
       reprocess: false
       max_wvfs: 1000
@@ -87,7 +107,7 @@ processors:
   process_qcs_cal:
     enabled: false
     category: cal
-    rank: 6
+    rank: 7
     kwargs:
       reprocess: false
       timeout: 0
@@ -97,7 +117,7 @@ processors:
   process_ct_correction_cal:
     enabled: false
     category: cal
-    rank: 7
+    rank: 8
     kwargs:
       reprocess: false
       timeout: 0
@@ -107,7 +127,7 @@ processors:
   process_energy_calibration_cal:
     enabled: false
     category: cal
-    rank: 8
+    rank: 9
     kwargs:
       reprocess: false
       timeout: 0
@@ -117,7 +137,7 @@ processors:
   process_aoe_calibration_cut_cal:
     enabled: false
     category: cal
-    rank: 9
+    rank: 10
     kwargs:
       reprocess: false
       timeout: 0
@@ -127,7 +147,7 @@ processors:
   process_lq_calibration_cut_cal:
     enabled: false
     category: cal
-    rank: 10
+    rank: 11
     kwargs:
       reprocess: false
       timeout: 0
@@ -137,7 +157,7 @@ processors:
   process_psd_efficiencies_cal:
     enabled: false
     category: cal
-    rank: 11
+    rank: 12
     kwargs:
       reprocess: false
       timeout: 0
@@ -151,7 +171,7 @@ processors:
   process_dsp_aux_phy:
     enabled: false
     category: phy
-    rank: 12
+    rank: 13
     kwargs:
       reprocess: false
       timeout: 0
@@ -160,7 +180,7 @@ processors:
   process_sipm_optimization_phy:
     enabled: false
     category: phy
-    rank: 12
+    rank: 13
     kwargs:
       reprocess: false
       timeout: 0
@@ -170,7 +190,7 @@ processors:
   process_dsp_phy:
     enabled: false
     category: phy
-    rank: 13
+    rank: 14
     kwargs:
       reprocess: false
       timeout: 0
@@ -185,7 +205,7 @@ processors:
   process_qcs_phy:
     enabled: false
     category: phy
-    rank: 15
+    rank: 16
     kwargs:
       reprocess: false
       timeout: 0
@@ -195,7 +215,7 @@ processors:
   process_sipm_calibration_phy:
     enabled: false
     category: phy
-    rank: 16
+    rank: 17
     kwargs:
       reprocess: false
       timeout: 0
@@ -205,7 +225,7 @@ processors:
   process_evt_phy:
     enabled: false
     category: phy
-    rank: 16
+    rank: 17
     kwargs:
       reprocess: false
       timeout: 0
@@ -216,7 +236,7 @@ processors:
   process_stability_plots_phy:
     enabled: false
     category: phy
-    rank: 12
+    rank: 13
     kwargs:
       reprocess: false
       timeout: 0

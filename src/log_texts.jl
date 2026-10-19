@@ -84,9 +84,15 @@ truncate_error(e::Exception, max_length::Integer=1000) =
 
 # Static report sections, one per processor; internal to the module.
 
+const daq_energy_calibration_log_text = """## DAQ Energy Calibration
+This is the log for the DAQ energy calibration. The algorithm loads the DAQ online energy of each channel
+and calibrates it automatically with the Th-228 lines. The calibration is used by the peak splitting.
+"""
+
 const peak_splitting_log_text = """## Peak Splitting
-This is the log for the peak splitting. The algorithm loads the DAQ online energy for each channel
-and then splits the waveforms in chunks for each peak of interest. The chunks are then saved to the `jlpks` file.
+This is the log for the peak splitting. The algorithm calibrates the DAQ online energy of each channel
+with the DAQ energy calibration and then splits the waveforms in chunks for each peak of interest.
+The chunks are then saved to the `jlpks` file.
 """
 
 const decay_time_log_text = """## Decay Time Extraction

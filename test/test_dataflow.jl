@@ -23,6 +23,7 @@ LegendDataManagement.is_analysis_run(::NoAnalysisData, key) = false
 # Runs that are not in the run info.
 struct NoRunData end
 LegendDataManagement.is_lrun(::NoRunData, key) = false
+Juleana.partition_periods(::Union{NoAnalysisData,NoRunData}, period) = [period]
 
 const ConcurrentDict = Juleana.ConcurrentDict
 
@@ -54,7 +55,7 @@ const REPORT = """
 
 @testset "dataflow" begin
     @testset "processor registry" begin
-        @test length(Juleana.PROCESSORS) == 30
+        @test length(Juleana.PROCESSORS) == 32
         @test all(((name, f),) -> nameof(f) === name, Juleana.PROCESSORS)
         @test all(name -> occursin(r"^(p_)?process_", string(name)), keys(Juleana.PROCESSORS))
         @test count(name -> startswith(string(name), "p_process_"), keys(Juleana.PROCESSORS)) == 12
@@ -355,16 +356,23 @@ const REPORT = """
     @testset "skipped runs" begin
         p3, r1 = DataPeriod(3), DataRun(1)
         run_a(cfg, l200, period, run; reprocess::Bool = false) = error("run_a must be skipped")
+        partition_calls = DataPeriod[]
+        p_b(cfg, l200, period; reprocess::Bool = false, only_first_period::Bool = true) = (push!(partition_calls, period); nothing)
         processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1))
-        stubs = Dict{Symbol,Any}(:run_a => run_a)
+        p_processors = Dict(:p_b => ProcessorSpec(; name = :p_b, level = :partition, category = :cal, rank = 1, dependencies = [:run_a]))
+        stubs = Dict{Symbol,Any}(:run_a => run_a, :p_b => p_b)
         for (data, analysis_runs_only, message) in ((NoAnalysisData(), true, "p03-r001-cal is not an analysis run, skip run_a"),
                 (NoRunData(), false, "p03-r001-cal is not in runinfo, skip run_a"))
-            cfg = ProcessingConfig(; processors, p_processors = Dict{Symbol,ProcessorSpec}(), analysis_runs_only)
-            run_status, partition_status = stub_status([p3], [r1], [:run_a], Symbol[])
-            @test_logs (:warn, message) match_mode = :any run_processing(cfg, data, [p3], [:run_a], Symbol[],
+            cfg = ProcessingConfig(; processors, p_processors, analysis_runs_only)
+            run_status, partition_status = stub_status([p3], [r1], [:run_a], [:p_b])
+            # the partition step that waits for the skipped run still runs
+            task = Threads.@spawn @test_logs (:warn, message) match_mode = :any run_processing(cfg, data, [p3], [:run_a], [:p_b],
                 run_status, partition_status; processors = stubs)
+            @test timedwait(() -> istaskdone(task), 60) === :ok
+            fetch(task)
             # a skipped run counts as finished for the steps that depend on it
-            @test run_status[p3][:run_a][r1]
+            @test run_status[p3][:run_a][r1] && partition_status[p3][:p_b]
+            @test last(partition_calls) == p3
         end
     end
 
