@@ -7,6 +7,13 @@ using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, 
 using LegendDataManagement.LDMUtils: create_logtbl
 using ParallelProcessingTools: FlexWorkerPool, ppt_worker_pool, ppt_worker_pool!
 
+# Records what `display` hands to it: shown text as is, `image/png` as `mime => x`.
+struct RecordingDisplay <: AbstractDisplay
+    shown::Vector{Any}
+end
+Base.display(d::RecordingDisplay, x) = (push!(d.shown, x); nothing)
+Base.display(d::RecordingDisplay, mime::MIME"image/png", x) = (push!(d.shown, mime => x); nothing)
+
 # Stands in for `LegendData`: every run is in the run info, and every period is its own
 # partition.
 struct FakeData end
@@ -315,6 +322,17 @@ const REPORT = """
         # outside a terminal, a plot is shown by its file name
         plain = sprint(show, MIME"text/plain"(), out.report)
         @test occursin(joinpath(output_dir, "jlplt"), plain) && occursin("proc_check.png", plain) && !occursin('\e', plain)
+        # display_report: the text as a report, each plot as `image/png`, in report order
+        recorder = RecordingDisplay([])
+        pushdisplay(recorder)
+        try
+            Juleana.display_report(out.report)
+        finally
+            popdisplay(recorder)
+        end
+        @test !(first(recorder.shown) isa Pair) && occursin("# run_proc: p03 r001", sprint(show, MIME"text/markdown"(), first(recorder.shown)))
+        @test [basename(last(x).file) for x in recorder.shown if x isa Pair] ==
+            ["l200-p03-r001-cal-V2-proc_fit.png", "l200-p03-r001-cal-V2-proc_check.png"]
 
         # production outputs: the other detectors are skipped as processed, everything is written there
         out = step(:run_proc, 3, 1; detectors = [:V2], outputs = :production, scale = 3)

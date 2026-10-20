@@ -37,6 +37,7 @@ Juleana.disk_state
 run_processing
 run_step
 Juleana.ReportPlot
+Juleana.display_report
 Juleana.StepOutput
 Juleana.@using_packages
 ProcessingStopped

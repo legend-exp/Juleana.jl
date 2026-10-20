@@ -96,19 +96,20 @@ rows of the chosen detectors and, below them, the plots of each detector in the 
 were saved. In an interactive session, `run_step` also displays the report at the end
 (`show_report = false` turns this off). The returned [`Juleana.StepOutput`](@ref) holds
 
-- `step.report`: the report of this call; shown in the REPL, it shows the plots as images
-  in terminals that can show them, see [`Juleana.ReportPlot`](@ref),
+- `step.report`: the report of this call, with the plots by file name;
+  [`Juleana.display_report`](@ref)`(step.report)` shows it with the plots as images,
 - `step.report_file`, `step.output_dir`,
 - `step.reports`: the complete reports the processor wrote, with all detectors,
 - `step.results`: the `item => result` pairs of the items the processor ran, where
   `result` has at least `processed` and `log`, the report row of the item.
 
-To show the plots in Ghostty or Kitty, load KittyTerminalImages in the session; in a
-terminal with Sixel support, load ImageInTerminal, with ImageIO installed:
+To show the plots as images in Ghostty or Kitty, load KittyTerminalImages in the session;
+in a terminal with Sixel support, load ImageInTerminal, with ImageIO installed. Both work
+through Julia's `display`, so Juleana needs no extension for them:
 
 ```julia
 using KittyTerminalImages
-step.report
+Juleana.display_report(step.report)
 ```
 
 Processor keyword arguments are passed on, e.g. `run_step(...; timeout = 0)`, and `config`

@@ -103,8 +103,7 @@ session. The report of each call is appended to `<output_dir>/reports/<step>.md`
 report of the processor, with only the rows of `detectors`, and below it the plots of each
 detector the processor saved during this call, in the order they were saved, as images in
 the file. With `show_report = true`, the default in an interactive session, the report is
-also displayed, with the plots as images in terminals that can show them (see
-[`ReportPlot`](@ref)).
+also displayed with [`display_report`](@ref).
 
 `config` is a [`ProcessingConfig`](@ref) or the path of a config file. Its
 `env_variables` are set before `l200` is built as `LegendData(:l200)` when `l200` is
@@ -168,7 +167,7 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     open(io -> (show(io, MIME"text/markdown"(), report); println(io)), report_file, "a")
     @info "run_step: report appended to $report_file"
     # outside of the logger, which shows messages as text only
-    show_report && display(report)
+    show_report && display_report(report)
     return StepOutput(step, args, report, report_file, record.reports, dir, record.results)
 end
 
@@ -178,8 +177,7 @@ end
 The output of [`run_step`](@ref), with the fields
 - `step`, `args`: the processor and its period and run,
 - `report`: the report of the call as a `LegendReport`, with the plots as
-  [`ReportPlot`](@ref)s; displayed in the REPL, it shows the plots as images when the
-  terminal can show them,
+  [`ReportPlot`](@ref)s; [`display_report`](@ref) shows it with the plots as images,
 - `report_file`: the path of the report file the report was appended to,
 - `reports`: the reports the processor wrote, complete with all detectors,
 - `output_dir`: the output directory,
@@ -246,11 +244,8 @@ end
     ReportPlot(file)
 
 The PNG plot `file` in the report of [`run_step`](@ref). In the Markdown and HTML report,
-the plot is embedded as an image. Shown as text in a terminal, it is shown as an image by
-the first display in the display stack that shows `image/png`, e.g. the display of
-KittyTerminalImages (Kitty, Ghostty) or of ImageInTerminal (Sixel terminals, needs
-ImageIO to read the PNG). Without such a display, or when the output is not a terminal,
-the file name is shown instead.
+the plot is embedded as an image; as text, it is shown by its file name.
+[`display_report`](@ref) displays it as an image.
 """
 struct ReportPlot
     file::String
@@ -261,18 +256,43 @@ Base.show(io::IO, ::MIME"image/png", p::ReportPlot) = write(io, read(p.file))
 Base.show(io::IO, ::MIME"text/html", p::ReportPlot) =
     print(io, "<img src=\"data:image/png;base64,$(base64encode(read(p.file)))\" width=\"800\">")
 
-function Base.show(io::IO, ::MIME"text/plain", p::ReportPlot)
-    if (io isa IOContext ? io.io : io) isa Base.TTY
-        # image displays write to `stdout`, after the text shown so far
-        flush(io)
-        try
-            return display(MIME"image/png"(), p)
-        catch e
-            # no display in the display stack shows `image/png`
-            e isa MethodError && e.f === display || rethrow()
+Base.show(io::IO, ::MIME"text/plain", p::ReportPlot) = print(io, p.file)
+
+"""
+    display_report(report)
+
+Display the report `report` of [`run_step`](@ref), e.g. `step.report`, with `display`: the
+text and tables as usual, and each [`ReportPlot`](@ref) as an image by the first display in
+the display stack that shows `image/png`. In a terminal, such displays come with
+KittyTerminalImages (Kitty, Ghostty) and ImageInTerminal (terminals with Sixel support,
+needs ImageIO to read the PNG); in VS Code, the plots go to the plot pane. Without such a
+display, a plot is shown by its file name.
+
+# Examples
+```julia
+using KittyTerminalImages
+Juleana.display_report(step.report)
+```
+"""
+function display_report(report)
+    text = Any[]
+    show_text() = isempty(text) || (display(lreport(text...)); empty!(text))
+    for content in report._contents
+        if content isa ReportPlot
+            show_text()
+            try
+                display(MIME"image/png"(), content)
+            catch e
+                # no display in the display stack shows `image/png`
+                e isa MethodError && e.f === display || rethrow()
+                display(content)
+            end
+        else
+            push!(text, content)
         end
     end
-    print(io, p.file)
+    show_text()
+    return nothing
 end
 
 # The detector in a plot file name `<setup>-<period>-<run>-<category>-<detector>-<name>.png` of
