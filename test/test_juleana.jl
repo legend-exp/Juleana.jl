@@ -12,11 +12,19 @@ using Base.ScopedValues: with
 using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, DataRun,
     process_succeeded, process_warning, process_failed
 
+module UsingPackagesTest
+    using Juleana
+    Juleana.@using_packages
+end
+
 @testset "juleana" begin
     @testset "package names" begin
         @test ParallelProcessingTools === Juleana.ParallelProcessingTools
         @test LDMUtils === Juleana.LegendDataManagement.LDMUtils
         @test all(m -> m isa Module, (CairoMakie, LegendHDF5IO, LegendSpecFits, Measurements, PropDicts, Unitful))
+        @test UsingPackagesTest.channelinfo === LegendDataManagement.channelinfo
+        @test UsingPackagesTest.create_logtbl === LDMUtils.create_logtbl
+        @test UsingPackagesTest.mvalue === Measurements.value && UsingPackagesTest.muncert === Measurements.uncertainty
     end
 
     @testset "log underscores" begin

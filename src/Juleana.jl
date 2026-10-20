@@ -156,6 +156,7 @@ include("processors/process_sipm_calibration_phy.jl")
 include("processors/process_sipm_optimization_phy.jl")
 include("processors/process_stability_plots_phy.jl")
 
+include("using_packages.jl")
 include("precompile.jl")
 
 # The packages a Julia session needs to work with the data and the processors; `using Juleana`
@@ -186,6 +187,6 @@ public effective_config, escape_log_underscores, processing_logger, process_log_
     WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations,
     mark_activity!, idle_deadline, check_idle!, workers_overview,
     ProductionSpec, check_production, create_production, data_config_text, running_manifest, snapshot_software, software_version, production_log,
-    ProductionForm, production_fields, production_spec, complete_path, production_key!, production_answer!, production_sync!, render_production
+    ProductionForm, production_fields, production_spec, complete_path, production_key!, production_answer!, production_sync!, render_production, @using_packages, ReportPlot, StepOutput
 
 end # module

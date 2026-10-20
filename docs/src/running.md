@@ -79,6 +79,8 @@ step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
 as `LegendDataManagement`, `LegendSpecFits`, `ParallelProcessingTools` and `CairoMakie`
 (see the `export` list in `src/Juleana.jl`), so that e.g. `LegendDataManagement.FileKey`
 works without loading the package in the session's environment.
+[`Juleana.@using_packages`](@ref) also loads the names these packages export, e.g.
+`channelinfo` or `fit_peaks`, as `using` each package would.
 
 Replace `:V01234A` by a detector of the run. The chosen detectors are processed again, also
 when they already have parameters. By default (`outputs = :temp`), the plots, reports and
@@ -91,7 +93,8 @@ the data production.
 
 Each call appends its report to `reports/<step>.md` in the output directory: the report
 rows of the chosen detectors and, below them, the plots of each detector in the order they
-were saved. The returned `step` holds
+were saved. In an interactive session, `run_step` also displays the report at the end
+(`show_report = false` turns this off). The returned [`Juleana.StepOutput`](@ref) holds
 
 - `step.report`: the report of this call; shown in the REPL, it shows the plots as images
   in terminals that can show them, see [`Juleana.ReportPlot`](@ref),

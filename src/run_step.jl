@@ -80,7 +80,7 @@ const DEFAULT_TRAITS = (output_tiers = Symbol[], detector_selection = true)
 """
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
         output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
-        processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
 calling Julia process, for example in the REPL. Items go to the workers of the
@@ -102,7 +102,9 @@ parameters or validity are written; parameters are read from the production. Wit
 session. The report of each call is appended to `<output_dir>/reports/<step>.md`: the
 report of the processor, with only the rows of `detectors`, and below it the plots of each
 detector the processor saved during this call, in the order they were saved, as images in
-the file.
+the file. With `show_report = true`, the default in an interactive session, the report is
+also displayed, with the plots as images in terminals that can show them (see
+[`ReportPlot`](@ref)).
 
 `config` is a [`ProcessingConfig`](@ref) or the path of a config file. Its
 `env_variables` are set before `l200` is built as `LegendData(:l200)` when `l200` is
@@ -110,14 +112,7 @@ the file.
 `only_first_period = false` for a partition-level processor and `reprocess = true` when
 `detectors` is `nothing`, then `kwargs`.
 
-Return a `NamedTuple` with
-- `report`: the report of this call as a `LegendReport`, with the plots as
-  [`ReportPlot`](@ref)s; shown in the REPL, it shows the plots as images when the
-  terminal can show them (see [`ReportPlot`](@ref)),
-- `report_file`: the path of the report file the report was appended to,
-- `reports`: the reports the processor wrote, complete with all detectors,
-- `output_dir`,
-- `results`: the `item => result` pairs of all `parallel` calls of the processor.
+Return a [`StepOutput`](@ref).
 
 Throws an `ArgumentError` if `step` is not registered or not in `config`, if `run` is given
 for a partition-level processor or missing for a run-level one, if `detectors` is given for
@@ -132,7 +127,7 @@ step.report
 """
 function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp,
         output_dir = nothing, config = default_config_file(), l200 = nothing,
-        processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
     haskey(processors, step) || throw(ArgumentError("run_step: unregistered processor `$step`"))
     outputs in (:temp, :production) ||
         throw(ArgumentError("run_step: `outputs` is $(repr(outputs)), expected :temp or :production"))
@@ -172,8 +167,36 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     report_file = joinpath(mkpath(joinpath(dir, "reports")), "$step.md")
     open(io -> (show(io, MIME"text/markdown"(), report); println(io)), report_file, "a")
     @info "run_step: report appended to $report_file"
-    return (; report, report_file, reports = record.reports, output_dir = dir, results = record.results)
+    # outside of the logger, which shows messages as text only
+    show_report && display(report)
+    return StepOutput(step, args, report, report_file, record.reports, dir, record.results)
 end
+
+"""
+    StepOutput
+
+The output of [`run_step`](@ref), with the fields
+- `step`, `args`: the processor and its period and run,
+- `report`: the report of the call as a `LegendReport`, with the plots as
+  [`ReportPlot`](@ref)s; displayed in the REPL, it shows the plots as images when the
+  terminal can show them,
+- `report_file`: the path of the report file the report was appended to,
+- `reports`: the reports the processor wrote, complete with all detectors,
+- `output_dir`: the output directory,
+- `results`: the `item => result` pairs of all `parallel` calls of the processor.
+"""
+struct StepOutput
+    step::Symbol
+    args::Tuple
+    report::Any
+    report_file::String
+    reports::Vector{Any}
+    output_dir::String
+    results::Vector{Any}
+end
+
+Base.show(io::IO, out::StepOutput) = print(io, "StepOutput(", out.step, " ", join(string.(out.args), " "), ": ",
+    length(out.results), " results, report in ", out.report_file, ")")
 
 # The temporary output directory of `run_step` in this Julia session, created on first use.
 const SESSION_OUTPUT_DIR = Ref("")

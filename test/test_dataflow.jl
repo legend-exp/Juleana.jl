@@ -305,6 +305,7 @@ const REPORT = """
         @test !isfile(pars_file) && !isdir(joinpath(prod, "tier", "jlplt")) && !isdir(joinpath(prod, "tier", "jlrep"))
         @test isfile(joinpath(out.output_dir, "jlrep", "proc.md")) && length(out.reports) == 1
         @test out.report_file == joinpath(output_dir, "reports", "run_proc.md")
+        @test sprint(show, out) == "StepOutput(run_proc p03 r001: 1 results, report in $(out.report_file))"
         report = markdown(out)
         @test occursin("# run_proc: p03 r001", report) && occursin("Detectors: V2", report)
         @test occursin("## V2", report) && occursin("<img src=\"data:image/png;base64,", report) && !occursin("V1", report)
