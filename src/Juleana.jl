@@ -187,6 +187,6 @@ public effective_config, escape_log_underscores, processing_logger, process_log_
     WorkerManager, start_script!, edit_start_script!, add_workers!, cancel_allocation!, cancel_all!, allocations,
     mark_activity!, idle_deadline, check_idle!, workers_overview,
     ProductionSpec, check_production, create_production, data_config_text, running_manifest, snapshot_software, software_version, production_log,
-    ProductionForm, production_fields, production_spec, complete_path, production_key!, production_answer!, production_sync!, render_production, @using_packages, ReportPlot, StepOutput, display_report
+    ProductionForm, production_fields, production_spec, complete_path, production_key!, production_answer!, production_sync!, render_production, @using_packages, ReportPlot, StepOutput, display_report, processors
 
 end # module

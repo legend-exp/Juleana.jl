@@ -38,6 +38,7 @@ run_processing
 run_step
 Juleana.ReportPlot
 Juleana.display_report
+Juleana.processors
 Juleana.StepOutput
 Juleana.@using_packages
 ProcessingStopped

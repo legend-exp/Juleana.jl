@@ -301,6 +301,13 @@ const REPORT = """
             processors = Dict(:run_proc => ProcessorSpec(; name = :run_proc, level = :run, category = :cal, rank = 1, kwargs = Dict(:scale => 2))),
             p_processors = Dict(:part_proc => ProcessorSpec(; name = :part_proc, level = :partition, category = :cal, rank = 1)))
         processors = Dict{Symbol,Any}(:run_proc => run_proc, :part_proc => part_proc)
+        # the processors of the config by level and rank, then the others
+        tbl = Juleana.processors(cfg; processors = merge(processors, Dict{Symbol,Any}(:extra => identity)))
+        @test tbl.Processor == [:run_proc, :part_proc, :extra] && isequal(tbl.Level, [:run, :partition, missing])
+        @test isequal(tbl.Rank, [1, 1, missing]) && tbl.Detectors == [true, true, true]
+        pkg_tbl = Juleana.processors(joinpath(pkgdir(Juleana), "config", "processing_config.yaml"))
+        @test first(pkg_tbl.Processor) == :process_daq_energy_calibration_cal && sort(pkg_tbl.Processor) == sort!(collect(keys(Juleana.PROCESSORS)))
+        @test !pkg_tbl.Detectors[findfirst(==(:process_evt_phy), pkg_tbl.Processor)]
         output_dir = mktempdir()
         step(args...; kw...) = run_step(args...; config = cfg, l200, processors, output_dir, kw...)
         markdown(out) = sprint(show, MIME"text/markdown"(), out.report)

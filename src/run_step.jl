@@ -78,13 +78,47 @@ const PROCESSOR_TRAITS = Dict{Symbol,NamedTuple{(:output_tiers, :detector_select
 const DEFAULT_TRAITS = (output_tiers = Symbol[], detector_selection = true)
 
 """
+    Juleana.processors(config = Juleana.default_config_file(); processors = PROCESSORS)
+
+Table of the registered processors `processors`: the run-level processors of `config` in
+the order of their rank, then the partition-level ones, then the processors that are not
+in `config`. `config` is a [`ProcessingConfig`](@ref) or the path of a config file.
+
+Columns: `Processor`; from `config` `Level` (`:run` or `:partition`), `Category`, `Rank`
+and `Enabled`, `missing` for a processor that is not in `config`; and from
+[`PROCESSOR_TRAITS`](@ref) `Detectors`, whether [`run_step`](@ref) can run the processor
+for chosen detectors, and `OutputTiers`, the data tiers it writes.
+
+# Examples
+```julia
+Juleana.processors()
+Juleana.processors(joinpath(pkgdir(Juleana), "config", "processing_config.yaml"))
+```
+"""
+function processors(config = default_config_file(); processors::AbstractDict{Symbol} = PROCESSORS)
+    cfg = config isa ProcessingConfig ? config : ProcessingConfig(config)
+    specs = vcat(sort!(collect(values(cfg.processors)); by = spec -> spec.rank),
+        sort!(collect(values(cfg.p_processors)); by = spec -> spec.rank))
+    names = vcat([spec.name for spec in specs if haskey(processors, spec.name)],
+        sort!(setdiff(collect(keys(processors)), (spec.name for spec in specs))))
+    spec_of = Dict(spec.name => spec for spec in specs)
+    from_spec(name, field) = haskey(spec_of, name) ? getfield(spec_of[name], field) : missing
+    traits(name) = get(PROCESSOR_TRAITS, name, DEFAULT_TRAITS)
+    return Table(Processor = names, Level = [from_spec(n, :level) for n in names],
+        Category = [from_spec(n, :category) for n in names], Rank = [from_spec(n, :rank) for n in names],
+        Enabled = [from_spec(n, :enabled) for n in names], Detectors = [traits(n).detector_selection for n in names],
+        OutputTiers = [traits(n).output_tiers for n in names])
+end
+
+"""
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
         output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
         show_report::Bool = isinteractive(), processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
 calling Julia process, for example in the REPL. A partition-level processor takes no
-`run`. `step` is the name of a registered processor, a key of [`Juleana.PROCESSORS`](@ref);
+`run`. `step` is the name of a registered processor, a key of [`Juleana.PROCESSORS`](@ref),
+and [`Juleana.processors`](@ref) lists them with their level, category and rank;
 `?Juleana.<step>`, e.g. `?Juleana.process_energy_calibration_cal`, shows what the
 processor does and its keywords.
 
