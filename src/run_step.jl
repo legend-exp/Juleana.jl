@@ -83,35 +83,60 @@ const DEFAULT_TRAITS = (output_tiers = Symbol[], detector_selection = true)
         show_report::Bool = isinteractive(), processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
-calling Julia process, for example in the REPL. Items go to the workers of the
+calling Julia process, for example in the REPL. A partition-level processor takes no
+`run`. `step` is the name of a registered processor, a key of [`Juleana.PROCESSORS`](@ref);
+`?Juleana.<step>`, e.g. `?Juleana.process_energy_calibration_cal`, shows what the
+processor does and its keywords.
+
+Only the defaults are needed: by default, nothing is written to the data production, and
+the plots, reports and data files go to a temporary directory.
+
+# Keywords
+- `detectors`: the detectors to process, e.g. `[:V01234A]`; they are processed again, also
+  when their parameters or output exist. `nothing` (the default) processes all detectors,
+  with `reprocess = true` unless given. A detector that the processor does not process in
+  this run or partition stops the call with an error listing the detectors it processes.
+- `outputs`: `:temp` (the default) writes the plots, reports and the data tiers the
+  processor writes (its `output_tiers`, see [`register_processor!`](@ref)) to
+  `output_dir`, and no parameters or validity; parameters are read from the production,
+  and the detectors not in `detectors` are not run. `:production` writes everything to the
+  production paths of `l200`, which cannot be undone; the detectors not in `detectors` are
+  skipped as already processed, so the parameters, validity and reports stay complete.
+- `output_dir`: the directory of the temporary outputs; by default one temporary directory
+  for all calls in the Julia session, see `step.output_dir`. The report of each call is
+  appended to `<output_dir>/reports/<step>.md`: the report of the processor with only the
+  rows of `detectors`, and below it the plots of each detector the processor saved during
+  this call, in the order they were saved.
+- `config`: a [`ProcessingConfig`](@ref) or the path of a config file; by default the
+  config of the data production. The processor must be in it; for a processor that is not,
+  use the config of the package, `joinpath(pkgdir(Juleana), "config", "processing_config.yaml")`.
+- `l200`: the `LegendData` to use; by default `LegendData(:l200)`, built after the
+  `env_variables` of `config` are set.
+- `show_report`: display the report at the end with [`display_report`](@ref); the default
+  in an interactive session.
+- `processors`: the processors by name, [`Juleana.PROCESSORS`](@ref) by default.
+- `kwargs`: keyword arguments of the processor, e.g. `timeout = 0`. The processor gets the
+  keyword arguments of `config`, then `only_first_period = false` for a partition-level
+  processor and `reprocess = true` when `detectors` is `nothing`, then `kwargs`.
+
+# Workers
+The items of the processor, e.g. its detectors, go to the workers of the
 ParallelProcessingTools worker pool, or run in the calling process when no workers are
-started.
+started. Workers started from the session need Juleana and ParallelProcessingTools in the
+active environment:
 
-`detectors` are the detectors to process: they are processed again, also when their
-parameters or output exist. With `outputs = :production`, the other detectors are
-skipped as already processed, so the parameters, validity and reports of the step stay
-complete; with `outputs = :temp`, they are not run. `detectors = nothing` processes all
-detectors, with `reprocess = true` unless given.
+```julia
+using Juleana
+ParallelProcessingTools.@always_everywhere using Juleana
+ParallelProcessingTools.runworkers(ParallelProcessingTools.OnLocalhost(n = 4))
+```
 
-With `outputs = :temp` (the default), plots, reports and the data tiers the processor
-writes (its `output_tiers`, see [`register_processor!`](@ref)) go to `output_dir`, and no
-parameters or validity are written; parameters are read from the production. With
-`outputs = :production`, everything is written to the production paths of `l200`.
+`runworkers` returns at once; the workers join the pool when they are up, see
+`ParallelProcessingTools.worker_resources()`.
 
-`output_dir` defaults to one temporary directory for all calls of `run_step` in the Julia
-session. The report of each call is appended to `<output_dir>/reports/<step>.md`: the
-report of the processor, with only the rows of `detectors`, and below it the plots of each
-detector the processor saved during this call, in the order they were saved, as images in
-the file. With `show_report = true`, the default in an interactive session, the report is
-also displayed with [`display_report`](@ref).
-
-`config` is a [`ProcessingConfig`](@ref) or the path of a config file. Its
-`env_variables` are set before `l200` is built as `LegendData(:l200)` when `l200` is
-`nothing`. The keyword arguments of the processor are those of `config`, then
-`only_first_period = false` for a partition-level processor and `reprocess = true` when
-`detectors` is `nothing`, then `kwargs`.
-
-Return a [`StepOutput`](@ref).
+# Returns
+Return a [`StepOutput`](@ref) with the report, the reports of the processor and the
+results of its items.
 
 Throws an `ArgumentError` if `step` is not registered or not in `config`, if `run` is given
 for a partition-level processor or missing for a run-level one, if `detectors` is given for
@@ -120,8 +145,11 @@ a processor that cannot select detectors, or if `outputs` is not `:temp` or `:pr
 # Examples
 ```julia
 using Juleana
-step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])  # a detector of p03 r000
-step.report
+# run level: a detector of p03 r000
+step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
+# partition level, no run
+step = run_step(:p_process_energy_cal, 3; detectors = [:V01234A])
+Juleana.display_report(step.report)
 ```
 """
 function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp,
