@@ -75,6 +75,11 @@ using Juleana
 step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
 ```
 
+`using Juleana` also makes the names of the packages Juleana works with available, such
+as `LegendDataManagement`, `LegendSpecFits`, `ParallelProcessingTools` and `CairoMakie`
+(see the `export` list in `src/Juleana.jl`), so that e.g. `LegendDataManagement.FileKey`
+works without loading the package in the session's environment.
+
 Replace `:V01234A` by a detector of the run. The chosen detectors are processed again, also
 when they already have parameters. By default (`outputs = :temp`), the plots, reports and
 data files of the processor go to a temporary directory, one for the whole Julia session,

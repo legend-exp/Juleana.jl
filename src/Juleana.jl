@@ -25,10 +25,10 @@ import CairoMakie
 import CommonMark
 using ConcurrentCollections: ConcurrentDict
 using Dates: Dates, DateTime, Millisecond, Second, UTC, canonicalize, now, @dateformat_str
-using Format: format
+using Format: Format, format
 import Graphs
 using HDF5: h5open
-using IntervalSets: (..), leftendpoint, rightendpoint
+using IntervalSets: IntervalSets, (..), leftendpoint, rightendpoint
 using LaTeXStrings: LaTeXStrings, @L_str
 using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, DataRun, DataTier,
     DetectorId, FileKey, LegendData, ProcessStatus, bad_filekeys, channelinfo, data_path,
@@ -36,17 +36,17 @@ using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, Data
     get_ged_evt_kwargs, get_values, is_analysis_run, is_lrun, ljl_propfunc, lreport,
     lreport!, lstring, partitioninfo, process_failed, process_succeeded, process_warning,
     read_ldata, readlprops, runinfo, search_disk, start_filekey, writelprops, writelreport
-using LegendDataManagement.LDMUtils: create_logtbl, create_metadatatbl, create_pars,
+using LegendDataManagement.LDMUtils: LDMUtils, create_logtbl, create_metadatatbl, create_pars,
     create_validity, get_mltrainfilename, get_partition_channelinfo,
     get_partitionvalidity, get_plottitle, get_preportfilename, get_rreportfilename,
     get_totalTimer, savelfig, writevalidity
-using LegendDataTypes: decode_data, fast_flatten
+using LegendDataTypes: LegendDataTypes, decode_data, fast_flatten
 using LegendDSP: LegendDSP, DSPConfig, dsp_decay_times, dsp_icpc_compressed, dsp_pmts,
     dsp_qc_flt_optimization_compressed, dsp_qdrift_flt_optimization, dsp_sipm_compressed,
     get_qc_ml_func
 using LegendEventAnalysis: LegendEventAnalysis, TimeEvolution, calibrate_all,
     calibrate_ged_detector_data, flag_coincidences, rate, relative, smooth
-using LegendHDF5IO: delete_entry!, lh5open
+using LegendHDF5IO: LegendHDF5IO, delete_entry!, lh5open
 import LegendMakie
 using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_peak, fit_aoe_compton,
     fit_aoe_compton_combined, fit_aoe_corrections, fit_calibration, fit_enc_sigmas,
@@ -56,19 +56,21 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
     get_peaks_survival_fractions, lq_ctc_correction, lq_norm, peakhists_gamma,
     set_timelimit, simple_calibration, sipm_simple_calibration
 using Base.ScopedValues: ScopedValue, with
-using Distributed: AbstractWorkerPool, myid, nprocs, nworkers, procs, remotecall_fetch, workers
+using Distributed: Distributed, AbstractWorkerPool, myid, nprocs, nworkers, procs, remotecall_fetch, workers
 using Logging: Logging, AbstractLogger, LogLevel, global_logger
 using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
 import Makie
-using Measurements: value as mvalue
+import Measures
+using Measurements: Measurements, value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
     AutoThreadPinning, onlyfirst_exception, onworker, original_exception,
     ppt_worker_pool!, ppt_worker_pool, runworkers, write_files, write_worker_start_script
+import Printf
 using PrecompileTools: @compile_workload, @setup_workload
 using ProgressLogging: ProgressLogging
-using ProgressMeter: @showprogress, Progress, next!, update!
-using PropDicts: PropDict
+using ProgressMeter: ProgressMeter, @showprogress, Progress, next!, update!
+using PropDicts: PropDicts, PropDict
 using PropertyFunctions: PropertyFunctions, @pf, filterby
 using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, sample, std
 using StructArrays: StructArray
@@ -77,7 +79,7 @@ using TerminalLoggers: TerminalLogger
 import ThreadPinning
 import TOML
 using TimerOutputs: TimerOutputs, @timeit, TimerOutput
-using TypedTables: Table, columnnames, columns
+using TypedTables: TypedTables, Table, columnnames, columns
 using Unitful: Unitful, @u_str, uconvert, unit, ustrip
 import UnitfulAtomic
 using UUIDs: UUID, uuid4
@@ -156,6 +158,14 @@ include("processors/process_stability_plots_phy.jl")
 
 include("precompile.jl")
 
+# The packages a Julia session needs to work with the data and the processors; `using Juleana`
+# makes their names, not their contents, available. A defined `ParallelProcessingTools` in
+# `Main` also lets ParallelProcessingTools set up the process when the active environment
+# does not have it.
+export CairoMakie, Dates, Distributed, Format, IntervalSets, LaTeXStrings, LDMUtils, LegendDataManagement,
+    LegendDataTypes, LegendDSP, LegendEventAnalysis, LegendHDF5IO, LegendMakie, LegendSpecFits, Makie,
+    Measurements, Measures, ParallelProcessingTools, Printf, ProgressMeter, PropDicts, PropertyFunctions,
+    StatsBase, TimerOutputs, TypedTables, Unitful, UnitfulAtomic
 export UnderscoreSafeLogger
 export parallel, failure_log
 export master_status, detector_status, truncate_string, truncate_error

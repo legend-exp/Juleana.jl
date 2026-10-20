@@ -13,6 +13,12 @@ using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, Data
     process_succeeded, process_warning, process_failed
 
 @testset "juleana" begin
+    @testset "package names" begin
+        @test ParallelProcessingTools === Juleana.ParallelProcessingTools
+        @test LDMUtils === Juleana.LegendDataManagement.LDMUtils
+        @test all(m -> m isa Module, (CairoMakie, LegendHDF5IO, LegendSpecFits, Measurements, PropDicts, Unitful))
+    end
+
     @testset "log underscores" begin
         message = Juleana.escape_log_underscores("process_dsp_cal and e_cusp_ctc; `already_quoted`")
         @test message == "process\\_dsp\\_cal and e\\_cusp\\_ctc; `already_quoted`"
