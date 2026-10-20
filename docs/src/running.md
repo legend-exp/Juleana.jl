@@ -75,18 +75,37 @@ using Juleana
 step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
 ```
 
-The chosen detectors are processed again, also when they already have parameters. By
-default (`outputs = :temp`), the plots, reports and data files of the processor go to a
-new temporary directory, and no parameters or validity are written; the other detectors
-are not run. With `outputs = :production`, everything is written to the data production:
-the other detectors are skipped as already processed, so the parameters and the report of
-the run stay complete.
+Replace `:V01234A` by a detector of the run. The chosen detectors are processed again, also
+when they already have parameters. By default (`outputs = :temp`), the plots, reports and
+data files of the processor go to a temporary directory, one for the whole Julia session,
+and no parameters or validity are written; the other detectors are not run. With
+`outputs = :production`, everything is written to the data production: the other detectors
+are skipped as already processed, so the parameters and the report of the run stay
+complete. This cannot be undone, so test it with `LEGEND_DATA_CONFIG` pointing to a copy of
+the data production.
 
-`step.report` is a single Markdown file with the report rows of the chosen detectors and,
-below them, the plots of each detector. Processor keyword arguments are passed on, e.g.
-`run_step(...; timeout = 0)`, and `config` names another config file than
-`config/processing_config.yaml` of the data production. Items run on the workers when
-workers are started, otherwise in the session itself.
+Each call appends its report to `reports/<step>.md` in the output directory: the report
+rows of the chosen detectors and, below them, the plots of each detector in the order they
+were saved. The returned `step` holds
+
+- `step.report`: the report of this call; shown in the REPL, it shows the plots as images
+  in terminals that can show them, see [`Juleana.ReportPlot`](@ref),
+- `step.report_file`, `step.output_dir`,
+- `step.reports`: the complete reports the processor wrote, with all detectors,
+- `step.results`: the `item => result` pairs of the items the processor ran, where
+  `result` has at least `processed` and `log`, the report row of the item.
+
+To show the plots in Ghostty or Kitty, load KittyTerminalImages in the session; in a
+terminal with Sixel support, load ImageInTerminal, with ImageIO installed:
+
+```julia
+using KittyTerminalImages
+step.report
+```
+
+Processor keyword arguments are passed on, e.g. `run_step(...; timeout = 0)`, and `config`
+names another config file than `config/processing_config.yaml` of the data production.
+Items run on the workers when workers are started, otherwise in the session itself.
 
 The processors that do not support chosen detectors (`process_evt_phy`,
 `p_process_skm_phy` and the stability plots) run for all detectors, without `detectors`.

@@ -279,7 +279,9 @@ const REPORT = """
                     return (processed = false, log = Row((det, :on, 1, "Already processed --> skipped.")))
                 end
                 plot_dir = mkpath(joinpath(l200.tier[:jlplt], "rplt", "cal", string(period), string(run), "proc"))
-                Juleana.CairoMakie.save(joinpath(plot_dir, "l200-$period-$run-cal-$det-proc_fit.png"), Juleana.Makie.Figure(size = (40, 30)))
+                for name in ("proc_fit", "proc_check")
+                    Juleana.CairoMakie.save(joinpath(plot_dir, "l200-$period-$run-cal-$det-$name.png"), Juleana.Makie.Figure(size = (40, 30)))
+                end
                 (processed = true, log = Row((det, :on, 1, "")), value = scale)
             end
             Juleana.write_pars(pars_file, Juleana.PropDict(:n => length(result)))
@@ -292,32 +294,43 @@ const REPORT = """
             processors = Dict(:run_proc => ProcessorSpec(; name = :run_proc, level = :run, category = :cal, rank = 1, kwargs = Dict(:scale => 2))),
             p_processors = Dict(:part_proc => ProcessorSpec(; name = :part_proc, level = :partition, category = :cal, rank = 1)))
         processors = Dict{Symbol,Any}(:run_proc => run_proc, :part_proc => part_proc)
-        step(args...; kw...) = run_step(args...; config = cfg, l200, processors, kw...)
+        output_dir = mktempdir()
+        step(args...; kw...) = run_step(args...; config = cfg, l200, processors, output_dir, kw...)
+        markdown(out) = sprint(show, MIME"text/markdown"(), out.report)
 
         # temporary outputs: only V2 runs, nothing is written to the production
         out = step(:run_proc, 3, 1; detectors = ["V2"])
         @test last(calls) == (; period = DataPeriod(3), run = DataRun(1), reprocess = false, scale = 2)
         @test first.(out.results) == items[2:2] && last(only(out.results)).value == 2
         @test !isfile(pars_file) && !isdir(joinpath(prod, "tier", "jlplt")) && !isdir(joinpath(prod, "tier", "jlrep"))
-        @test isfile(joinpath(out.output_dir, "jlrep", "proc.md"))
-        report = read(out.report, String)
+        @test isfile(joinpath(out.output_dir, "jlrep", "proc.md")) && length(out.reports) == 1
+        @test out.report_file == joinpath(output_dir, "reports", "run_proc.md")
+        report = markdown(out)
         @test occursin("# run_proc: p03 r001", report) && occursin("Detectors: V2", report)
-        @test occursin("## V2", report) && occursin("### l200-p03-r001-cal-V2-proc_fit", report)
-        @test occursin("<img src=\"data:image/png;base64,", report) && !occursin("V1", report)
+        @test occursin("## V2", report) && occursin("<img src=\"data:image/png;base64,", report) && !occursin("V1", report)
+        # plots in the order they were saved
+        @test findfirst("### l200-p03-r001-cal-V2-proc_fit", report) < findfirst("### l200-p03-r001-cal-V2-proc_check", report)
+        @test read(out.report_file, String) == report * "\n"
+        # outside a terminal, a plot is shown by its file name
+        plain = sprint(show, MIME"text/plain"(), out.report)
+        @test occursin(joinpath(output_dir, "jlplt"), plain) && occursin("proc_check.png", plain) && !occursin('\e', plain)
 
         # production outputs: the other detectors are skipped as processed, everything is written there
         out = step(:run_proc, 3, 1; detectors = [:V2], outputs = :production, scale = 3)
         @test last(calls).scale == 3 && first.(out.results) == items
         @test [r.log.Error for r in last.(out.results)] == ["Already processed --> skipped.", "", ""]
         @test isfile(pars_file) && isfile(joinpath(prod, "tier", "jlrep", "proc.md"))
-        report = read(out.report, String)
+        report = markdown(out)
         @test occursin("## V2", report) && !occursin("## V3", report) && !occursin("V1", report) && !occursin("| V3", report)
+        # the report of each call is appended
+        @test count("# run_proc: p03 r001", read(out.report_file, String)) == 2
         rm(pars_file)
 
         # all detectors: reprocess is on unless given
         out = step(:run_proc, 3, 1)
-        @test last(calls).reprocess && first.(out.results) == items && occursin("Detectors: all", read(out.report, String))
-        @test occursin("## V1", read(out.report, String))
+        @test last(calls).reprocess && first.(out.results) == items && occursin("Detectors: all", markdown(out))
+        @test occursin("## V1", markdown(out))
+        @test Juleana.session_output_dir() == Juleana.session_output_dir() && isdir(Juleana.session_output_dir())
         step(:run_proc, 3, 1; reprocess = false)
         @test !last(calls).reprocess
         # partition level

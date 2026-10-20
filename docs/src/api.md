@@ -36,6 +36,7 @@ Juleana.disk_counts
 Juleana.disk_state
 run_processing
 run_step
+Juleana.ReportPlot
 ProcessingStopped
 Juleana.partition_periods
 Juleana.rank_order_dependencies

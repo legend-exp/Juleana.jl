@@ -98,9 +98,11 @@ writes (its `output_tiers`, see [`register_processor!`](@ref)) go to `output_dir
 parameters or validity are written; parameters are read from the production. With
 `outputs = :production`, everything is written to the production paths of `l200`.
 
-`run_step` writes `report.md` to `output_dir`, a new temporary directory when `nothing`:
-the report of the processor, with only the rows of `detectors`, and below it the plots of
-each detector the processor saved during this call, as images in the file.
+`output_dir` defaults to one temporary directory for all calls of `run_step` in the Julia
+session. The report of each call is appended to `<output_dir>/reports/<step>.md`: the
+report of the processor, with only the rows of `detectors`, and below it the plots of each
+detector the processor saved during this call, in the order they were saved, as images in
+the file.
 
 `config` is a [`ProcessingConfig`](@ref) or the path of a config file. Its
 `env_variables` are set before `l200` is built as `LegendData(:l200)` when `l200` is
@@ -108,8 +110,14 @@ each detector the processor saved during this call, as images in the file.
 `only_first_period = false` for a partition-level processor and `reprocess = true` when
 `detectors` is `nothing`, then `kwargs`.
 
-Return a `NamedTuple` with `report`, the path of `report.md`, `output_dir`, and `results`,
-the `item => result` pairs of all `parallel` calls of the processor.
+Return a `NamedTuple` with
+- `report`: the report of this call as a `LegendReport`, with the plots as
+  [`ReportPlot`](@ref)s; shown in the REPL, it shows the plots as images when the
+  terminal can show them (see [`ReportPlot`](@ref)),
+- `report_file`: the path of the report file the report was appended to,
+- `reports`: the reports the processor wrote, complete with all detectors,
+- `output_dir`,
+- `results`: the `item => result` pairs of all `parallel` calls of the processor.
 
 Throws an `ArgumentError` if `step` is not registered or not in `config`, if `run` is given
 for a partition-level processor or missing for a run-level one, if `detectors` is given for
@@ -118,7 +126,7 @@ a processor that cannot select detectors, or if `outputs` is not `:temp` or `:pr
 # Examples
 ```julia
 using Juleana
-step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
+step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])  # a detector of p03 r000
 step.report
 ```
 """
@@ -142,7 +150,7 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
         foreach(((key, value),) -> ENV[key] = value, cfg.env_variables)
         l200 = LegendData(:l200)
     end
-    dir = isnothing(output_dir) ? mktempdir(; prefix = "juleana-$step-", cleanup = false) : mkpath(output_dir)
+    dir = mkpath(isnothing(output_dir) ? session_output_dir() : output_dir)
     step_l200 = outputs === :temp ? redirect_outputs(l200, dir, vcat([:jlplt, :jlrep, :jllog], traits.output_tiers)) : l200
     period = DataPeriod(period)
     args = spec.level === :run ? (period, DataRun(run)) : (period,)
@@ -161,10 +169,18 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
         isnothing(selection) ? [pplt] : [joinpath(pplt, det) for det in selection]
     end
     report = step_report(step, args, spec.level, outputs, dir, selection, record.reports, plot_roots, started)
-    report_file = joinpath(dir, "report.md")
-    writelreport(report_file, report)
-    @info "run_step: report written to $report_file"
-    return (; report = report_file, output_dir = dir, results = record.results)
+    report_file = joinpath(mkpath(joinpath(dir, "reports")), "$step.md")
+    open(io -> (show(io, MIME"text/markdown"(), report); println(io)), report_file, "a")
+    @info "run_step: report appended to $report_file"
+    return (; report, report_file, reports = record.reports, output_dir = dir, results = record.results)
+end
+
+# The temporary output directory of `run_step` in this Julia session, created on first use.
+const SESSION_OUTPUT_DIR = Ref("")
+
+function session_output_dir()
+    isempty(SESSION_OUTPUT_DIR[]) && (SESSION_OUTPUT_DIR[] = mktempdir(; prefix = "juleana-run_step-", cleanup = false))
+    return SESSION_OUTPUT_DIR[]
 end
 
 # `l200` with the data tiers `tiers` in the directory `dir`; everything else, also the
@@ -179,7 +195,7 @@ end
 # The report of `run_step`: the processor reports with only the rows of `selection`, then
 # the plots below `plot_roots` saved since `started`, grouped by detector.
 function step_report(step, args, level, outputs, dir, selection, reports, plot_roots, started)
-    report = lreport("# $step: $(join(string.(args), " "))")
+    report = lreport("# $step: $(join(string.(args), " ")), $(utc_timestamp())")
     lreport!(report, "Detectors: $(isnothing(selection) ? "all" : join(sort!(collect(selection)), ", "))")
     lreport!(report, "Outputs: $outputs, `$dir`")
     for processor_report in reports, content in processor_report._contents
@@ -192,15 +208,48 @@ function step_report(step, args, level, outputs, dir, selection, reports, plot_r
     plot_det(file) = plot_detector(file, level)
     detectors = isnothing(selection) ? sort!(unique(plot_det.(plots))) : sort!(collect(selection))
     for det in detectors
-        det_plots = sort!(filter(p -> plot_det(p) == det, plots))
+        det_plots = sort!(filter(p -> plot_det(p) == det, plots); by = mtime)
         isempty(det_plots) && continue
         lreport!(report, "## $det")
         for file in det_plots
             lreport!(report, "### $(splitext(basename(file))[1])")
-            lreport!(report, HTML("<img src=\"data:image/png;base64,$(base64encode(read(file)))\" width=\"800\">"))
+            lreport!(report, ReportPlot(file))
         end
     end
     return report
+end
+
+"""
+    ReportPlot(file)
+
+The PNG plot `file` in the report of [`run_step`](@ref). In the Markdown and HTML report,
+the plot is embedded as an image. Shown as text in a terminal, it is shown as an image by
+the first display in the display stack that shows `image/png`, e.g. the display of
+KittyTerminalImages (Kitty, Ghostty) or of ImageInTerminal (Sixel terminals, needs
+ImageIO to read the PNG). Without such a display, or when the output is not a terminal,
+the file name is shown instead.
+"""
+struct ReportPlot
+    file::String
+end
+
+Base.show(io::IO, ::MIME"image/png", p::ReportPlot) = write(io, read(p.file))
+
+Base.show(io::IO, ::MIME"text/html", p::ReportPlot) =
+    print(io, "<img src=\"data:image/png;base64,$(base64encode(read(p.file)))\" width=\"800\">")
+
+function Base.show(io::IO, ::MIME"text/plain", p::ReportPlot)
+    if (io isa IOContext ? io.io : io) isa Base.TTY
+        # image displays write to `stdout`, after the text shown so far
+        flush(io)
+        try
+            return display(MIME"image/png"(), p)
+        catch e
+            # no display in the display stack shows `image/png`
+            e isa MethodError && e.f === display || rethrow()
+        end
+    end
+    print(io, p.file)
 end
 
 # The detector in a plot file name `<setup>-<period>-<run>-<category>-<detector>-<name>.png` of
