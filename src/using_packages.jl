@@ -5,9 +5,9 @@
 
 Load the exported names of the packages Juleana works with into the calling module, e.g.
 the REPL, as `using` does: the LEGEND packages with `LDMUtils`, ParallelProcessingTools,
-and the packages for units, tables, measurements and timing, with `mvalue` and `muncert`
-for the value and uncertainty of a `Measurement`. LegendMakie, Makie and CairoMakie are
-available by their module names after `using Juleana`, without their exported names.
+CairoMakie with the names of Makie, LegendMakie, and the packages for units, tables,
+measurements and timing, with `mvalue` and `muncert` for the value and uncertainty of a
+`Measurement`.
 
 The packages are loaded from Juleana, so they need not be in the active environment.
 Names that two packages both export, such as `fit`, must be qualified, e.g. `StatsBase.fit`.
@@ -25,6 +25,6 @@ macro using_packages()
             Juleana.IntervalSets, Juleana.PropertyFunctions, Juleana.TypedTables, Juleana.PropDicts, Juleana.StatsBase,
             Juleana.Unitful, Juleana.UnitfulAtomic, Juleana.Format, Juleana.LaTeXStrings, Juleana.Printf,
             Juleana.Measures, Juleana.Dates, Juleana.Measurements, Juleana.Distributed, Juleana.ProgressMeter,
-            Juleana.TimerOutputs, Juleana.ParallelProcessingTools),
+            Juleana.TimerOutputs, Juleana.ParallelProcessingTools, Juleana.CairoMakie, Juleana.LegendMakie),
         :(using Juleana.Measurements: value as mvalue, uncertainty as muncert)))
 end

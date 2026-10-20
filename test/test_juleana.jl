@@ -24,6 +24,7 @@ end
         @test all(m -> m isa Module, (CairoMakie, LegendHDF5IO, LegendSpecFits, Measurements, PropDicts, Unitful))
         @test UsingPackagesTest.channelinfo === LegendDataManagement.channelinfo
         @test UsingPackagesTest.create_logtbl === LDMUtils.create_logtbl
+        @test UsingPackagesTest.Figure === Makie.Figure && UsingPackagesTest.lplot === LegendMakie.lplot
         @test UsingPackagesTest.mvalue === Measurements.value && UsingPackagesTest.muncert === Measurements.uncertainty
     end
 
