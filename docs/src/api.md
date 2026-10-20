@@ -151,6 +151,8 @@ detector_status
 truncate_string
 truncate_error
 Juleana.root_exception
+Juleana.@process_step
+Juleana.ProcessStepError
 load_qc_evaluator
 Juleana.redo_detector
 Juleana.detector_selected
