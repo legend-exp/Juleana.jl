@@ -169,7 +169,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     flush(stdout)
     # assign tasks to workers
     # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
-    failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_string(string(e))))
+    failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_error(e)))
     # one progress id per item, with the axes of `iterator`
     ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
     tasks = broadcast(iterator, ids) do itr, id

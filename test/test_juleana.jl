@@ -9,6 +9,7 @@ using TerminalLoggers
 # here so that initialization never has to resolve the package on its own.
 import ParallelProcessingTools
 using Base.ScopedValues: with
+using Distributed: RemoteException, myid, remotecall_fetch
 using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, DataRun,
     process_succeeded, process_warning, process_failed
 
@@ -60,6 +61,25 @@ end
         @test wrapped isa TaskFailedException
         @test truncate_error(wrapped) == string(ErrorException("inner failure"))
         @test truncate_error(CompositeException([wrapped, ErrorException("second")])) == string(ErrorException("inner failure"))
+    end
+
+    @testset "root_exception" begin
+        root = ErrorException("root")
+        failed = Threads.@spawn throw(root)
+        task_failed = try; wait(failed); catch e; e; end
+        remote = try; remotecall_fetch(() -> throw(root), myid()); catch e; e; end
+        @test remote isa RemoteException
+        captured = CapturedException(root, catch_backtrace())
+        @test Juleana.root_exception(root) === root
+        @test Juleana.root_exception(42) === 42
+        for wrapped in (task_failed, remote, captured, CompositeException([captured, ErrorException("second")]),
+                CompositeException([task_failed]), CapturedException(CompositeException([remote]), []))
+            @test Juleana.root_exception(wrapped) == root
+        end
+        nested = Threads.@spawn throw(CompositeException([remote]))
+        @test Juleana.root_exception(try; wait(nested); catch e; e; end) == root
+        @test truncate_error(remote) == string(root)
+        @test truncate_error("not an exception") == "not an exception"
     end
 
     @testset "utc_timestamp" begin

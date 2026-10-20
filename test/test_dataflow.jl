@@ -207,7 +207,7 @@ const REPORT = """
             e
         end
         @test err isa CompositeException
-        @test [sprint(showerror, Juleana.original_exception(x)) for x in err.exceptions] == ["p03 failed"]
+        @test [sprint(showerror, Juleana.root_exception(x)) for x in err.exceptions] == ["p03 failed"]
         @test Dict(e.period => e.state for e in progress(store).steps) == Dict(p3 => :failed, p4 => :cancelled)
 
         # A partition step waits for the run dependencies of the unselected partition

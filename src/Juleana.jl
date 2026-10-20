@@ -56,7 +56,7 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
     get_peaks_survival_fractions, lq_ctc_correction, lq_norm, peakhists_gamma,
     set_timelimit, simple_calibration, sipm_simple_calibration
 using Base.ScopedValues: ScopedValue, with
-using Distributed: Distributed, AbstractWorkerPool, myid, nprocs, nworkers, procs, remotecall_fetch, workers
+using Distributed: Distributed, AbstractWorkerPool, RemoteException, myid, nprocs, nworkers, procs, remotecall_fetch, workers
 using Logging: Logging, AbstractLogger, LogLevel, global_logger
 using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
 import Makie
@@ -64,7 +64,7 @@ import Measures
 using Measurements: Measurements, value as mvalue
 using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
     CreateOrModify, CreateOrReplace, FlexWorkerPool, OnLocalhost, OnSlurm,
-    AutoThreadPinning, onlyfirst_exception, onworker, original_exception,
+    AutoThreadPinning, onworker,
     ppt_worker_pool!, ppt_worker_pool, runworkers, write_files, write_worker_start_script
 import Printf
 using PrecompileTools: @compile_workload, @setup_workload
@@ -180,7 +180,7 @@ export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, 
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
     CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction, SelectProduction, SelectDataset
 
-public effective_config, escape_log_underscores, processing_logger, process_log_file, parse_log_level, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
+public effective_config, root_exception, escape_log_underscores, processing_logger, process_log_file, parse_log_level, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
     main, setup_session, run_no_tui, run_tui, parse_commandline,
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
     history_path, append_history, read_history, history_grid,

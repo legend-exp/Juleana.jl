@@ -150,6 +150,7 @@ master_status
 detector_status
 truncate_string
 truncate_error
+Juleana.root_exception
 load_qc_evaluator
 Juleana.redo_detector
 Juleana.detector_selected

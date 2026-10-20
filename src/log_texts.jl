@@ -73,14 +73,26 @@ function truncate_string(s::AbstractString, max_length::Integer=1000)
 end
 
 """
-    truncate_error(e::Exception, max_length::Integer=1000)
+    root_exception(e)
 
-Return the text of the first exception in `e`, unwrapped from `CompositeException`,
-`TaskFailedException` and remote-call wrappers, shortened with
+Return the exception that caused `e`: `CompositeException` (its first entry),
+`TaskFailedException`, `RemoteException` and `CapturedException` are unwrapped, also when
+nested. Other exceptions are returned unchanged.
+"""
+root_exception(e) = e
+root_exception(e::CompositeException) = root_exception(first(e.exceptions))
+root_exception(e::TaskFailedException) = root_exception(e.task.exception)
+root_exception(e::RemoteException) = root_exception(e.captured)
+root_exception(e::CapturedException) = root_exception(e.ex)
+
+"""
+    truncate_error(e, max_length::Integer=1000)
+
+Return the text of the [`root_exception`](@ref) of `e`, shortened with
 [`truncate_string`](@ref) to `max_length` characters.
 """
-truncate_error(e::Exception, max_length::Integer=1000) =
-    truncate_string(string(original_exception(onlyfirst_exception(e))), max_length)
+truncate_error(e, max_length::Integer=1000) =
+    truncate_string(string(root_exception(e)), max_length)
 
 # Static report sections, one per processor; internal to the module.
 
