@@ -127,14 +127,14 @@ function process_lq_calibration_cut_cal(processing_config, l200::LegendData, per
             @debug "Detector $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
                 if haskey(pars_db[det], lq_type)
-                    log_ch = log_nt_cal((det, detector_status(chinfo_det.usability), ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db[det][lq_type].fit_result.par[1], "Already processed --> skipped."))
+                    log_ch = log_nt_cal((det, detector_status(chinfo_det.usability), ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db[det][lq_type].drift_result.fit_result.par[1], "Already processed --> skipped."))
                     processed_dict[lq_type] = false
                     log_info_dict[lq_type] = log_ch
                 end
             end
             for lq_classifier in lq_classifiers
                 if haskey(pars_db[det], lq_classifier)
-                    log_info = log_nt_cut((det, detector_status(chinfo_det.usability), ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].cut, pars_db[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((det, detector_status(chinfo_det.usability), ProcessStatus(1), lq_classifier, pars_db[det][lq_classifier].highcut, pars_db[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false

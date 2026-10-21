@@ -138,10 +138,7 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
             wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
             wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
             presum_rate               = first(sep_data.presum_rate)
-            e_det_dep_bi121fep        = dep_data.daqenergy
-            # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
-            # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_det.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
             wvfs_det_sep_wdw          = sep_data.waveform_windowed
             wvfs_det_sep_pre          = sep_data.waveform_presummed

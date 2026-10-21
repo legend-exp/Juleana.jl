@@ -6,8 +6,8 @@ Determine the preamplifier decay time of the HPGe detectors (`geds`) from the `c
 
 For each detector, the presummed waveforms of the peak named by `peakname` in the `pz`
 section of the DSP configuration are read from the `jlpks` tier. If there are more than
-`max_wvfs` waveforms, `max_wvfs` of them are selected by drawing random indices in `1:max_wvfs`
-with replacement. Waveforms that fail the QC condition `qc` are removed. The decay time of each
+`max_wvfs` waveforms, `max_wvfs` of them are selected at random, without repetition and in their original order.
+Waveforms that fail the QC condition `qc` are removed. The decay time of each
 remaining waveform is computed, and a truncated Gaussian is fitted to the values between
 `min_tau` and `max_tau`; its mean is the decay time. A detector gets warning status if the
 decay time is outside 350 to 700 µs. A detector fails if its `jlpks` file is missing or if
@@ -104,7 +104,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
             wvfs_det = read_ldata(peakname, l200, DataTier(:jlpks), filekey, det).waveform_presummed
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sample(eachindex(wvfs_det), max_wvfs; replace=false, ordered=true)
                 wvfs_det = wvfs_det[sel]
             end
             wvfs_det

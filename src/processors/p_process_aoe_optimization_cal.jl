@@ -162,11 +162,8 @@ function det_sg_optimization(chinfo_det::NamedTuple)
             wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
             wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
             presum_rate               = first(sep_data.presum_rate)
-            e_det_dep_bi121fep        = dep_data.daqenergy
             # DEP
-            # wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
-            # wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre[e_det_dep_bi121fep .< quantile(e_det_dep_bi121fep, aoe_config_ch.dep_sep_quantile)]
             wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
             if length(wvfs_det_dep_pre) > max_wvfs
                 @warn "DEP events exceed $max_wvfs, keep only $max_wvfs events"

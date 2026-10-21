@@ -207,37 +207,37 @@ function process_psd_efficiencies_cal(processing_config, l200::LegendData, perio
 
                 ### low A/E cut & LQ cut
                 result_peaks_low_lq, report_peaks_low_lq = @process_step "AoE+LQ peaks low SF" on_error = plot_cut_spectra begin
-                    @debug "Generate A/E DS Survival Fractions"
+                    @debug "Generate low A/E + LQ Survival Fractions"
                     get_peaks_survival_fractions(aoe, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right;
                                                     low_cut=aoe_low_cut, selection=lq .< lq_cut, bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 end
 
-                @debug "Found LQ DS SEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208SEP].sf, digits=2))"
-                @debug "Found LQ DS FEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208FEP].sf, digits=2))"
+                @debug "Found low A/E + LQ SEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208SEP].sf, digits=2))"
+                @debug "Found low A/E + LQ FEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208FEP].sf, digits=2))"
 
                 qbb_result_low_lq, _ = @process_step "Qbb+LQ low SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(aoe, e_cal, psd_config_det.qbb, psd_config_det.qbb_window; low_cut=aoe_low_cut, selection=lq .< lq_cut)
                 end
 
-                @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_low_lq.sf, digits=2))"
+                @debug "Found low A/E + LQ Qbb Survival Fraction at $(round(u"percent", qbb_result_low_lq.sf, digits=2))"
 
 
 
                 ### low A/E cut & high A/E cut & LQ cut
                 result_peaks_lq_ds, report_peaks_lq_ds = @process_step "AoE+LQ peaks DS SF" on_error = plot_cut_spectra begin
-                    @debug "Generate A/E DS Survival Fractions"
+                    @debug "Generate DS A/E + LQ Survival Fractions"
                     get_peaks_survival_fractions(aoe, e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right;
                                                     low_cut=aoe_low_cut, high_cut=aoe_high_cut, selection=lq .< lq_cut, bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
                 end
 
-                @debug "Found LQ DS SEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208SEP].sf, digits=2))"
-                @debug "Found LQ DS FEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208FEP].sf, digits=2))"
+                @debug "Found DS A/E + LQ SEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208SEP].sf, digits=2))"
+                @debug "Found DS A/E + LQ FEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208FEP].sf, digits=2))"
 
                 qbb_result_lq_ds, _ = @process_step "Qbb+LQ DS SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(aoe, e_cal, psd_config_det.qbb, psd_config_det.qbb_window; low_cut=aoe_low_cut, high_cut=aoe_high_cut, selection=lq .< lq_cut)
                 end
 
-                @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_lq_ds.sf, digits=2))"
+                @debug "Found DS A/E + LQ Qbb Survival Fraction at $(round(u"percent", qbb_result_lq_ds.sf, digits=2))"
 
 
                 @debug_plot begin

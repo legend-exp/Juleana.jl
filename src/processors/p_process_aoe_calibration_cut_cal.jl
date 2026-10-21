@@ -133,7 +133,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
             for aoe_type in aoe_types
                 if haskey(pars_db_det[det], aoe_type)
                     pars_db_det_aoe_type = pars_db_det[det][aoe_type]
-                    log_info = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.μ_compton.μ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), get(pars_db_det_aoe_type.ctc, :fct, NaN), "Already processed --> skipped."))
+                    log_info = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_type, length(pars_db_det_aoe_type.µ_compton.µ), mean(pars_db_det_aoe_type.µ_compton.gof.residuals_norm), mean(pars_db_det_aoe_type.σ_compton.gof.residuals_norm), get(pars_db_det_aoe_type.ctc, :fct, NaN), "Already processed --> skipped."))
                     processed_dict[aoe_type] = false
                     log_info_dict[aoe_type] = log_info
                 end
@@ -239,21 +239,21 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                 GC.gc()
 
                 qc_compton_bands = findall(band -> band in keys(result_fit) && result_fit[band].gof.converged && result_fit[band].gof.pvalue >= p_value_cut, compton_bands)
-                compton_bands = compton_bands[qc_compton_bands]
+                compton_bands_qc = compton_bands[qc_compton_bands]
                 peakhists = compton_band_peakhists.peakhists[qc_compton_bands]
                 peakstats = compton_band_peakhists.peakstats[qc_compton_bands]
-                μ = [result_fit[band].μ for band in compton_bands]
-                σ = [result_fit[band].σ for band in compton_bands]
+                μ = [result_fit[band].μ for band in compton_bands_qc]
+                σ = [result_fit[band].σ for band in compton_bands_qc]
 
                 # fit μ and σ with correction functions
                 result_fit_single, report_fit_single = @process_step "$aoe_type correction fitting" begin
-                    fit_aoe_corrections(compton_bands, μ, σ,; aoe_expression = aoe_expression, e_expression = e_type)
+                    fit_aoe_corrections(compton_bands_qc, μ, σ,; aoe_expression = aoe_expression, e_expression = e_type)
                 end
 
                 # perform A/E combined fit
                 if aoe_config_det.use_combined_fit
                     result_fit_combined, report_fit_combined = @process_step "$aoe_type combined compton band fitting" begin
-                        fit_aoe_compton_combined(peakhists, peakstats, compton_bands, result_fit_single;
+                        fit_aoe_compton_combined(peakhists, peakstats, compton_bands_qc, result_fit_single;
                                         e_expression = e_type, aoe_expression = aoe_expression, uncertainty = true)
                     end
                     
@@ -279,7 +279,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     aoe_corr = ljl_propfunc(result_fit_single.func).(hit_cal)
 
                     # add GoF to result
-                    single_fit_residuals = vcat([result_fit[band].gof.residuals_norm for band in compton_bands]...)
+                    single_fit_residuals = vcat([result_fit[band].gof.residuals_norm for band in compton_bands_qc]...)
                         result_correction = merge(result_fit_single, (gof = (mean_residuals = mean(single_fit_residuals), median_residuals = median(single_fit_residuals), std_residuals = std(single_fit_residuals)), ))
                 end
                     
@@ -293,7 +293,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                 if aoe_config_det.apply_ctc
                     result_aoe_ctc, report_aoe_ctc = @process_step "$aoe_type charge trapping correction" begin
                         qdrift_e = ljl_propfunc(qdrift_expression).(hit_cal)
-                        LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands,
+                        LegendSpecFits.ctc_aoe(aoe_corr, e_cal, qdrift_e, compton_bands_qc,
                             aoe_expression = result_correction.func, qdrift_expression = qdrift_expression)
                     end
 
@@ -306,7 +306,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     @debug_plot begin
                         # plot A/E normalization after CTC
                         p = LegendMakie.lplot(report_aoe_ctc.report_after, xlims=(-20, 12), 
-                            title = get_plottitle(filekey_det, part, det, "$(first(compton_bands)) - $(last(compton_bands)) CTC"; additional_type=string(aoe_type)), 
+                            title = get_plottitle(filekey_det, part, det, "$(first(compton_bands_qc)) - $(last(compton_bands_qc)) CTC"; additional_type=string(aoe_type)), 
                             xlabel = LaTeXStrings.latexstring("\\fontfamily{Roboto}" * "A/E_{CTC}"), ylabel = "Counts / $(round(step(report_aoe_ctc.report_after.h.edges[1]), digits=2))")
                         save_plot(p, l200, part, filekey_det, det, Symbol("aoe_compton_after_ctc_$aoe_type"))
                     end
@@ -328,7 +328,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     save_plot(p, l200, part, filekey_det, det, Symbol("aoe_normalized_$aoe_type"))
                 end
 
-                log_info = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), get(result_aoe_ctc, :fct, NaN), "-"))
+                log_info = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), aoe_type, length(compton_bands_qc), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), get(result_aoe_ctc, :fct, NaN), "-"))
 
                 # create result
                 result = (

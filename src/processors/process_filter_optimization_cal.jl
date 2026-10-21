@@ -117,7 +117,7 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
             presum_rate = peak_data.presum_rate
             if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sample(eachindex(wvfs_det_pre), max_wvfs; replace=false, ordered=true)
                 wvfs_det_pre = wvfs_det_pre[sel]
                 wvfs_det_wdw = wvfs_det_wdw[sel]
                 presum_rate = presum_rate[sel]

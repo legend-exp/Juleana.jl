@@ -40,7 +40,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
     
     @info "Generate lq cut for all partitions containing period $period"
 
-    rinfo = runinfo(l200, period)
+    rinfo = runinfo(l200, period) |> filterby(@pf $cal.is_analysis_run)
     @info "Loaded run info with $(length(rinfo)) runs"
 
     filekey = first(rinfo).cal.startkey
@@ -152,15 +152,15 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
         if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $(det) already processed, check missing lq_classifiers"
             for lq_type in lq_types
-                if !haskey(pars_db_det[det], lq_type)
-                    log_det = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db_det[det][lq_type].fit_result.par[1], "Already processed --> skipped."))
+                if haskey(pars_db_det[det], lq_type)
+                    log_det = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), lq_type, ctc_driftime_cutoff_method, pars_db_det[det][lq_type].drift_result.fit_result.par[1], "Already processed --> skipped."))
                     processed_dict[lq_type] = false
                     log_info_dict[lq_type] = log_det
                 end
             end
             for lq_classifier in lq_classifiers
                 if haskey(pars_db_det[det], lq_classifier)
-                    log_info = log_nt_cut((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), lq_classifier, pars_db_det[det][lq_classifier].cut, pars_db_det[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db_det[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
+                    log_info = log_nt_cut((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), lq_classifier, pars_db_det[det][lq_classifier].highcut, pars_db_det[det][lq_classifier].peaks[:Tl208DEP].sf, pars_db_det[det][lq_classifier].qbb.sf, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[lq_classifier] = log_info
                     processed_dict[lq_classifier] = false
