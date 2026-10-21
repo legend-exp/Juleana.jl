@@ -30,6 +30,15 @@ exist, as with `reprocess = true` for this detector only.
 redo_detector(det) = (sel = DETECTOR_SELECTION[]; !isnothing(sel) && string(det) in sel)
 
 """
+    stored_detectors(outdata, group::AbstractString)::Vector{String}
+
+Names of the detectors stored in `group` (e.g. `"jldsp"`) of the open LH5 file `outdata`, or
+an empty vector without that group. The group is looked up by its `String` name: an
+`LHDataStore` reports no `Symbol` keys.
+"""
+stored_detectors(outdata, group::AbstractString) = haskey(outdata, group) ? String[string(k) for k in keys(outdata[group])] : String[]
+
+"""
     write_pars(args...)
 
 Write parameters with `writelprops(args...)`, except inside

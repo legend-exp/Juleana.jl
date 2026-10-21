@@ -287,6 +287,22 @@ const REPORT = """
         @test position(:start, :c, runs[1]) < position(:end, :p, runs[1])
     end
 
+    @testset "stored_detectors" begin
+        file = joinpath(mktempdir(), "dsp.lh5")
+        Juleana.lh5open(file, "cw") do outdata
+            @test isempty(Juleana.stored_detectors(outdata, "jldsp"))
+            outdata[:jldsp, :V1] = Juleana.Table(e = [1.0, 2.0])
+        end
+        Juleana.lh5open(file, "cw") do outdata
+            # the group is only found by its String name
+            @test !haskey(outdata, :jldsp)
+            @test Juleana.stored_detectors(outdata, "jldsp") == ["V1"]
+            # a second detector is added to the existing file
+            outdata[:jldsp, :V2] = Juleana.Table(e = [3.0])
+        end
+        @test sort(Juleana.lh5open(f -> Juleana.stored_detectors(f, "jldsp"), file)) == ["V1", "V2"]
+    end
+
     @testset "run_step" begin
         Row = NamedTuple{(:Detector, :usability, :Status, :Error)}
         items = [(detector = :V1, usability = :on), (detector = :V2, usability = :on), (detector = :V3, usability = :off)]
