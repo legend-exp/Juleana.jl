@@ -109,8 +109,7 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
         max_wvfs = optimization_config_det.max_wvfs
 
         # load data
-        wvfs_det_pre, wvfs_det_wdw, presum_rate = nothing, nothing, nothing
-        try
+        wvfs_det_pre, wvfs_det_wdw, presum_rate = @process_step "$peakname data loading" begin
             @debug "Loading Tl208 FEP data from $(filename)"
             peak_data = read_ldata(peakname, l200, DataTier(:jlpks), filekey, det)
             wvfs_det_pre = peak_data.waveform_presummed
@@ -123,15 +122,12 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
                 wvfs_det_wdw = wvfs_det_wdw[sel]
                 presum_rate = presum_rate[sel]
             end
-        catch e
-            @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
-            throw(ErrorException("$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
+            wvfs_det_pre, wvfs_det_wdw, presum_rate
         end
         yield()
 
         # get QC cuts
-        blmean_wdw = nothing
-        try
+        wvfs_det_pre, wvfs_det_wdw, blmean_wdw = @process_step "QC cuts" begin
             @debug "Get QC cuts"
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
@@ -140,19 +136,13 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
             wvfs_det_wdw = wvfs_det_wdw[findall(qc)]
             blmean_wdw = blmean_wdw[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
-        catch e
-            @error "Failed QC cuts: $(truncate_error(e))"
-            throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
+            wvfs_det_pre, wvfs_det_wdw, blmean_wdw
         end
 
         # get qdrift
-        qdrift = nothing
-        try
+        qdrift = @process_step "QDrift" begin
             @debug "Get QDrift"
-            qdrift = dsp_qdrift_flt_optimization(wvfs_det_wdw, blmean_wdw, dsp_config_det, pars_tau[det].τ)
-        catch e
-            @error "Failed QDrift: $(truncate_error(e))"
-            throw(ErrorException("Error in QDrift: $(truncate_error(e))"))
+            dsp_qdrift_flt_optimization(wvfs_det_wdw, blmean_wdw, dsp_config_det, pars_tau[det].τ)
         end
 
         GC.gc()
@@ -171,22 +161,14 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
                 e_grid_ft            = getproperty(dsp_config_det, Symbol("e_grid_ft_$(filter_type)"))
 
                 # optimize RT
-                enc_grid = nothing
-                try
+                enc_grid = @process_step "$filter_type RT DSP for FEP" begin
                     @debug "Generate $filter_type ENC filter grid"
-                    enc_grid = legend_dsp_function("dsp_$(filter_type)_rt_optimization", "dsp.flt_optimization.e_filter.$filter_type")(wvfs_det_pre, dsp_config_det, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
-                catch e
-                    @error "Filter: $filter_type RT DSP for FEP: $(truncate_error(e))"
-                    throw(ErrorException("Error in $filter_type RT DSP for FEP: $(truncate_error(e))"))
+                    legend_dsp_function("dsp_$(filter_type)_rt_optimization", "dsp.flt_optimization.e_filter.$filter_type")(wvfs_det_pre, dsp_config_det, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
                 end
                 yield()
                 GC.gc()
-                result_rt, report_rt = nothing, nothing
-                try
-                    result_rt, report_rt = fit_enc_sigmas(enc_grid, e_grid_rt, optimization_config_flt.min_enc, optimization_config_flt.max_enc, optimization_config_flt.nbins_enc_sigmas, optimization_config_flt.rel_cut_fit_enc_sigmas)
-                catch e
-                    @error "Failed $filter_type rise time extraction: $(truncate_error(e))"
-                    throw(ErrorException("Error in $filter_type rise time extraction: $(truncate_error(e))"))
+                result_rt, report_rt = @process_step "$filter_type rise time extraction" begin
+                    fit_enc_sigmas(enc_grid, e_grid_rt, optimization_config_flt.min_enc, optimization_config_flt.max_enc, optimization_config_flt.nbins_enc_sigmas, optimization_config_flt.rel_cut_fit_enc_sigmas)
                 end
                 @debug format("Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
                 yield()
@@ -197,23 +179,15 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
                 # optimize FT
                 yield()
                 GC.gc()
-                e_grid = nothing
-                try
+                e_grid = @process_step "$filter_type FT DSP for FEP" begin
                     @debug "Generate $filter_type FT energy grid"
-                    e_grid = legend_dsp_function("dsp_$(filter_type)_ft_optimization", "dsp.flt_optimization.e_filter.$filter_type")(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, mvalue(result_rt.rt))
-                catch e
-                    @error "Filter: $filter_type FT DSP for FEP: $(truncate_error(e))"
-                    throw(ErrorException("Error in $filter_type FT DSP for FEP: $(truncate_error(e))"))
+                    legend_dsp_function("dsp_$(filter_type)_ft_optimization", "dsp.flt_optimization.e_filter.$filter_type")(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, mvalue(result_rt.rt))
                 end
                 yield()
                 GC.gc()
-                result_ft, report_ft = nothing, nothing
-                try
-                    result_ft, report_ft = fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_det.apply_ctc; 
+                result_ft, report_ft = @process_step "$filter_type flat-top time extraction" begin
+                    fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_det.apply_ctc; 
                                             n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_det.peak, window=(optimization_config_det.left_window_size, optimization_config_det.right_window_size), ft_fwhm_tol=optimization_config_det.ft_fwhm_tol)
-                catch e
-                    @error "Failed $filter_type flat-top time extraction: $(truncate_error(e))"
-                    throw(ErrorException("Error in $filter_type flat-top time extraction: $(truncate_error(e))"))
                 end
                 @debug "Found optimal $filter_type FT at $(result_ft.ft) with FWHM $(round(u"keV", result_ft.min_fwhm, digits=2))"
                 yield()
@@ -231,7 +205,7 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
                 GC.gc()
                 yield()
             catch e
-                @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                e isa ProcessStepError || @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
                 log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info

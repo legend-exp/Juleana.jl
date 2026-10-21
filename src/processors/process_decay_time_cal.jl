@@ -98,8 +98,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         end
 
         # load data
-        wvfs_det = nothing
-        try
+        wvfs_det = @process_step "$peakname data loading" begin
             @debug "Loading $peakname data from $(filename)"
             wvfs_det = read_ldata(peakname, l200, DataTier(:jlpks), filekey, det).waveform_presummed
             if length(wvfs_det) > max_wvfs
@@ -107,45 +106,33 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
                 sel = rand(1:max_wvfs, max_wvfs)
                 wvfs_det = wvfs_det[sel]
             end
-        catch e
-            @error "$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
-            throw(ErrorException("$peakname data from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
+            wvfs_det
         end
         yield()
 
         # get QC cuts
-        try
+        wvfs_det = @process_step "QC cuts" begin
             @debug "Get QC cuts"
             dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det, dsp_config_det, 400.0u"µs", f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             wvfs_det = wvfs_det[findall(qc)]
             @debug "Survival Fraction: $(round(count(qc) / length(qc) * 100, digits=2))%"
-        catch e
-            @error "Failed QC cuts: $(truncate_error(e))"
-            throw(ErrorException("Error in QC cuts: $(truncate_error(e))"))
+            wvfs_det
         end
         GC.gc()
 
         # DSP
-        decay_times = nothing
-        try
+        decay_times = @process_step "$peakname DSP" begin
             @debug "Generating DSP for $peakname decay times"
-            decay_times = dsp_decay_times(wvfs_det, dsp_config_det)
-        catch e
-            @error "Error in DSP for $peakname: $(truncate_error(e))"
-            throw(ErrorException("Error in DSP for $peakname: $(truncate_error(e))"))
+            dsp_decay_times(wvfs_det, dsp_config_det)
         end
         yield()
 
         # get decay time
-        cuts_τ, result, report =  nothing, nothing, nothing
-        try
+        result, report = @process_step "decay time extraction" begin
             filter!(x -> min_τ < x < max_τ, decay_times)
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
-            result, report = fit_single_trunc_gauss(decay_times, cuts_τ)
-        catch e
-            @error "Failed decay time extraction: $(truncate_error(e))"
-            throw(ErrorException("Error in decay time extraction: $(truncate_error(e))"))
+            fit_single_trunc_gauss(decay_times, cuts_τ)
         end
         yield()
         

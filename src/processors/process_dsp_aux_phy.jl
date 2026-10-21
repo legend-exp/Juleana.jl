@@ -93,7 +93,9 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
         end
 
         try
-            raw_data = read_ldata(l200, DataTier(:raw), filekeys, det)
+            raw_data = @process_step "raw data loading" begin
+                read_ldata(l200, DataTier(:raw), filekeys, det)
+            end
 
             dsp_config_pd = dataprod_config(l200).dsp(filekey)
             dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
@@ -101,12 +103,16 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
             @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
             @debug "Generate DSP for $det"
-            dsp_data = legend_dsp_function(dsp_config_pd.additional_detectors[det], "dsp.additional_detectors.$det")(raw_data, dsp_config_det)
+            dsp_data = @process_step "auxiliary DSP" begin
+                legend_dsp_function(dsp_config_pd.additional_detectors[det], "dsp.additional_detectors.$det")(raw_data, dsp_config_det)
+            end
 
             @debug "Calibrate DSP data"
             evt_config_pd_det = dataprod_config(l200).evt(filekey).aux[det]
-            auxcal_pf = get_aux_cal_propfunc(l200, filekey, det)
-            cal_output = auxcal_pf.(dsp_data)
+            cal_output = @process_step "auxiliary calibration" begin
+                auxcal_pf = get_aux_cal_propfunc(l200, filekey, det)
+                auxcal_pf.(dsp_data)
+            end
 
             merged_table = merge(columns(dsp_data), columns(cal_output))
 
@@ -128,7 +134,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
 
             return (result = (n_evts = length(dsp_data),), processed = true, log = log_det)
         catch e
-            @error "Error while running DSP for auxiliary detector $det: $(e)"
+            e isa ProcessStepError || @error "Error while running DSP for auxiliary detector $det: $(e)"
             return (processed = false, log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "0", "$e")))
         end
     end

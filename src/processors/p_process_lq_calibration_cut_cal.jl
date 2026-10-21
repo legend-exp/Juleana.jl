@@ -167,8 +167,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
             end
         end
 
-        hit_cal, e_cal, dep_σ = nothing, nothing, nothing
-        try 
+        hit_cal, e_cal, dep_σ = @process_step "data loader" begin
             @debug("Load data")
             if !all([haskey(processed_dict, lq_type) for lq_type in lq_types]) || !all([haskey(processed_dict, lq_classifier) for lq_classifier in lq_classifiers])
                 hit_cal = fast_flatten([
@@ -181,10 +180,10 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)
                 dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+                hit_cal, e_cal, dep_σ
+            else
+                nothing, nothing, nothing
             end
-        catch e
-            @error "Hit_cal data for $det cannot be loaded: $(truncate_error(e))"
-            throw(ErrorException("Hit_cal data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
         end
 
         @showprogress desc="Detector: $det" for lq_type in lq_types
@@ -193,10 +192,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
             end
             try
                 @debug "Calculate energy corrected and normalized lq and effective drift time"
-                lq_e_corr, dt_eff = nothing, nothing
-                lq_e_corr_expression, dt_eff_expression = nothing, nothing
-                mean_lq, std_lq, median_lq = nothing, nothing, nothing
-                try
+                lq_e_corr, dt_eff, mean_lq, std_lq, median_lq, lq_e_corr_expression, dt_eff_expression = @process_step "$lq_type energy correction and normalization" begin
                     lq_e_corr = ljl_propfunc(lq_funcs[lq_type]).(hit_cal)
                     dt_eff = ljl_propfunc(qdrift_expression).(hit_cal)
 
@@ -209,20 +205,13 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                     lq_e_corr ./= cuts_lq.max
 
                     lq_e_corr_expression = "( $(lq_funcs[lq_type]) ) / $(cuts_lq.max)"
-                    dt_eff_expression = qdrift_expression
-                catch e
-                    @error "Error in energy correction and normalization: $e: $(truncate_error(e))"
-                    throw(ErrorException("Error in energy correction and normalization: $e: $(truncate_error(e))"))
+                    lq_e_corr, dt_eff, mean_lq, std_lq, median_lq, lq_e_corr_expression, qdrift_expression
                 end
 
                 @debug "Drift time correction of $lq_type"
-                drift_result, drift_report = nothing, nothing
-                try 
-                    drift_result, drift_report = lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
+                drift_result, drift_report = @process_step "$lq_type drift time correction" begin
+                    lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
                     ctc_dep_edgesigma, ctc_lq_precut_relative_cut, lq_outlier_sigma, ctc_driftime_cutoff_method, dt_eff_outlier_sigma, lq_e_corr_expression, dt_eff_expression, ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile, pol_fit_order, uncertainty=ctc_uncertainty)
-                catch e
-                    @error "Error in drift time correction: $(truncate_error(e))"
-                    throw(ErrorException("Error in drift time correction: $(truncate_error(e))"))
                 end
 
                 # create and save plots
@@ -235,17 +224,12 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
 
                 # create lq normalization
                 lq_class_expression = drift_result.func                
-                lq_ctc = nothing
-                result, report = nothing, nothing
-                try
-                    lq_class_expression = drift_result.func
+                lq_ctc, result, report = @process_step "$lq_type LQ normalization" begin
                     lq_ctc = ljl_propfunc(lq_class_expression).(hit_cal)
 
                     result, report = lq_norm(dep_µ, dep_σ, e_cal, lq_ctc; 
                     dep_sideband_sigma, cut_truncation_sigma, uncertainty=cut_uncertainty, lq_class_expression)
-                catch e
-                    @error "Error in LQ normalization calculation: $(truncate_error(e))"
-                    throw(ErrorException("Error in LQ normalization calculation: $(truncate_error(e))"))
+                    lq_ctc, result, report
                 end
 
                 # create and save plots
@@ -276,7 +260,8 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 # free memory
                 GC.gc()
             catch e
-                @error "Error in $lq_type calibration: $(truncate_error(e))"
+                # a failed `@process_step` has logged its error already
+                e isa ProcessStepError || @error "$lq_type calibration failed for $det: $(truncate_error(e))"
                 log_info = log_nt_cal((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), lq_type, "-", "-", truncate_error(e)))
 
                 # add results to dict
@@ -301,13 +286,9 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 @debug "Generate lq cut"
 
                 # get lq classifier and lq classifier expression
-                lq_class = nothing
-                try
+                lq_class = @process_step "$lq_classifier classifier loading" begin
                     norm_func = pars_db_det[det][Symbol(first(split(string(lq_classifier), "_classifier")))].func
-                    lq_class = ljl_propfunc(norm_func).(hit_cal)
-                catch e
-                    @error "lq classifier for $det cannot be loaded: $(truncate_error(e))"
-                    throw(ErrorException("lq classifier data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
+                    ljl_propfunc(norm_func).(hit_cal)
                 end
 
                 # create and save plots
@@ -326,20 +307,12 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
 
                 @debug("Generate Survival Fractions for LQ")
 
-                result_peaks, report_peaks = nothing, nothing
-                try
-                    result_peaks, report_peaks = get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right; high_cut=high_cut_sigma, fit_funcs=lq_peaks_fit_funcs)
-                catch e
-                    @error "Error in peak lq survival fraction calculation: $e: $(truncate_error(e))"
-                    throw(ErrorException("Error in peak lq survival fraction calculation: $e: $(truncate_error(e))"))
+                result_peaks, report_peaks = @process_step "$lq_classifier peak survival fraction calculation" begin
+                    get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right; high_cut=high_cut_sigma, fit_funcs=lq_peaks_fit_funcs)
                 end
 
-                result_qbb, report_qbb = nothing, nothing
-                try
-                    result_qbb, report_qbb = get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window; high_cut=high_cut_sigma)
-                catch e
-                    @error "Error in qbb lq survival fraction calculation: $e: $(truncate_error(e))"
-                    throw(ErrorException("Error in qbb lq survival fraction calculation: $e: $(truncate_error(e))"))
+                result_qbb, report_qbb = @process_step "$lq_classifier qbb survival fraction calculation" begin
+                    get_continuum_survival_fraction(lq_class, e_cal, qbb_pos, qbb_window; high_cut=high_cut_sigma)
                 end
 
 
@@ -355,7 +328,8 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
 
                 GC.gc()
             catch e
-                @error "Error in lq cut generation: $(truncate_error(e))"
+                # a failed `@process_step` has logged its error already
+                e isa ProcessStepError || @error "lq cut generation of $lq_classifier failed for $det: $(truncate_error(e))"
                 log_info = log_nt_cut((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), lq_classifier, "-", "-", "-", truncate_error(e)))
                 
                 # add results to dict

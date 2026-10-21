@@ -82,13 +82,9 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
             # open output file
             @timeit dsp_timer "Evt" begin
                 # generate evt level table
-                out_t = nothing
-                try
-                    skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1 && $geds.max_e_cusp_ctc_cal > 500.0u"keV"
-                    out_t = read_ldata(l200, DataTier(:jlevt), filekeys; filterby=skm_sel_pf)
-                catch e
-                    @error "Error processing $fk: $(truncate_error(e))"
-                    throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
+                skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1 && $geds.max_e_cusp_ctc_cal > 500.0u"keV"
+                out_t = @process_step "event table loading of $fk" begin
+                    read_ldata(l200, DataTier(:jlevt), filekeys; filterby=skm_sel_pf)
                 end
                 # get number of forced, physical and pulser triggers
                 n_psd = mean(out_t.geds.is_valid_psd) * 100u"percent"

@@ -118,28 +118,20 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
             try
                 @debug "Calibrate $e_type"
 
-                energy = nothing
-                try
-                    energy = fast_flatten([begin 
+                energy = @process_step "$e_type data loader" begin
+                    fast_flatten([begin 
                             @debug "Reading from $(pinfo.period)-$(pinfo.run)"
                             qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, pinfo.cal.startkey, det)
                             read_ldata(ljl_propfunc(l200.par.rpars.ecal[pinfo.period, pinfo.run][det][e_type].cal.func), l200, :jldsp, :cal, pinfo.period, pinfo.run, det)[qc_mask]
                         end
                     for pinfo in partinfo_det])
-                catch e
-                    @error "E data for $det cannot be loaded: $(truncate_error(e))"
-                    throw(ErrorException("E data for $det from partition $(part) cannot be loaded: $(truncate_error(e))"))
                 end
                 GC.gc()
 
                 e_unit = u"keV"
-                peakhists, peakstats = nothing, nothing
-                try
+                peakhists, peakstats, _, _ = @process_step "$e_type simple calibration" begin
                     @debug "Get $e_type peakhists and peakstats"
-                    peakhists, peakstats, _, _ = peakhists_gamma(collect(energy), energy_config_det.th228_lines, energy_config_det.left_window_sizes, energy_config_det.right_window_sizes)
-                catch e
-                    @error "Error in $e_type simple calibration for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type simple calibration: $(truncate_error(e))"))
+                    peakhists_gamma(collect(energy), energy_config_det.th228_lines, energy_config_det.left_window_sizes, energy_config_det.right_window_sizes)
                 end
                 GC.gc()
 
@@ -151,14 +143,10 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
 
                 yield()
 
-                result_fit, report_fit = nothing, nothing
-                try
+                result_fit, report_fit = @process_step "$e_type peak fitting" begin
                     @debug "Fit all $e_type peaks"
-                    result_fit, report_fit = fit_peaks(peakhists, peakstats, th228_names; 
-                                                e_unit=e_unit, fit_func=Symbol.(energy_config_det.th228_fit_func), calib_type=:th228)
-                catch e
-                    @error "Error in $e_type peak fitting for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type peak fitting: $(truncate_error(e))"))
+                    fit_peaks(peakhists, peakstats, th228_names;
+                        e_unit=e_unit, fit_func=Symbol.(energy_config_det.th228_fit_func), calib_type=:th228)
                 end
                 GC.gc()
 
@@ -181,16 +169,12 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
 
                 th228_names_qc_cal_fit = [p for p in th228_names_qc if !(p in Symbol.(energy_config_det.cal_fit_excluded_peaks))]
 
-                result_calib, report_calib = nothing, nothing
-                try
+                result_calib, report_calib = @process_step "$e_type calibration curve fitting" begin
                     μ_fit =  [result_fit[p].centroid for p in th228_names_qc_cal_fit]
                     pp_fit = [th228_lines_dict[p] for p in th228_names_qc_cal_fit]
-                    result_calib, report_calib = fit_calibration(energy_config_det.cal_pol_order, μ_fit, pp_fit; uncertainty=true)
-                    @debug "Found $e_type calibration curve: $(result_calib.func)"
-                catch e
-                    @error "Error in $e_type calibration curve fitting for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type calibration curve fitting: $(truncate_error(e))"))
+                    fit_calibration(energy_config_det.cal_pol_order, μ_fit, pp_fit; uncertainty=true)
                 end
+                @debug "Found $e_type calibration curve: $(result_calib.func)"
                 # add not-fitted peaks to plot 
                 μ_notfit =  [result_fit[p].centroid for p in th228_names if !(p in th228_names_qc_cal_fit)]
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
@@ -205,16 +189,12 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
 
                 th228_names_qc_fwhm_fit = [p for p in th228_names_qc if !(p in Symbol.(energy_config_det.fwhm_fit_excluded_peaks))]
 
-                result_fwhm, report_fwhm = nothing, nothing
-                try
+                result_fwhm, report_fwhm = @process_step "$e_type FWHM fitting" begin
                     fwhm_fit = [result_fit[p].fwhm for p in th228_names_qc_fwhm_fit]
-                    pp_fit = [th228_lines_dict[p] for p in th228_names_qc_fwhm_fit]    
-                    result_fwhm, report_fwhm = fit_fwhm(energy_config_det.fwhm_pol_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
-                    @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
-                catch e
-                    @error "Error in $e_type FWHM fitting for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type FWHM fitting: $(truncate_error(e))"))
+                    pp_fit = [th228_lines_dict[p] for p in th228_names_qc_fwhm_fit]
+                    fit_fwhm(energy_config_det.fwhm_pol_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
                 end
+                @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 fwhm_notfit =  [result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]        
 
@@ -239,8 +219,8 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
 
                 GC.gc()
             catch e
-                @error "Error in $e_type: $(truncate_error(e))"
-                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), e_type, "-", "-", "-", e))
+                e isa ProcessStepError || @error "Error in $e_type: $(truncate_error(e))"
+                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), e_type, "-", "-", "-", truncate_error(e)))
 
                 # add results to dict
                 log_info_dict[e_type] = log_info

@@ -121,8 +121,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
         end
 
         # load data
-        data_det = nothing
-        try
+        data_det = @process_step "data loader" begin
             data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), filekeys, det)
             @debug "Loading SiPM data from $(period)-$(run)"
             if length(data_det) > max_wvfs
@@ -130,21 +129,15 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
                 sel = rand(1:max_wvfs, max_wvfs)
                 data_det = data_det[sel]
             end
-        catch e
-            @error "SiPM data from $(period)-$(run) cannot be loaded: $(truncate_error(e))"
-            throw(ErrorException("SiPM data from $(period)-$(run) cannot be loaded: $(truncate_error(e))"))
+            data_det
         end
         
-        wvfs_det = nothing
-        try
+        wvfs_det = @process_step "pulser tag" begin
             @debug "Get Pulser tags"
             data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
             is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
-            wvfs_det = data_det[findall(.!is_pulser)].waveform_bit_drop[:]
-        catch e
-            @error "Error in Pulser tag for detector $det: $(truncate_error(e))"
-            throw(ErrorException("Error in Pulser tag for detector: $(truncate_error(e))"))
+            data_det[findall(.!is_pulser)].waveform_bit_drop[:]
         end
 
         @showprogress desc="Computing $det ..." for filter_type in e_filter
@@ -160,26 +153,17 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
                 optimization_config_flt.e_grid_wl = optimization_config_flt.e_grid_wl.start:optimization_config_flt.e_grid_wl.step:optimization_config_flt.e_grid_wl.stop
 
                 # optimize WL
-                trig_max_grid, thresholds_grid = nothing, nothing
-                try
+                trig_max_grid, thresholds_grid = @process_step "$filter_type DSP filter grid" begin
                     @debug "Generate $filter_type DSP filter grid"
                     dsp_grid = legend_dsp_function("dsp_$(filter_type)_sipm_optimization_compressed", "sipm.optimization.e_filter.$filter_type")(10000, decode_data(wvfs_det), dsp_config_det, optimization_config_flt)
-                    trig_max_grid = dsp_grid.trig_max_grid
-                    thresholds_grid = dsp_grid.thresholds_grid
-                catch e
-                    @error "Filter: $filter_type DSP: $(truncate_error(e))"
-                    throw(ErrorException("Error in $filter_type SP: $(truncate_error(e))"))
+                    dsp_grid.trig_max_grid, dsp_grid.thresholds_grid
                 end
 
                 
-                result_wl, report_wl = nothing, nothing
-                try
+                result_wl, report_wl = @process_step "$filter_type window length optimization" begin
                     # fit SG window length
                     @debug "Sweep through window lengths to get optimal gain, resolution and position of 1pe peak"
-                    result_wl, report_wl = fit_sipm_wl(trig_max_grid, optimization_config_flt.e_grid_wl, thresholds_grid; NamedTuple(optimization_config_flt.kwargs)...)
-                catch e
-                    @error "Failed  $filter_type window length optimization: $(truncate_error(e))"
-                    throw(ErrorException("$filter_type Window length optimization: $(truncate_error(e))"))
+                    fit_sipm_wl(trig_max_grid, optimization_config_flt.e_grid_wl, thresholds_grid; NamedTuple(optimization_config_flt.kwargs)...)
                 end
 
                 @debug "Found optimal window length at $(result_wl.wl) for detector $det ($ch)"
@@ -191,26 +175,18 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("wl_sweep_calibration_$(filter_type)"))
 
                 # thresholds for optimized window lengths
-                dsp_thresholds = nothing
-                try
+                dsp_thresholds = @process_step "$filter_type DSP thresholds" begin
                     @debug "DSP $filter_type thresholds"
-                    dsp_thresholds = legend_dsp_function("dsp_$(filter_type)_sipm_thresholds_compressed", "sipm.optimization.e_filter.$filter_type")(decode_data(wvfs_det[1:optimization_config_flt.threshold.n_wvfs]), mvalue(result_wl.wl), dsp_config_det)
-                catch e
-                    @error "DSP $filter_type thresholds: $(truncate_error(e))"
-                    throw(ErrorException("Error in DSP $filter_type thresholds: $(truncate_error(e))"))
+                    legend_dsp_function("dsp_$(filter_type)_sipm_thresholds_compressed", "sipm.optimization.e_filter.$filter_type")(decode_data(wvfs_det[1:optimization_config_flt.threshold.n_wvfs]), mvalue(result_wl.wl), dsp_config_det)
                 end
 
                 # get trigger threshold
                 result_trig = NamedTuple()
                 for thres in collect(columnnames(dsp_thresholds))
-                    result_thres, report_thres =  nothing, nothing
-                    try
+                    result_thres, report_thres = @process_step "$filter_type trigger threshold extraction for $thres" begin
                         @debug "Extract trigger threshold for $thres"
-                        result_thres, report_thres = fit_sipm_threshold(getproperty(dsp_thresholds, thres), optimization_config_flt.threshold.min_cut, optimization_config_flt.threshold.max_cut; 
+                        fit_sipm_threshold(getproperty(dsp_thresholds, thres), optimization_config_flt.threshold.min_cut, optimization_config_flt.threshold.max_cut; 
                                                         n_bins=optimization_config_flt.threshold.nbins, relative_cut=optimization_config_flt.threshold.rel_cut, fit_thresholds=optimization_config_flt.threshold.fit_thresholds, uncertainty=true)
-                    catch e
-                        @error "Failed trigger threshold extraction for $thres: $(truncate_error(e))"
-                        throw(ErrorException("Error in trigger threshold extraction for $thres: $(truncate_error(e))"))
                     end
                     
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for detector $det ($ch)"
@@ -232,7 +208,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
                 GC.gc()
                 yield()
             catch e
-                @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                e isa ProcessStepError || @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
                 log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info

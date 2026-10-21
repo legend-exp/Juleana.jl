@@ -80,12 +80,8 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
                     dsp_detectors = unique(reduce(vcat, [channelinfo(l200, fk; system).detector for system in subsystems]))
                     dsp_data = read_ldata(l200, DataTier(:jldsp), fk, dsp_detectors; ignore_missing=true)
                         # generate evt level table
-                        out_t, pmts_out_t = nothing, nothing
-                        try 
-                            out_t, pmts_out_t = calibrate_all(l200, fk, dsp_data; subsystems)
-                        catch e
-                            @error "Error processing $fk: $(truncate_error(e))"
-                            throw(ErrorException("Error processing $fk: $(truncate_error(e))"))
+                        out_t, pmts_out_t = @process_step "event table calibration of $fk" begin
+                            calibrate_all(l200, fk, dsp_data; subsystems)
                         end
                         # get number of forced, physical and pulser triggers
                         n_forced = count(out_t.aux.forcedtrigger.aux_trig)

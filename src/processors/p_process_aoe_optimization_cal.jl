@@ -146,8 +146,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
         end
         
         # load data
-        wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = nothing, nothing, nothing, nothing, nothing
-        try
+        wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = @process_step "DEP and SEP data loader" begin
             @debug "Loading Tl208 SEP and DEP data from $(part), select $(ifelse(select_random, "randomly ", ""))$n_evts events from each run"
             # The events of each run are selected by timestamp before reading, so only the
             # selected waveforms are loaded from disk.
@@ -183,9 +182,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
                 wvfs_det_sep_pre = wvfs_det_sep_pre[sel]
                 wvfs_det_sep_wdw = wvfs_det_sep_wdw[sel]
             end
-        catch e
-            @error "DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"
-            throw(ErrorException("DEP and SEP data from $(part) cannot be loaded: $(truncate_error(e))"))
+            wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate
         end
         
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
@@ -198,46 +195,35 @@ function det_sg_optimization(chinfo_det::NamedTuple)
 
                 aoe_config_flt = aoe_config_det.aoe_filter[filter_type]
 
-                dsp_sep, dsp_dep = nothing, nothing
-                try
+                dsp_sep, dsp_dep = @process_step "$filter_type DSP of DEP and SEP" begin
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
                     dsp_dep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_dep_wdw, wvfs_det_dep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
                     dsp_sep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_sep_wdw, wvfs_det_sep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                catch e
-                    @error "Failed DSP for DEP or SEP: $(truncate_error(e))"
-                    throw(ErrorException("Error in DSP for DEP or SEP: $(truncate_error(e))"))
+                    dsp_sep, dsp_dep
                 end
 
-                dep_sep_after_qc = nothing
-                try
+                dep_sep_after_qc = @process_step "$filter_type QC of DEP and SEP" begin
                     # generate simple QC cuts
                     @debug "Apply QC cuts for SEP and DEP"
-                    dep_sep_after_qc = (dep = dsp_dep[ljl_propfunc(qc_string).(dsp_dep)],
+                    (dep = dsp_dep[ljl_propfunc(qc_string).(dsp_dep)],
                                 sep = dsp_sep[ljl_propfunc(qc_string).(dsp_sep)]
                     )
-                catch e
-                    @error "Failed QC for DEP or SEP: $(truncate_error(e))"
-                    throw(ErrorException("QC for DEP or SEP: $(truncate_error(e))"))
                 end
 
                 # free memory
                 GC.gc()
 
-                result_wl, report_wl = nothing, nothing
-                try
+                result_wl, report_wl = @process_step "$filter_type window length optimization" begin
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    result_wl, report_wl = fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
+                    fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
                                                 dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
                                                 sep_rel_cut=aoe_config_flt.sep_rel_cut, 
                                                 min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
                                                 min_aoe_offset=aoe_config_flt.min_aoe_offset, max_aoe_offset=aoe_config_flt.max_aoe_offset,
                                                 dep_cut_search_fit_func=Symbol(aoe_config_flt.dep_cut_search_fit_func), sep_cut_search_fit_func=Symbol(aoe_config_flt.sep_cut_search_fit_func)
                                                 )
-                catch e
-                    @error "Failed SG window length optimization: $(truncate_error(e))"
-                    throw(ErrorException("SG window length optimization: $(truncate_error(e))"))
                 end
                 
                 p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey_det, part, det, "Filter Optimization"; additional_type=string(filter_type)))
@@ -256,7 +242,7 @@ function det_sg_optimization(chinfo_det::NamedTuple)
                 GC.gc()
                 yield()
             catch e
-                @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                e isa ProcessStepError || @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
                 log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info

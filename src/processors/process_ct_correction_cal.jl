@@ -87,16 +87,13 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
         end
 
         # get data
-        data_det_after_qc = nothing
-        try
+        # `nothing` if all energy types are already processed
+        data_det_after_qc = @process_step "data loader" begin
             @debug "Load DSP data after QC"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
                 qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, filekey, det)
-                data_det_after_qc = read_ldata((energy_types..., :qdrift), l200, :jldsp, :cal, period, run, det)[qc_mask]
+                read_ldata((energy_types..., :qdrift), l200, :jldsp, :cal, period, run, det)[qc_mask]
             end
-        catch e
-            @error "Error in loading data for detector $det: $(truncate_error(e))"
-            throw(ErrorException("Error data loader: $(truncate_error(e))"))
         end
 
         quantile_perc = if energy_config_det.quantile_perc isa String parse(Float64, energy_config_det.quantile_perc) else energy_config_det.quantile_perc end
@@ -112,13 +109,9 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
             try
                 @debug "Correct $e_type"
 
-                result_simple, report_simple = nothing, nothing
-                try
+                result_simple, report_simple = @process_step "$e_type simple calibration" begin
                     @debug "Get $e_type simple calibration"
-                    result_simple, report_simple = simple_calibration(getproperty(data_det_after_qc, e_type), energy_config_det.th228_lines, energy_config_det.left_window_sizes, energy_config_det.right_window_sizes,; calib_type=:th228, quantile_perc=quantile_perc, binning_peak_window=energy_config_det.binning_peak_window)
-                catch e
-                    @error "Error in $e_type simple calibration for detector $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type simple calibration: $(truncate_error(e))"))
+                    simple_calibration(getproperty(data_det_after_qc, e_type), energy_config_det.th228_lines, energy_config_det.left_window_sizes, energy_config_det.right_window_sizes,; calib_type=:th228, quantile_perc=quantile_perc, binning_peak_window=energy_config_det.binning_peak_window)
                 end
 
                 # get simple calibration constant
@@ -129,13 +122,9 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
 
                 yield()
 
-                result_ctc, report_ctc = nothing, nothing
-                try
+                result_ctc, report_ctc = @process_step "$e_type alpha generation" begin
                     @debug "Get $e_type Charge Trapping Alpha"
-                    result_ctc, report_ctc = ctc_energy(getproperty(data_det_after_qc, e_type) .* m_cal_simple, data_det_after_qc.qdrift, ctc_config_det.peak, (ctc_config_det.left_window_size, ctc_config_det.right_window_size), m_cal_simple; e_expression="$e_type", pol_order=ctc_config_det.ctc_order)
-                catch e
-                    @error "Error in $e_type alpha generation $det: $(truncate_error(e))"
-                    throw(ErrorException("Error in $e_type alpha generation: $(truncate_error(e))"))
+                    ctc_energy(getproperty(data_det_after_qc, e_type) .* m_cal_simple, data_det_after_qc.qdrift, ctc_config_det.peak, (ctc_config_det.left_window_size, ctc_config_det.right_window_size), m_cal_simple; e_expression="$e_type", pol_order=ctc_config_det.ctc_order)
                 end
                 
                 @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"
@@ -152,7 +141,7 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = true
             catch e
-                @error "Error in $e_type CT correction: $(truncate_error(e))"
+                e isa ProcessStepError || @error "Error in $e_type CT correction: $(truncate_error(e))"
                 log_ch = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "$e_type", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[e_type] = log_ch
