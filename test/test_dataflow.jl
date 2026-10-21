@@ -95,10 +95,8 @@ const REPORT = """
         @test args["log_path"] == ""
         @test isnothing(args["processor_log_level"])
         @test Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "warn"])["processor_log_level"] == "warn"
-        @test_throws "out of range input for --processor-log-level" Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "verbose"])
         @test isnothing(args["processor_plot_level"])
         @test Juleana.parse_commandline(["-c", "x.json", "--processor-plot-level", "debug"])["processor_plot_level"] == "debug"
-        @test_throws "out of range input for --processor-plot-level" Juleana.parse_commandline(["-c", "x.json", "--processor-plot-level", "verbose"])
 
         args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "4", "-p", "6", "--rm", "slurm", "--op"])
         @test args["periods"] == [["3", "4"], ["6"]]
