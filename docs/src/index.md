@@ -54,7 +54,7 @@ are ready, lower `rank`s start first. [`run_processing`](@ref) implements this s
 | `jlpks`  | waveforms around the calibration peaks |
 | `jldsp`  | DSP output |
 | `jlqcs`  | quality cut flags |
-| `jlaux`, `jlpls`, `jlpmt` | auxiliary channels, pulser tags, PMT data |
+| `jlaux`, `jlpmt` | auxiliary channels (including the pulser), PMT data |
 | `jlevt`  | events |
 | `jlskm`  | skimmed events |
 | `jlrep`  | Markdown reports per run and per partition |

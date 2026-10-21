@@ -12,7 +12,7 @@ step.
 
 # Inputs
 - `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of the run, per SiPM.
-- `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
+- `jlaux` tier fields `timestamp` and `aux_trig` of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
   events within `puls_ts_window` of a pulser trigger are excluded.
 - `dataprod_config(l200).sipm(filekey).calibration`: the `default` section merged with the
   per-detector section. It sets `energy_types` (each with `qc`, `simple.kwargs`, `fit.min_pe`,
@@ -114,7 +114,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
 
         is_pulser = @process_step "pulser tag" begin
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls).tags
+            data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
             is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             is_pulser

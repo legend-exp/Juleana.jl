@@ -13,7 +13,7 @@ separately; a failing plot does not stop the others.
 # Inputs
 - `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of the run, per detector, fields `timestamp`,
   `blmean`, `blsigma` and `e_10410`; events with non-finite values are dropped.
-- `jlpls` tier fields `e_10410` and `aux_trig` of the pulser channel named by
+- `jlaux` tier fields `e_10410` and `aux_trig` of the pulser channel named by
   `dataprod_config(l200).qc(filekey).pulser.puls_detector`.
 - `dataprod_config(l200).qc(filekey).stability_plots`: `n_ref` (number of events for the
   reference value), `n_smooth` (smoothing window of `20 * n_smooth` seconds) and `Qbb`.
@@ -63,7 +63,7 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
 
 
     @info "Loading pulser data for period $period and run $run"
-    puls = read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlpls), :phy, period, run, det_puls)
+    puls = read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
 
     start_time = now()
 
@@ -82,6 +82,7 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
 
+        length(puls.e_10410) == length(data.timestamp) || throw(DimensionMismatch("pulser data of $det_puls ($(length(puls.e_10410)) events) does not match the data of $det ($(length(data.timestamp)) events)"))
         finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
         timestamp = data.timestamp[finite_data]
         time_s    = ustrip.(timestamp)

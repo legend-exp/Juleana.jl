@@ -53,6 +53,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
         @info "Using output file: $(basename(evtfilename))"
         # number of forced, pulser and physical triggers
         n_forced, n_pulser, n_phy = 0, 0, 0
+        skipped = false
         # start processing
         write_files(evtfilename; use_cache, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
@@ -73,7 +74,8 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
                     n_forced = count(evt_counts.is_forced)
                     n_pulser = count(evt_counts.is_pulser)
                     n_phy = count(evt_counts.is_valid_qc .&& length.(evt_counts.trig_e_det) .> 1)
-                    return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_phy, n_forced, n_pulser, "", "", "")), processed = false)
+                    skipped = true
+                    return
                 end
 
                 # open output file
@@ -120,7 +122,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
         # create log
         log_fk = log_nt((fk, ProcessStatus(1), n_phy, n_forced, n_pulser, total_time, total_allocated, ""))
 
-        return (timer = dsp_timer, log = log_fk, processed = true)
+        return (timer = dsp_timer, log = log_fk, processed = !skipped)
     end
 
     # get start time

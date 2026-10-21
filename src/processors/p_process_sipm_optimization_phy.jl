@@ -12,7 +12,7 @@ a detector's partition are used and the results are valid for the whole partitio
 - `raw` tier of the `phy` filekeys listed in the runinfo for all runs of each detector's partition (excluding filekeys
   marked `unprocessable`), fields `waveform_bit_drop` and `timestamp`, limited to `n_evts`
   events per detector.
-- `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
+- `jlaux` tier fields `timestamp` and `aux_trig` of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
   waveforms within `puls_ts_window` of a pulser trigger are excluded.
 - `dataprod_config(l200).sipm(filekey)`: the `default` section (DSP settings) merged with the
   per-detector section, and its `optimization` subsection using `p_default` merged with `p`
@@ -156,7 +156,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
         
         wvfs_det = @process_step "pulser tag" begin
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls).tags
+            data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, partinfo_det, det_puls)
             is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             data_det[findall(.!is_pulser)].waveform_bit_drop[:]

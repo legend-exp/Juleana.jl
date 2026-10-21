@@ -63,6 +63,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
         
         # start processing
         n_psd, n_lar, n_larpsd = 0.0u"percent", 0.0u"percent", 0.0u"percent"
+        skipped = false
         write_files(skmfilename; use_cache, mode = CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(skmfilename)), remove old Evt."
@@ -77,7 +78,8 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
                 n_psd = mean(skm_data.is_valid_psd) * 100u"percent"
                 n_lar = mean(skm_data.is_valid_lar) * 100u"percent"
                 n_larpsd = mean(skm_data.is_valid_psd .&& skm_data.is_valid_lar) * 100u"percent"
-                return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_psd, n_lar, n_larpsd, "", "", "")), processed = false)
+                skipped = true
+                return
             end
 
             # open output file
@@ -109,7 +111,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
         # create log
         log_fk = log_nt((fk, ProcessStatus(1), n_psd, n_lar, n_larpsd, total_time, total_allocated, ""))
 
-        return (timer = dsp_timer, log = log_fk, processed = true)
+        return (timer = dsp_timer, log = log_fk, processed = !skipped)
     end
 
     # get start time

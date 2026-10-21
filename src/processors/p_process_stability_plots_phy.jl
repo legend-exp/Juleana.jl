@@ -13,7 +13,7 @@ plot does not stop the others.
 - `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of all runs of each detector's partition,
   fields `timestamp`, `blmean`, `blsigma` and `e_10410`; events with non-finite values are
   dropped.
-- `jlpls` tier fields `e_10410` and `aux_trig` of the pulser channel named by
+- `jlaux` tier fields `e_10410` and `aux_trig` of the pulser channel named by
   `dataprod_config(l200).qc(filekey).pulser.puls_detector`, over the same runs.
 - `dataprod_config(l200).qc(filekey).stability_plots`: `n_ref` (number of events for the
   reference value), `n_smooth` (smoothing window of `20 * n_smooth` seconds) and `Qbb`.
@@ -101,12 +101,13 @@ function p_process_stability_plots_phy(processing_config, l200::LegendData, peri
         end
 
         puls = try
-            read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlpls), :phy, partinfo_det, det_puls)
+            read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlaux), :phy, partinfo_det, det_puls)
         catch e
             @error "Pulser data for $det_puls in partition $part cannot be loaded: $(truncate_error(e))"
             log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), :all, "$(truncate_error(e))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
+        length(puls.e_10410) == length(data.timestamp) || throw(DimensionMismatch("pulser data of $det_puls ($(length(puls.e_10410)) events) does not match the data of $det ($(length(data.timestamp)) events) in partition $part"))
         finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
         timestamp = data.timestamp[finite_data]
         time_s    = ustrip.(timestamp)

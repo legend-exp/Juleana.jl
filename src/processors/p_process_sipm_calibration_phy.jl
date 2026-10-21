@@ -10,7 +10,7 @@ detector's partition are combined and the results are valid for the whole partit
 
 # Inputs
 - `dsp` tier (`DataTier(:jldsp)`) of the `phy` data of all runs of each detector's partition.
-- `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`
+- `jlaux` tier fields `timestamp` and `aux_trig` of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`
   over the same runs; events within `puls_ts_window` of a pulser trigger are excluded.
 - `dataprod_config(l200).sipm(filekey).calibration`, using the `p_default` section merged with the
   per-detector section `p`. It sets `energy_types` (each with `qc`, `simple.kwargs`, `fit.min_pe`,
@@ -147,7 +147,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
         is_pulser = @process_step "pulser tag" begin
             @debug "Get Pulser tags"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls).tags
+                data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, partinfo_det, det_puls)
                 is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
                 @debug "Found $(count(is_pulser)) pulser events"
                 is_pulser
