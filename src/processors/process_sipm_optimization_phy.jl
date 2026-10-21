@@ -28,7 +28,8 @@ trigger threshold.
   `res_1pe` and the trigger thresholds `trig_threshold`; the validity entry is written for
   `(period, run)`.
 - Plots per detector and filter: `wl_sweep_<filter>`, `wl_sweep_calibration_<filter>`, and per
-  threshold type `trigger_threshold_<threshold type>`.
+  threshold type `trigger_threshold_<threshold type>`, all saved only at the debug plot level.
+- If `error_plots` is on, a failed trigger threshold extraction saves `error_trigger_threshold_extraction_<filter>_<threshold type>`.
 - Run report `sipm_optimization_phy`.
 
 # Keywords
@@ -168,11 +169,15 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
 
                 @debug "Found optimal window length at $(result_wl.wl) for detector $det ($ch)"
 
-                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "Filter Optimization"; additional_type=string(filter_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("wl_sweep_$(filter_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "Filter Optimization"; additional_type=string(filter_type)))
+                    save_plot(p, l200, filekey, det, Symbol("wl_sweep_$(filter_type)"))
+                end
 
-                p = LegendMakie.lplot(report_wl.report_simple, cal = true, title = get_plottitle(filekey, det, "Opt. Calibration"; additional_type=string(filter_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("wl_sweep_calibration_$(filter_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_wl.report_simple, cal = true, title = get_plottitle(filekey, det, "Opt. Calibration"; additional_type=string(filter_type)))
+                    save_plot(p, l200, filekey, det, Symbol("wl_sweep_calibration_$(filter_type)"))
+                end
 
                 # thresholds for optimized window lengths
                 dsp_thresholds = @process_step "$filter_type DSP thresholds" begin
@@ -183,7 +188,14 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
                 # get trigger threshold
                 result_trig = NamedTuple()
                 for thres in collect(columnnames(dsp_thresholds))
-                    result_thres, report_thres = @process_step "$filter_type trigger threshold extraction for $thres" begin
+                    plot_threshold_distribution() = begin
+                        fig = Makie.Figure()
+                        ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Baseline distribution"; additional_type=string(thres)), xlabel = "Threshold", ylabel = "Counts")
+                        Makie.stephist!(ax, filter(isfinite, ustrip.(getproperty(dsp_thresholds, thres))); bins = 100)
+                        Makie.vlines!(ax, [ustrip(optimization_config_flt.threshold.min_cut), ustrip(optimization_config_flt.threshold.max_cut)]; color = :red, linestyle = :dash)
+                        save_plot(fig, l200, filekey, det, Symbol("error_trigger_threshold_extraction_$(filter_type)_$(thres)"))
+                    end
+                    result_thres, report_thres = @process_step "$filter_type trigger threshold extraction for $thres" on_error = plot_threshold_distribution begin
                         @debug "Extract trigger threshold for $thres"
                         fit_sipm_threshold(getproperty(dsp_thresholds, thres), optimization_config_flt.threshold.min_cut, optimization_config_flt.threshold.max_cut; 
                                                         n_bins=optimization_config_flt.threshold.nbins, relative_cut=optimization_config_flt.threshold.rel_cut, fit_thresholds=optimization_config_flt.threshold.fit_thresholds, uncertainty=true)
@@ -191,8 +203,10 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
                     
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for detector $det ($ch)"
                     
-                    p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey, det, "Baseline distribution"; additional_type=string(thres)))
-                    savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("trigger_threshold_$(thres)"))
+                    @debug_plot begin
+                        p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey, det, "Baseline distribution"; additional_type=string(thres)))
+                        save_plot(p, l200, filekey, det, Symbol("trigger_threshold_$(thres)"))
+                    end
 
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end

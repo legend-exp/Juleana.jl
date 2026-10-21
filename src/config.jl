@@ -53,6 +53,11 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
             help = "log level of the processors' records, overriding `config.processor_log_level` and each processor's `log_level`: debug, info, warn or error"
             arg_type = String
             range_tester = in(keys(LOG_LEVELS))
+        "--processor-plot-level"
+            dest_name = "processor_plot_level"
+            help = "plot level of the processors, overriding `config.processor_plot_level` and each processor's `plot_level`: info or debug"
+            arg_type = String
+            range_tester = in(string.(PLOT_LEVEL_VALUES))
         "--only_runs", "--or"
             help = "process only period and runs ignoring partitions"
             dest_name = "only_runs"
@@ -261,6 +266,8 @@ function setup_processing(parsed_args::AbstractDict)
     )
     # the command line level takes precedence over `config.processor_log_level`
     isnothing(parsed_args["processor_log_level"]) || (config_dict.config.processor_log_level = parsed_args["processor_log_level"])
+    # the command line level takes precedence over `config.processor_plot_level`
+    isnothing(parsed_args["processor_plot_level"]) || (config_dict.config.processor_plot_level = parsed_args["processor_plot_level"])
     processing_config = ProcessingConfig(config_dict; cli...)
     # the environment variables must be set before the metadata is loaded
     for (key, value) in processing_config.env_variables

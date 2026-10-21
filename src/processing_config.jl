@@ -1,5 +1,9 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
+# Values of `plot_level` and of the entries of `plot_formats`.
+const PLOT_LEVEL_VALUES = (:info, :debug)
+const PLOT_FORMAT_VALUES = (:png, :jls)
+
 """
     struct ProcessorSpec
 
@@ -22,11 +26,13 @@ Fields:
 - `log_level::LogLevel`: level of the records of the processor in the log files; key
   `log_level` of the processor entry (`"debug"`, `"info"`, `"warn"` or `"error"`),
   required.
+- `plot_level::Symbol`: `:info` saves the normal plots of the processor, `:debug` also its
+  debug plots; key `plot_level` of the processor entry (`"info"` or `"debug"`), required.
 
 The positional constructor takes the fields in the order listed above,
-`ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level)`;
+`ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)`;
 `ProcessorSpec(; name, level, category, rank, enabled=true, dependencies=Symbol[],
-kwargs=Dict{Symbol,Any}(), error_plots=false, log_level=Logging.Info)` builds a spec from keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
+kwargs=Dict{Symbol,Any}(), error_plots=false, log_level=Logging.Info, plot_level=:info)` builds a spec from keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
 `:partition`, `category` is not `:cal` or `:phy`, or the processor depends on itself.
 """
 struct ProcessorSpec
@@ -39,9 +45,10 @@ struct ProcessorSpec
     kwargs::Dict{Symbol,Any}
     error_plots::Bool
     log_level::LogLevel
+    plot_level::Symbol
 
-    function ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level)
-        spec = new(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level)
+    function ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)
+        spec = new(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)
         spec.level in (:run, :partition) ||
             throw(ArgumentError("processing_config: processor `$(spec.name)` has level $(repr(spec.level)), expected :run or :partition"))
         path = "$(spec.level === :run ? "processors" : "p_processors").$(spec.name)."
@@ -54,8 +61,8 @@ struct ProcessorSpec
 end
 
 ProcessorSpec(; name, level, category, rank, enabled = true, dependencies = Symbol[], kwargs = Dict{Symbol,Any}(),
-    error_plots = false, log_level = Logging.Info) =
-    ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level)
+    error_plots = false, log_level = Logging.Info, plot_level = :info) =
+    ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)
 
 """
     struct ProcessingConfig
@@ -82,6 +89,12 @@ Fields:
 - `log_level::LogLevel`: level of the records written to the log files.
 - `processor_log_level::Union{Nothing,LogLevel}`: level at which the processors' own
   records are written to the log files; `nothing` takes `log_level`.
+- `processor_plot_level::Union{Nothing,Symbol}`: `:info` or `:debug`, the plot level of all
+  processors; `nothing` takes the `plot_level` of each processor.
+- `plot_formats::Vector{Symbol}`: formats in which plots are saved, `:png` and `:jls`; `:jls`
+  also saves the Makie figure with `Serialization` next to the PNG, under the same name
+  with the extension `.jls`. The file can be read again by a session with the same package
+  versions.
 - `idle_timeout_minutes::Float64`: minutes without processing after which the worker
   allocations started by the interface are cancelled; `0` never cancels them.
 - `processors::Dict{Symbol,ProcessorSpec}`: run-level processors.
@@ -92,9 +105,11 @@ Besides the positional constructor and the config-file constructors documented b
 keywords named like the fields. Every field except the two processor tables has a
 default: empty flag and settings lists, no environment variables, `periods` and `runs`
 of `nothing`, all `Bool` fields `false`, `max_parallel_steps = 0`, `local_n = 1`, `log_path = ""`,
-`log_level = Logging.Info`, `processor_log_level = nothing` and `idle_timeout_minutes = 20`. Every
+`log_level = Logging.Info`, `processor_log_level = nothing`, `processor_plot_level = nothing`,
+`plot_formats = [:png]` and `idle_timeout_minutes = 20`. Every
 constructor throws an `ArgumentError` when `runmode` is not `:local` or `:slurm`,
-`local_n < 1`, `max_parallel_steps < 0`, `idle_timeout_minutes` is negative or not finite, both `only_runs` and `only_partitions` are set, a table key differs from
+`processor_plot_level` is not `nothing`, `:info` or `:debug`, `plot_formats` is empty, repeats
+an entry or holds anything but `:png` and `:jls`, `local_n < 1`, `max_parallel_steps < 0`, `idle_timeout_minutes` is negative or not finite, both `only_runs` and `only_partitions` are set, a table key differs from
 its spec's name or level, a name appears in both tables, a dependency names an unknown
 processor, or the dependencies form a cycle (see [`processor_graph`](@ref)).
 
@@ -117,18 +132,28 @@ struct ProcessingConfig
     log_path::String
     log_level::LogLevel
     processor_log_level::Union{Nothing,LogLevel}
+    processor_plot_level::Union{Nothing,Symbol}
+    plot_formats::Vector{Symbol}
     idle_timeout_minutes::Float64
     processors::Dict{Symbol,ProcessorSpec}
     p_processors::Dict{Symbol,ProcessorSpec}
 
     function ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, idle_timeout_minutes, processors, p_processors)
+            only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
         cfg = new(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, idle_timeout_minutes, processors, p_processors)
+            only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
         cfg.runmode in (:local, :slurm) ||
             throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(cfg.runmode))"))
+        isnothing(cfg.processor_plot_level) || cfg.processor_plot_level in PLOT_LEVEL_VALUES ||
+            throw(ArgumentError("processing_config: key `config.processor_plot_level` must be \"info\" or \"debug\", got $(repr(cfg.processor_plot_level))"))
+        isempty(cfg.plot_formats) &&
+            throw(ArgumentError("processing_config: key `config.plot_formats` must list at least one of \"png\" or \"jls\""))
+        all(in(PLOT_FORMAT_VALUES), cfg.plot_formats) ||
+            throw(ArgumentError("processing_config: key `config.plot_formats` must list only \"png\" or \"jls\", got $(repr(string.(cfg.plot_formats)))"))
+        allunique(cfg.plot_formats) ||
+            throw(ArgumentError("processing_config: key `config.plot_formats` lists a format twice: $(repr(string.(cfg.plot_formats)))"))
         cfg.max_parallel_steps >= 0 ||
             throw(ArgumentError("processing_config: key `processing.max_parallel_steps` must be zero or positive, got $(cfg.max_parallel_steps)"))
         cfg.local_n > 0 ||
@@ -163,10 +188,10 @@ ProcessingConfig(;
         local_julia_settings = String[], slurm_flags = String[], slurm_julia_settings = String[],
         env_variables = Dict{String,String}(), periods = nothing, runs = nothing,
         analysis_runs_only = false, only_partitions = false, only_runs = false, max_parallel_steps = 0, log_path = "",
-        log_level = Logging.Info, processor_log_level = nothing, idle_timeout_minutes = 20
+        log_level = Logging.Info, processor_log_level = nothing, processor_plot_level = nothing, plot_formats = [:png], idle_timeout_minutes = 20
     ) = ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
         slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-        only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, idle_timeout_minutes, processors, p_processors)
+        only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
 
 # Recursively convert nested dictionaries to `Dict{Symbol,Any}`.
 _symbolkeys(x) = x
@@ -275,7 +300,7 @@ function rank_order_dependencies(specs::AbstractDict{Symbol,ProcessorSpec})
     for (k, name) in pairs(order)
         s = specs[name]
         deps = k == firstindex(order) || order[k-1] in s.dependencies ? copy(s.dependencies) : vcat(s.dependencies, order[k-1])
-        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps, s.kwargs, s.error_plots, s.log_level)
+        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps, s.kwargs, s.error_plots, s.log_level, s.plot_level)
     end
     return out
 end
@@ -288,13 +313,21 @@ function _log_level(section::AbstractDict, key::Symbol, path::AbstractString)
     return LOG_LEVELS[level]
 end
 
+# The plot level named by `section[key]`; `path` is the key path of `section`.
+function _plot_level(section::AbstractDict, key::Symbol, path::AbstractString)
+    level = _typed(section, key, AbstractString, path)
+    Symbol(level) in PLOT_LEVEL_VALUES ||
+        throw(ArgumentError("processing_config: key `$path$key` must be one of \"info\" or \"debug\", got $(repr(level))"))
+    return Symbol(level)
+end
+
 function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, reprocess::Bool)
     specs = Dict{Symbol,ProcessorSpec}()
     for (name, entry) in table
         path = "$section.$name."
         entry isa AbstractDict ||
             throw(ArgumentError("processing_config: key `$section.$name` must be a table, got $(repr(entry))"))
-        _check_keys(entry, (:enabled, :category, :rank, :kwargs, :dependencies, :log_level), path; optional = (:error_plots,))
+        _check_keys(entry, (:enabled, :category, :rank, :kwargs, :dependencies, :log_level, :plot_level), path; optional = (:error_plots,))
         category = _typed(entry, :category, AbstractString, path)
         kwargs = Dict{Symbol,Any}()
         for (k, v) in _typed(entry, :kwargs, AbstractDict, path)
@@ -306,7 +339,8 @@ function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, r
             name, level, _typed(entry, :enabled, Bool, path), Symbol(category),
             _typed(entry, :rank, Int, path), Symbol.(_strings(entry, :dependencies, path)), kwargs,
             haskey(entry, :error_plots) && _typed(entry, :error_plots, Bool, path),
-            _log_level(entry, :log_level, path)
+            _log_level(entry, :log_level, path),
+            _plot_level(entry, :plot_level, path)
         )
     end
     return specs
@@ -330,13 +364,15 @@ The config must contain exactly these keys; a missing or unknown key throws an
   `runmode_settings.local.{n, julia_settings}`,
   `runmode_settings.slurm.{flags, julia_settings}`, `env_variables`, `log_level`
   (`"debug"`, `"info"`, `"warn"` or `"error"`), and optionally `processor_log_level`
-  (same values, default `nothing`) and `idle_timeout_minutes` (a number, default 20)
+  (same values, default `nothing`), `processor_plot_level` (`"info"` or `"debug"`, default
+  `nothing`), `plot_formats` (a list of `"png"` and `"jls"`, default `["png"]`) and
+  `idle_timeout_minutes` (a number, default 20)
 - `processing`: `periods` and `runs` (each `"all"` or a list), `analysis_runs_only`,
   `only_partitions`, `only_runs` (all `Bool`), and optionally `order` (`"rank"`, the
   default, or `"dependencies"`) and `max_parallel_steps` (an `Int`, default 0: no limit)
 - `processors`, `p_processors`: tables of processor name to
   `{enabled::Bool, category ("cal" or "phy"), rank::Int, kwargs, dependencies,
-  log_level ("debug", "info", "warn" or "error")}`, and optionally `error_plots::Bool`
+  log_level ("debug", "info", "warn" or "error"), plot_level ("info" or "debug")}`, and optionally `error_plots::Bool`
 
 Processor names must be unique across both tables, every dependency must name a
 configured processor of either level, and at least one processor must be enabled. String
@@ -377,7 +413,7 @@ julia> config = Dict(
                "only_partitions" => false, "only_runs" => false, "order" => "dependencies"),
            "processors" => Dict("process_energy_calibration_cal" => Dict("enabled" => true,
                "category" => "cal", "rank" => 1, "kwargs" => Dict(), "dependencies" => [],
-               "log_level" => "info")),
+               "log_level" => "info", "plot_level" => "info")),
            "p_processors" => Dict());
 
 julia> cfg = ProcessingConfig(config; periods = [3, 4])
@@ -406,7 +442,7 @@ function ProcessingConfig(
     _check_keys(d, (:config, :processing, :processors, :p_processors), "")
     config = _typed(d, :config, AbstractDict, "")
     _check_keys(config, (:runmode, :submit_jobs, :runmode_settings, :env_variables, :log_level), "config.";
-        optional = (:idle_timeout_minutes, :processor_log_level))
+        optional = (:idle_timeout_minutes, :processor_log_level, :processor_plot_level, :plot_formats))
     settings = _typed(config, :runmode_settings, AbstractDict, "config.")
     _check_keys(settings, (:local, :slurm), "config.runmode_settings.")
     local_settings = _typed(settings, :local, AbstractDict, "config.runmode_settings.")
@@ -465,6 +501,8 @@ function ProcessingConfig(
         haskey(processing, :max_parallel_steps) ? _typed(processing, :max_parallel_steps, Int, "processing.") : 0, log_path,
         parse_log_level(_typed(config, :log_level, AbstractString, "config.")),
         haskey(config, :processor_log_level) ? _log_level(config, :processor_log_level, "config.") : nothing,
+        haskey(config, :processor_plot_level) ? _plot_level(config, :processor_plot_level, "config.") : nothing,
+        haskey(config, :plot_formats) ? Symbol.(_strings(config, :plot_formats, "config.")) : [:png],
         haskey(config, :idle_timeout_minutes) ? _typed(config, :idle_timeout_minutes, Real, "config.") : 20,
         processors, p_processors
     )

@@ -15,7 +15,7 @@ For each filter type listed under `e_filter` in the optimization config, the ris
 
 # Outputs
 - `l200.par.rpars.fltopt[period, run]`: per detector and filter type the optimal rise time, flat-top time and minimal FWHM, together with the validity entry for the run.
-- Per detector and filter type, plots `noise_sweep_<filter_type>` and `fwhm_ft_scan_<filter_type>`.
+- Per detector and filter type, plots `noise_sweep_<filter_type>` and `fwhm_ft_scan_<filter_type>`, saved only at the debug plot level.
 - Run report `:filter_optimization` (Main Log, Metadata, Results table with one row per detector and filter type).
 
 # Keywords
@@ -173,8 +173,10 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
                 @debug format("Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
                 yield()
 
-                p = LegendMakie.lplot(report_rt, title = get_plottitle(filekey, det, "Noise Sweep"; additional_type=string(filter_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("noise_sweep_$(filter_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_rt, title = get_plottitle(filekey, det, "Noise Sweep"; additional_type=string(filter_type)))
+                    save_plot(p, l200, filekey, det, Symbol("noise_sweep_$(filter_type)"))
+                end
 
                 # optimize FT
                 yield()
@@ -191,8 +193,10 @@ function process_filter_optimization_cal(processing_config, l200::LegendData, pe
                 end
                 @debug "Found optimal $filter_type FT at $(result_ft.ft) with FWHM $(round(u"keV", result_ft.min_fwhm, digits=2))"
                 yield()
-                p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey, det, "FEP FT Scan"; additional_type=string(filter_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey, det, "FEP FT Scan"; additional_type=string(filter_type)))
+                    save_plot(p, l200, filekey, det, Symbol("fwhm_ft_scan_$(filter_type)"))
+                end
 
                 log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 

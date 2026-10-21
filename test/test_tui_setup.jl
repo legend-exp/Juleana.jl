@@ -79,7 +79,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 01"]
 
         tb = render_setup_page(m)
-        for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config", "Processor log level: config",
+        for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config", "Processor log level: config", "Processor plot level: config",
                 "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 14", "Run steps: 1 × 14 runs",
                 "Partition steps: 1 × 2 periods")
             @test find_text(tb, text) !== nothing
@@ -182,6 +182,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, :down, ' ')
         @test setup_refreshed!(m)
         @test m.snap.processor_log_level == Logging.Debug
+        press!(m, :down, ' ')
+        @test setup_refreshed!(m)
+        @test m.snap.processor_plot_level === :debug
         press!(m, :down, :enter)
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
@@ -380,14 +383,14 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         render_setup_page(m)
         options = m.setup.options
         @test m.snap.check_dependencies
-        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 2, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
-        @test m.setup.focus == 4 && m.setup.option == 3 && !m.setup.periods.focused
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 3, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test m.setup.focus == 4 && m.setup.option == 4 && !m.setup.periods.focused
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
         tb = render_setup_page(m)
         @test find_text(tb, "▶ Options") !== nothing && find_text(tb, "▶ Periods") === nothing
         # below the option rows the click only focuses the pane
-        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 6, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
     end

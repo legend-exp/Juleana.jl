@@ -21,7 +21,7 @@ the `is_valid_e` flag.
 # Outputs
 - `jlqcs` tier file for each detector, with the QC flags and the pulser flag
 - `l200.par.rpars.qcs[period, run]` (flag definition, survival fractions, event counts) with its validity (category `cal`)
-- plots `:raw_energy_e_trap` and `:qc_survival_fractions` for each detector, and `:qc_survival_fractions` over all detectors
+- plots `:raw_energy_e_trap` and `:qc_survival_fractions` for each detector, and `:qc_survival_fractions` over all detectors; `:qc_survival_fractions` is saved only at the debug plot level
 - run report `:qcs_cal`, with one row per detector
 
 # Keywords
@@ -151,19 +151,21 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
         Makie.stephist!(ax, StatsBase.midpoints(first(hp.edges)), weights = replace(hp.weights, 0 => 1e-10), bins = first(hp.edges), color = :red, label = "Pulser")
         Makie.axislegend(ax, position = :rt, framevisible = true, framecolor = :lightgray)
         LegendMakie.add_watermarks!(final = true)
-        savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :raw_energy_e_trap)
+        save_plot(fig, l200, filekey, det, :raw_energy_e_trap)
 
-        # plot survival fractions for the flags used by is_single_pulse
-        x = collect(eachindex(plot_flag_names))
-        pulser_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(pulser_sf, flag_name) for flag_name in plot_flag_names]))
-        fep_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(fep_sf, flag_name) for flag_name in plot_flag_names]))
-        fig = Makie.Figure(size = (max(800, 55 * length(plot_flag_names)), 500))
-        ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x, string.(plot_flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(plot_flag_names) + 0.7), nothing))
-        Makie.scatter!(ax, x .- 0.2, pulser_sf_plot, markersize = 12, color = LegendMakie.AchatBlue, label = "Pulser")
-        Makie.scatter!(ax, x .+ 0.2, fep_sf_plot, markersize = 12, color = LegendMakie.BEGeOrange, label = "Tl-208 FEP")
-        Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
-        LegendMakie.add_watermarks!(final = true)
-        savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :qc_survival_fractions)
+        @debug_plot begin
+            # plot survival fractions for the flags used by is_single_pulse
+            x = collect(eachindex(plot_flag_names))
+            pulser_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(pulser_sf, flag_name) for flag_name in plot_flag_names]))
+            fep_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(fep_sf, flag_name) for flag_name in plot_flag_names]))
+            fig = Makie.Figure(size = (max(800, 55 * length(plot_flag_names)), 500))
+            ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x, string.(plot_flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(plot_flag_names) + 0.7), nothing))
+            Makie.scatter!(ax, x .- 0.2, pulser_sf_plot, markersize = 12, color = LegendMakie.AchatBlue, label = "Pulser")
+            Makie.scatter!(ax, x .+ 0.2, fep_sf_plot, markersize = 12, color = LegendMakie.BEGeOrange, label = "Tl-208 FEP")
+            Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
+            LegendMakie.add_watermarks!(final = true)
+            save_plot(fig, l200, filekey, det, :qc_survival_fractions)
+        end
 
         # write QC flags
         write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
@@ -196,7 +198,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     ax.title = get_plottitle(filekey, :all, "QC Survival Fractions")
     Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
     LegendMakie.add_watermarks!(final = true)
-    savelfig(LegendMakie.lsavefig, fig, l200, filekey, :all, :qc_survival_fractions; cleanup = false)
+    @debug_plot save_plot(fig, l200, filekey, :all, :qc_survival_fractions; cleanup = false)
 
     report = lreport()
     lreport!(report, "# Main Log")

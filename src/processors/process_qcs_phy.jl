@@ -21,7 +21,7 @@ fail the `is_valid_dsp` flag.
 # Outputs
 - `jlqcs` tier file for each detector, with the QC flags and the pulser flag
 - `l200.par.rpars.qcs[period, Symbol("<run>-phy")]` (flag definition, survival fractions, event counts) with its validity (category `phy`)
-- plots `:qc_survival_fractions` and `:qc_survival_fractions_forced_trigger` for each detector, and `:qc_survival_fractions` over all detectors
+- plots `:qc_survival_fractions` and `:qc_survival_fractions_forced_trigger` for each detector, and `:qc_survival_fractions` over all detectors; `:qc_survival_fractions_forced_trigger` and the plot over all detectors are saved only at the debug plot level
 - run report `:qcs_phy`, with one row per detector
 
 # Keywords
@@ -136,16 +136,18 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
         ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "Pulser QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x, string.(plot_flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(plot_flag_names) + 0.7), nothing))
         Makie.scatter!(ax, x, pulser_sf_plot, markersize = 12, color = LegendMakie.AchatBlue, label = "Pulser")
         LegendMakie.add_watermarks!(final = true)
-        savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :qc_survival_fractions)
+        save_plot(fig, l200, filekey, det, :qc_survival_fractions)
 
         # plot forced-trigger survival fractions for is_empty_trace and its component flags
-        x_forced = collect(eachindex(forced_plot_flag_names))
-        forced_trigger_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(forced_trigger_sf, flag_name) for flag_name in forced_plot_flag_names]))
-        fig = Makie.Figure(size = (max(800, 55 * length(forced_plot_flag_names)), 500))
-        ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "Forced-trigger QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x_forced, string.(forced_plot_flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(forced_plot_flag_names) + 0.7), nothing))
-        Makie.scatter!(ax, x_forced, forced_trigger_sf_plot, markersize = 12, color = LegendMakie.BEGeOrange, label = "Forced trigger")
-        LegendMakie.add_watermarks!(final = true)
-        savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :qc_survival_fractions_forced_trigger)
+        @debug_plot begin
+            x_forced = collect(eachindex(forced_plot_flag_names))
+            forced_trigger_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(forced_trigger_sf, flag_name) for flag_name in forced_plot_flag_names]))
+            fig = Makie.Figure(size = (max(800, 55 * length(forced_plot_flag_names)), 500))
+            ax = Makie.Axis(fig[1,1], title = get_plottitle(filekey, det, "Forced-trigger QC Survival Fractions"), xlabel = "QC flag", ylabel = "Survival fraction (%)", xticks = (x_forced, string.(forced_plot_flag_names)), xticklabelrotation = pi / 3, limits = ((0.3, length(forced_plot_flag_names) + 0.7), nothing))
+            Makie.scatter!(ax, x_forced, forced_trigger_sf_plot, markersize = 12, color = LegendMakie.BEGeOrange, label = "Forced trigger")
+            LegendMakie.add_watermarks!(final = true)
+            save_plot(fig, l200, filekey, det, :qc_survival_fractions_forced_trigger)
+        end
 
         # write QC flags
         write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
@@ -178,7 +180,7 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     ax.title = get_plottitle(filekey, :all, "QC Survival Fractions")
     Makie.axislegend(ax, position = :lb, orientation = :horizontal, framevisible = true, framecolor = :lightgray)
     LegendMakie.add_watermarks!(final = true)
-    savelfig(LegendMakie.lsavefig, fig, l200, filekey, :all, :qc_survival_fractions; cleanup = false)
+    @debug_plot save_plot(fig, l200, filekey, :all, :qc_survival_fractions; cleanup = false)
 
     report = lreport()
     lreport!(report, "# Main Log")

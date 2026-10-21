@@ -4,6 +4,7 @@
 const SETUP_OPTIONS = (
     (:reprocess, "Reprocess", (nothing, true, false)),
     (:processor_log_level, "Processor log level", (nothing, Logging.Debug, Logging.Info, Logging.Warn, Logging.Error)),
+    (:processor_plot_level, "Processor plot level", (nothing, :debug, :info)),
     (:check_dependencies, "Check dependencies", (true, false)),
     (:analysis_runs_only, "Analysis runs only", (true, false)),
     (:runmode, "Run mode", (:local, :slurm)),
@@ -158,6 +159,7 @@ option_value(snap, key) = getproperty(snap, key)
 function option_command(key, value)
     key === :reprocess && return SetReprocess(value)
     key === :processor_log_level && return SetProcessorLogLevel(value)
+    key === :processor_plot_level && return SetProcessorPlotLevel(value)
     key === :check_dependencies && return SetCheckDependencies(value)
     key === :runmode && return SetRunmode(value)
     return SetAnalysisRunsOnly(value)

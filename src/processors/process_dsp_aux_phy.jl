@@ -19,7 +19,7 @@ trigger threshold marked.
 
 # Outputs
 - `jlaux` tier file for each auxiliary detector, with the DSP and calibrated columns
-- plot `:dsp_aux_energy` for each auxiliary detector
+- plot `:dsp_aux_energy` for each auxiliary detector (debug plot level)
 - run report `:dsp_aux_phy`, with one row per detector (status, number of events)
 
 # Keywords
@@ -117,11 +117,13 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
 
             merged_table = merge(columns(dsp_data), columns(cal_output))
 
-            @info "Generate auxiliary DSP cross-check plot for $det"
-            energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit=2)
-            energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
-            p = plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
-            savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
+            @debug_plot begin
+                @info "Generate auxiliary DSP cross-check plot for $det"
+                energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit=2)
+                energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
+                p = plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
+                save_plot(p, l200, filekey, det, :dsp_aux_energy)
+            end
 
             @info "Write DSP data to disk"
             write_files(dspfilename; use_cache, mode = CreateOrReplace()) do outfilename

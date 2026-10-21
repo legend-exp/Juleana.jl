@@ -14,7 +14,8 @@ For each energy type in `energy_types` of the partition energy config, the energ
 
 # Outputs
 - `l200.par.ppars.ecal[det, part]`: per energy type the FWHM curve (`fwhm`), calibration curve (`cal`) and peak fit results (`fit`), with validity entries for the partition; the validity of all partitions of the period is written to `l200.par.ppars.ecal`.
-- Per detector, partition and energy type, plots `partition_spectrum_<e_type>`, `peak_fits_<e_type>`, `calibration_curve_<e_type>` and `fwhm_<e_type>`.
+- Per detector, partition and energy type, plots `partition_spectrum_<e_type>`, `peak_fits_<e_type>`, `calibration_curve_<e_type>` and `fwhm_<e_type>`. `peak_fits_<e_type>` is saved only at the debug plot level.
+- If `error_plots` is on, a failed peak fitting saves `error_peak_fitting_<e_type>`.
 - Partition report `:energy` (Main Log, Metadata, Results table with one row per detector, partition and energy type).
 
 # Keywords
@@ -139,19 +140,33 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
                     xlabel = "Energy ($e_unit)", ylabel = "Counts / 0.5 keV", yscale = log10, label = string(e_type),
                     title = get_plottitle(filekey_det, part, det, "Energy Spectrum"; additional_type="$e_type"),
                     legend_position = :lb, xticks = 0:500:3000)
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("partition_spectrum_$e_type"))
+                save_plot(p, l200, part, filekey_det, det, Symbol("partition_spectrum_$e_type"))
 
                 yield()
 
-                result_fit, report_fit = @process_step "$e_type peak fitting" begin
+                plot_peak_windows() = begin
+                    fig = Makie.Figure(size = (900, 300 * cld(length(peakhists), 2)))
+                    Makie.Label(fig[0, 1:2], get_plottitle(filekey_det, part, det, "Peak Windows"; additional_type=string(e_type)))
+                    for (i, name) in pairs(th228_names)
+                        edges = collect(first(peakhists[i].edges))
+                        ax = Makie.Axis(fig[cld(i, 2), mod1(i, 2)]; title = string(name), xlabel = "Energy ($e_unit)", ylabel = "Counts")
+                        Makie.stairs!(ax, (edges[1:end-1] .+ edges[2:end]) ./ 2, peakhists[i].weights; step = :center)
+                        Makie.vlines!(ax, [first(edges), last(edges)]; color = :red, linestyle = :dash)
+                        Makie.vlines!(ax, [peakstats.peak_pos[i]]; color = :green)
+                    end
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_peak_fitting_$e_type"))
+                end
+                result_fit, report_fit = @process_step "$e_type peak fitting" on_error = plot_peak_windows begin
                     @debug "Fit all $e_type peaks"
                     fit_peaks(peakhists, peakstats, th228_names;
                         e_unit=e_unit, fit_func=Symbol.(energy_config_det.th228_fit_func), calib_type=:th228)
                 end
                 GC.gc()
 
-                p = LegendMakie.lplot(report_fit, figsize = (600, 400 * length(report_fit)), title = get_plottitle(filekey_det, part, det, "Peak Fits"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("peak_fits_$e_type"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_fit, figsize = (600, 400 * length(report_fit)), title = get_plottitle(filekey_det, part, det, "Peak Fits"; additional_type=string(e_type)))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("peak_fits_$e_type"))
+                end
 
                 yield()
 
@@ -183,7 +198,7 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
                     title = get_plottitle(filekey_det, part, det, "Calibration Curve"; additional_type=string(e_type)),
                     xlims = (0,3000), ylims = (0,3000), figsize = (600,420), 
                     xlabel=L"\fontfamily{Roboto}\mathrm{Energy_{fit} (keV)}", ylabel=L"\fontfamily{Roboto}\mathrm{Energy_{true} (keV)}")
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("calibration_curve_$e_type"))
+                save_plot(p, l200, part, filekey_det, det, Symbol("calibration_curve_$e_type"))
 
                 yield()
 
@@ -200,7 +215,7 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
 
                 p = LegendMakie.lplot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit), figsize = (600,420),
                     title = get_plottitle(filekey_det, part, det, "FWHM"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("fwhm_$e_type"))
+                save_plot(p, l200, part, filekey_det, det, Symbol("fwhm_$e_type"))
 
                 yield()
 

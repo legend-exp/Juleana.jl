@@ -20,7 +20,8 @@ computed once per detector and partition. Detectors with `lq_status` of `:valid`
   `highcut`, `peaks` and `qbb`, plus the validity of `ppars.lq` for `period`.
 - Plots per detector and partition: `lq_ctc_DEP_<type>`, `lq_ctc_<type>`, `lq_dep_normalization_<type>`,
   `lq_sidebands_<type>`, `lq_sideband_position_<type>`, `lq_classalized_<classifier>` and
-  `lq_energy_after_<classifier>`.
+  `lq_energy_after_<classifier>`. Only `lq_classalized_<classifier>` is saved below the debug plot level.
+- If `error_plots` is on, a failed drift time correction saves `error_drift_time_correction_<type>`, a failed LQ normalization `error_lq_normalization_<type>` and a failed peak survival fraction step `error_peak_survival_fractions_<classifier>`.
 - Partition report `lq_calibration_cut` with the processing status, a metadata table, and one row per detector,
   partition and LQ type.
 
@@ -209,22 +210,56 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 end
 
                 @debug "Drift time correction of $lq_type"
-                drift_result, drift_report = @process_step "$lq_type drift time correction" begin
+                plot_lq_drift_time() = begin
+                    local fig, ax
+                    in_dep = dep_µ - ctc_dep_edgesigma * dep_σ .< e_cal .< dep_µ + ctc_dep_edgesigma * dep_σ
+                    dt = ustrip.(dt_eff[in_dep])
+                    lq = ustrip.(lq_e_corr[in_dep])
+                    ok = isfinite.(dt) .&& isfinite.(lq)
+                    h = fit(Histogram, (dt[ok], lq[ok]), (range(quantile(dt[ok], [0.001, 0.999])...; length = 101), range(quantile(lq[ok], [0.001, 0.999])...; length = 101)))
+                    fig = Makie.Figure()
+                    ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey_det, part, det, "LQ Drift Time"; additional_type=string(lq_type)), xlabel = "Effective drift time", ylabel = "LQ")
+                    Makie.heatmap!(ax, h.edges[1], h.edges[2], replace(float.(h.weights), 0.0 => NaN); colorscale = log10)
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_drift_time_correction_$lq_type"))
+                end
+                drift_result, drift_report = @process_step "$lq_type drift time correction" on_error = plot_lq_drift_time begin
                     lq_ctc_correction(lq_e_corr, dt_eff, e_cal, dep_µ, dep_σ;
                     ctc_dep_edgesigma, ctc_lq_precut_relative_cut, lq_outlier_sigma, ctc_driftime_cutoff_method, dt_eff_outlier_sigma, lq_e_corr_expression, dt_eff_expression, ctc_dt_eff_low_quantile, ctc_dt_eff_high_quantile, pol_fit_order, uncertainty=ctc_uncertainty)
                 end
 
                 # create and save plots
-                p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP, title = "Drift Time vs LQ in DEP for Detector: $det", figsize = (620,400))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_ctc_DEP_$lq_type"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP, title = "Drift Time vs LQ in DEP for Detector: $det", figsize = (620,400))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_ctc_DEP_$lq_type"))
+                end
 
-                p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :whole, title = "Drift Time vs LQ for Detector: $det", figsize = (620,400))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_ctc_$lq_type"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :whole, title = "Drift Time vs LQ for Detector: $det", figsize = (620,400))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_ctc_$lq_type"))
+                end
 
 
                 # create lq normalization
                 lq_class_expression = drift_result.func                
-                lq_ctc, result, report = @process_step "$lq_type LQ normalization" begin
+                plot_lq_sidebands() = begin
+                    local fig, ax
+                    lq = ljl_propfunc(lq_class_expression).(hit_cal)
+                    dep_left = dep_µ - dep_sideband_sigma * dep_σ
+                    dep_right = dep_µ + dep_sideband_sigma * dep_σ
+                    windows = if dep_σ < 2.0u"keV"
+                        ["DEP" => (dep_left, dep_right), "lower sideband" => (dep_µ - 2 * dep_sideband_sigma * dep_σ, dep_left), "upper sideband" => (dep_right, dep_µ + 2 * dep_sideband_sigma * dep_σ)]
+                    else
+                        ["DEP" => (dep_left, dep_right), "sideband 1" => (dep_µ - 2 * dep_sideband_sigma * dep_σ, dep_left), "sideband 2" => (dep_µ - 3 * dep_sideband_sigma * dep_σ, dep_µ - 2 * dep_sideband_sigma * dep_σ)]
+                    end
+                    fig = Makie.Figure()
+                    ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey_det, part, det, "LQ DEP and Sidebands"; additional_type=string(lq_type)), xlabel = "LQ", ylabel = "Counts")
+                    for (name, (lo, hi)) in windows
+                        Makie.stephist!(ax, filter(isfinite, ustrip.(lq[lo .< e_cal .< hi])); bins = 100, label = name)
+                    end
+                    Makie.axislegend(ax)
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_lq_normalization_$lq_type"))
+                end
+                lq_ctc, result, report = @process_step "$lq_type LQ normalization" on_error = plot_lq_sidebands begin
                     lq_ctc = ljl_propfunc(lq_class_expression).(hit_cal)
 
                     result, report = lq_norm(dep_µ, dep_σ, e_cal, lq_ctc; 
@@ -233,20 +268,26 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 end
 
                 # create and save plots
-                p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3, figsize = (600,450), 
-                    legend_position = :none, title = get_plottitle(filekey_det, part, det, "LQ DEP fit", additional_type=string(lq_type)))
-                Makie.axislegend(position = :lt)
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_dep_normalization_$lq_type"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3, figsize = (600,450), 
+                        legend_position = :none, title = get_plottitle(filekey_det, part, det, "LQ DEP fit", additional_type=string(lq_type)))
+                    Makie.axislegend(position = :lt)
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_dep_normalization_$lq_type"))
+                end
 
-                p = LegendMakie.lplot(report.temp_hists, 
-                    title = get_plottitle(filekey_det, part, det, "LQ sidebands", additional_type=string(lq_type)), 
-                    xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_ctc),), (0.05, 0.95)))
-                )
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_sidebands_$lq_type"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report.temp_hists, 
+                        title = get_plottitle(filekey_det, part, det, "LQ sidebands", additional_type=string(lq_type)), 
+                        xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_ctc),), (0.05, 0.95)))
+                    )
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_sidebands_$lq_type"))
+                end
 
-                p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
-                    title = get_plottitle(filekey_det, part, det, "LQ side bands", additional_type=string(lq_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_sideband_position_$lq_type"))
+                @debug_plot begin
+                    p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
+                        title = get_plottitle(filekey_det, part, det, "LQ side bands", additional_type=string(lq_type)))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_sideband_position_$lq_type"))
+                end
 
 
                 # create log entry
@@ -298,16 +339,35 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 Makie.hlines!([high_cut_sigma], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
                 Makie.axislegend(position = :rb)
                 LegendMakie.add_watermarks!(position = "outer top", final = true)
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_classalized_$lq_classifier"))
+                save_plot(p, l200, part, filekey_det, det, Symbol("lq_classalized_$lq_classifier"))
 
-                p = LegendMakie.lplot((; e_cal, lq_class, cut_value = high_cut_sigma), figsize = (750,400),
-                    title = get_plottitle(filekey_det, part, det, "LQ Performance", additional_type=string(lq_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("lq_energy_after_$lq_classifier"))
+                @debug_plot begin
+                    p = LegendMakie.lplot((; e_cal, lq_class, cut_value = high_cut_sigma), figsize = (750,400),
+                        title = get_plottitle(filekey_det, part, det, "LQ Performance", additional_type=string(lq_classifier)))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_energy_after_$lq_classifier"))
+                end
                 
 
                 @debug("Generate Survival Fractions for LQ")
 
-                result_peaks, report_peaks = @process_step "$lq_classifier peak survival fraction calculation" begin
+                plot_lq_peak_survival() = begin
+
+                    local fig, ax
+                    x = ustrip.(e_cal)
+                    fig = Makie.Figure(size = (900, 300 * cld(length(lq_peaks), 2)))
+                    Makie.Label(fig[0, 1:2], get_plottitle(filekey_det, part, det, "LQ Survival Fractions"; additional_type=string(lq_classifier)))
+                    for (i, peak) in pairs(lq_peaks)
+                        lo = ustrip(unit(first(e_cal)), peak - lq_peaks_windows_left[i])
+                        hi = ustrip(unit(first(e_cal)), peak + lq_peaks_windows_right[i])
+                        in_peak = lo .< x .< hi
+                        ax = Makie.Axis(fig[cld(i, 2), mod1(i, 2)]; title = string(lq_peaks_names[i]), xlabel = "Energy ($(unit(first(e_cal))))", ylabel = "Counts")
+                        Makie.stephist!(ax, x[in_peak]; bins = range(lo, hi; length = 51), label = "all")
+                        Makie.stephist!(ax, x[in_peak .&& (lq_class .< high_cut_sigma)]; bins = range(lo, hi; length = 51), label = "LQ < cut")
+                        i == 1 && Makie.axislegend(ax)
+                    end
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_peak_survival_fractions_$lq_classifier"))
+                end
+                result_peaks, report_peaks = @process_step "$lq_classifier peak survival fraction calculation" on_error = plot_lq_peak_survival begin
                     get_peaks_survival_fractions(lq_class, e_cal, lq_peaks, lq_peaks_names, lq_peaks_windows_left, lq_peaks_windows_right; high_cut=high_cut_sigma, fit_funcs=lq_peaks_fit_funcs)
                 end
 

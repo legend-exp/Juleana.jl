@@ -25,7 +25,8 @@ step.
   the validity entry is written for `(period, run)`.
 - Plots per detector and energy type: `pe_uncalibrated_<energy type>`,
   `sipm_simple_calibration_<energy type>`, `sipm_peak_fits_<energy type>`,
-  `sipm_calibration_curve_<energy type>`.
+  `sipm_calibration_curve_<energy type>`. `pe_uncalibrated_<energy type>` and `sipm_simple_calibration_<energy type>` are saved only at the debug plot level.
+- If `error_plots` is on, a failed simple calibration saves `error_simple_calibration_<energy type>`.
 - Run report `sipm_calibration_phy`.
 
 # Keywords
@@ -142,21 +143,33 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
                     filter(isfinite, reduce(vcat, getproperty(data_det_after_qc, e_type)))
                 end
 
-                p = LegendMakie.lplot(fit(Histogram, e_uncal, e_type_config.simple.kwargs.initial_min_amp:0.1:e_type_config.simple.kwargs.initial_max_amp), 
-                    xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts / 0.1", label="Uncalibrated PE", yscale = log10, 
-                    title = get_plottitle(filekey, det, "PE Uncalibrated"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("pe_uncalibrated_$(e_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(fit(Histogram, e_uncal, e_type_config.simple.kwargs.initial_min_amp:0.1:e_type_config.simple.kwargs.initial_max_amp), 
+                        xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts / 0.1", label="Uncalibrated PE", yscale = log10, 
+                        title = get_plottitle(filekey, det, "PE Uncalibrated"; additional_type=string(e_type)))
+                    save_plot(p, l200, filekey, det, Symbol("pe_uncalibrated_$(e_type)"))
+                end
 
                 # get uncalibrated energy function
-                result_simple, report_simple = @process_step "$e_type simple calibration" begin
+                plot_one_pe_search_range() = begin
+                    lo = e_type_config.simple.kwargs.initial_min_amp
+                    hi = e_type_config.simple.kwargs.initial_max_amp
+                    fig = Makie.Figure()
+                    ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Uncalibrated PE"; additional_type=string(e_type)), xlabel = "Peak Amplitudes (ADC)", ylabel = "Counts")
+                    Makie.stephist!(ax, filter(x -> lo <= x <= hi, e_uncal); bins = range(lo, hi; length = 201))
+                    save_plot(fig, l200, filekey, det, Symbol("error_simple_calibration_$(e_type)"))
+                end
+                result_simple, report_simple = @process_step "$e_type simple calibration" on_error = plot_one_pe_search_range begin
                     @debug "Get $e_type simple calibration"
                     sipm_simple_calibration(getproperty(data_det_after_qc, e_type); NamedTuple(e_type_config.simple.kwargs)...)
                 end
                 GC.gc()
 
                 # save plots for simple calibration for control
-                p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey, det, "Simple Calibration"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_simple_calibration_$(e_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_simple, cal = true, title = get_plottitle(filekey, det, "Simple Calibration"; additional_type=string(e_type)))
+                    save_plot(p, l200, filekey, det, Symbol("sipm_simple_calibration_$(e_type)"))
+                end
                 yield()
 
                 result_fit, report_fit = @process_step "$e_type peak fitting" begin
@@ -168,7 +181,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
                 GC.gc()
 
                 p = LegendMakie.lplot(report_fit, figsize = (700,500), xerrscaling = 5, title = get_plottitle(filekey, det, "Peak Fits"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_peak_fits_$(e_type)"))
+                save_plot(p, l200, filekey, det, Symbol("sipm_peak_fits_$(e_type)"))
 
                 yield()
 
@@ -182,7 +195,7 @@ function process_sipm_calibration_phy(processing_config, l200::LegendData, perio
                 end
 
                 p = LegendMakie.lplot(report_calib, xerrscaling = 5, title = get_plottitle(filekey, det, "Calibration Curve"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("sipm_calibration_curve_$(e_type)"))
+                save_plot(p, l200, filekey, det, Symbol("sipm_calibration_curve_$(e_type)"))
                 
                 log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), e_type, result_fit.positions[1], result_fit.resolutions_cal[1], result_calib.par[2], "-"))
 

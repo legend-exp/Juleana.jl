@@ -272,7 +272,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             pos = find_text(tb, letters_bottom)
             @test !isnothing(pos) && occursin('╯', row_text(tb, pos.y + 1)) && find_text(tb, "Runs: ") !== nothing
             # a wider and taller one the full logo
-            tb = branding_render(m, 360, 53)
+            tb = branding_render(m, 360, 55)
             @test find_text(tb, full_top) !== nothing
             # without height for the letters, no logo
             tb = branding_render(m, 260, 20)

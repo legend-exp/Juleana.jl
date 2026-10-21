@@ -25,7 +25,8 @@ with `low_aoe_status` of `:valid` or `:present` are processed.
 - `l200.par.ppars.aoecut[det, part]`: per classifier, `lowcut`, `highcut`, and `peaks` and `qbb` survival fractions
   with the `low` cut and with both cuts `ds`, plus the validity of `ppars.aoecut` for `period`.
 - Plots per detector and partition: `aoe_normalized_runcal_<classifier>`,
-  `aoe_energy_afterAoE_zoom_runcal_<classifier>` and `aoe_peaks_sf_runcal_<classifier>`.
+  `aoe_energy_afterAoE_zoom_runcal_<classifier>` and `aoe_peaks_sf_runcal_<classifier>`. Only `aoe_normalized_runcal_<classifier>` is saved below the debug plot level.
+- If `error_plots` is on, a failed cut generation saves `error_cut_generation_<classifier>` and a failed survival fraction step `error_survival_fractions_<classifier>`.
 - Partition report `aoe_cut` with the processing status, a metadata table and one result row per detector,
   partition and classifier.
 
@@ -164,9 +165,22 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
                     xticks = 0:500:3000,
                     yticks = -20:10:10
                 )
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
+                save_plot(p, l200, part, filekey_det, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
 
-                result_cut, report_cut = @process_step "$aoe_classifier cut generation" begin
+                plot_dep_window() = begin
+                    dep = aoe_config_det.dep
+                    window = aoe_config_det.dep_window
+                    x = ustrip.(e_unit, e_cal)
+                    in_range = ustrip(e_unit, dep - 5 * first(window)) .< x .< ustrip(e_unit, dep + 5 * last(window))
+                    mask = in_range .&& isfinite.(aoe)
+                    h = fit(Histogram, (x[mask], aoe[mask]), (range(ustrip(e_unit, dep - 5 * first(window)), ustrip(e_unit, dep + 5 * last(window)); length = 101), range(quantile(aoe[mask], [0.001, 0.999])...; length = 201)))
+                    fig = Makie.Figure()
+                    ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey_det, part, det, "DEP Window"; additional_type=string(aoe_classifier)), xlabel = "Energy ($e_unit)", ylabel = "A/E")
+                    Makie.heatmap!(ax, h.edges[1], h.edges[2], replace(float.(h.weights), 0.0 => NaN); colorscale = log10)
+                    Makie.vlines!(ax, ustrip.(e_unit, [dep - first(window), dep + last(window)]); color = :red, linestyle = :dash)
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_cut_generation_$aoe_classifier"))
+                end
+                result_cut, report_cut = @process_step "$aoe_classifier cut generation" on_error = plot_dep_window begin
                     @debug "Generate AoE cut"
                     get_low_aoe_cut(aoe, e_cal,; dep=aoe_config_det.dep, window=aoe_config_det.dep_window, 
                                     cut_search_interval=Tuple(aoe_config_det.dep_cut_search_interval), bin_width_window=aoe_config_det.dep_bin_width_window,
@@ -178,10 +192,28 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
                 # plot spectrum before and after cut
-                p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey_det, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey_det, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("aoe_energy_afterAoE_zoom_runcal_$aoe_classifier"))
+                end
 
-                result_peaks_low, report_peaks_low = @process_step "$aoe_classifier low survival fractions" begin
+                plot_peak_survival() = begin
+                    x = ustrip.(e_unit, e_cal)
+                    fig = Makie.Figure(size = (900, 300 * cld(length(aoe_config_det.aoe_peaks), 2)))
+                    Makie.Label(fig[0, 1:2], get_plottitle(filekey_det, part, det, "Survival Fractions"; additional_type=string(aoe_classifier)))
+                    for (i, peak) in pairs(aoe_config_det.aoe_peaks)
+                        lo = ustrip(e_unit, peak - aoe_config_det.aoe_peaks_windows_left[i])
+                        hi = ustrip(e_unit, peak + aoe_config_det.aoe_peaks_windows_right[i])
+                        in_peak = lo .< x .< hi
+                        ax = Makie.Axis(fig[cld(i, 2), mod1(i, 2)]; title = string(aoe_config_det.aoe_peaks_names[i]), xlabel = "Energy ($e_unit)", ylabel = "Counts")
+                        Makie.stephist!(ax, x[in_peak]; bins = range(lo, hi; length = 51), label = "all")
+                        Makie.stephist!(ax, x[in_peak .&& (aoe .> mvalue(result_cut.lowcut))]; bins = range(lo, hi; length = 51), label = "A/E > low cut")
+                        Makie.stephist!(ax, x[in_peak .&& (mvalue(result_cut.lowcut) .< aoe .< mvalue(result_cut.highcut))]; bins = range(lo, hi; length = 51), label = "low < A/E < high")
+                        i == 1 && Makie.axislegend(ax)
+                    end
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_survival_fractions_$aoe_classifier"))
+                end
+                result_peaks_low, report_peaks_low = @process_step "$aoe_classifier low survival fractions" on_error = plot_peak_survival begin
                     @debug "Generate A/E low Survival Fractions"
                     get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
                                                     low_cut=result_cut.lowcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
@@ -196,7 +228,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
 
                 @debug "Found low Qbb Survival Fraction at $(round(u"percent", qbb_result_low.sf, digits=2))"
 
-                result_peaks_ds, report_peaks_ds = @process_step "$aoe_classifier DS survival fractions" begin
+                result_peaks_ds, report_peaks_ds = @process_step "$aoe_classifier DS survival fractions" on_error = plot_peak_survival begin
                     @debug "Generate A/E DS Survival Fractions"
                     get_peaks_survival_fractions(aoe, e_cal, aoe_config_det.aoe_peaks, Symbol.(aoe_config_det.aoe_peaks_names), aoe_config_det.aoe_peaks_windows_left, aoe_config_det.aoe_peaks_windows_right;
                                                     low_cut=result_cut.lowcut, high_cut=result_cut.highcut, bin_width_window=aoe_config_det.aoe_peaks_bin_width_window, fit_funcs=Symbol.(aoe_config_det.aoe_peaks_fit_funcs), uncertainty=true)
@@ -211,8 +243,10 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-                p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_det, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_det, part, det, "A/E Performance"; additional_type=string(aoe_classifier)))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("aoe_peaks_sf_runcal_$aoe_classifier"))
+                end
 
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))

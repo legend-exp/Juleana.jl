@@ -61,7 +61,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dsp = snap.processors[2]
         @test dsp.level === :run && !dsp.enabled && !dsp.selected && dsp.rank == 2
         @test snap.config_file == shipped_config
-        @test isnothing(snap.reprocess) && snap.check_dependencies && isnothing(snap.processor_log_level)
+        @test isnothing(snap.reprocess) && snap.check_dependencies && isnothing(snap.processor_log_level) && isnothing(snap.processor_plot_level)
         @test occursin("DataflowController(:ready", sprint(show, ctrl))
     end
 
@@ -97,8 +97,10 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, SetKwarg("process_energy_calibration_cal", "max_wvfs", 5))
         dispatch!(ctrl, SetReprocess(true))
         dispatch!(ctrl, SetProcessorLogLevel(Logging.Warn))
+        dispatch!(ctrl, SetProcessorPlotLevel(:debug))
+        @test_throws "expected :info or :debug" dispatch!(ctrl, SetProcessorPlotLevel(:verbose))
         snap = snapshot(ctrl)
-        @test snap.processor_log_level == Logging.Warn
+        @test snap.processor_log_level == Logging.Warn && snap.processor_plot_level === :debug
         @test snap.periods == [p2] && snap.runs == [DataRun(6)]
         energy = snap.processors[1]
         @test energy.kwargs[:max_wvfs] == 5 && energy.overridden == [:max_wvfs]
@@ -386,6 +388,18 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         dispatch!(ctrl, SetProcessorLogLevel(nothing))
         withenv(() -> dispatch!(ctrl, WriteConfig(written)), "LEGEND_DATA_CONFIG" => joinpath(production, "config.json"))
         @test !haskey(readlprops(written).config, :processor_log_level)
+
+        # the processor plot level is written when set and the key is removed when not
+        @test !haskey(props.config, :processor_plot_level)
+        dispatch!(ctrl, SetProcessorPlotLevel(:debug))
+        withenv(() -> dispatch!(ctrl, WriteConfig(written)), "LEGEND_DATA_CONFIG" => joinpath(production, "config.json"))
+        @test readlprops(written).config.processor_plot_level == "debug"
+        dispatch!(ctrl, ReloadConfig())
+        wait(ctrl)
+        @test snapshot(ctrl).processor_plot_level === :debug
+        dispatch!(ctrl, SetProcessorPlotLevel(nothing))
+        withenv(() -> dispatch!(ctrl, WriteConfig(written)), "LEGEND_DATA_CONFIG" => joinpath(production, "config.json"))
+        @test !haskey(readlprops(written).config, :processor_plot_level)
     end
 
     @testset "worker commands" begin

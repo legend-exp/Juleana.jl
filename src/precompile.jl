@@ -49,7 +49,7 @@
             config_file = "config/processing_config.yaml", log_path = "", dataset = "default", available_periods = [p2, p3],
             available_runs = Dict(p2 => runs2, p3 => [r0]), periods = [p2, p3], runs = nothing,
             run_steps = [:process_dsp_cal, :process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
-            processors, reprocess = nothing, processor_log_level = nothing, analysis_runs_only = true, runmode = :local,
+            processors, reprocess = nothing, processor_log_level = nothing, processor_plot_level = nothing, analysis_runs_only = true, runmode = :local,
             runmode_settings = (; local_n = 2, local_julia_settings = String[], slurm_flags = ["--nodes=1"], slurm_julia_settings = String[]),
             check_dependencies = true, nworkers = 2,
             allocations = [], idle_deadline = t0 + Second(900)))

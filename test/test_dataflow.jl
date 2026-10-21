@@ -3,6 +3,7 @@
 using Juleana
 using Test
 using Logging: Logging, ConsoleLogger, NullLogger, with_logger
+using Serialization: deserialize
 using Distributed: addprocs, myid, rmprocs, @everywhere
 using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, LegendData, lreport
 using LegendDataManagement.LDMUtils: create_logtbl
@@ -97,6 +98,9 @@ const REPORT = """
         @test isnothing(args["processor_log_level"])
         @test Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "warn"])["processor_log_level"] == "warn"
         @test_throws "out of range input for --processor-log-level" Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "verbose"])
+        @test isnothing(args["processor_plot_level"])
+        @test Juleana.parse_commandline(["-c", "x.json", "--processor-plot-level", "debug"])["processor_plot_level"] == "debug"
+        @test_throws "out of range input for --processor-plot-level" Juleana.parse_commandline(["-c", "x.json", "--processor-plot-level", "verbose"])
 
         args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "4", "-p", "6", "--rm", "slurm", "--op"])
         @test args["periods"] == [["3", "4"], ["6"]]
@@ -480,6 +484,37 @@ const REPORT = """
         @test occursin("debug of V2", terminal(; log_level = :debug))
         @test !occursin("debug of V2", terminal())
         @test_throws "`log_level` is :verbose, expected :debug, :info, :warn or :error" terminal(; log_level = :verbose)
+
+        # plots: `save_plot` writes the plot formats, `@debug_plot` saves only at the debug plot level
+        function plotting_proc(cfg, l200, period, run; reprocess = false)
+            parallel(items, Row) do itr
+                fk = FileKey("l200-$period-$run-cal-20230101T000000Z")
+                Juleana.save_plot(Juleana.Makie.Figure(size = (40, 30)), l200, fk, itr.detector, :info_plot)
+                Juleana.@debug_plot Juleana.save_plot(Juleana.Makie.Figure(size = (40, 30)), l200, fk, itr.detector, :debug_plot)
+                (processed = true, log = Row((itr.detector, :on, 1, "")))
+            end
+        end
+        function plots_step(; config = failing_cfg, kw...)
+            dir = mktempdir()
+            out = with_logger(NullLogger()) do
+                run_step(:failing_proc, 3, 1; config, l200, output_dir = dir, detectors = [:V2],
+                    processors = Dict{Symbol,Any}(:failing_proc => plotting_proc), kw...)
+            end
+            files = Dict(f => joinpath(root, f) for (root, _, fs) in walkdir(joinpath(dir, "jlplt")) for f in fs)
+            return out, files
+        end
+        out, files = plots_step()
+        @test haskey(files, "l200-p03-r001-cal-V2-info_plot.png") && !haskey(files, "l200-p03-r001-cal-V2-debug_plot.png")
+        @test !any(endswith(".jls"), keys(files))
+        out, files = plots_step(; plot_level = :debug)
+        @test haskey(files, "l200-p03-r001-cal-V2-debug_plot.png")
+        @test occursin("l200-p03-r001-cal-V2-debug_plot", markdown(out))
+        jls_cfg = ProcessingConfig(; processors = failing_cfg.processors, p_processors = failing_cfg.p_processors,
+            plot_formats = [:png, :jls])
+        out, files = plots_step(; config = jls_cfg)
+        @test haskey(files, "l200-p03-r001-cal-V2-info_plot.png")
+        @test deserialize(files["l200-p03-r001-cal-V2-info_plot.jls"]) isa Juleana.Makie.Figure
+        @test_throws "`plot_level` is :all, expected :info or :debug" plots_step(; plot_level = :all)
 
         # the selection reaches the workers
         original_pool = ppt_worker_pool()

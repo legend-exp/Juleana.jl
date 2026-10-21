@@ -73,7 +73,7 @@ result_simple, report_simple = @process_step "\$e_type simple calibration" begin
 end
 
 result_simple, report_simple = @process_step "\$e_type simple calibration" on_error = () ->
-        savelfig(LegendMakie.lsavefig, lplot(e_uncal), l200, filekey, det, Symbol("error_simple_calibration_\$e_type")) begin
+        save_plot(lplot(e_uncal), l200, filekey, det, Symbol("error_simple_calibration_\$e_type")) begin
     simple_calibration(e_uncal, th228_lines, left_window_sizes, right_window_sizes)
 end
 ```

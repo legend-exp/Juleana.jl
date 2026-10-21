@@ -21,7 +21,8 @@ outside 350 to 700 µs. An entry fails if loading, QC, DSP or the fit throws an 
 
 # Outputs
 - `l200.par.ppars.pz[det, part]` with the decay time `τ` and the fit result, for each detector and partition, and the validity of all partitions
-- plot `:decay_time` for each detector and partition
+- plot `:decay_time` for each detector and partition (debug plot level)
+- If `error_plots` is on, a failed decay time extraction saves `error_decay_time_extraction`.
 - partition report `:decay_time`, with one row per detector and partition
 
 # Keywords
@@ -152,15 +153,23 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         yield()
 
         # get decay time
-        result, report = @process_step "decay time extraction" begin
+        plot_decay_times() = begin
+            fig = Makie.Figure()
+            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey_det, part, det, "Decay Times"), xlabel = "Decay time", ylabel = "Counts")
+            Makie.stephist!(ax, filter(isfinite, ustrip.(decay_times)); bins = 100)
+            save_plot(fig, l200, part, filekey_det, det, :error_decay_time_extraction)
+        end
+        result, report = @process_step "decay time extraction" on_error = plot_decay_times begin
             filter!(x -> min_τ < x < max_τ, decay_times)
             cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
             fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty=true)
         end
         yield()
         
-        p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey_det, part, det, "Decay Time Distribution"))
-        savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, :decay_time)
+        @debug_plot begin
+            p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey_det, part, det, "Decay Time Distribution"))
+            save_plot(p, l200, part, filekey_det, det, :decay_time)
+        end
 
         @info "Found decay time at $(round(u"µs", result.µ, digits=2)) for detector $det ($ch)"
 

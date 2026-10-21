@@ -22,6 +22,7 @@ end
         run_status, partition_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
         processor_log_level::Union{Nothing,LogLevel}=cfg.processor_log_level,
+        processor_plot_level::Union{Nothing,Symbol}=cfg.processor_plot_level,
         max_parallel_steps::Integer=cfg.max_parallel_steps, stop::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false),
         abandon::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false),
         progress_store::Union{Nothing,ProgressStore}=nothing)
@@ -61,9 +62,11 @@ run: no further step starts, and [`parallel`](@ref) hands no further items to wo
 throws [`ProcessingStopped`](@ref) once its running items have finished. With `abandon[]`
 also `true`, `parallel` throws without waiting for its running items, which go on in the
 background. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
-processor, and `processor_log_level`, when not `nothing`, the `log_level` of every
-processor; a processor's log records are written at that level (see
-[`ProcessorLevelLogger`](@ref)). A step without an entry in `processors` throws an `ArgumentError` before any
+processor, `processor_log_level`, when not `nothing`, the `log_level` of every
+processor (a processor's log records are written at that level, see
+[`ProcessorLevelLogger`](@ref)), and `processor_plot_level`, when not `nothing`, the
+`plot_level` of every processor (see [`@debug_plot`](@ref)). Plots are saved in the
+`plot_formats` of `cfg` (see [`save_plot`](@ref)). A step without an entry in `processors` throws an `ArgumentError` before any
 work starts. Return `nothing`.
 
 With a [`ProgressStore`](@ref) as `progress_store`, the store is reset to the scheduled
@@ -77,7 +80,8 @@ function run_processing(
         run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol},
         run_status::AbstractDict, partition_status::AbstractDict;
         processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
-        processor_log_level::Union{Nothing,LogLevel} = cfg.processor_log_level, max_parallel_steps::Integer = cfg.max_parallel_steps, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
+        processor_log_level::Union{Nothing,LogLevel} = cfg.processor_log_level,
+        processor_plot_level::Union{Nothing,Symbol} = cfg.processor_plot_level, max_parallel_steps::Integer = cfg.max_parallel_steps, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
         abandon::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false), progress_store::Union{Nothing,ProgressStore} = nothing
     )
     unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((run_steps, partition_steps))))
@@ -91,7 +95,8 @@ function run_processing(
     spec(step) = haskey(cfg.processors, step) ? cfg.processors[step] : cfg.p_processors[step]
     # settings of the running processor, also seen by `parallel`
     step_scope(step) = (ERROR_PLOTS => spec(step).error_plots,
-        PROCESSOR_LOG_LEVEL => something(processor_log_level, spec(step).log_level))
+        PROCESSOR_LOG_LEVEL => something(processor_log_level, spec(step).log_level),
+        PLOT_LEVEL => something(processor_plot_level, spec(step).plot_level), PLOT_FORMATS => cfg.plot_formats)
 
     waits = waited_processors(processor_graph(cfg), Iterators.flatten((run_steps, partition_steps)))
     if !check_dependencies

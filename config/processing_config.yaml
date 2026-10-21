@@ -36,6 +36,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 1
     kwargs:
       reprocess: false
@@ -46,6 +47,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 2
     kwargs:
       reprocess: false
@@ -58,6 +60,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 13
     kwargs:
       reprocess: false
@@ -70,6 +73,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 3
     kwargs:
       reprocess: false
@@ -81,6 +85,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 4
     kwargs:
       reprocess: false
@@ -92,6 +97,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 5
     kwargs:
       reprocess: false
@@ -103,6 +109,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 6
     kwargs:
       reprocess: false
@@ -118,6 +125,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 7
     kwargs:
       reprocess: false
@@ -130,6 +138,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 8
     kwargs:
       reprocess: false
@@ -141,6 +150,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 9
     kwargs:
       reprocess: false
@@ -152,6 +162,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 10
     kwargs:
       reprocess: false
@@ -163,6 +174,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 11
     kwargs:
       reprocess: false
@@ -174,6 +186,7 @@ processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 12
     kwargs:
       reprocess: false
@@ -189,6 +202,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 13
     kwargs:
       reprocess: false
@@ -200,6 +214,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 13
     kwargs:
       reprocess: false
@@ -211,6 +226,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 14
     kwargs:
       reprocess: false
@@ -228,6 +244,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 16
     kwargs:
       reprocess: false
@@ -240,6 +257,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 17
     kwargs:
       reprocess: false
@@ -251,6 +269,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 17
     kwargs:
       reprocess: false
@@ -264,6 +283,7 @@ processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 13
     kwargs:
       reprocess: false
@@ -276,6 +296,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 1
     kwargs:
       reprocess: false
@@ -287,6 +308,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 2
     kwargs:
       reprocess: false
@@ -298,6 +320,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 3
     kwargs:
       reprocess: false
@@ -310,6 +333,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 4
     kwargs:
       reprocess: false
@@ -321,6 +345,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 5
     kwargs:
       reprocess: false
@@ -332,6 +357,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 6
     kwargs:
       reprocess: false
@@ -344,6 +370,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 7
     kwargs:
       reprocess: false
@@ -355,6 +382,7 @@ p_processors:
     enabled: false
     category: cal
     log_level: info
+    plot_level: info
     rank: 8
     kwargs:
       reprocess: false
@@ -368,6 +396,7 @@ p_processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 9
     kwargs:
       reprocess: false
@@ -379,6 +408,7 @@ p_processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 10
     kwargs:
       reprocess: false
@@ -390,6 +420,7 @@ p_processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 11
     kwargs:
       reprocess: false
@@ -402,6 +433,7 @@ p_processors:
     enabled: false
     category: phy
     log_level: info
+    plot_level: info
     rank: 12
     kwargs:
       reprocess: false

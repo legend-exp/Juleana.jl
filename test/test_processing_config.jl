@@ -115,6 +115,24 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test ProcessingConfig(edited(d -> d["config"]["processor_log_level"] = "debug")).processor_log_level == Logging.Debug
         @test_throws "`config.processor_log_level` must be one of" ProcessingConfig(edited(d -> d["config"]["processor_log_level"] = "verbose"))
         @test isnothing(ProcessingConfig(; processors = Dict{Symbol,ProcessorSpec}(), p_processors = Dict{Symbol,ProcessorSpec}()).processor_log_level)
+        @test shipped.processors[:process_dsp_cal].plot_level === :info
+        @test ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["plot_level"] = "debug")).processors[:process_dsp_cal].plot_level === :debug
+        @test_throws "missing key `processors.process_dsp_cal.plot_level`" ProcessingConfig(edited(d -> delete!(d["processors"]["process_dsp_cal"], "plot_level")))
+        @test_throws "missing key `p_processors.p_process_energy_cal.plot_level`" ProcessingConfig(edited(d -> delete!(d["p_processors"]["p_process_energy_cal"], "plot_level")))
+        @test_throws "`processors.process_dsp_cal.plot_level` must be one of \"info\" or \"debug\", got \"verbose\"" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["plot_level"] = "verbose"))
+        @test ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1).plot_level === :info
+        @test isnothing(shipped.processor_plot_level)
+        @test ProcessingConfig(edited(d -> d["config"]["processor_plot_level"] = "debug")).processor_plot_level === :debug
+        @test_throws "`config.processor_plot_level` must be one of \"info\" or \"debug\"" ProcessingConfig(edited(d -> d["config"]["processor_plot_level"] = "verbose"))
+        @test isnothing(ProcessingConfig(; processors = Dict{Symbol,ProcessorSpec}(), p_processors = Dict{Symbol,ProcessorSpec}()).processor_plot_level)
+        @test shipped.plot_formats == [:png]
+        @test ProcessingConfig(edited(d -> d["config"]["plot_formats"] = ["png", "jls"])).plot_formats == [:png, :jls]
+        @test ProcessingConfig(edited(d -> d["config"]["plot_formats"] = ["jls"])).plot_formats == [:jls]
+        @test_throws "`config.plot_formats` must list only \"png\" or \"jls\", got [\"gif\"]" ProcessingConfig(edited(d -> d["config"]["plot_formats"] = ["gif"]))
+        @test_throws "`config.plot_formats` must list at least one of" ProcessingConfig(edited(d -> d["config"]["plot_formats"] = String[]))
+        @test_throws "`config.plot_formats` lists a format twice" ProcessingConfig(edited(d -> d["config"]["plot_formats"] = ["png", "png"]))
+        @test_throws "`config.plot_formats` must be a list of strings" ProcessingConfig(edited(d -> d["config"]["plot_formats"] = [1]))
+        @test ProcessingConfig(; processors = Dict{Symbol,ProcessorSpec}(), p_processors = Dict{Symbol,ProcessorSpec}()).plot_formats == [:png]
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))
         @test_throws "unknown key `extra`" ProcessingConfig(edited(d -> d["extra"] = 1))
         # the idle timeout is optional
@@ -192,6 +210,10 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "runmode must be \"local\" or \"slurm\", got :cluster" positional(runmode = :cluster)
         @test_throws "`config.runmode_settings.local.n` must be positive" positional(local_n = 0)
         @test_throws "only one of `only_partitions` or `only_runs`" positional(only_runs = true, only_partitions = true)
+        @test_throws "`config.processor_plot_level` must be \"info\" or \"debug\"" positional(processor_plot_level = :verbose)
+        @test_throws "`config.plot_formats` must list only" positional(plot_formats = [:gif])
+        @test_throws "`config.plot_formats` must list at least one of" positional(plot_formats = Symbol[])
+        @test_throws "`config.plot_formats` lists a format twice" positional(plot_formats = [:png, :png])
         @test_throws "`processors` entry `renamed` holds the spec of `process_dsp_cal`" positional(processors = Dict(:renamed => spec))
         @test_throws "`p_processors.process_dsp_cal` has level :run" positional(p_processors = Dict(:process_dsp_cal => spec))
         partition_twin = ProcessorSpec(; name = :process_dsp_cal, level = :partition, category = :cal, rank = 1)
@@ -212,7 +234,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
 
     @testset "check_processor_kwargs" begin
         processor(entries...) = Dict{String,Any}(
-            "enabled" => true, "category" => "cal", "rank" => 1, "dependencies" => Any[], "log_level" => "info", "kwargs" => Dict{String,Any}(entries...))
+            "enabled" => true, "category" => "cal", "rank" => 1, "dependencies" => Any[], "log_level" => "info", "plot_level" => "info", "kwargs" => Dict{String,Any}(entries...))
         d = deepcopy(base)
         d["processors"] = Dict{String,Any}("process_a" => processor("reprocess" => true, "timeout" => 1))
         d["p_processors"] = Dict{String,Any}("p_process_b" => processor("anything" => 1))

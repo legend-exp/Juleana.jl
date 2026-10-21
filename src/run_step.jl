@@ -114,6 +114,7 @@ end
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
         output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
         show_report::Bool = isinteractive(), debug = false, pause = nothing, error_plots = nothing, log_level = nothing,
+        plot_level = nothing,
         processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
@@ -169,6 +170,9 @@ the plots, reports and data files go to a temporary directory.
   [`DEBUG_LOG_PACKAGES`](@ref). `nothing` (the default) takes the `log_level` of the
   processor in `config`, which applies to the log files only. Items on workers log to the
   workers' log files.
+- `plot_level`: `:info` or `:debug`; at `:debug` the processor also saves its
+  [`@debug_plot`](@ref) plots, which the report shows like the others. `nothing` (the
+  default) takes the `plot_level` of the processor in `config`.
 - `processors`: the processors by name, [`Juleana.PROCESSORS`](@ref) by default.
 - `kwargs`: keyword arguments of the processor, e.g. `timeout = 0`. The processor gets the
   keyword arguments of `config`, then `only_first_period = false` for a partition-level
@@ -214,10 +218,13 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
         output_dir = nothing, config = default_config_file(), l200 = nothing,
         show_report::Bool = isinteractive(), debug::Union{Bool,Symbol} = false, pause = nothing,
         error_plots::Union{Nothing,Bool} = nothing, log_level::Union{Nothing,Symbol} = nothing,
+        plot_level::Union{Nothing,Symbol} = nothing,
         processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
     haskey(processors, step) || throw(ArgumentError("run_step: unregistered processor `$step`"))
     isnothing(log_level) || haskey(LOG_LEVELS, string(log_level)) ||
         throw(ArgumentError("run_step: `log_level` is $(repr(log_level)), expected :debug, :info, :warn or :error"))
+    plot_level in (nothing, :info, :debug) ||
+        throw(ArgumentError("run_step: `plot_level` is $(repr(plot_level)), expected :info or :debug"))
     debug in (false, true, :infiltrate) ||
         throw(ArgumentError("run_step: `debug` is $(repr(debug)), expected false, true or :infiltrate"))
     isnothing(pause) || pause === :all || pause isa AbstractVector{<:AbstractString} ||
@@ -254,7 +261,8 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     level = isnothing(log_level) ? spec.log_level : LOG_LEVELS[string(log_level)]
     started = time()
     run_processor() = with(DETECTOR_SELECTION => selection, WRITE_PARS => outputs === :production, STEP_RECORD => record,
-            DEBUG_CAPTURE => capture, ERROR_PLOTS => something(error_plots, spec.error_plots), PROCESSOR_LOG_LEVEL => level) do
+            DEBUG_CAPTURE => capture, ERROR_PLOTS => something(error_plots, spec.error_plots), PROCESSOR_LOG_LEVEL => level,
+            PLOT_LEVEL => something(plot_level, spec.plot_level), PLOT_FORMATS => cfg.plot_formats) do
         processors[step](cfg, step_l200, args...; merge(NamedTuple(spec.kwargs), defaults, NamedTuple(kwargs))...)
     end
     # a level given here also applies to the terminal

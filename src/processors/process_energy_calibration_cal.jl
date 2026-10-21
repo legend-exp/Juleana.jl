@@ -14,7 +14,7 @@ For each energy type in `energy_types` of the energy config, the uncalibrated en
 
 # Outputs
 - `l200.par.rpars.ecal[period, run]`: per detector and energy type the simple calibration constant (`m_cal_simple`), FWHM curve (`fwhm`), calibration curve (`cal`) and calibrated peak fit results (`fit`), together with the validity entry for the run.
-- Per detector and energy type, plots `simple_calibration_<e_type>`, `peak_fits_<e_type>`, `calibration_curve_<e_type>` and `fwhm_<e_type>`.
+- Per detector and energy type, plots `simple_calibration_<e_type>`, `peak_fits_<e_type>`, `calibration_curve_<e_type>` and `fwhm_<e_type>`. `simple_calibration_<e_type>` and `peak_fits_<e_type>` are saved only at the debug plot level.
 - Run report `:energy_calibration` (Main Log, Metadata, Results table with one row per detector and energy type).
 
 # Keywords
@@ -125,7 +125,7 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
                     ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Uncalibrated Spectrum"; additional_type=string(e_type)),
                         xlabel = "Energy (ADC)", ylabel = "Counts")
                     Makie.stephist!(ax, filter(isfinite, ustrip.(e_uncal)); bins = 1000)
-                    savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, Symbol("error_simple_calibration_$(e_type)"))
+                    save_plot(fig, l200, filekey, det, Symbol("error_simple_calibration_$(e_type)"))
                 end
                 result_simple, report_simple = @process_step "$e_type simple calibration" on_error = plot_uncal_spectrum begin
                     @debug "Get $e_type simple calibration"
@@ -136,8 +136,10 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
                 # get simple calibration constant
                 m_cal_simple = result_simple.c
                 # save plots for simple calibration for control
-                p = LegendMakie.lplot(report_simple, title = get_plottitle(filekey, det, "Simple Calibration"; additional_type=string(e_type)), cal = true)
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_simple, title = get_plottitle(filekey, det, "Simple Calibration"; additional_type=string(e_type)), cal = true)
+                    save_plot(p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
+                end
                 yield()
 
                 result_fit, report_fit = @process_step "$e_type peak fitting" begin
@@ -147,8 +149,10 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
                 end
                 GC.gc()
 
-                p = LegendMakie.lplot(report_fit, figsize = (600, 400*length(report_fit)), title = get_plottitle(filekey, det, "Peak Fits"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("peak_fits_$(e_type)"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_fit, figsize = (600, 400*length(report_fit)), title = get_plottitle(filekey, det, "Peak Fits"; additional_type=string(e_type)))
+                    save_plot(p, l200, filekey, det, Symbol("peak_fits_$(e_type)"))
+                end
 
                 yield()
 
@@ -177,7 +181,7 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_cal_fit)]
 
                 p = LegendMakie.lplot(report_calib, xerrscaling=100, additional_pts=(μ = μ_notfit, peaks = pp_notfit), title = get_plottitle(filekey, det, "Calibration Curve"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("calibration_curve_$(e_type)"))
+                save_plot(p, l200, filekey, det, Symbol("calibration_curve_$(e_type)"))
 
                 yield()
 
@@ -195,7 +199,7 @@ function process_energy_calibration_cal(processing_config, l200::LegendData, per
                 pp_notfit = [th228_lines_dict[p] for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
 
                 p = LegendMakie.lplot(report_fwhm, additional_pts=(peaks = pp_notfit, fwhm = fwhm_notfit), title = get_plottitle(filekey, det, "FWHM"; additional_type=string(e_type)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
+                save_plot(p, l200, filekey, det, Symbol("fwhm_$(e_type)"))
                 
                 f_cal_pos(x) = report_calib.f_fit(x) .* report_calib.e_unit
 

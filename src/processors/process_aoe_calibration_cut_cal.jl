@@ -31,7 +31,8 @@ alone and with both cuts (`ds`).
   name followed by `_classifier`.
 - Plots per detector: `aoe_uncalibrated_<type>`, `compton_bands_mu_<type>`, `compton_bands_sigma_<type>`,
   `aoe_ctc_<type>` (if `apply_ctc`), `aoe_normalized_<type>`, `aoe_normalized_<classifier>`,
-  `aoe_energy_afterAoE_zoom_<classifier>` and `aoe_peaks_ds_sf_<classifier>`.
+  `aoe_energy_afterAoE_zoom_<classifier>` and `aoe_peaks_ds_sf_<classifier>`. Only `aoe_normalized_<classifier>` is saved below the debug plot level.
+- If `error_plots` is on, a failed Compton band fitting saves `error_compton_band_fitting_<type>` and a failed cut generation `error_cut_generation_<classifier>`.
 - Run report `aoe_calibration_cut` with the processing status, a metadata table, and one row per detector and A/E type
   combining the calibration and the cut results.
 
@@ -154,18 +155,32 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                 GC.gc()
 
 
-                h_aoe_uncal = fit(Histogram, (ustrip.(e_unit, e_cal[isfinite.(aoe)]), aoe[isfinite.(aoe)]), (0:0.5:3000, 0.1:5e-3:1.8))
-                p = LegendMakie.lhist(h_aoe_uncal, figsize = (670,400), rasterize = true,
-                    title = get_plottitle(filekey, det, "uncalibrated"; additional_type=string(aoe_type)),
-                    xlabel = "Energy ($e_unit)",
-                    titlesize = 14,
-                    ylabel = Makie.rich("A/E", Makie.subscript(" norm")),
-                    xticks = 0:500:3000,
-                    yticks = 0.25:0.25:1.75
-                )
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_uncalibrated_$aoe_type"))
+                @debug_plot begin
+                    h_aoe_uncal = fit(Histogram, (ustrip.(e_unit, e_cal[isfinite.(aoe)]), aoe[isfinite.(aoe)]), (0:0.5:3000, 0.1:5e-3:1.8))
+                    p = LegendMakie.lhist(h_aoe_uncal, figsize = (670,400), rasterize = true,
+                        title = get_plottitle(filekey, det, "uncalibrated"; additional_type=string(aoe_type)),
+                        xlabel = "Energy ($e_unit)",
+                        titlesize = 14,
+                        ylabel = Makie.rich("A/E", Makie.subscript(" norm")),
+                        xticks = 0:500:3000,
+                        yticks = 0.25:0.25:1.75
+                    )
+                    save_plot(p, l200, filekey, det, Symbol("aoe_uncalibrated_$aoe_type"))
+                end
 
-                result_fit, report_fit, compton_band_peakhists = @process_step "$aoe_type compton band fitting" begin
+                plot_compton_bands() = begin
+                    x = ustrip.(e_unit, e_cal)
+                    mask = isfinite.(x) .&& isfinite.(aoe)
+                    h = fit(Histogram, (x[mask], aoe[mask]), (range(0, 3000; length = 301), range(quantile(aoe[mask], [0.001, 0.999])...; length = 201)))
+                    fig = Makie.Figure()
+                    ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Compton Bands"; additional_type=string(aoe_type)), xlabel = "Energy ($e_unit)", ylabel = "A/E")
+                    Makie.heatmap!(ax, h.edges[1], h.edges[2], replace(float.(h.weights), 0.0 => NaN); colorscale = log10)
+                    for band in compton_bands
+                        Makie.vspan!(ax, ustrip(e_unit, band), ustrip(e_unit, band + compton_window); color = (:red, 0.3))
+                    end
+                    save_plot(fig, l200, filekey, det, Symbol("error_compton_band_fitting_$aoe_type"))
+                end
+                result_fit, report_fit, compton_band_peakhists = @process_step "$aoe_type compton band fitting" on_error = plot_compton_bands begin
                     # get compton band peak histograms with generated peakstats
                     peakhists_bands = generate_aoe_compton_bands(aoe, e_cal, compton_bands, compton_window)
 
@@ -194,8 +209,10 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                     end
                     
                     # create plots
-                    p_μ = LegendMakie.lplot(report_fit_single.report_μ, report_fit_combined.report_µ, legend_position = :lb, figsize = (600,420), title = get_plottitle(filekey, det, "A/E μ"; additional_type=string(aoe_type)))
-                    p_σ = LegendMakie.lplot(report_fit_single.report_σ, report_fit_combined.report_σ, legend_position = :rt, figsize = (600,420), title = get_plottitle(filekey, det, "A/E σ"; additional_type=string(aoe_type)))
+                    @debug_plot begin
+                        p_μ = LegendMakie.lplot(report_fit_single.report_μ, report_fit_combined.report_µ, legend_position = :lb, figsize = (600,420), title = get_plottitle(filekey, det, "A/E μ"; additional_type=string(aoe_type)))
+                        p_σ = LegendMakie.lplot(report_fit_single.report_σ, report_fit_combined.report_σ, legend_position = :rt, figsize = (600,420), title = get_plottitle(filekey, det, "A/E σ"; additional_type=string(aoe_type)))
+                    end
                     
                     # create corrected A/E values
                     aoe_corr = ljl_propfunc(result_fit_combined.func).(hit_cal)
@@ -204,8 +221,10 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                     result_correction = result_fit_combined
                 else
                     # create plots
-                    p_μ = LegendMakie.lplot(report_fit_single.report_μ, legend_position = :lb, figsize = (600,420), title = get_plottitle(filekey, det, "A/E μ"; additional_type=string(aoe_type)))
-                    p_σ = LegendMakie.lplot(report_fit_single.report_σ, legend_position = :rt, figsize = (600,420), title = get_plottitle(filekey, det, "A/E σ"; additional_type=string(aoe_type)))
+                    @debug_plot begin
+                        p_μ = LegendMakie.lplot(report_fit_single.report_μ, legend_position = :lb, figsize = (600,420), title = get_plottitle(filekey, det, "A/E μ"; additional_type=string(aoe_type)))
+                        p_σ = LegendMakie.lplot(report_fit_single.report_σ, legend_position = :rt, figsize = (600,420), title = get_plottitle(filekey, det, "A/E σ"; additional_type=string(aoe_type)))
+                    end
 
                     # create corrected A/E values
                     aoe_corr = ljl_propfunc(result_fit_single.func).(hit_cal)
@@ -215,8 +234,10 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                     result_correction = merge(result_fit_single, (gof = (mean_residuals = mean(single_fit_residuals), median_residuals = median(single_fit_residuals), std_residuals = std(single_fit_residuals)), ))
                 end
                     
-                savelfig(LegendMakie.lsavefig, p_μ, l200, filekey, det, Symbol("compton_bands_mu_$aoe_type"))
-                savelfig(LegendMakie.lsavefig, p_σ, l200, filekey, det, Symbol("compton_bands_sigma_$aoe_type"))
+                @debug_plot begin
+                    save_plot(p_μ, l200, filekey, det, Symbol("compton_bands_mu_$aoe_type"))
+                    save_plot(p_σ, l200, filekey, det, Symbol("compton_bands_sigma_$aoe_type"))
+                end
 
                 # charge trapping correction
                 result_aoe_ctc, report_aoe_ctc = NamedTuple(), NamedTuple()
@@ -228,24 +249,28 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                     end
 
                     # plot A/E ctc correlation plot
-                    p = LegendMakie.lplot(report_aoe_ctc, figsize = (600,600), title = get_plottitle(filekey, det, "A/E CT Correction"; additional_type=string(aoe_type)))
-                    savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_ctc_$aoe_type"))
+                    @debug_plot begin
+                        p = LegendMakie.lplot(report_aoe_ctc, figsize = (600,600), title = get_plottitle(filekey, det, "A/E CT Correction"; additional_type=string(aoe_type)))
+                        save_plot(p, l200, filekey, det, Symbol("aoe_ctc_$aoe_type"))
+                    end
                     
                     aoe_corr = ljl_propfunc(result_aoe_ctc.func).(hit_cal)
                 end
 
                 # plot corrected A/E 2D histogram 
 
-                h_aoe_ec = fit(Histogram, (ustrip.(u"keV", e_cal), aoe_corr), (0:0.5:3000, -30:0.1:10))
-                p = LegendMakie.lhist(h_aoe_ec, figsize = (670,400), rasterize = true,
-                    title = get_plottitle(filekey, det, "normalized"; additional_type=string(aoe_type)),
-                    xlabel = "Energy ($e_unit)",
-                    titlesize = 14,
-                    ylabel = Makie.rich("A/E", Makie.subscript(" ec")),
-                    xticks = 0:500:3000,
-                    yticks = -30:10:10
-                )
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_normalized_$aoe_type"))
+                @debug_plot begin
+                    h_aoe_ec = fit(Histogram, (ustrip.(u"keV", e_cal), aoe_corr), (0:0.5:3000, -30:0.1:10))
+                    p = LegendMakie.lhist(h_aoe_ec, figsize = (670,400), rasterize = true,
+                        title = get_plottitle(filekey, det, "normalized"; additional_type=string(aoe_type)),
+                        xlabel = "Energy ($e_unit)",
+                        titlesize = 14,
+                        ylabel = Makie.rich("A/E", Makie.subscript(" ec")),
+                        xticks = 0:500:3000,
+                        yticks = -30:10:10
+                    )
+                    save_plot(p, l200, filekey, det, Symbol("aoe_normalized_$aoe_type"))
+                end
 
                 log_info = log_nt_cal((det, detector_status(chinfo_det.usability), ProcessStatus(1), aoe_type, length(compton_bands), get(result_correction.gof, :median_residuals, NaN), get(result_correction.gof, :std_residuals, NaN), get(result_aoe_ctc, :fct, NaN), "-"))
 
@@ -299,9 +324,22 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                     xticks = 0:500:3000,
                     yticks = -20:10:10
                 )
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_normalized_$aoe_classifier"))
+                save_plot(p, l200, filekey, det, Symbol("aoe_normalized_$aoe_classifier"))
 
-                result_cut, report_cut = @process_step "$aoe_classifier cut generation" begin
+                plot_dep_window() = begin
+                    dep = aoe_config_det.dep
+                    window = aoe_config_det.dep_window
+                    x = ustrip.(e_unit, e_cal)
+                    in_range = ustrip(e_unit, dep - 5 * first(window)) .< x .< ustrip(e_unit, dep + 5 * last(window))
+                    mask = in_range .&& isfinite.(aoe)
+                    h = fit(Histogram, (x[mask], aoe[mask]), (range(ustrip(e_unit, dep - 5 * first(window)), ustrip(e_unit, dep + 5 * last(window)); length = 101), range(quantile(aoe[mask], [0.001, 0.999])...; length = 201)))
+                    fig = Makie.Figure()
+                    ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "DEP Window"; additional_type=string(aoe_classifier)), xlabel = "Energy ($e_unit)", ylabel = "A/E")
+                    Makie.heatmap!(ax, h.edges[1], h.edges[2], replace(float.(h.weights), 0.0 => NaN); colorscale = log10)
+                    Makie.vlines!(ax, ustrip.(e_unit, [dep - first(window), dep + last(window)]); color = :red, linestyle = :dash)
+                    save_plot(fig, l200, filekey, det, Symbol("error_cut_generation_$aoe_classifier"))
+                end
+                result_cut, report_cut = @process_step "$aoe_classifier cut generation" on_error = plot_dep_window begin
                     @debug "Generate AoE cut"
                     get_low_aoe_cut(aoe, e_cal,; dep=aoe_config_det.dep, window=aoe_config_det.dep_window, 
                                     cut_search_interval=Tuple(aoe_config_det.dep_cut_search_interval), bin_width_window=aoe_config_det.dep_bin_width_window,
@@ -313,8 +351,10 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
                 # plot spectrum before and after cut
-                p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey, det, "A/E Performance"; additional_type=string(aoe_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_energy_afterAoE_zoom_$aoe_classifier"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_cut, figsize = (750,400), title = get_plottitle(filekey, det, "A/E Performance"; additional_type=string(aoe_classifier)))
+                    save_plot(p, l200, filekey, det, Symbol("aoe_energy_afterAoE_zoom_$aoe_classifier"))
+                end
 
                 result_peaks_low, report_peaks_low = @process_step "$aoe_classifier low survival fractions" begin
                     @debug "Generate A/E low Survival Fractions"
@@ -346,8 +386,10 @@ function process_aoe_calibration_cut_cal(processing_config, l200::LegendData, pe
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-                p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), titlesize = 17, title = get_plottitle(filekey, det, "A/E Performance"; additional_type=string(aoe_classifier)))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("aoe_peaks_ds_sf_$aoe_classifier"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)), titlesize = 17, title = get_plottitle(filekey, det, "A/E Performance"; additional_type=string(aoe_classifier)))
+                    save_plot(p, l200, filekey, det, Symbol("aoe_peaks_ds_sf_$aoe_classifier"))
+                end
 
                 # save results
                 result = merge(result_cut, (peaks = (low = result_peaks_low, ds = result_peaks_ds) , qbb = (low = qbb_result_low, ds = qbb_result_ds)))

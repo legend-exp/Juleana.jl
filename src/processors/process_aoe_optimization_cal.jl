@@ -24,6 +24,7 @@ after a simple A/E cut set on the DEP. It stores the selected window length toge
 - `l200.par.rpars.aoeopt[period, run]`: per detector and filter type, the selected window length (`wl`), SEP survival
   fraction (`sf`) and the number of DEP and SEP events used (`n_dep`, `n_sep`), plus the matching validity entry.
 - One plot per detector and filter type of the window length sweep, named `<filter type>_sweep`.
+- If `error_plots` is on, a failed DSP of DEP and SEP saves `error_dsp_dep_sep_<filter type>` and a failed window length optimization `error_window_length_optimization_<filter type>`.
 - Run report `aoe_optimization` with the processing status, a metadata table and one result row per detector and
   filter type.
 
@@ -157,7 +158,18 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
 
                 aoe_config_flt = aoe_config_det.aoe_filter[filter_type]
 
-                dsp_sep, dsp_dep = @process_step "$filter_type DSP of DEP and SEP" begin
+                plot_example_waveforms() = begin
+                    fig = Makie.Figure(size = (900, 400))
+                    Makie.Label(fig[0, 1:2], get_plottitle(filekey, det, "Example Waveforms"; additional_type=string(filter_type)))
+                    for (col, (name, wvfs)) in enumerate(("DEP" => wvfs_det_dep_wdw, "SEP" => wvfs_det_sep_wdw))
+                        ax = Makie.Axis(fig[1, col]; title = name, xlabel = "Time", ylabel = "Signal")
+                        for wvf in Iterators.take(wvfs, 5)
+                            Makie.lines!(ax, ustrip.(wvf.time), ustrip.(wvf.signal))
+                        end
+                    end
+                    save_plot(fig, l200, filekey, det, Symbol("error_dsp_dep_sep_$filter_type"))
+                end
+                dsp_sep, dsp_dep = @process_step "$filter_type DSP of DEP and SEP" on_error = plot_example_waveforms begin
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
                     dsp_dep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_dep_wdw, wvfs_det_dep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
@@ -176,7 +188,18 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
                 # free memory
                 GC.gc()
 
-                result_wl, report_wl = @process_step "$filter_type window length optimization" begin
+                plot_dep_sep_distributions() = begin
+                    fig = Makie.Figure(size = (900, 700))
+                    Makie.Label(fig[0, 1:2], get_plottitle(filekey, det, "DEP and SEP"; additional_type=string(filter_type)))
+                    for (col, (name, data)) in enumerate(("DEP" => dep_sep_after_qc.dep, "SEP" => dep_sep_after_qc.sep))
+                        ax_aoe = Makie.Axis(fig[1, col]; title = "$name A/E", xlabel = "A/E", ylabel = "Counts")
+                        Makie.hist!(ax_aoe, filter(isfinite, ustrip.(data.aoe)); bins = 100)
+                        ax_e = Makie.Axis(fig[2, col]; title = "$name energy", xlabel = "Energy", ylabel = "Counts")
+                        Makie.hist!(ax_e, filter(isfinite, ustrip.(data.energy)); bins = 100)
+                    end
+                    save_plot(fig, l200, filekey, det, Symbol("error_window_length_optimization_$filter_type"))
+                end
+                result_wl, report_wl = @process_step "$filter_type window length optimization" on_error = plot_dep_sep_distributions begin
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
                     fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
@@ -189,7 +212,7 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
                 end
                 
                 p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "$(uppercase(string(filter_type))) Filter Optimization"))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, Symbol("$(filter_type)_sweep"))
+                save_plot(p, l200, filekey, det, Symbol("$(filter_type)_sweep"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for detector $det ($ch)"""
 

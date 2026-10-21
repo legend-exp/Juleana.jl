@@ -85,7 +85,7 @@ function process_daq_energy_calibration_cal(processing_config, l200::LegendData,
                     σ=raw_config_det.σ, threshold=raw_config_det.threshold, min_n_peaks=raw_config_det.min_n_peaks,
                     max_n_peaks=raw_config_det.max_n_peaks, α=raw_config_det.α, rtol=raw_config_det.rtol)
                 p = LegendMakie.lplot(report_autocal, raw_config_det.th228_cal_lines, figsize=(650, 400), title=get_plottitle(filekey, det, "Calibrated DAQ Online Energy"))
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :daq_energy)
+                save_plot(p, l200, filekey, det, :daq_energy)
             catch e
                 @error "Error in DAQ energy calibration for detector $det: $(truncate_error(e))"
                 binwidth = 8 * 15
@@ -97,7 +97,7 @@ function process_daq_energy_calibration_cal(processing_config, l200::LegendData,
                     title=get_plottitle(filekey, det, "Failed DAQ Calibration: Uncalibrated Spectrum"))
                 Makie.stephist!(ax, StatsBase.midpoints(edges), weights=replace(hist.weights, 0 => 1e-10), bins=edges, color=LegendMakie.BEGeOrange)
                 LegendMakie.add_watermarks!(final=true)
-                savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :daq_energy_failed)
+                save_plot(fig, l200, filekey, det, :daq_energy_failed)
                 log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "-", "-", "-", truncate_error(e)))
                 return (processed = false, log = log_det)
             end

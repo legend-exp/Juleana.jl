@@ -25,7 +25,10 @@ of `:valid` or `:present` are processed.
   are stored as `NaN`) and the `peaks` and `qbb` survival fractions for the five selections, plus the validity of
   `ppars.psd` for `period`. The file is written only if the detector has results.
 - Partition report `psd_efficiencies` with the processing status, a metadata table and one result row per detector,
-  partition and classifier. No plots are written.
+  partition and classifier.
+- At the debug plot level, per detector and classifier, the survival fractions of the A/E peaks,
+  `aoe_peaks_sf_<classifier>`.
+- If `error_plots` is on, a failed survival fraction step saves `error_survival_fraction_<classifier>`.
 
 # Keywords
 - `reprocess`: Discard the existing `ppars.psd` parameters of each detector and partition and process all
@@ -162,8 +165,31 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                     .!getproperty(hit_cal, Symbol("$(lq_classifier)_high_cut"))
                 end
 
+                plot_cut_spectra() = begin
+                    x = ustrip.(e_cal)
+                    selections = [
+                        "A/E low cut" => aoe_low_cut_vec,
+                        "A/E high cut" => aoe_high_cut_vec,
+                        "A/E low and high cut" => aoe_ds_cut_vec,
+                        "A/E and LQ cut" => (aoe_ds_cut_vec .&& lq_high_cut_vec),
+                    ]
+                    fig = Makie.Figure(size = (900, 300 * cld(length(psd_config_det.psd_peaks), 2)))
+                    Makie.Label(fig[0, 1:2], get_plottitle(filekey_ch, part, det, "PSD Survival Fractions"; additional_type=string(psd_classifier)))
+                    for (i, peak) in pairs(psd_config_det.psd_peaks)
+                        lo = ustrip(unit(first(e_cal)), peak - psd_config_det.psd_peaks_windows_left[i])
+                        hi = ustrip(unit(first(e_cal)), peak + psd_config_det.psd_peaks_windows_right[i])
+                        in_peak = lo .< x .< hi
+                        ax = Makie.Axis(fig[cld(i, 2), mod1(i, 2)]; title = string(psd_config_det.psd_peaks_names[i]), xlabel = "Energy ($(unit(first(e_cal))))", ylabel = "Counts")
+                        Makie.stephist!(ax, x[in_peak]; bins = range(lo, hi; length = 51), label = "all")
+                        for (name, sel) in selections
+                            Makie.stephist!(ax, x[in_peak .&& sel]; bins = range(lo, hi; length = 51), label = name)
+                        end
+                        i == 1 && Makie.axislegend(ax)
+                    end
+                    save_plot(fig, l200, part, filekey_ch, det, Symbol("error_survival_fraction_$psd_classifier"))
+                end
                 ## low A/E cut
-                result_peaks_low, report_peaks_low = @process_step "AoE peaks low SF" begin
+                result_peaks_low, report_peaks_low = @process_step "AoE peaks low SF" on_error = plot_cut_spectra begin
                     @debug "Generate A/E low Survival Fractions"
                     get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_low_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
@@ -172,7 +198,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                 @debug "Found low SEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208SEP].sf, digits=2))"
                 @debug "Found low FEP Survival Fraction at $(round(u"percent", result_peaks_low[:Tl208FEP].sf, digits=2))"
 
-                qbb_result_low, _ = @process_step "Qbb low SF" begin
+                qbb_result_low, _ = @process_step "Qbb low SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_low_cut_vec)
                 end
 
@@ -181,7 +207,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
 
 
                 ## high A/E cut
-                result_peaks_high, report_peaks_high = @process_step "AoE peaks high SF" begin
+                result_peaks_high, report_peaks_high = @process_step "AoE peaks high SF" on_error = plot_cut_spectra begin
                     @debug "Generate A/E high Survival Fractions"
                     get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_high_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
@@ -190,7 +216,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                 @debug "Found high SEP Survival Fraction at $(round(u"percent", result_peaks_high[:Tl208SEP].sf, digits=2))"
                 @debug "Found high FEP Survival Fraction at $(round(u"percent", result_peaks_high[:Tl208FEP].sf, digits=2))"
 
-                qbb_result_high, _ = @process_step "Qbb high SF" begin
+                qbb_result_high, _ = @process_step "Qbb high SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_high_cut_vec)
                 end
 
@@ -199,7 +225,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
 
 
                 ### low A/E cut & high A/E cut
-                result_peaks_ds, report_peaks_ds = @process_step "AoE peaks DS SF" begin
+                result_peaks_ds, report_peaks_ds = @process_step "AoE peaks DS SF" on_error = plot_cut_spectra begin
                     @debug "Generate A/E DS Survival Fractions"
                     get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_ds_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
@@ -208,7 +234,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                 @debug "Found DS SEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208SEP].sf, digits=2))"
                 @debug "Found DS FEP Survival Fraction at $(round(u"percent", result_peaks_ds[:Tl208FEP].sf, digits=2))"
 
-                qbb_result_ds, _ = @process_step "Qbb DS SF" begin
+                qbb_result_ds, _ = @process_step "Qbb DS SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_ds_cut_vec)
                 end
 
@@ -218,7 +244,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
 
 
                 ### low A/E cut & LQ cut
-                result_peaks_low_lq, report_peaks_low_lq = @process_step "AoE+LQ peaks low SF" begin
+                result_peaks_low_lq, report_peaks_low_lq = @process_step "AoE+LQ peaks low SF" on_error = plot_cut_spectra begin
                     @debug "Generate A/E DS Survival Fractions"
                     get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_low_cut_vec .&& lq_high_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
@@ -227,7 +253,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                 @debug "Found LQ DS SEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208SEP].sf, digits=2))"
                 @debug "Found LQ DS FEP Survival Fraction at $(round(u"percent", result_peaks_low_lq[:Tl208FEP].sf, digits=2))"
 
-                qbb_result_low_lq, _ = @process_step "Qbb+LQ low SF" begin
+                qbb_result_low_lq, _ = @process_step "Qbb+LQ low SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_low_cut_vec .&& lq_high_cut_vec)
                 end
 
@@ -238,7 +264,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
 
 
                 ### low A/E cut & high A/E cut & LQ cut
-                result_peaks_lq_ds, report_peaks_lq_ds = @process_step "AoE+LQ peaks DS SF" begin
+                result_peaks_lq_ds, report_peaks_lq_ds = @process_step "AoE+LQ peaks DS SF" on_error = plot_cut_spectra begin
                     @debug "Generate A/E DS Survival Fractions"
                     get_peaks_survival_fractions(e_cal, psd_config_det.psd_peaks, Symbol.(psd_config_det.psd_peaks_names), psd_config_det.psd_peaks_windows_left, psd_config_det.psd_peaks_windows_right, aoe_ds_cut_vec .&& lq_high_cut_vec;
                                                     bin_width_window=psd_config_det.psd_peaks_bin_width_window, fit_funcs=Symbol.(psd_config_det.psd_peaks_fit_funcs), uncertainty=true)
@@ -247,14 +273,16 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                 @debug "Found LQ DS SEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208SEP].sf, digits=2))"
                 @debug "Found LQ DS FEP Survival Fraction at $(round(u"percent", result_peaks_lq_ds[:Tl208FEP].sf, digits=2))"
 
-                qbb_result_lq_ds, _ = @process_step "Qbb+LQ DS SF" begin
+                qbb_result_lq_ds, _ = @process_step "Qbb+LQ DS SF" on_error = plot_cut_spectra begin
                     get_continuum_survival_fraction(e_cal, psd_config_det.qbb, psd_config_det.qbb_window, aoe_ds_cut_vec .&& lq_high_cut_vec)
                 end
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_lq_ds.sf, digits=2))"
 
-                # p = LegendMakie.lplot(report_peaks_ds, titlesize = 17, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additional_type=string(psd_classifier)))
-                # savelfig(LegendMakie.lsavefig, p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_$psd_classifier"))
+                @debug_plot begin
+                    p = LegendMakie.lplot(report_peaks_ds, titlesize = 17, figsize = (600, 400*length(report_peaks_ds)), title = get_plottitle(filekey_ch, part, det, "A/E Performance"; additional_type=string(psd_classifier)))
+                    save_plot(p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_$psd_classifier"))
+                end
 
                 # save results
                 result = merge((cuts = (lowcut = NaN, highcut = aoe_high_cut, lq = NaN), ), (peaks = (low = result_peaks_low, high = result_peaks_high, ds = result_peaks_ds, low_lq = result_peaks_low_lq, lq_ds = result_peaks_lq_ds) , qbb = (low = qbb_result_low, high = qbb_result_high, ds = qbb_result_ds, low_lq = qbb_result_low_lq, lq_ds = qbb_result_lq_ds)))

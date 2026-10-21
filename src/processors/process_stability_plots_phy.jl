@@ -22,7 +22,8 @@ separately; a failing plot does not stop the others.
 - Plots per detector: `stability_time_vs_bl`, `stability_time_vs_blsigma`,
   `stability_time_vs_e10410`, `stability_e10410_hist`. If pulser-triggered events exist:
   `stability_time_vs_e10410_trig` and `stability_pulser_rate`. If more than `n_ref` finite
-  pulser-triggered events exist: `stability_gain_stability`.
+  pulser-triggered events exist: `stability_gain_stability`. Only `stability_gain_stability` is saved
+  below the debug plot level.
 - Run report `stability_plots_phy`.
 
 No parameters are written.
@@ -97,7 +98,7 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
         function run_plot(make_plot::Function, plot_name::Symbol)
             try
                 p = make_plot()
-                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, plot_name)
+                save_plot(p, l200, filekey, det, plot_name)
                 log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), plot_name, ""))
                 processed_dict[plot_name] = true
             catch e
@@ -109,29 +110,41 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
 
         heatmap_kwargs = (bins = 600, figsize = (900, 600), xlabel = "Time (s)", colormap = :viridis, colorbarlabel = "Counts")
 
-        run_plot(:stability_time_vs_bl) do
-            LegendMakie.lhist(time_s, bl_f; heatmap_kwargs..., ylabel = "Baseline (ADC)", title = get_plottitle(filekey, det, "Time vs Baseline"))
+        @debug_plot begin
+            run_plot(:stability_time_vs_bl) do
+                LegendMakie.lhist(time_s, bl_f; heatmap_kwargs..., ylabel = "Baseline (ADC)", title = get_plottitle(filekey, det, "Time vs Baseline"))
+            end
         end
 
-        run_plot(:stability_time_vs_blsigma) do
-            LegendMakie.lhist(time_s, σbl; heatmap_kwargs..., ylabel = "Baseline σ (ADC)", ylims = (0.0, 1000.0), title = get_plottitle(filekey, det, "Time vs Baseline σ"))
+        @debug_plot begin
+            run_plot(:stability_time_vs_blsigma) do
+                LegendMakie.lhist(time_s, σbl; heatmap_kwargs..., ylabel = "Baseline σ (ADC)", ylims = (0.0, 1000.0), title = get_plottitle(filekey, det, "Time vs Baseline σ"))
+            end
         end
 
-        run_plot(:stability_time_vs_e10410) do
-            LegendMakie.lhist(time_s, e10410; heatmap_kwargs..., ylabel = "E_10410 (ADC)", ylims = (0.0, 1e5), title = get_plottitle(filekey, det, "Time vs E_10410"))
+        @debug_plot begin
+            run_plot(:stability_time_vs_e10410) do
+                LegendMakie.lhist(time_s, e10410; heatmap_kwargs..., ylabel = "E_10410 (ADC)", ylims = (0.0, 1e5), title = get_plottitle(filekey, det, "Time vs E_10410"))
+            end
         end
 
-        run_plot(:stability_e10410_hist) do
-            LegendMakie.lhist(e10410; bins = 0:1000:6e5, figsize = (900, 400), xlabel = "E_10410 (ADC)", ylabel = "Counts", yscale = log10, title = get_plottitle(filekey, det, "E_10410 Distribution"))
+        @debug_plot begin
+            run_plot(:stability_e10410_hist) do
+                LegendMakie.lhist(e10410; bins = 0:1000:6e5, figsize = (900, 400), xlabel = "E_10410 (ADC)", ylabel = "Counts", yscale = log10, title = get_plottitle(filekey, det, "E_10410 Distribution"))
+            end
         end
 
         mask_trig = aux_trig .== true
         if any(mask_trig)
-            run_plot(:stability_time_vs_e10410_trig) do
-                LegendMakie.lhist(time_s[mask_trig], e10410[mask_trig]; heatmap_kwargs..., ylabel = "E_10410 (ADC)", title = get_plottitle(filekey, det, "Time vs E_10410 (Pulser-Triggered)"))
+            @debug_plot begin
+                run_plot(:stability_time_vs_e10410_trig) do
+                    LegendMakie.lhist(time_s[mask_trig], e10410[mask_trig]; heatmap_kwargs..., ylabel = "E_10410 (ADC)", title = get_plottitle(filekey, det, "Time vs E_10410 (Pulser-Triggered)"))
+                end
             end
-            run_plot(:stability_pulser_rate) do
-                LegendMakie.lplot(rate(timestamp[mask_trig], smooth_window); figsize = (900, 400), ylabel = "Pulser rate (Hz)", title = get_plottitle(filekey, det, "Pulser Rate"))
+            @debug_plot begin
+                run_plot(:stability_pulser_rate) do
+                    LegendMakie.lplot(rate(timestamp[mask_trig], smooth_window); figsize = (900, 400), ylabel = "Pulser rate (Hz)", title = get_plottitle(filekey, det, "Pulser Rate"))
+                end
             end
         end
 
