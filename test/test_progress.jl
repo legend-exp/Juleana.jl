@@ -19,9 +19,9 @@ const ProgressLog = NamedTuple{(:Filekey, :Status, :Error)}
 function progress_status(periods, runs, run_steps, partition_steps)
     run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
     for p in periods
-        run_status[p] = Juleana.ConcurrentDict{Symbol,Juleana.ConcurrentDict{DataRun,Bool}}(
-            [s => Juleana.ConcurrentDict{DataRun,Bool}(runs .=> false) for s in run_steps])
-        partition_status[p] = Juleana.ConcurrentDict{Symbol,Bool}([s => false for s in partition_steps])
+        run_status[p] = Dict{Symbol,Dict{DataRun,Bool}}(
+            [s => Dict{DataRun,Bool}(runs .=> false) for s in run_steps])
+        partition_status[p] = Dict{Symbol,Bool}([s => false for s in partition_steps])
     end
     return run_status, partition_status
 end

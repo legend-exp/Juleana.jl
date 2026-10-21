@@ -45,14 +45,12 @@ struct NoRunData end
 LegendDataManagement.is_lrun(::NoRunData, key) = false
 Juleana.partition_periods(::Union{NoAnalysisData,NoRunData}, period) = [period]
 
-const ConcurrentDict = Juleana.ConcurrentDict
-
 function stub_status(periods, runs, run_steps, partition_steps)
     run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
     for p in periods
-        run_status[p] = ConcurrentDict{Symbol,ConcurrentDict{DataRun,Bool}}(
-            [s => ConcurrentDict{DataRun,Bool}(runs .=> false) for s in run_steps])
-        partition_status[p] = ConcurrentDict{Symbol,Bool}([s => false for s in partition_steps])
+        run_status[p] = Dict{Symbol,Dict{DataRun,Bool}}(
+            [s => Dict{DataRun,Bool}(runs .=> false) for s in run_steps])
+        partition_status[p] = Dict{Symbol,Bool}([s => false for s in partition_steps])
     end
     return run_status, partition_status
 end

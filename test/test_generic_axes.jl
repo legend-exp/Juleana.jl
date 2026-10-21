@@ -58,11 +58,9 @@ LegendDataManagement.is_lrun(::AxesFakeData, key) = true
             processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
             p_processors = Dict(:p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1, dependencies = [:run_a])))
         stubs = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b)
-
-        ConcurrentDict = Juleana.ConcurrentDict
         run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
-        run_status[p3] = ConcurrentDict{Symbol,ConcurrentDict{DataRun,Bool}}([:run_a => ConcurrentDict{DataRun,Bool}(runs .=> false)])
-        partition_status[p3] = ConcurrentDict{Symbol,Bool}([:p_part_b => false])
+        run_status[p3] = Dict{Symbol,Dict{DataRun,Bool}}([:run_a => Dict{DataRun,Bool}(runs .=> false)])
+        partition_status[p3] = Dict{Symbol,Bool}([:p_part_b => false])
 
         periods = OffsetArray([p3], -1)
         run_steps, partition_steps = OffsetArray([:run_a], 5), OffsetArray([:p_part_b], -2)

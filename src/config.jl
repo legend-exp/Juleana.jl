@@ -359,7 +359,7 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     for period in periods
         # get all processable runs
         period_runs = processable_runs_dict[period]
-        run_status[period] = ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}([step => ConcurrentDict{DataRun, Bool}(period_runs .=> !(step in run_steps)) for step in possible_steps])
+        run_status[period] = Dict{Symbol, Dict{DataRun, Bool}}(step => Dict{DataRun, Bool}(period_runs .=> !(step in run_steps)) for step in possible_steps)
     end
 
     # get all possible steps for partition processing
@@ -367,7 +367,7 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     # generate process status with all possible steps for all possible runs in all periods
     partition_status = PartitionStatus()
     for period in periods
-        partition_status[period] = ConcurrentDict{Symbol, Bool}([step => !(step in partition_steps) for step in possible_p_steps])
+        partition_status[period] = Dict{Symbol, Bool}(step => !(step in partition_steps) for step in possible_p_steps)
     end
 
     return periods, run_status, partition_status

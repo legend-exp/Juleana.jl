@@ -1,9 +1,10 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
-# Completion flags of the run steps: `status[period][step][run]`.
-const RunStatus = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, ConcurrentDict{DataRun, Bool}}}
+# Completion flags of the run steps: `status[period][step][run]`. Only the scheduler loop of
+# `run_processing` writes them, so they need no lock.
+const RunStatus = Dict{DataPeriod, Dict{Symbol, Dict{DataRun, Bool}}}
 # Completion flags of the partition steps: `status[period][step]`.
-const PartitionStatus = ConcurrentDict{DataPeriod, ConcurrentDict{Symbol, Bool}}
+const PartitionStatus = Dict{DataPeriod, Dict{Symbol, Bool}}
 
 """
     mutable struct DataflowSession
