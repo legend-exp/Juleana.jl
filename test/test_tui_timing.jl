@@ -2,13 +2,15 @@
 
 using Juleana
 using Dates: DateTime
-using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TaskEvent, TestBackend, Frame, Rect, GraphicsRegion,
-    PixelSnapshot, key_release
+using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TaskEvent, TestBackend, Frame, Rect,
+                 GraphicsRegion,
+                 PixelSnapshot, key_release
 using Test
 
 # `InterfaceTiming` that reads the time from `now_ns[]`.
 function manual_timing(now_ns; kwargs...)
-    return Juleana.InterfaceTiming(; clock = () -> now_ns[], utc = () -> DateTime(2026, 1, 2, 3, 4, 5), kwargs...)
+    return Juleana.InterfaceTiming(;
+        clock = () -> now_ns[], utc = () -> DateTime(2026, 1, 2, 3, 4, 5), kwargs...)
 end
 
 ms(x) = round(UInt64, x * 1e6)
@@ -65,7 +67,9 @@ ms(x) = round(UInt64, x * 1e6)
         update(KeyEvent('a'), 5)
         update(KeyEvent('b'), 7)
         update(KeyEvent('a', key_release), 1)
-        update(MouseEvent(1, 1, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), 2)
+        update(
+            MouseEvent(
+                1, 1, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), 2)
         update(TaskEvent(:refresh, nothing), 30)
         update(TaskEvent(:tick, nothing), 1)
         @test t.n_updates == 6 && t.n_pending == 2
@@ -118,7 +122,8 @@ ms(x) = round(UInt64, x * 1e6)
         now_ns = Ref(ms(0))
         t = manual_timing(now_ns; window_seconds = 1)
         # without a log folder nothing is written, and the window still restarts
-        for snap in (nothing, (; state = :loading, log_path = nothing), (; state = :loading, log_path = ""))
+        for snap in (nothing, (; state = :loading, log_path = nothing), (;
+            state = :loading, log_path = ""))
             now_ns[] += ms(1500)
             Juleana.timing_view_begin!(t)
             row = Juleana.timing_view_end!(t, snap)
@@ -130,7 +135,8 @@ ms(x) = round(UInt64, x * 1e6)
         for i in 1:2
             now_ns[] += ms(1500)
             Juleana.timing_view_begin!(t)
-            @test Juleana.timing_view_end!(t, (; state = :running, log_path = dir)) isa String
+            @test Juleana.timing_view_end!(t, (; state = :running, log_path = dir)) isa
+                  String
         end
         path = joinpath(dir, "interface_timing.tsv")
         @test timedwait(() -> isfile(path) && countlines(path) == 3, 30) === :ok
@@ -142,7 +148,8 @@ ms(x) = round(UInt64, x * 1e6)
     end
 
     @testset "validation" begin
-        @test_throws "window_seconds must be positive" Juleana.InterfaceTiming(; window_seconds = 0)
+        @test_throws "window_seconds must be positive" Juleana.InterfaceTiming(;
+            window_seconds = 0)
         @test_throws "capacity must be positive" Juleana.InterfaceTiming(; capacity = 0)
         @test_throws "pages must be positive" Juleana.InterfaceTiming(; pages = 0)
     end
@@ -151,8 +158,9 @@ end
 # The interface must never touch the data config of the session.
 withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
     @testset "Interface timing in the terminal interface" begin
-        args = Dict{String,Any}("config" => "none")
-        m = Juleana.JuleanaTUI(DataflowController(args; processors = Dict{Symbol,Any}(), loader = _ -> error("no session")))
+        args = Dict{String, Any}("config" => "none")
+        m = Juleana.JuleanaTUI(DataflowController(
+            args; processors = Dict{Symbol, Any}(), loader = _ -> error("no session")))
         @test m.timing isa Juleana.InterfaceTiming
         tb = TestBackend(100, 30)
         frame = Frame(tb.buf, Rect(1, 1, 100, 30), GraphicsRegion[], PixelSnapshot[])
@@ -163,7 +171,9 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         @test m.timing.page_frames[m.page] == 3
         @test m.timing.view_thread == (Threads.threadid(), Threads.threadpool())
         Tachikoma.update!(m, KeyEvent('?'))
-        Tachikoma.update!(m, MouseEvent(1, 1, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false))
+        Tachikoma.update!(m,
+            MouseEvent(
+                1, 1, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false))
         Tachikoma.update!(m, TaskEvent(:dataset, nothing))
         @test m.timing.n_updates == 3 && m.timing.n_pending == 1
         Tachikoma.view(m, frame)

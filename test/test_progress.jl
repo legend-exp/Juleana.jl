@@ -4,7 +4,8 @@ using Juleana
 using Test
 using Logging: Logging
 using ProgressLogging: ProgressLogging
-using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, ProcessStatus
+using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey,
+                            ProcessStatus
 
 # Stand in for `LegendData`: every run is in the run info, or no run is an analysis run.
 struct ProgressData end
@@ -19,9 +20,9 @@ const ProgressLog = NamedTuple{(:Filekey, :Status, :Error)}
 function progress_status(periods, runs, run_steps, partition_steps)
     run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
     for p in periods
-        run_status[p] = Dict{Symbol,Dict{DataRun,Bool}}(
-            [s => Dict{DataRun,Bool}(runs .=> false) for s in run_steps])
-        partition_status[p] = Dict{Symbol,Bool}([s => false for s in partition_steps])
+        run_status[p] = Dict{Symbol, Dict{DataRun, Bool}}(
+            [s => Dict{DataRun, Bool}(runs .=> false) for s in run_steps])
+        partition_status[p] = Dict{Symbol, Bool}([s => false for s in partition_steps])
     end
     return run_status, partition_status
 end
@@ -57,7 +58,8 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         Juleana.item_started!(store, a, first_id + 2, 4, "fk3")
         Juleana.item_started!(store, a, first_id + 2, 5, "fk3")
         e = first(progress(store).steps)
-        @test (e.state, e.total, e.done, e.failed, e.notrun, e.workers) == (:running, 3, 1, 1, 0, [5])
+        @test (e.state, e.total, e.done, e.failed, e.notrun, e.workers) ==
+              (:running, 3, 1, 1, 0, [5])
         @test e.fraction ≈ 2 / 4
         @test [(b.worker, b.item) for b in busy_workers(store)] == [(5, "fk3")]
         @test !isnothing(e.started) && !isnothing(e.eta) && e.rate > 0
@@ -87,10 +89,12 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test first(p.steps).rate == first(progress(store).steps).rate
         @test isnothing(last(p.steps).rate)
         @test p.counts.done == 1 && p.counts.cancelled == 1
-        @test [(g.period, g.run, g.nsteps) for g in p.groups] == [(p3, r1, 1), (p3, nothing, 1)]
+        @test [(g.period, g.run, g.nsteps) for g in p.groups] ==
+              [(p3, r1, 1), (p3, nothing, 1)]
         @test all(e -> isnothing(e.error) && e.nmessages == 0, p.steps)
         # the progress has the same type before, while and after a run
-        @test p isa Juleana.ProgressSummary && progress(ProgressStore()) isa Juleana.ProgressSummary
+        @test p isa Juleana.ProgressSummary &&
+              progress(ProgressStore()) isa Juleana.ProgressSummary
     end
 
     @testset "step messages and errors" begin
@@ -102,8 +106,10 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # a step of another run is ignored
         Juleana.step_message!(store, (p3, r2, :run_a), Logging.Info, "elsewhere")
         msgs = step_messages(store, a)
-        @test [(m.level, m.text) for m in msgs] == [(Logging.Info, "first"), (Logging.Warn, "second\n  detail")]
-        @test isempty(step_messages(store, b)) && isempty(step_messages(store, (p3, r2, :run_a)))
+        @test [(m.level, m.text) for m in msgs] ==
+              [(Logging.Info, "first"), (Logging.Warn, "second\n  detail")]
+        @test isempty(step_messages(store, b)) &&
+              isempty(step_messages(store, (p3, r2, :run_a)))
         # a copy: later messages do not change it
         Juleana.step_message!(store, a, Logging.Info, "third")
         @test length(msgs) == 2
@@ -111,14 +117,16 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             Juleana.step_message!(store, a, Logging.Info, "m$i")
         end
         msgs = step_messages(store, a)
-        @test length(msgs) == Juleana.STEP_MESSAGE_CAPACITY && last(msgs).text == "m$(Juleana.STEP_MESSAGE_CAPACITY)"
+        @test length(msgs) == Juleana.STEP_MESSAGE_CAPACITY &&
+              last(msgs).text == "m$(Juleana.STEP_MESSAGE_CAPACITY)"
         @test first(progress(store).steps).nmessages == Juleana.STEP_MESSAGE_CAPACITY
 
         Juleana.set_step_state!(store, b, :failed; error = "fit failed")
         @test [e.error for e in progress(store).steps] == [nothing, "fit failed"]
         # a new run starts without messages and errors
         Juleana.reset_progress!(store, [a, b])
-        @test isempty(step_messages(store, a)) && all(e -> isnothing(e.error), progress(store).steps)
+        @test isempty(step_messages(store, a)) &&
+              all(e -> isnothing(e.error), progress(store).steps)
     end
 
     @testset "busy workers and abandoned items" begin
@@ -132,7 +140,8 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         Juleana.item_started!(store, a, first_id + 1, 3, "fk2")
         Juleana.item_finished!(store, a, first_id, :done)
         busy = only(busy_workers(store))
-        @test (busy.worker, busy.item, busy.period, busy.run, busy.step, busy.abandoned) == (3, "fk2", p3, r1, :run_a, false)
+        @test (busy.worker, busy.item, busy.period, busy.run, busy.step, busy.abandoned) ==
+              (3, "fk2", p3, r1, :run_a, false)
 
         Juleana.items_abandoned!(store, a)
         e = only(progress(store).steps)
@@ -149,22 +158,25 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "busy workers of a controller" begin
-        ctrl = DataflowController(Dict{String,Any}())
+        ctrl = DataflowController(Dict{String, Any}())
         a = (p3, r1, :run_a)
         Juleana.reset_progress!(ctrl.progress, [a])
         Juleana.set_step_state!(ctrl.progress, a, :running)
         first_id = Juleana.items_queued!(ctrl.progress, a, 2)
         Juleana.item_started!(ctrl.progress, a, first_id, 1, "fk1")
         # the worker of this item has ended
-        Juleana.item_started!(ctrl.progress, a, first_id + 1, maximum(Juleana.procs()) + 1, "fk2")
+        Juleana.item_started!(
+            ctrl.progress, a, first_id + 1, maximum(Juleana.procs()) + 1, "fk2")
         @test length(busy_workers(ctrl.progress)) == 2
         @test [b.item for b in busy_workers(ctrl)] == ["fk1"]
     end
 
     cfg = ProcessingConfig(;
-        processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
-        p_processors = Dict(:p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal,
-            rank = 1, dependencies = [:run_a])))
+        processors = Dict(:run_a =>
+            ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
+        p_processors = Dict(:p_part_b =>
+            ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal,
+                rank = 1, dependencies = [:run_a])))
 
     @testset "run_processing records steps and items" begin
         item_gate, release = Base.Event(), Base.Event()
@@ -182,8 +194,9 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         p_part_b(cfg, l200, period; reprocess = false, only_first_period = false) = false
         store = ProgressStore()
         run_status, partition_status = progress_status([p3], [r1, r2], [:run_a], [:p_part_b])
-        task = Threads.@spawn run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b], run_status, partition_status;
-            processors = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b), progress_store = store)
+        task = Threads.@spawn run_processing(
+            cfg, ProgressData(), [p3], [:run_a], [:p_part_b], run_status, partition_status;
+            processors = Dict{Symbol, Any}(:run_a => run_a, :p_part_b => p_part_b), progress_store = store)
         run_entries() = filter(e -> e.step === :run_a, progress(store).steps)
 
         # without workers, the pool hands the main process to one item at a time
@@ -212,9 +225,10 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "failed, cancelled and skipped steps" begin
         run_a(cfg, l200, period, run; reprocess = false) = error("run failure")
         p_part_b(cfg, l200, period; reprocess = false, only_first_period = false) = false
-        stubs = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b)
+        stubs = Dict{Symbol, Any}(:run_a => run_a, :p_part_b => p_part_b)
         store = ProgressStore()
-        @test_throws CompositeException run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
+        @test_throws CompositeException run_processing(
+            cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
             progress_status([p3], [r1], [:run_a], [:p_part_b])...; processors = stubs, progress_store = store)
         states = Dict(e.step => e.state for e in progress(store).steps)
         # the partition step waited for the failed run step and never started
@@ -230,9 +244,11 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         end
         buf = Juleana.MessageBuffer()
         Logging.with_logger(buf) do
-            @test_throws CompositeException run_processing(cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
+            @test_throws CompositeException run_processing(
+                cfg, ProgressData(), [p3], [:run_a], [:p_part_b],
                 progress_status([p3], [r1], [:run_a], [:p_part_b])...;
-                processors = Dict{Symbol,Any}(:run_a => run_logging, :p_part_b => p_part_b),
+                processors = Dict{Symbol, Any}(:run_a => run_logging, :p_part_b =>
+                    p_part_b),
                 progress_store = store)
         end
         msgs = step_messages(store, (p3, r1, :run_a))
@@ -242,9 +258,12 @@ waitfor(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # the messages also stay in the buffer
         @test any(l -> occursin("fitting r001", l), Juleana.message_lines(buf))
 
-        cfg_runs = ProcessingConfig(; processors = cfg.processors, p_processors = Dict{Symbol,ProcessorSpec}(), analysis_runs_only = true)
-        @test_logs (:warn, r"not an analysis run") match_mode = :any run_processing(cfg_runs, ProgressNoAnalysisData(),
-            [p3], [:run_a], Symbol[], progress_status([p3], [r1], [:run_a], Symbol[])...; processors = stubs, progress_store = store)
+        cfg_runs = ProcessingConfig(; processors = cfg.processors,
+            p_processors = Dict{Symbol, ProcessorSpec}(), analysis_runs_only = true)
+        @test_logs (:warn, r"not an analysis run") match_mode = :any run_processing(
+            cfg_runs, ProgressNoAnalysisData(),
+            [p3], [:run_a], Symbol[], progress_status([p3], [r1], [:run_a], Symbol[])...;
+            processors = stubs, progress_store = store)
         @test only(progress(store).steps).state === :skipped
         @test progress(store).fraction == 1
     end

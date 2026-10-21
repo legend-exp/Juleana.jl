@@ -35,14 +35,15 @@ No parameters are written.
 # Returns
 `nothing`.
 """
-function process_stability_plots_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
-
+function process_stability_plots_phy(
+        processing_config, l200::LegendData, period::DataPeriod,
+        run::DataRun; reprocess::Bool = false, timeout::Real = 0)
     @info "Process detector stability plots for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
+    chinfo = channelinfo(l200, filekey; system = :geds, only_processable = true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     qc_config = dataprod_config(l200).qc(filekey)
@@ -57,38 +58,43 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
     det_puls = chinfo_puls.detector
     @info "Loaded pulser channel info: $chinfo_puls"
 
-    if reprocess @info "Reprocess all detectors" end
+    if reprocess
+        @info "Reprocess all detectors"
+    end
 
     log_nt = NamedTuple{(:Detector, :usability, :Status, :Plot, :Error)}
 
-
     @info "Loading pulser data for period $period and run $run"
-    puls = read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
+    puls = read_ldata(
+        (:e_10410, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
 
     start_time = now()
 
     function det_stability_plots(chinfo_det::NamedTuple)
-
-        ch  = chinfo_det.channel
+        ch = chinfo_det.channel
         det = chinfo_det.detector
 
         @info "Processing detector $det ($ch)"
 
         data = try
-            read_ldata((:timestamp, :blmean, :blsigma, :e_10410), l200, DataTier(:jldsp), :phy, period, run, det)
+            read_ldata((:timestamp, :blmean, :blsigma, :e_10410),
+                l200, DataTier(:jldsp), :phy, period, run, det)
         catch e
             @error "Stability data for $det cannot be loaded: $(truncate_error(e))"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), :all, "$(truncate_error(e))"))
+            log_det = log_nt((det, detector_status(chinfo_det.usability),
+                ProcessStatus(0), :all, "$(truncate_error(e))"))
             return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
 
-        length(puls.e_10410) == length(data.timestamp) || throw(DimensionMismatch("pulser data of $det_puls ($(length(puls.e_10410)) events) does not match the data of $det ($(length(data.timestamp)) events)"))
-        finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
+        length(puls.e_10410) == length(data.timestamp) ||
+            throw(DimensionMismatch("pulser data of $det_puls ($(length(puls.e_10410)) events) does not match the data of $det ($(length(data.timestamp)) events)"))
+        finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&&
+                      isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
         timestamp = data.timestamp[finite_data]
-        time_s    = ustrip.(timestamp)
-        bl_f      = float.(data.blmean[finite_data])
-        σbl       = float.(data.blsigma[finite_data])
-        e10410    = float.(data.e_10410[finite_data])
+        time_s = ustrip.(timestamp)
+        bl_f = float.(data.blmean[finite_data])
+        σbl = float.(data.blsigma[finite_data])
+        e10410 = float.(data.e_10410[finite_data])
         puls_e10410 = puls.e_10410[finite_data]
         aux_trig = puls.aux_trig[finite_data]
 
@@ -100,38 +106,51 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
             try
                 p = make_plot()
                 save_plot(p, l200, filekey, det, plot_name)
-                log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), plot_name, ""))
+                log_info_dict[plot_name] = log_nt((
+                    det, detector_status(chinfo_det.usability),
+                    ProcessStatus(1), plot_name, ""))
                 processed_dict[plot_name] = true
             catch e
                 @error "Failed plot $plot_name for detector $det ($ch): $(truncate_error(e))"
-                log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), plot_name, "$(truncate_error(e))"))
+                log_info_dict[plot_name] = log_nt((
+                    det, detector_status(chinfo_det.usability),
+                    ProcessStatus(0), plot_name, "$(truncate_error(e))"))
                 processed_dict[plot_name] = false
             end
         end
 
-        heatmap_kwargs = (bins = 600, figsize = (900, 600), xlabel = "Time (s)", colormap = :viridis, colorbarlabel = "Counts")
+        heatmap_kwargs = (bins = 600, figsize = (900, 600), xlabel = "Time (s)",
+            colormap = :viridis, colorbarlabel = "Counts")
 
         @debug_plot begin
             run_plot(:stability_time_vs_bl) do
-                LegendMakie.lhist(time_s, bl_f; heatmap_kwargs..., ylabel = "Baseline (ADC)", title = get_plottitle(filekey, det, "Time vs Baseline"))
+                LegendMakie.lhist(
+                    time_s, bl_f; heatmap_kwargs..., ylabel = "Baseline (ADC)",
+                    title = get_plottitle(filekey, det, "Time vs Baseline"))
             end
         end
 
         @debug_plot begin
             run_plot(:stability_time_vs_blsigma) do
-                LegendMakie.lhist(time_s, σbl; heatmap_kwargs..., ylabel = "Baseline σ (ADC)", ylims = (0.0, 1000.0), title = get_plottitle(filekey, det, "Time vs Baseline σ"))
+                LegendMakie.lhist(time_s, σbl; heatmap_kwargs...,
+                    ylabel = "Baseline σ (ADC)", ylims = (0.0, 1000.0),
+                    title = get_plottitle(filekey, det, "Time vs Baseline σ"))
             end
         end
 
         @debug_plot begin
             run_plot(:stability_time_vs_e10410) do
-                LegendMakie.lhist(time_s, e10410; heatmap_kwargs..., ylabel = "E_10410 (ADC)", ylims = (0.0, 1e5), title = get_plottitle(filekey, det, "Time vs E_10410"))
+                LegendMakie.lhist(time_s, e10410; heatmap_kwargs...,
+                    ylabel = "E_10410 (ADC)", ylims = (0.0, 1e5),
+                    title = get_plottitle(filekey, det, "Time vs E_10410"))
             end
         end
 
         @debug_plot begin
             run_plot(:stability_e10410_hist) do
-                LegendMakie.lhist(e10410; bins = 0:1000:6e5, figsize = (900, 400), xlabel = "E_10410 (ADC)", ylabel = "Counts", yscale = log10, title = get_plottitle(filekey, det, "E_10410 Distribution"))
+                LegendMakie.lhist(e10410; bins = 0:1000:6e5, figsize = (900, 400),
+                    xlabel = "E_10410 (ADC)", ylabel = "Counts", yscale = log10,
+                    title = get_plottitle(filekey, det, "E_10410 Distribution"))
             end
         end
 
@@ -139,12 +158,18 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
         if any(mask_trig)
             @debug_plot begin
                 run_plot(:stability_time_vs_e10410_trig) do
-                    LegendMakie.lhist(time_s[mask_trig], e10410[mask_trig]; heatmap_kwargs..., ylabel = "E_10410 (ADC)", title = get_plottitle(filekey, det, "Time vs E_10410 (Pulser-Triggered)"))
+                    LegendMakie.lhist(time_s[mask_trig],
+                        e10410[mask_trig];
+                        heatmap_kwargs...,
+                        ylabel = "E_10410 (ADC)",
+                        title = get_plottitle(filekey, det, "Time vs E_10410 (Pulser-Triggered)"))
                 end
             end
             @debug_plot begin
                 run_plot(:stability_pulser_rate) do
-                    LegendMakie.lplot(rate(timestamp[mask_trig], smooth_window); figsize = (900, 400), ylabel = "Pulser rate (Hz)", title = get_plottitle(filekey, det, "Pulser Rate"))
+                    LegendMakie.lplot(rate(timestamp[mask_trig], smooth_window);
+                        figsize = (900, 400), ylabel = "Pulser rate (Hz)",
+                        title = get_plottitle(filekey, det, "Pulser Rate"))
                 end
             end
         end
@@ -152,14 +177,23 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
         mask_gain = isfinite.(puls_e10410) .&& mask_trig
         if count(mask_gain) > n_ref
             run_plot(:stability_gain_stability) do
-                pulser_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], puls_e10410[mask_gain]), n_ref), smooth_window)
-                energy_gain = smooth(relative(TimeEvolution(timestamp[mask_gain], e10410[mask_gain]), n_ref), smooth_window)
-                pulser_gain = TimeEvolution(pulser_gain.time, pulser_gain.values .* (Qbb / 100))
-                energy_gain = TimeEvolution(energy_gain.time, energy_gain.values .* (Qbb / 100))
+                pulser_gain = smooth(
+                    relative(TimeEvolution(timestamp[mask_gain], puls_e10410[mask_gain]), n_ref),
+                    smooth_window)
+                energy_gain = smooth(
+                    relative(TimeEvolution(timestamp[mask_gain], e10410[mask_gain]), n_ref),
+                    smooth_window)
+                pulser_gain = TimeEvolution(pulser_gain.time, pulser_gain.values .*
+                                                              (Qbb / 100))
+                energy_gain = TimeEvolution(energy_gain.time, energy_gain.values .*
+                                                              (Qbb / 100))
 
-                p = LegendMakie.lplot(pulser_gain; figsize = (1000, 450), label = "Pulser", sigmas = (1,), ylabel = "ΔE (keV)", ylims = (-8, 8), title = get_plottitle(filekey, det, "Gain Stability"))
+                p = LegendMakie.lplot(pulser_gain; figsize = (1000, 450), label = "Pulser",
+                    sigmas = (1,), ylabel = "ΔE (keV)", ylims = (-8, 8),
+                    title = get_plottitle(filekey, det, "Gain Stability"))
                 ax = Makie.content(p[1, 1])
-                LegendMakie.lplot!(ax, energy_gain; color = :red, label = "E_10410", sigmas = (1,))
+                LegendMakie.lplot!(
+                    ax, energy_gain; color = :red, label = "E_10410", sigmas = (1,))
                 Makie.axislegend(ax; position = :rt)
                 p
             end
@@ -170,7 +204,9 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
         return (processed = processed_dict, log = log_info_dict)
     end
 
-    result_stability = parallel(det_stability_plots, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_stability_plots_phy")
+    result_stability = parallel(
+        det_stability_plots, chinfo, log_nt; timeout = timeout, retry = false,
+        process_name = "$period-$run-process_stability_plots_phy")
 
     @info "Finished stability plot generation"
 

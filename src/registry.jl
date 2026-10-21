@@ -8,7 +8,7 @@ names are the keys of the `processors` and `p_processors` tables of a processing
 config. Every file in `src/processors/` adds its processor with
 [`register_processor!`](@ref) when the module is defined.
 """
-const PROCESSORS = Dict{Symbol,Function}()
+const PROCESSORS = Dict{Symbol, Function}()
 
 """
     register_processor!(f; output_tiers = Symbol[], detector_selection::Bool = true)
@@ -25,7 +25,8 @@ function register_processor!(f; output_tiers = Symbol[], detector_selection::Boo
     haskey(PROCESSORS, name) &&
         throw(ArgumentError("register_processor!: processor `$name` is already registered"))
     PROCESSORS[name] = f
-    PROCESSOR_TRAITS[name] = (output_tiers = Symbol.(collect(output_tiers)), detector_selection)
+    PROCESSOR_TRAITS[name] = (
+        output_tiers = Symbol.(collect(output_tiers)), detector_selection)
     return f
 end
 

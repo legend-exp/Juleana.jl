@@ -3,11 +3,12 @@
 # Rows of the options pane: label and the values a row cycles through.
 const SETUP_OPTIONS = (
     (:reprocess, "Reprocess", (nothing, true, false)),
-    (:processor_log_level, "Processor log level", (nothing, Logging.Debug, Logging.Info, Logging.Warn, Logging.Error)),
+    (:processor_log_level, "Processor log level",
+        (nothing, Logging.Debug, Logging.Info, Logging.Warn, Logging.Error)),
     (:processor_plot_level, "Processor plot level", (nothing, :debug, :info)),
     (:check_dependencies, "Check dependencies", (true, false)),
     (:analysis_runs_only, "Analysis runs only", (true, false)),
-    (:runmode, "Run mode", (:local, :slurm)),
+    (:runmode, "Run mode", (:local, :slurm))
 )
 
 """
@@ -57,8 +58,8 @@ mutable struct SetupPage
     option::Int
     # available periods, runs and processors the checklists were built for
     layout::Any
-    editor::Union{Nothing,KwargsEditor,RunmodeEditor}
-    confirm::Union{Nothing,Symbol}
+    editor::Union{Nothing, KwargsEditor, RunmodeEditor}
+    confirm::Union{Nothing, Symbol}
     # inside of the options pane at the last render
     options::Tachikoma.Rect
     # runinfo summary (see `dataset_summary`), the message of its read error, or
@@ -68,32 +69,37 @@ mutable struct SetupPage
     # set by `N`, taken by the interface, which opens the new-production form
     new_production::Bool
     source::Int
-    picker::Union{Nothing,SetupPicker}
+    picker::Union{Nothing, SetupPicker}
     choices::Any
     # what `choices` was read for, see `choices_sync!`
     choices_key::Any
     # inside of the production pane and of the picker list at the last render
     production_area::Tachikoma.Rect
     picker_area::Tachikoma.Rect
-    root::Union{Nothing,String}
-    root_edit::Union{Nothing,String}
-    root_hint::Tuple{String,Bool}
+    root::Union{Nothing, String}
+    root_edit::Union{Nothing, String}
+    root_hint::Tuple{String, Bool}
 end
 
-SetupPage() = SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
-    Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
-    Checklist(ChecklistItem[]; title = "Partition processors", focused = false, tag_style = setup_tag_style), 1, 1, nothing,
-    nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false, false,
-    1, nothing, nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0),
-    nothing, nothing, ("", false))
+function SetupPage()
+    SetupPage(Checklist(ChecklistItem[]; title = "Periods / runs"),
+        Checklist(ChecklistItem[]; title = "Run processors", focused = false, tag_style = setup_tag_style),
+        Checklist(ChecklistItem[]; title = "Partition processors",
+            focused = false, tag_style = setup_tag_style), 1, 1, nothing,
+        nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), nothing, false, false,
+        1, nothing, nothing, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0),
+        nothing, nothing, ("", false))
+end
 
 setup_panes(page::SetupPage) = (page.periods, page.run_procs, page.part_procs)
 
 # Selected runs of each selected period in `snap` that are in the dataset.
 function selected_period_runs(snap)
-    return Dict(p => (snap.runs isa AbstractDict ? intersect(snap.available_runs[p], get(snap.runs, p, snap.available_runs[p])) :
-        isnothing(snap.runs) ? snap.available_runs[p] : intersect(snap.available_runs[p], snap.runs))
-        for p in snap.periods if haskey(snap.available_runs, p))
+    return Dict(p => (snap.runs isa AbstractDict ?
+                 intersect(snap.available_runs[p], get(snap.runs, p, snap.available_runs[p])) :
+                 isnothing(snap.runs) ? snap.available_runs[p] :
+                 intersect(snap.available_runs[p], snap.runs))
+    for p in snap.periods if haskey(snap.available_runs, p))
 end
 
 # Style of a processor tag in the checklists: category, rank.
@@ -117,25 +123,30 @@ selection of `snap`.
 function sync_setup!(page::SetupPage, snap; pending::Bool = false)
     (isnothing(snap) || isempty(snap.processors)) && return page
     layout = (snap.available_periods, snap.available_runs,
-        [(p.name, p.level, p.category, p.rank, p.enabled, p.dependencies) for p in snap.processors])
+        [(p.name, p.level, p.category, p.rank, p.enabled, p.dependencies)
+         for p in snap.processors])
     if layout != page.layout
         selected = Set(snap.periods)
         groups = [ChecklistGroup(p, string(p),
-            [ChecklistItem((p, r), string(r)) for r in snap.available_runs[p]];
-            tags = [(n = length(snap.available_runs[p]); n == 1 ? "1 run" : "$n runs")], expanded = p in selected)
-            for p in snap.available_periods]
+                      [ChecklistItem((p, r), string(r)) for r in snap.available_runs[p]];
+                      tags = [(n = length(snap.available_runs[p]);
+                          n == 1 ? "1 run" : "$n runs")], expanded = p in selected)
+                  for p in snap.available_periods]
         items(level) = [ChecklistItem(p.name, display_name(p.name); tags = processor_tags(p))
-            for p in snap.processors if p.level === level]
+                        for p in snap.processors if p.level === level]
         focused = page.focus
         page.periods = Checklist(groups; title = "Periods / runs", focused = focused == 1)
-        page.run_procs = Checklist(items(:run); title = "Run processors", focused = focused == 2, tag_style = setup_tag_style)
-        page.part_procs = Checklist(items(:partition); title = "Partition processors", focused = focused == 3,
+        page.run_procs = Checklist(items(:run); title = "Run processors",
+            focused = focused == 2, tag_style = setup_tag_style)
+        page.part_procs = Checklist(
+            items(:partition); title = "Partition processors", focused = focused == 3,
             tag_style = setup_tag_style)
         page.layout = layout
         pending = false
     end
     if !pending
-        set_checked!(page.periods, [(p, r) for (p, runs) in selected_period_runs(snap) for r in runs])
+        set_checked!(page.periods, [(p, r) for (p, runs) in selected_period_runs(snap)
+                                    for r in runs])
         set_checked!(page.run_procs, snap.run_steps)
         set_checked!(page.part_procs, snap.partition_steps)
     end
@@ -144,15 +155,19 @@ end
 
 # The `SelectRuns` command for the periods and runs checked on `page`.
 function period_selection(page::SetupPage, snap)
-    chosen = Dict{DataPeriod,Vector{DataRun}}()
+    chosen = Dict{DataPeriod, Vector{DataRun}}()
     for (p, r) in checked(page.periods)
         push!(get!(chosen, p, DataRun[]), r)
     end
-    return SelectRuns(Dict(p => (length(runs) == length(snap.available_runs[p]) ? nothing : runs)
-        for (p, runs) in chosen))
+    return SelectRuns(Dict(p =>
+                               (length(runs) == length(snap.available_runs[p]) ? nothing :
+                                runs)
+    for (p, runs) in chosen))
 end
 
-steps_selection(page::SetupPage) = SelectSteps(checked(page.run_procs), checked(page.part_procs))
+function steps_selection(page::SetupPage)
+    SelectSteps(checked(page.run_procs), checked(page.part_procs))
+end
 
 option_value(snap, key) = getproperty(snap, key)
 
@@ -195,7 +210,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
     if !isnothing(page.editor)
         close = page.editor isa KwargsEditor ? kwargs_key!(page.editor, evt, snap, send) :
-            runmode_key!(page.editor, evt, snap, send)
+                runmode_key!(page.editor, evt, snap, send)
         close === :close && (page.editor = nothing)
         return true
     end
@@ -232,23 +247,28 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     elseif page.focus in (2, 3) && key == :char && char in ('c', 'p') && !isnothing(snap)
         category = char == 'c' ? :cal : :phy
         level = page.focus == 2 ? :run : :partition
-        names = Set(p.name for p in snap.processors if p.level === level && p.category === category)
+        names = Set(p.name
+        for p in snap.processors if p.level === level && p.category === category)
         set_checked!(item -> item.key in names, panes[page.focus])
         send(steps_selection(page))
     elseif page.focus in (2, 3) && key == :char && char == 'd' && !isnothing(snap)
-        chosen = required_processors(processor_graph(snap.processors), vcat(checked(page.run_procs), checked(page.part_procs)))
+        chosen = required_processors(processor_graph(snap.processors),
+            vcat(checked(page.run_procs), checked(page.part_procs)))
         set_checked!(item -> item.key in chosen, page.run_procs)
         set_checked!(item -> item.key in chosen, page.part_procs)
         send(steps_selection(page))
-    elseif page.focus in (2, 3) && key == :char && char == 'e' && !isnothing(current(panes[page.focus]))
+    elseif page.focus in (2, 3) && key == :char && char == 'e' &&
+           !isnothing(current(panes[page.focus]))
         page.editor = KwargsEditor(current(panes[page.focus]).key)
-    elseif page.focus == 4 && key == :char && char == 'e' && SETUP_OPTIONS[page.option][1] === :runmode && !isnothing(snap)
+    elseif page.focus == 4 && key == :char && char == 'e' &&
+           SETUP_OPTIONS[page.option][1] === :runmode && !isnothing(snap)
         page.editor = RunmodeEditor()
     elseif key == :char && char == 'w' && !isnothing(snap) && !isnothing(snap.config_file)
         page.confirm = :write
     elseif page.focus == 4 && key in (:up, :down)
         page.option = clamp(page.option + (key == :up ? -1 : 1), 1, length(SETUP_OPTIONS))
-    elseif page.focus == 4 && (key == :enter || (key == :char && char == ' ')) && !isnothing(snap)
+    elseif page.focus == 4 && (key == :enter || (key == :char && char == ' ')) &&
+           !isnothing(snap)
         cycle_option(page, snap, send)
     elseif page.focus == 5 && key in (:up, :down)
         page.source = clamp(page.source + (key == :up ? -1 : 1), 1, 3)
@@ -290,7 +310,8 @@ function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
     isnothing(page.root_edit) || return true
     if !isnothing(page.picker)
         picker = page.picker
-        if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.picker_area, evt.x, evt.y)
+        if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press &&
+           Base.contains(page.picker_area, evt.x, evt.y)
             i = picker.top + evt.y - page.picker_area.y
             if i in eachindex(picker.items)
                 picker.cursor = i
@@ -315,7 +336,8 @@ function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
         end
         return true
     end
-    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.options, evt.x, evt.y)
+    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press &&
+       Base.contains(page.options, evt.x, evt.y)
         focus!(length(panes) + 1)
         row = evt.y - page.options.y + 1
         if !isnothing(snap) && !isempty(snap.processors) && row in eachindex(SETUP_OPTIONS)
@@ -324,7 +346,8 @@ function setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
         end
         return true
     end
-    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press && Base.contains(page.production_area, evt.x, evt.y)
+    if evt.button == Tachikoma.mouse_left && evt.action == Tachikoma.mouse_press &&
+       Base.contains(page.production_area, evt.x, evt.y)
         focus!(length(panes) + 2)
         page.source = clamp(evt.y - page.production_area.y + 1, 1, 3)
         open_line!(page, snap)
@@ -389,14 +412,19 @@ function root_key!(page::SetupPage, evt::Tachikoma.KeyEvent)
         if !isabspath(expanded) || !isdir(expanded)
             page.root_hint = ("Not an existing absolute folder", true)
         else
-            page.root, page.root_edit, page.choices = expanded == "/" ? expanded : chopsuffix(abspath(expanded), "/"), nothing, nothing
+            page.root, page.root_edit, page.choices = expanded == "/" ? expanded :
+                                                      chopsuffix(abspath(expanded), "/"),
+            nothing, nothing
         end
     elseif key == :tab
         completed, candidates = complete_path(text)
         page.root_edit = completed
         if length(candidates) > 1
             shown = first(candidates, 8)
-            page.root_hint = (join(shown, "  ") * (length(candidates) > length(shown) ? "  and $(length(candidates) - length(shown)) more" : ""), false)
+            page.root_hint = (
+                join(shown, "  ") * (length(candidates) > length(shown) ?
+                 "  and $(length(candidates) - length(shown)) more" : ""),
+                false)
         end
     elseif key == :backspace
         page.root_edit = chop(text)
@@ -430,7 +458,8 @@ function picker_choose!(page::SetupPage, snap, send)
     if picker.kind === :production
         current = current_production()
         folder = abspath(joinpath(production_root(page), name))
-        folder == (isnothing(current) ? "" : joinpath(last(current), first(current))) || send(SelectProduction(folder))
+        folder == (isnothing(current) ? "" : joinpath(last(current), first(current))) ||
+            send(SelectProduction(folder))
     else
         name == dataset_name(snap) || send(SelectDataset(Symbol(name)))
     end
@@ -445,7 +474,11 @@ function cycle_option(page::SetupPage, snap, send)
     return nothing
 end
 
-format_option(value) = value === nothing ? "config" : value isa LogLevel ? only(name for (name, level) in LOG_LEVELS if level == value) : value === true ? "yes" : value === false ? "no" : string(value)
+function format_option(value)
+    value === nothing ? "config" :
+    value isa LogLevel ? only(name for (name, level) in LOG_LEVELS if level == value) :
+    value === true ? "yes" : value === false ? "no" : string(value)
+end
 
 # Lines of the summary of what a start would process.
 function setup_summary(snap)
@@ -453,10 +486,12 @@ function setup_summary(snap)
     nruns = sum(length, values(period_runs); init = 0)
     nperiods = count(!isempty, values(period_runs))
     return [
-        "Periods: $nperiods" * (nperiods == 0 ? "" : " (" * join(string.(sort!([p for (p, r) in period_runs if !isempty(r)])), ", ") * ")"),
+        "Periods: $nperiods" * (nperiods == 0 ? "" :
+         " (" * join(string.(sort!([p for (p, r) in period_runs if !isempty(r)])), ", ") *
+         ")"),
         "Runs: $nruns",
         "Run steps: $(length(snap.run_steps)) × $nruns runs",
-        "Partition steps: $(length(snap.partition_steps)) × $nperiods periods",
+        "Partition steps: $(length(snap.partition_steps)) × $nperiods periods"
     ]
 end
 
@@ -472,44 +507,61 @@ first line is the earliest start time. The box has as many lines as the period w
 most categories needs.
 """
 function dataset_lines(page::SetupPage)
-    dim, text, bright = Tachikoma.tstyle(:text_dim), Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_bright)
+    dim, text, bright = Tachikoma.tstyle(:text_dim), Tachikoma.tstyle(:text),
+    Tachikoma.tstyle(:text_bright)
     summary, entry = page.dataset, current(page.periods)
-    summary isa AbstractString && return (; title = "Dataset", lines = [[("runinfo: " * summary, Tachikoma.tstyle(:error))]])
-    isnothing(summary) && return (; title = "Dataset", lines = [[("Reading the runinfo…", dim)]])
+    summary isa AbstractString && return (; title = "Dataset",
+        lines = [[("runinfo: " * summary, Tachikoma.tstyle(:error))]])
+    isnothing(summary) &&
+        return (; title = "Dataset", lines = [[("Reading the runinfo…", dim)]])
     # a period has at least as many categories as any of its runs
-    ncategories = maximum(p -> length(unique(c.category for ((q, _), run) in summary if q == p for c in run)),
+    ncategories = maximum(
+        p -> length(unique(c.category for ((q, _), run) in summary if q == p for c in run)),
         unique(first.(keys(summary))); init = 1)
     # lines of a box with one line per category plus the start line
     padded(lines) = vcat(lines, fill([("", text)], max(0, ncategories + 1 - length(lines))))
-    isnothing(entry) && return (; title = "Dataset", lines = padded(Vector{Tuple{String,Tachikoma.Style}}[]))
-    category_span(c) = (rpad(string(c), 4), Tachikoma.tstyle(c === :cal ? :primary : c === :phy ? :secondary : :accent))
+    isnothing(entry) && return (;
+        title = "Dataset", lines = padded(Vector{Tuple{String, Tachikoma.Style}}[]))
+    category_span(c) = (rpad(string(c), 4),
+        Tachikoma.tstyle(c === :cal ? :primary : c === :phy ? :secondary : :accent))
     livetime(seconds) = isnan(seconds) ? "–" : format_duration(seconds)
     count_text(n, what) = n == 1 ? "1 $what" : "$n $(what)s"
     function start_line(entries)
         starts = [e.start for e in entries if !isnothing(e.start)]
-        return [("Start ", dim), (isempty(starts) ? "–" : Dates.format(minimum(starts), dateformat"yyyy-mm-dd HH:MM") * " UTC", bright)]
+        return [("Start ", dim),
+            (
+                isempty(starts) ? "–" :
+                Dates.format(minimum(starts), dateformat"yyyy-mm-dd HH:MM") * " UTC",
+                bright)]
     end
     if entry isa ChecklistGroup
         period = entry.key
         totals = period_summary(summary, period)
-        isempty(totals) && return (; title = "Dataset $period", lines = padded([[("not in the runinfo", Tachikoma.tstyle(:warning))]]))
+        isempty(totals) && return (; title = "Dataset $period",
+            lines = padded([[("not in the runinfo", Tachikoma.tstyle(:warning))]]))
         nruns = count(((p, _),) -> p == period, keys(summary))
         lines = [vcat(start_line(totals),
             [("  " * count_text(nruns, "run"), dim)])]
         for t in totals
-            push!(lines, [category_span(t.category), (lpad(count_text(t.nruns, "run"), 8), text), (lpad(count_text(t.nkeys, "key"), 10), text),
-                ("  " * livetime(t.livetime), bright),
-                (t.nanalysis == t.nruns ? "" : "  $(t.nanalysis) analysis", Tachikoma.tstyle(:warning))])
+            push!(lines,
+                [category_span(t.category), (lpad(count_text(t.nruns, "run"), 8), text),
+                    (lpad(count_text(t.nkeys, "key"), 10), text),
+                    ("  " * livetime(t.livetime), bright),
+                    (t.nanalysis == t.nruns ? "" : "  $(t.nanalysis) analysis",
+                        Tachikoma.tstyle(:warning))])
         end
         return (; title = "Dataset $period", lines = padded(lines))
     end
     period, run = entry.key
     categories = get(summary, (period, run), nothing)
-    isnothing(categories) && return (; title = "Dataset $period-$run", lines = padded([[("not in the runinfo", Tachikoma.tstyle(:warning))]]))
+    isnothing(categories) && return (; title = "Dataset $period-$run",
+        lines = padded([[("not in the runinfo", Tachikoma.tstyle(:warning))]]))
     lines = [start_line(categories)]
     for c in categories
-        push!(lines, [category_span(c.category), (lpad(count_text(c.nkeys, "key"), 8), text), ("  " * livetime(c.livetime), bright),
-            (c.analysis ? "" : "  no analysis", Tachikoma.tstyle(:warning))])
+        push!(lines,
+            [category_span(c.category), (lpad(count_text(c.nkeys, "key"), 8), text),
+                ("  " * livetime(c.livetime), bright),
+                (c.analysis ? "" : "  no analysis", Tachikoma.tstyle(:warning))])
     end
     return (; title = "Dataset $period-$run", lines = padded(lines))
 end
@@ -540,7 +592,8 @@ function find_productions(root::AbstractString)
             elseif depth < 4
                 for n in names
                     path = joinpath(dir, n)
-                    startswith(n, ".") || islink(path) || !isdir(path) || push!(next, joinpath(rel, n))
+                    startswith(n, ".") || islink(path) || !isdir(path) ||
+                        push!(next, joinpath(rel, n))
                 end
             end
         end
@@ -562,7 +615,8 @@ function read_choices(ctrl::DataflowController, root::AbstractString)
     isempty(root) && throw(ArgumentError("no production root is set"))
     productions = find_productions(root)
     session = @lock ctrl.lock ctrl.session
-    datasets = isnothing(session) ? String[] : string.(keys(session.l200.metadata.datasets.runlists))
+    datasets = isnothing(session) ? String[] :
+               string.(keys(session.l200.metadata.datasets.runlists))
     return (; productions, datasets = sort!(unique!(vcat("default", datasets))))
 end
 
@@ -580,7 +634,8 @@ function choices_sync!(m)
         value = try
             read_choices(ctrl, root)
         catch e
-            @error "Reading the data productions and datasets failed" exception = (e, catch_backtrace())
+            @error "Reading the data productions and datasets failed" exception = (
+                e, catch_backtrace())
             first(split(sprint(showerror, e), '\n'))
         end
         (key, value)
@@ -594,20 +649,24 @@ function production_lines(page::SetupPage, snap)
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
     production = current_production()
     names = (isnothing(production) ? "not set" : first(production), dataset_name(snap))
-    lines = Vector{Tuple{String,Tachikoma.Style}}[]
+    lines = Vector{Tuple{String, Tachikoma.Style}}[]
     editing = !isnothing(page.root_edit)
     root = editing ? page.root_edit : production_root(page)
     # the end of a long path stays visible, with room for the label and the cursor
     room = page.production_area.width - 8
-    names = (editing && 0 < room < textwidth(root) ? "…" * last(root, room - 1) : root, names...)
+    names = (
+        editing && 0 < room < textwidth(root) ? "…" * last(root, room - 1) : root, names...)
     for (i, (label, name)) in enumerate(zip(("Root: ", "Production: ", "Dataset: "), names))
         chosen = page.focus == 5 && i == page.source
-        push!(lines, [(label, chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
-            (name, Tachikoma.tstyle(:text_bright, bold = chosen)), (i == 1 && editing ? "█" : "", Tachikoma.tstyle(:accent))])
+        push!(lines,
+            [(label, chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
+                (name, Tachikoma.tstyle(:text_bright, bold = chosen)), (
+                    i == 1 && editing ? "█" : "", Tachikoma.tstyle(:accent))])
     end
     hint, failed = page.root_hint
     isempty(hint) || push!(lines, [(hint, failed ? Tachikoma.tstyle(:error) : dim)])
-    page.choices isa AbstractString && push!(lines, [(page.choices, Tachikoma.tstyle(:error))])
+    page.choices isa AbstractString &&
+        push!(lines, [(page.choices, Tachikoma.tstyle(:error))])
     return lines
 end
 
@@ -619,18 +678,24 @@ function render_picker(page::SetupPage, area::Tachikoma.Rect, buf::Tachikoma.Buf
     width = min(area.width, max(40, maximum(textwidth, picker.items; init = 0) + 6))
     box = Tachikoma.center(area, width, min(area.height, length(picker.items) + 4))
     for y in box.y:Tachikoma.bottom(box), x in box.x:Tachikoma.right(box)
+
         Tachikoma.set_char!(buf, x, y, ' ', text)
     end
-    inner = Tachikoma.render(Tachikoma.Block(title = title, border_style = Tachikoma.tstyle(:border_focus)), box, buf)
+    inner = Tachikoma.render(
+        Tachikoma.Block(title = title, border_style = Tachikoma.tstyle(:border_focus)),
+        box, buf)
     list = Tachikoma.Rect(inner.x, inner.y, inner.width, max(0, inner.height - 1))
     page.picker_area = list
-    picker.top = clamp(picker.cursor - list.height ÷ 2, 1, max(1, length(picker.items) - list.height + 1))
+    picker.top = clamp(picker.cursor - list.height ÷ 2, 1, max(1, length(picker.items) -
+                                                                  list.height + 1))
     for row in 1:min(list.height, length(picker.items) - picker.top + 1)
         i = picker.top + row - 1
-        Tachikoma.set_string!(buf, list.x + 1, list.y + row - 1, (i == picker.cursor ? "▶ " : "  ") * picker.items[i],
+        Tachikoma.set_string!(buf, list.x + 1, list.y + row - 1,
+            (i == picker.cursor ? "▶ " : "  ") * picker.items[i],
             i == picker.cursor ? Tachikoma.tstyle(:accent, bold = true) : text; max_x = Tachikoma.right(list))
     end
-    Tachikoma.set_string!(buf, inner.x + 1, Tachikoma.bottom(inner), "Enter: choose   Esc: close", Tachikoma.tstyle(:text_dim);
+    Tachikoma.set_string!(buf, inner.x + 1, Tachikoma.bottom(inner),
+        "Enter: choose   Esc: close", Tachikoma.tstyle(:text_dim);
         max_x = Tachikoma.right(inner))
     return nothing
 end
@@ -658,14 +723,18 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     Tachikoma.render(page.part_procs, bottom, buf)
 
     info, production = dataset_lines(page), production_lines(page, snap)
-    options, production_pane, dataset_pane = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical,
-        [Tachikoma.Fill(), Tachikoma.Fixed(min(length(production) + 2, right.height ÷ 3)),
-            Tachikoma.Fixed(min(length(info.lines) + 2, right.height ÷ 3))]), right)
+    options, production_pane, dataset_pane = Tachikoma.split_layout(
+        Tachikoma.Layout(Tachikoma.Vertical,
+            [Tachikoma.Fill(),
+                Tachikoma.Fixed(min(length(production) + 2, right.height ÷ 3)),
+                Tachikoma.Fixed(min(length(info.lines) + 2, right.height ÷ 3))]),
+        right)
     page.production_area = Tachikoma.render(pane_block("Production", page.focus == 5), production_pane, buf)
     for (i, spans) in pairs(production)
         y = page.production_area.y + i - 1
         y > Tachikoma.bottom(page.production_area) && break
-        put_spans!(buf, page.production_area.x, y, Tachikoma.right(page.production_area), spans)
+        put_spans!(
+            buf, page.production_area.x, y, Tachikoma.right(page.production_area), spans)
     end
     inner = Tachikoma.render(pane_block(info.title, false), dataset_pane, buf)
     for (i, spans) in pairs(info.lines)
@@ -678,16 +747,21 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     inner = Tachikoma.render(block, options, buf)
     page.options = inner
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
-    lines = Vector{Tuple{String,Tachikoma.Style}}[]
+    lines = Vector{Tuple{String, Tachikoma.Style}}[]
     if isnothing(snap) || isempty(snap.processors)
-        push!(lines, [(!isnothing(snap) && get(snap, :state, nothing) === :idle ? "No session loaded. N: new data production" : "Loading the session…", dim)])
+        push!(lines,
+            [(
+                !isnothing(snap) && get(snap, :state, nothing) === :idle ?
+                "No session loaded. N: new data production" : "Loading the session…",
+                dim)])
     else
         for (i, (key, label, _)) in pairs(SETUP_OPTIONS)
             value = option_value(snap, key)
             chosen = page.focus == 4 && i == page.option
             value_color = value === true ? :success : value === false ? :error : :text_dim
-            push!(lines, [("$label: ", chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
-                (format_option(value), Tachikoma.tstyle(value_color, bold = chosen))])
+            push!(lines,
+                [("$label: ", chosen ? Tachikoma.tstyle(:accent, bold = true) : text),
+                    (format_option(value), Tachikoma.tstyle(value_color, bold = chosen))])
         end
         push!(lines, [("", text)])
         for line in setup_summary(snap)
@@ -703,16 +777,20 @@ function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikom
     logo = fitting_logo(inner.width, inner.height - length(lines) - 1)
     if !isnothing(logo)
         w, h = logo_size(logo)
-        render_logo(logo, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf;
+        render_logo(
+            logo, inner.x + (inner.width - w) ÷ 2, Tachikoma.bottom(inner) - h + 1, buf;
             max_x = Tachikoma.right(inner), max_y = Tachikoma.bottom(inner))
     end
     page.editor isa KwargsEditor && render_kwargs(page.editor, snap, area, buf)
     page.editor isa RunmodeEditor && render_runmode(page.editor, snap, area, buf)
     isnothing(page.picker) || render_picker(page, area, buf)
     if page.confirm === :write && !isnothing(snap)
-        Tachikoma.render(Tachikoma.Modal(; title = "Write config",
-            message = "Write the current settings to\nconfig/processing_config.yaml\nin the data production?\nAn existing file is kept as processing_config.yaml.bak.\n\ny: write   any other key: cancel",
-            confirm_label = "", cancel_label = ""), area, buf)
+        Tachikoma.render(
+            Tachikoma.Modal(; title = "Write config",
+                message = "Write the current settings to\nconfig/processing_config.yaml\nin the data production?\nAn existing file is kept as processing_config.yaml.bak.\n\ny: write   any other key: cancel",
+                confirm_label = "", cancel_label = ""),
+            area,
+            buf)
     end
     return nothing
 end

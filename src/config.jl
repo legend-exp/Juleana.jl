@@ -37,80 +37,81 @@ julia> args["periods"], args["reprocess"], args["only_runs"]
 ```
 """
 function parse_commandline(args::AbstractVector{<:AbstractString})
-    settings = ArgParseSettings(prog="LEGEND Julia main data processing",
-                            description="LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
-                            version = string(pkgversion(Juleana)),
-                            add_version = true)
+    settings = ArgParseSettings(prog = "LEGEND Julia main data processing",
+        description = "LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
+        version = string(pkgversion(Juleana)),
+        add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
-            help = "path to config file; default: config/processing_config.yaml in the data production, copied there from the config shipped with Juleana if missing"
-            arg_type = String
+        help = "path to config file; default: config/processing_config.yaml in the data production, copied there from the config shipped with Juleana if missing"
+        arg_type = String
         "--reprocess"
-            help = "reprocess all channels while deleting old data"
-            action = :store_true
+        help = "reprocess all channels while deleting old data"
+        action = :store_true
         "--processor-log-level"
-            dest_name = "processor_log_level"
-            help = "log level of the processors' records, overriding `config.processor_log_level` and each processor's `log_level`: debug, info, warn or error"
-            arg_type = String
-            range_tester = in(keys(LOG_LEVELS))
+        dest_name = "processor_log_level"
+        help = "log level of the processors' records, overriding `config.processor_log_level` and each processor's `log_level`: debug, info, warn or error"
+        arg_type = String
+        range_tester = in(keys(LOG_LEVELS))
         "--processor-plot-level"
-            dest_name = "processor_plot_level"
-            help = "plot level of the processors, overriding `config.processor_plot_level` and each processor's `plot_level`: info or debug"
-            arg_type = String
-            range_tester = in(string.(PLOT_LEVEL_VALUES))
+        dest_name = "processor_plot_level"
+        help = "plot level of the processors, overriding `config.processor_plot_level` and each processor's `plot_level`: info or debug"
+        arg_type = String
+        range_tester = in(string.(PLOT_LEVEL_VALUES))
         "--only_runs", "--or"
-            help = "process only period and runs ignoring partitions"
-            dest_name = "only_runs"
-            action = :store_true
+        help = "process only period and runs ignoring partitions"
+        dest_name = "only_runs"
+        action = :store_true
         "--only_partitions", "--op"
-            help = "process only partitions ignoring periods and runs"
-            dest_name = "only_partitions"
-            action = :store_true
+        help = "process only partitions ignoring periods and runs"
+        dest_name = "only_partitions"
+        action = :store_true
         "--no-tui", "--no_tui"
-            help = "run all enabled processors without the terminal user interface and exit"
-            dest_name = "no_tui"
-            action = :store_true
+        help = "run all enabled processors without the terminal user interface and exit"
+        dest_name = "no_tui"
+        action = :store_true
         "--new-production", "--new_production"
-            help = "open the terminal user interface on the creation of a new data production"
-            dest_name = "new_production"
-            action = :store_true
+        help = "open the terminal user interface on the creation of a new data production"
+        dest_name = "new_production"
+        action = :store_true
         "--submit_jobs"
-            help = "submit slurm jobs to the selected run mode"
-            action = :store_true
+        help = "submit slurm jobs to the selected run mode"
+        action = :store_true
         "--runmode", "--rm"
-            help = "run mode to use for processing"
-            dest_name = "runmode"
-            arg_type = String
+        help = "run mode to use for processing"
+        dest_name = "runmode"
+        arg_type = String
         "--ignore_config"
-            help = "ignore all settings and config and only take command line arguments"
-            action = :store_true
+        help = "ignore all settings and config and only take command line arguments"
+        action = :store_true
         "--theme"
-            help = "color theme of the terminal user interface, such as night-owl or juleana; default: the theme last chosen with T"
-            arg_type = String
+        help = "color theme of the terminal user interface, such as night-owl or juleana; default: the theme last chosen with T"
+        arg_type = String
         "--dataset"
-            help = "dataset of the run lists in the metadata (datasets/runlists) that selects the runs"
-            arg_type = String
-            default = "default"
+        help = "dataset of the run lists in the metadata (datasets/runlists) that selects the runs"
+        arg_type = String
+        default = "default"
         "--log_path", "-o"
-            help = "path to store log files in"
-            arg_type = String
-            default = ""
+        help = "path to store log files in"
+        arg_type = String
+        default = ""
         "--analysis_runs_only"
-            help = "process only channels that are marked as analysis runs"
-            action = :store_true
+        help = "process only channels that are marked as analysis runs"
+        action = :store_true
         "--periods", "-p"
-            help = "periods to process, each optionally with runs: 6 (all runs), 6,1 (r001), 6,1-3, 6,1,4-6; repeatable"
-            nargs = '+'
-            arg_type = String
-            action = :append_arg
+        help = "periods to process, each optionally with runs: 6 (all runs), 6,1 (r001), 6,1-3, 6,1,4-6; repeatable"
+        nargs = '+'
+        arg_type = String
+        action = :append_arg
         "--runs", "-r"
-            help = "runs to process in the periods given without runs"
-            nargs = '+'
-            arg_type = Int
-            action = :append_arg
+        help = "runs to process in the periods given without runs"
+        nargs = '+'
+        arg_type = Int
+        action = :append_arg
     end
     parsed_args = parse_args(append!(String[], args), settings)
-    !isnothing(parsed_args) && isnothing(parsed_args["config"]) && haskey(ENV, "LEGEND_DATA_CONFIG") &&
+    !isnothing(parsed_args) && isnothing(parsed_args["config"]) &&
+        haskey(ENV, "LEGEND_DATA_CONFIG") &&
         (parsed_args["config"] = install_default_config())
     return parsed_args
 end
@@ -138,8 +139,12 @@ Return the value of `LEGEND_DATA_CONFIG` that selects the data production whose 
 is `config`: the override files of [`Juleana.data_config_files`](@ref) followed by `config`,
 or `config` alone if `LEGEND_DATA_CONFIG` is not set.
 """
-with_production_config(config::AbstractString) =
-    join(vcat(haskey(ENV, "LEGEND_DATA_CONFIG") ? data_config_files()[1:end-1] : String[], config), ":")
+function with_production_config(config::AbstractString)
+    join(
+        vcat(
+            haskey(ENV, "LEGEND_DATA_CONFIG") ? data_config_files()[1:(end - 1)] :
+            String[], config), ":")
+end
 
 """
     Juleana.production_config_dir()
@@ -174,7 +179,8 @@ function install_default_config()
     path = default_config_file()
     if !isfile(path)
         legacy = joinpath(dirname(path), "processing_config.json")
-        isfile(legacy) && @warn "Ignoring $legacy: the processing config is read from YAML; using $path"
+        isfile(legacy) &&
+            @warn "Ignoring $legacy: the processing config is read from YAML; using $path"
         shipped = joinpath(pkgdir(Juleana), "config", "processing_config.yaml")
         cp(shipped, joinpath(mkpath(dirname(path)), basename(path)))
         @info "Copied the processing config shipped with Juleana ($shipped) to $path"
@@ -210,7 +216,7 @@ julia> string.(periods), sort([string(p) => string.(r) for (p, r) in runs])
 """
 function parse_period_runs(period_args, run_args)
     periods = DataPeriod[]
-    period_runs = Dict{DataPeriod,Vector{DataRun}}()
+    period_runs = Dict{DataPeriod, Vector{DataRun}}()
     function number(text, spec)
         n = tryparse(Int, strip(text))
         isnothing(n) && throw(ArgumentError("invalid period or run `$text` in `-p $spec`"))
@@ -225,7 +231,8 @@ function parse_period_runs(period_args, run_args)
         runs = Int[]
         for part in parts[2:end]
             bounds = number.(split(part, '-'; limit = 2), spec)
-            first(bounds) <= last(bounds) || throw(ArgumentError("run range `$part` in `-p $spec` ends before it starts"))
+            first(bounds) <= last(bounds) ||
+                throw(ArgumentError("run range `$part` in `-p $spec` ends before it starts"))
             append!(runs, first(bounds):last(bounds))
         end
         period_runs[period] = DataRun.(sort!(unique!(runs)))
@@ -233,7 +240,8 @@ function parse_period_runs(period_args, run_args)
     global_runs = DataRun[DataRun(r) for r in Iterators.flatten(run_args)]
     !isempty(period_runs) && !isempty(global_runs) &&
         throw(ArgumentError("`-r` cannot be combined with periods given with runs (`-p 6,1`)"))
-    runs = !isempty(period_runs) ? period_runs : isempty(global_runs) ? nothing : global_runs
+    runs = !isempty(period_runs) ? period_runs :
+           isempty(global_runs) ? nothing : global_runs
     return isempty(periods) ? nothing : periods, runs
 end
 
@@ -265,9 +273,11 @@ function setup_processing(parsed_args::AbstractDict)
         runs = runs isa AbstractDict ? nothing : runs
     )
     # the command line level takes precedence over `config.processor_log_level`
-    isnothing(parsed_args["processor_log_level"]) || (config_dict.config.processor_log_level = parsed_args["processor_log_level"])
+    isnothing(parsed_args["processor_log_level"]) ||
+        (config_dict.config.processor_log_level = parsed_args["processor_log_level"])
     # the command line level takes precedence over `config.processor_plot_level`
-    isnothing(parsed_args["processor_plot_level"]) || (config_dict.config.processor_plot_level = parsed_args["processor_plot_level"])
+    isnothing(parsed_args["processor_plot_level"]) ||
+        (config_dict.config.processor_plot_level = parsed_args["processor_plot_level"])
     processing_config = ProcessingConfig(config_dict; cli...)
     # the environment variables must be set before the metadata is loaded
     for (key, value) in processing_config.env_variables
@@ -280,7 +290,9 @@ function setup_processing(parsed_args::AbstractDict)
     dataset == :default || haskey(l200.metadata.datasets.runlists, dataset) ||
         throw(ArgumentError("dataset $dataset is not in the metadata datasets/runlists"))
 
-    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], utc_timestamp()) : parsed_args["log_path"])
+    log_path = mkpath(isempty(parsed_args["log_path"]) ?
+                      joinpath(l200.tier[:jllog], utc_timestamp()) :
+                      parsed_args["log_path"])
     processing_config = ProcessingConfig(config_dict; cli..., log_path)
     @info "Log path: $log_path"
 
@@ -300,10 +312,13 @@ function setup_processing(parsed_args::AbstractDict)
     end
     @info "Process periods: $(string.(periods))"
     if runs isa AbstractDict
-        @info "Process runs: " * join(("$p: $(join(string.(r), ", "))" for (p, r) in sort!(collect(runs); by = first)), "; ")
+        @info "Process runs: " * join(
+            ("$p: $(join(string.(r), ", "))"
+            for (p, r) in sort!(collect(runs); by = first)), "; ")
     else
         runs = processing_config.runs
-        @info isnothing(runs) ? "Process all runs of the dataset for each period" : "Process runs: $(string.(runs))"
+        @info isnothing(runs) ? "Process all runs of the dataset for each period" :
+              "Process runs: $(string.(runs))"
     end
 
     return l200, processing_config, periods
@@ -324,7 +339,8 @@ function available_runs(l200::LegendData, period::DataPeriod)
 end
 
 # `runs === nothing` selects all available runs of `period`
-function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{AbstractVector{DataRun}, Nothing})
+function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{
+        AbstractVector{DataRun}, Nothing})
     available = available_runs(l200, period)
     isnothing(runs) && return available
     for run in runs
@@ -334,16 +350,17 @@ function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{Abst
 end
 
 # Runs given per period; a period without an entry keeps all its runs.
-processable_runs(l200::LegendData, period::DataPeriod, runs::AbstractDict{DataPeriod}) =
+function processable_runs(l200::LegendData, period::DataPeriod, runs::AbstractDict{DataPeriod})
     processable_runs(l200, period, get(runs, period, nothing))
-
+end
 
 # Return `(periods, run_status, partition_status)`: the given periods that have
 # processable runs, and the completion flags of every step for them. The status of a
 # step starts as finished unless the step is in `run_steps` or `partition_steps`, so
 # only the selected steps are waited for. `runs` is `nothing` (all runs), a vector of
 # runs for every period, or a dict of runs per period (other periods keep all runs).
-function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::AbstractVector{DataPeriod},
+function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig,
+        periods::AbstractVector{DataPeriod},
         runs::Union{AbstractVector{DataRun}, AbstractDict{DataPeriod}, Nothing}, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
     # get all possible steps
     # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
@@ -352,14 +369,19 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     run_status = RunStatus()
 
     # check if each period contains any runs at all
-    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=> processable_runs.(Ref(l200), periods, Ref(runs)))
+    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=>
+        processable_runs.(Ref(l200), periods, Ref(runs)))
     periods = filter(p -> !isempty(processable_runs_dict[p]), periods)
 
     # fill
     for period in periods
         # get all processable runs
         period_runs = processable_runs_dict[period]
-        run_status[period] = Dict{Symbol, Dict{DataRun, Bool}}(step => Dict{DataRun, Bool}(period_runs .=> !(step in run_steps)) for step in possible_steps)
+        run_status[period] = Dict{Symbol, Dict{DataRun, Bool}}(step =>
+                                                                   Dict{DataRun, Bool}(period_runs .=>
+                                                                       !(step in
+                                                                         run_steps))
+        for step in possible_steps)
     end
 
     # get all possible steps for partition processing
@@ -367,7 +389,8 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     # generate process status with all possible steps for all possible runs in all periods
     partition_status = PartitionStatus()
     for period in periods
-        partition_status[period] = Dict{Symbol, Bool}(step => !(step in partition_steps) for step in possible_p_steps)
+        partition_status[period] = Dict{Symbol, Bool}(step => !(step in partition_steps)
+        for step in possible_p_steps)
     end
 
     return periods, run_status, partition_status

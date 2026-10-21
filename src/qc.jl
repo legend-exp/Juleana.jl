@@ -11,12 +11,12 @@ classification when the evaluator is `missing` and set `qc_label` to `-1`.
 """
 function load_qc_evaluator(l200::LegendData, filekey::FileKey)
     ml_filename = get_mltrainfilename(l200, filekey)
-    
+
     if isfile(ml_filename)
         f_evaluate_qc = h5open(ml_filename) do train_data
             get_qc_ml_func(
-                Array(train_data["ml_train/dsp/dwt_norm"]), 
-                Array(train_data["ml_train/dsp/dc_label"]), 
+                Array(train_data["ml_train/dsp/dwt_norm"]),
+                Array(train_data["ml_train/dsp/dc_label"]),
                 l200.par.rpars.ml(filekey)
             )
         end

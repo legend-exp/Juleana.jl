@@ -42,13 +42,15 @@ struct ProcessorSpec
     category::Symbol
     rank::Int
     dependencies::Vector{Symbol}
-    kwargs::Dict{Symbol,Any}
+    kwargs::Dict{Symbol, Any}
     error_plots::Bool
     log_level::LogLevel
     plot_level::Symbol
 
-    function ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)
-        spec = new(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)
+    function ProcessorSpec(name, level, enabled, category, rank, dependencies,
+            kwargs, error_plots, log_level, plot_level)
+        spec = new(name, level, enabled, category, rank, dependencies,
+            kwargs, error_plots, log_level, plot_level)
         spec.level in (:run, :partition) ||
             throw(ArgumentError("processing_config: processor `$(spec.name)` has level $(repr(spec.level)), expected :run or :partition"))
         path = "$(spec.level === :run ? "processors" : "p_processors").$(spec.name)."
@@ -60,9 +62,12 @@ struct ProcessorSpec
     end
 end
 
-ProcessorSpec(; name, level, category, rank, enabled = true, dependencies = Symbol[], kwargs = Dict{Symbol,Any}(),
-    error_plots = false, log_level = Logging.Info, plot_level = :info) =
-    ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots, log_level, plot_level)
+function ProcessorSpec(; name, level, category, rank, enabled = true,
+        dependencies = Symbol[], kwargs = Dict{Symbol, Any}(),
+        error_plots = false, log_level = Logging.Info, plot_level = :info)
+    ProcessorSpec(name, level, enabled, category, rank, dependencies,
+        kwargs, error_plots, log_level, plot_level)
+end
 
 """
     struct ProcessingConfig
@@ -122,31 +127,37 @@ struct ProcessingConfig
     local_julia_settings::Vector{String}
     slurm_flags::Vector{String}
     slurm_julia_settings::Vector{String}
-    env_variables::Dict{String,String}
-    periods::Union{Nothing,Vector{DataPeriod}}
-    runs::Union{Nothing,Vector{DataRun}}
+    env_variables::Dict{String, String}
+    periods::Union{Nothing, Vector{DataPeriod}}
+    runs::Union{Nothing, Vector{DataRun}}
     analysis_runs_only::Bool
     only_partitions::Bool
     only_runs::Bool
     max_parallel_steps::Int
     log_path::String
     log_level::LogLevel
-    processor_log_level::Union{Nothing,LogLevel}
-    processor_plot_level::Union{Nothing,Symbol}
+    processor_log_level::Union{Nothing, LogLevel}
+    processor_plot_level::Union{Nothing, Symbol}
     plot_formats::Vector{Symbol}
     idle_timeout_minutes::Float64
-    processors::Dict{Symbol,ProcessorSpec}
-    p_processors::Dict{Symbol,ProcessorSpec}
+    processors::Dict{Symbol, ProcessorSpec}
+    p_processors::Dict{Symbol, ProcessorSpec}
 
-    function ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
+    function ProcessingConfig(
+            runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
+            only_partitions, only_runs, max_parallel_steps, log_path, log_level,
+            processor_log_level, processor_plot_level, plot_formats,
+            idle_timeout_minutes, processors, p_processors)
         cfg = new(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
             slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-            only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
+            only_partitions, only_runs, max_parallel_steps, log_path, log_level,
+            processor_log_level, processor_plot_level, plot_formats,
+            idle_timeout_minutes, processors, p_processors)
         cfg.runmode in (:local, :slurm) ||
             throw(ArgumentError("processing_config: runmode must be \"local\" or \"slurm\", got $(repr(cfg.runmode))"))
-        isnothing(cfg.processor_plot_level) || cfg.processor_plot_level in PLOT_LEVEL_VALUES ||
+        isnothing(cfg.processor_plot_level) ||
+            cfg.processor_plot_level in PLOT_LEVEL_VALUES ||
             throw(ArgumentError("processing_config: key `config.processor_plot_level` must be \"info\" or \"debug\", got $(repr(cfg.processor_plot_level))"))
         isempty(cfg.plot_formats) &&
             throw(ArgumentError("processing_config: key `config.plot_formats` must list at least one of \"png\" or \"jls\""))
@@ -162,8 +173,10 @@ struct ProcessingConfig
             throw(ArgumentError("processing_config: key `config.idle_timeout_minutes` must be zero or positive, got $(cfg.idle_timeout_minutes)"))
         cfg.only_runs && cfg.only_partitions &&
             throw(ArgumentError("processing_config: only one of `only_partitions` or `only_runs` can be set"))
-        for (section, level, specs) in (("processors", :run, cfg.processors), ("p_processors", :partition, cfg.p_processors)),
-                (name, spec) in specs
+        for (section, level, specs) in (("processors", :run, cfg.processors),
+                ("p_processors", :partition, cfg.p_processors)),
+            (name, spec) in specs
+
             name === spec.name ||
                 throw(ArgumentError("processing_config: `$section` entry `$name` holds the spec of `$(spec.name)`"))
             spec.level === level ||
@@ -172,8 +185,9 @@ struct ProcessingConfig
         duplicates = intersect(keys(cfg.processors), keys(cfg.p_processors))
         isempty(duplicates) ||
             throw(ArgumentError("processing_config: processor names in both `processors` and `p_processors`: $(join(duplicates, ", "))"))
-        for (section, specs) in (("processors", cfg.processors), ("p_processors", cfg.p_processors)),
-                spec in values(specs), dep in spec.dependencies
+        for (section, specs) in (("processors", cfg.processors), (
+                "p_processors", cfg.p_processors)),
+            spec in values(specs), dep in spec.dependencies
             haskey(cfg.processors, dep) || haskey(cfg.p_processors, dep) ||
                 throw(ArgumentError("processing_config: key `$section.$(spec.name).dependencies` names unknown processor `$dep`"))
         end
@@ -183,19 +197,25 @@ struct ProcessingConfig
     end
 end
 
-ProcessingConfig(;
+function ProcessingConfig(;
         processors, p_processors, runmode = :local, submit_jobs = false, local_n = 1,
         local_julia_settings = String[], slurm_flags = String[], slurm_julia_settings = String[],
-        env_variables = Dict{String,String}(), periods = nothing, runs = nothing,
+        env_variables = Dict{String, String}(), periods = nothing, runs = nothing,
         analysis_runs_only = false, only_partitions = false, only_runs = false, max_parallel_steps = 0, log_path = "",
-        log_level = Logging.Info, processor_log_level = nothing, processor_plot_level = nothing, plot_formats = [:png], idle_timeout_minutes = 20
-    ) = ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
+        log_level = Logging.Info, processor_log_level = nothing, processor_plot_level = nothing,
+        plot_formats = [:png], idle_timeout_minutes = 20
+)
+    ProcessingConfig(runmode, submit_jobs, local_n, local_julia_settings, slurm_flags,
         slurm_julia_settings, env_variables, periods, runs, analysis_runs_only,
-        only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level, processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
+        only_partitions, only_runs, max_parallel_steps, log_path, log_level, processor_log_level,
+        processor_plot_level, plot_formats, idle_timeout_minutes, processors, p_processors)
+end
 
 # Recursively convert nested dictionaries to `Dict{Symbol,Any}`.
 _symbolkeys(x) = x
-_symbolkeys(d::AbstractDict) = Dict{Symbol,Any}(Symbol(k) => _symbolkeys(v) for (k, v) in d)
+function _symbolkeys(d::AbstractDict)
+    Dict{Symbol, Any}(Symbol(k) => _symbolkeys(v) for (k, v) in d)
+end
 
 # Throw unless `d` has exactly the keys `required`; `path` is the key path of `d`.
 function _check_keys(d::AbstractDict, required, path::AbstractString; optional = ())
@@ -203,14 +223,16 @@ function _check_keys(d::AbstractDict, required, path::AbstractString; optional =
         haskey(d, k) || throw(ArgumentError("processing_config: missing key `$path$k`"))
     end
     for k in keys(d)
-        k in required || k in optional || throw(ArgumentError("processing_config: unknown key `$path$k`"))
+        k in required || k in optional ||
+            throw(ArgumentError("processing_config: unknown key `$path$k`"))
     end
 end
 
 # Return `d[k]` after checking that it is a `T`.
 function _typed(d::AbstractDict, k::Symbol, ::Type{T}, path::AbstractString) where {T}
     v = d[k]
-    v isa T || throw(ArgumentError("processing_config: key `$path$k` must be a $T, got $(repr(v))"))
+    v isa T ||
+        throw(ArgumentError("processing_config: key `$path$k` must be a $T, got $(repr(v))"))
     return v
 end
 
@@ -237,7 +259,7 @@ Former processor names mapped to their current names. A processing config that u
 former name as a key of `processors` or `p_processors`, or in a `dependencies` list,
 is read as if it used the current name.
 """
-const RENAMED_PROCESSORS = Dict{Symbol,Symbol}(
+const RENAMED_PROCESSORS = Dict{Symbol, Symbol}(
     :process_peak_split => :process_peak_split_cal,
     :process_decay_time => :process_decay_time_cal,
     :process_filter_optimization => :process_filter_optimization_cal,
@@ -254,7 +276,7 @@ const RENAMED_PROCESSORS = Dict{Symbol,Symbol}(
     :p_process_aoe_calibration_cut => :p_process_aoe_calibration_cut_cal,
     :p_process_aoe_cut => :p_process_aoe_cut_cal,
     :p_process_lq_calibration_cut => :p_process_lq_calibration_cut_cal,
-    :p_process_psd_efficiencies => :p_process_psd_efficiencies_cal,
+    :p_process_psd_efficiencies => :p_process_psd_efficiencies_cal
 )
 
 # Replace former processor names in the keys and the `dependencies` of the processor
@@ -268,14 +290,18 @@ function _current_names(tables::Tuple)
         new
     end
     renamed = map(tables) do table
-        out = Dict{Symbol,Any}()
+        out = Dict{Symbol, Any}()
         for (name, entry) in table
             new = current(name)
             haskey(table, new) && new !== name &&
                 throw(ArgumentError("processing_config: the config has both `$name` and `$new`, which are the same processor; keep `$new`"))
-            if entry isa AbstractDict && get(entry, :dependencies, nothing) isa AbstractVector
+            if entry isa AbstractDict &&
+               get(entry, :dependencies, nothing) isa AbstractVector
                 deps = entry[:dependencies]
-                entry = merge(entry, Dict(:dependencies => [x isa AbstractString ? string(current(Symbol(x))) : x for x in deps]))
+                entry = merge(entry,
+                    Dict(:dependencies =>
+                        [x isa AbstractString ? string(current(Symbol(x))) : x
+                         for x in deps]))
             end
             out[new] = entry
         end
@@ -294,13 +320,15 @@ Return a copy of the processor table `specs` (one level) in which every processo
 depends on the processor before it in the order of rank, then name. The dependencies
 then express that the processors run one after another in rank order.
 """
-function rank_order_dependencies(specs::AbstractDict{Symbol,ProcessorSpec})
+function rank_order_dependencies(specs::AbstractDict{Symbol, ProcessorSpec})
     order = sort!(collect(keys(specs)); by = n -> (specs[n].rank, n))
-    out = Dict{Symbol,ProcessorSpec}()
+    out = Dict{Symbol, ProcessorSpec}()
     for (k, name) in pairs(order)
         s = specs[name]
-        deps = k == firstindex(order) || order[k-1] in s.dependencies ? copy(s.dependencies) : vcat(s.dependencies, order[k-1])
-        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps, s.kwargs, s.error_plots, s.log_level, s.plot_level)
+        deps = k == firstindex(order) || order[k - 1] in s.dependencies ?
+               copy(s.dependencies) : vcat(s.dependencies, order[k - 1])
+        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps,
+            s.kwargs, s.error_plots, s.log_level, s.plot_level)
     end
     return out
 end
@@ -322,17 +350,20 @@ function _plot_level(section::AbstractDict, key::Symbol, path::AbstractString)
 end
 
 function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, reprocess::Bool)
-    specs = Dict{Symbol,ProcessorSpec}()
+    specs = Dict{Symbol, ProcessorSpec}()
     for (name, entry) in table
         path = "$section.$name."
         entry isa AbstractDict ||
             throw(ArgumentError("processing_config: key `$section.$name` must be a table, got $(repr(entry))"))
-        _check_keys(entry, (:enabled, :category, :rank, :kwargs, :dependencies, :log_level, :plot_level), path; optional = (:error_plots,))
+        _check_keys(entry,
+            (:enabled, :category, :rank, :kwargs, :dependencies, :log_level, :plot_level),
+            path; optional = (:error_plots,))
         category = _typed(entry, :category, AbstractString, path)
-        kwargs = Dict{Symbol,Any}()
+        kwargs = Dict{Symbol, Any}()
         for (k, v) in _typed(entry, :kwargs, AbstractDict, path)
             # String lists become Symbol lists, an untyped empty list becomes `Symbol[]`.
-            kwargs[k] = v isa AbstractVector && all(x -> x isa AbstractString, v) ? Symbol[Symbol(x) for x in v] : v
+            kwargs[k] = v isa AbstractVector && all(x -> x isa AbstractString, v) ?
+                        Symbol[Symbol(x) for x in v] : v
         end
         reprocess && (kwargs[:reprocess] = true)
         specs[name] = ProcessorSpec(
@@ -427,22 +458,25 @@ julia> string.(cfg.periods)
 """
 function ProcessingConfig(
         dict::AbstractDict;
-        runmode::Union{Nothing,AbstractString,Symbol} = nothing,
-        submit_jobs::Union{Nothing,Bool} = nothing,
+        runmode::Union{Nothing, AbstractString, Symbol} = nothing,
+        submit_jobs::Union{Nothing, Bool} = nothing,
         periods = nothing,
         runs = nothing,
-        analysis_runs_only::Union{Nothing,Bool} = nothing,
-        only_partitions::Union{Nothing,Bool} = nothing,
-        only_runs::Union{Nothing,Bool} = nothing,
+        analysis_runs_only::Union{Nothing, Bool} = nothing,
+        only_partitions::Union{Nothing, Bool} = nothing,
+        only_runs::Union{Nothing, Bool} = nothing,
         ignore_config::Bool = false,
         reprocess::Bool = false,
         log_path::AbstractString = ""
-    )
+)
     d = _symbolkeys(dict)
     _check_keys(d, (:config, :processing, :processors, :p_processors), "")
     config = _typed(d, :config, AbstractDict, "")
-    _check_keys(config, (:runmode, :submit_jobs, :runmode_settings, :env_variables, :log_level), "config.";
-        optional = (:idle_timeout_minutes, :processor_log_level, :processor_plot_level, :plot_formats))
+    _check_keys(
+        config, (:runmode, :submit_jobs, :runmode_settings, :env_variables, :log_level),
+        "config.";
+        optional = (:idle_timeout_minutes, :processor_log_level,
+            :processor_plot_level, :plot_formats))
     settings = _typed(config, :runmode_settings, AbstractDict, "config.")
     _check_keys(settings, (:local, :slurm), "config.runmode_settings.")
     local_settings = _typed(settings, :local, AbstractDict, "config.runmode_settings.")
@@ -450,9 +484,12 @@ function ProcessingConfig(
     slurm_settings = _typed(settings, :slurm, AbstractDict, "config.runmode_settings.")
     _check_keys(slurm_settings, (:flags, :julia_settings), "config.runmode_settings.slurm.")
     processing = _typed(d, :processing, AbstractDict, "")
-    _check_keys(processing, (:periods, :runs, :analysis_runs_only, :only_partitions, :only_runs), "processing.";
+    _check_keys(
+        processing, (:periods, :runs, :analysis_runs_only, :only_partitions, :only_runs),
+        "processing.";
         optional = (:order, :max_parallel_steps))
-    order = haskey(processing, :order) ? _typed(processing, :order, AbstractString, "processing.") : "rank"
+    order = haskey(processing, :order) ?
+            _typed(processing, :order, AbstractString, "processing.") : "rank"
     order in ("rank", "dependencies") ||
         throw(ArgumentError("processing_config: key `processing.order` must be \"rank\" or \"dependencies\", got $(repr(order))"))
 
@@ -467,15 +504,16 @@ function ProcessingConfig(
     sel_runmode = Symbol(something(runmode, _typed(config, :runmode, AbstractString, "config.")))
     n = _typed(local_settings, :n, Int, "config.runmode_settings.local.")
 
-    env_variables = Dict{String,String}()
+    env_variables = Dict{String, String}()
     for (k, v) in _typed(config, :env_variables, AbstractDict, "config.")
-        v isa Union{AbstractString,Real} ||
+        v isa Union{AbstractString, Real} ||
             throw(ArgumentError("processing_config: key `config.env_variables.$k` must be a string or number, got $(repr(v))"))
         env_variables[string(k)] = string(v)
     end
 
     sel_periods, sel_runs = if !isnothing(periods)
-        DataPeriod[DataPeriod(p) for p in periods], isnothing(runs) ? nothing : DataRun[DataRun(r) for r in runs]
+        DataPeriod[DataPeriod(p) for p in periods],
+        isnothing(runs) ? nothing : DataRun[DataRun(r) for r in runs]
     elseif !isnothing(runs)
         throw(ArgumentError("processing_config: runs without periods are not supported"))
     else
@@ -488,7 +526,8 @@ function ProcessingConfig(
     p_processors = _processor_specs(current_p_processors, :partition, :p_processors, reprocess)
     if order == "rank"
         @warn "processing_config: the processors of a level run in rank order; set `processing.order` to \"dependencies\" and list the order in the `dependencies` of each processor"
-        processors, p_processors = rank_order_dependencies(processors), rank_order_dependencies(p_processors)
+        processors, p_processors = rank_order_dependencies(processors),
+        rank_order_dependencies(p_processors)
     end
 
     return ProcessingConfig(
@@ -498,20 +537,29 @@ function ProcessingConfig(
         _strings(slurm_settings, :julia_settings, "config.runmode_settings.slurm."),
         env_variables, sel_periods, sel_runs,
         sel_analysis_runs_only, sel_only_partitions, sel_only_runs,
-        haskey(processing, :max_parallel_steps) ? _typed(processing, :max_parallel_steps, Int, "processing.") : 0, log_path,
+        haskey(processing, :max_parallel_steps) ?
+        _typed(processing, :max_parallel_steps, Int, "processing.") : 0, log_path,
         parse_log_level(_typed(config, :log_level, AbstractString, "config.")),
-        haskey(config, :processor_log_level) ? _log_level(config, :processor_log_level, "config.") : nothing,
-        haskey(config, :processor_plot_level) ? _plot_level(config, :processor_plot_level, "config.") : nothing,
-        haskey(config, :plot_formats) ? Symbol.(_strings(config, :plot_formats, "config.")) : [:png],
-        haskey(config, :idle_timeout_minutes) ? _typed(config, :idle_timeout_minutes, Real, "config.") : 20,
+        haskey(config, :processor_log_level) ?
+        _log_level(config, :processor_log_level, "config.") : nothing,
+        haskey(config, :processor_plot_level) ?
+        _plot_level(config, :processor_plot_level, "config.") : nothing,
+        haskey(config, :plot_formats) ?
+        Symbol.(_strings(config, :plot_formats, "config.")) : [:png],
+        haskey(config, :idle_timeout_minutes) ?
+        _typed(config, :idle_timeout_minutes, Real, "config.") : 20,
         processors, p_processors
     )
 end
 
-ProcessingConfig(filename::AbstractString; kwargs...) = ProcessingConfig(readlprops(filename); kwargs...)
+function ProcessingConfig(filename::AbstractString; kwargs...)
+    ProcessingConfig(readlprops(filename); kwargs...)
+end
 
-_sorted_steps(specs::AbstractDict, enabled_only::Bool) =
-    sort!([s.name for s in values(specs) if s.enabled || !enabled_only]; by = n -> (specs[n].rank, n))
+function _sorted_steps(specs::AbstractDict, enabled_only::Bool)
+    sort!([s.name for s in values(specs) if s.enabled || !enabled_only]; by = n -> (
+        specs[n].rank, n))
+end
 
 """
     run_steps(cfg::ProcessingConfig; enabled_only::Bool=true)
@@ -519,7 +567,9 @@ _sorted_steps(specs::AbstractDict, enabled_only::Bool) =
 Return the names of the run-level processors of `cfg` as a `Vector{Symbol}`, sorted by
 rank (ties by name). With `enabled_only = false` the disabled processors are included.
 """
-run_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.processors, enabled_only)
+function run_steps(cfg::ProcessingConfig; enabled_only::Bool = true)
+    _sorted_steps(cfg.processors, enabled_only)
+end
 
 """
     partition_steps(cfg::ProcessingConfig; enabled_only::Bool=true)
@@ -528,7 +578,9 @@ Return the names of the partition-level processors of `cfg` as a `Vector{Symbol}
 sorted by rank (ties by name). With `enabled_only = false` the disabled processors are
 included.
 """
-partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true) = _sorted_steps(cfg.p_processors, enabled_only)
+function partition_steps(cfg::ProcessingConfig; enabled_only::Bool = true)
+    _sorted_steps(cfg.p_processors, enabled_only)
+end
 
 # Keyword arguments the processor function of `spec` declares besides those the dataflow
 # passes itself, sorted; `nothing` when a method takes `kwargs...` or the processor is
@@ -565,17 +617,20 @@ mismatch; return `nothing` otherwise.
 function check_processor_kwargs(cfg::ProcessingConfig; processors::AbstractDict{Symbol} = PROCESSORS)
     problems = String[]
     for specs in (cfg.processors, cfg.p_processors), spec in values(specs)
+
         spec.enabled || continue
         problem = processor_kwargs_problem(spec, processors)
         isnothing(problem) || push!(problems, problem)
     end
     isempty(problems) ||
-        throw(ArgumentError("processing_config: processor kwargs mismatch:\n  " * join(problems, "\n  ")))
+        throw(ArgumentError("processing_config: processor kwargs mismatch:\n  " *
+                            join(problems, "\n  ")))
     return nothing
 end
 
 function Base.show(io::IO, spec::ProcessorSpec)
-    print(io, "ProcessorSpec(", repr(spec.name), ", level=", repr(spec.level), ", category=",
+    print(
+        io, "ProcessorSpec(", repr(spec.name), ", level=", repr(spec.level), ", category=",
         repr(spec.category), ", rank=", spec.rank, ", enabled=", spec.enabled, ")")
 end
 

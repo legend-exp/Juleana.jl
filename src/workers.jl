@@ -32,12 +32,12 @@ One run of the worker start script, started by [`Juleana.add_workers!`](@ref). F
 mutable struct WorkerAllocation
     const id::Int
     const backend::Symbol
-    const job_name::Union{Nothing,String}
+    const job_name::Union{Nothing, String}
     const started::DateTime
     const process
     state::Symbol
-    exit_code::Union{Nothing,Int}
-    finished::Union{Nothing,DateTime}
+    exit_code::Union{Nothing, Int}
+    finished::Union{Nothing, DateTime}
     job_ids::Vector{String}
     const output::Vector{String}
 end
@@ -69,19 +69,21 @@ mutable struct WorkerManager
     const scancel::Cmd
     const sinfo::Cmd
     # host names of the workers, by process ID
-    const hosts::Dict{Int,String}
+    const hosts::Dict{Int, String}
     const allocations::Vector{WorkerAllocation}
-    config::Union{Nothing,ProcessingConfig}
-    script_path::Union{Nothing,String}
-    script::Union{Nothing,String}
+    config::Union{Nothing, ProcessingConfig}
+    script_path::Union{Nothing, String}
+    script::Union{Nothing, String}
     # number of the last SLURM job name handed out
     jobs::Int
     # UTC time of the last processing run, new allocation or postponement
     last_activity::DateTime
 end
 
-WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`, sinfo::Cmd = `sinfo`) =
-    WorkerManager(ReentrantLock(), squeue, scancel, sinfo, Dict{Int,String}(), WorkerAllocation[], nothing, nothing, nothing, 0, now(UTC))
+function WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`, sinfo::Cmd = `sinfo`)
+    WorkerManager(ReentrantLock(), squeue, scancel, sinfo, Dict{Int, String}(),
+        WorkerAllocation[], nothing, nothing, nothing, 0, now(UTC))
+end
 
 """
     Juleana.set_worker_config!(mgr::WorkerManager, config::ProcessingConfig)
@@ -107,7 +109,8 @@ the [`Juleana.production_config_dir`](@ref), keeping an existing file as
 """
 function start_script!(mgr::WorkerManager)
     @lock mgr.lock begin
-        isnothing(mgr.config) && throw(ArgumentError("start_script!: no processing config is set"))
+        isnothing(mgr.config) &&
+            throw(ArgumentError("start_script!: no processing config is set"))
         if isnothing(mgr.script)
             path = joinpath(mkpath(production_config_dir()), "startjlworkers.sh")
             isfile(path) && cp(path, path * ".bak"; force = true)
@@ -129,8 +132,9 @@ an `ArgumentError` for a SLURM script without such a name.
 function edit_start_script!(mgr::WorkerManager, text::AbstractString)
     @lock mgr.lock begin
         (; path) = start_script!(mgr)
-        mgr.config.runmode === :slurm && !occursin(SLURM_JOB_NAME, text) && throw(ArgumentError(
-            "edit_start_script!: a SLURM start script must contain `--job-name=julia-<n>-<m>`, by which its jobs are found and cancelled"))
+        mgr.config.runmode === :slurm && !occursin(SLURM_JOB_NAME, text) &&
+            throw(ArgumentError(
+                "edit_start_script!: a SLURM start script must contain `--job-name=julia-<n>-<m>`, by which its jobs are found and cancelled"))
         write(path, text)
         mgr.script = String(text)
     end
@@ -162,12 +166,14 @@ function add_workers!(mgr::WorkerManager)
         out = Pipe()
         process = run(pipeline(detach(Cmd(["bash", "-c", text])); stdout = out, stderr = out); wait = false)
         close(out.in)
-        alloc = WorkerAllocation(length(mgr.allocations) + 1, backend, job_name, now(UTC), process, :running,
+        alloc = WorkerAllocation(
+            length(mgr.allocations) + 1, backend, job_name, now(UTC), process, :running,
             nothing, nothing, String[], String[])
         push!(mgr.allocations, alloc)
         mgr.last_activity = alloc.started
         errormonitor(Threads.@spawn watch_allocation(mgr, alloc, out))
-        @info "Started worker allocation $(alloc.id)" * (isnothing(job_name) ? "" : " as SLURM job $job_name")
+        @info "Started worker allocation $(alloc.id)" *
+              (isnothing(job_name) ? "" : " as SLURM job $job_name")
         return alloc
     end
 end
@@ -192,8 +198,10 @@ end
 # IDs of the SLURM jobs of this user named exactly `job_name`.
 function slurm_job_ids(mgr::WorkerManager, job_name::AbstractString)
     listing = read(`$(mgr.squeue) -h -u $(get(ENV, "USER", "")) -o "%A %j"`, String)
-    return [String(id) for (id, name) in (split(line; limit = 2) for line in eachline(IOBuffer(listing)) if !isempty(strip(line)))
-        if strip(name) == job_name]
+    return [String(id)
+            for (id, name) in (split(line; limit = 2)
+                for line in eachline(IOBuffer(listing)) if !isempty(strip(line)))
+            if strip(name) == job_name]
 end
 
 """
@@ -203,7 +211,9 @@ Query `squeue` for the jobs of the running SLURM allocations of `mgr` and store 
 in the allocations. Does nothing without such allocations.
 """
 function update_job_ids!(mgr::WorkerManager)
-    running = @lock mgr.lock [a for a in mgr.allocations if a.state === :running && !isnothing(a.job_name)]
+    running = @lock mgr.lock [a
+                              for a in mgr.allocations
+                              if a.state === :running && !isnothing(a.job_name)]
     for alloc in running
         ids = slurm_job_ids(mgr, alloc.job_name)
         @lock mgr.lock alloc.job_ids = ids
@@ -223,7 +233,8 @@ Throws an `ArgumentError` for an unknown `id`.
 function cancel_allocation!(mgr::WorkerManager, id::Integer)
     alloc = @lock mgr.lock begin
         i = findfirst(a -> a.id == id, mgr.allocations)
-        isnothing(i) && throw(ArgumentError("cancel_allocation!: there is no worker allocation $id"))
+        isnothing(i) &&
+            throw(ArgumentError("cancel_allocation!: there is no worker allocation $id"))
         a = mgr.allocations[i]
         a.state === :running || return mgr
         a.state = :cancelled
@@ -235,7 +246,8 @@ function cancel_allocation!(mgr::WorkerManager, id::Integer)
         @lock mgr.lock alloc.job_ids = ids
     end
     # the shell leads its process group: a negative pid signals the whole group
-    if ccall(:kill, Cint, (Cint, Cint), -getpid(alloc.process), SIGTERM_SIGNAL) != 0 && Libc.errno() != ESRCH_ERRNO
+    if ccall(:kill, Cint, (Cint, Cint), -getpid(alloc.process), SIGTERM_SIGNAL) != 0 &&
+       Libc.errno() != ESRCH_ERRNO
         throw(SystemError("cancel_allocation!: kill of the process group of allocation $id", Libc.errno()))
     end
     @info "Cancelled worker allocation $id"
@@ -255,10 +267,12 @@ end
 
 # A copy of a worker allocation, without and with its output. The field types are fixed, so
 # that the interface code that shows allocations is compiled once for every state.
-const AllocationInfo = @NamedTuple{id::Int, backend::Symbol, job_name::Union{Nothing,String}, started::DateTime,
-    finished::Union{Nothing,DateTime}, state::Symbol, exit_code::Union{Nothing,Int}, job_ids::Vector{String}}
-const AllocationOutputInfo = @NamedTuple{id::Int, backend::Symbol, job_name::Union{Nothing,String}, started::DateTime,
-    finished::Union{Nothing,DateTime}, state::Symbol, exit_code::Union{Nothing,Int}, job_ids::Vector{String},
+const AllocationInfo = @NamedTuple{
+    id::Int, backend::Symbol, job_name::Union{Nothing, String}, started::DateTime,
+    finished::Union{Nothing, DateTime}, state::Symbol, exit_code::Union{Nothing, Int}, job_ids::Vector{String}}
+const AllocationOutputInfo = @NamedTuple{
+    id::Int, backend::Symbol, job_name::Union{Nothing, String}, started::DateTime,
+    finished::Union{Nothing, DateTime}, state::Symbol, exit_code::Union{Nothing, Int}, job_ids::Vector{String},
     output::Vector{String}}
 
 """
@@ -270,11 +284,14 @@ a `Vector{Juleana.AllocationOutputInfo}`, or a `Vector{Juleana.AllocationInfo}` 
 """
 function allocations(mgr::WorkerManager; output::Bool = true)
     @lock mgr.lock if output
-        AllocationOutputInfo[(; a.id, a.backend, a.job_name, a.started, a.finished, a.state, a.exit_code,
-            job_ids = copy(a.job_ids), output = copy(a.output)) for a in mgr.allocations]
+        AllocationOutputInfo[(; a.id, a.backend, a.job_name, a.started,
+                                 a.finished, a.state, a.exit_code,
+                                 job_ids = copy(a.job_ids), output = copy(a.output))
+                             for a in mgr.allocations]
     else
-        AllocationInfo[(; a.id, a.backend, a.job_name, a.started, a.finished, a.state, a.exit_code,
-            job_ids = copy(a.job_ids)) for a in mgr.allocations]
+        AllocationInfo[(; a.id, a.backend, a.job_name, a.started,
+                           a.finished, a.state, a.exit_code,
+                           job_ids = copy(a.job_ids)) for a in mgr.allocations]
     end
 end
 
@@ -301,8 +318,9 @@ no allocation runs, without a config, or if the timeout is `0`.
 function idle_deadline(mgr::WorkerManager; processing::Bool)
     @lock mgr.lock begin
         (processing || isnothing(mgr.config) || mgr.config.idle_timeout_minutes == 0 ||
-            !any(a -> a.state === :running, mgr.allocations)) && return nothing
-        return mgr.last_activity + Millisecond(round(Int, mgr.config.idle_timeout_minutes * 60_000))
+         !any(a -> a.state === :running, mgr.allocations)) && return nothing
+        return mgr.last_activity +
+               Millisecond(round(Int, mgr.config.idle_timeout_minutes * 60_000))
     end
 end
 
@@ -322,9 +340,9 @@ end
 
 # Type of the value of `workers_overview`, with fixed field types.
 const WorkersOverview = @NamedTuple{allocations::Vector{AllocationOutputInfo},
-    script::Union{String,@NamedTuple{path::String, text::String}},
-    workers::Vector{@NamedTuple{pid::Int, host::Union{Nothing,String}}},
-    slurm::Union{Nothing,@NamedTuple{queue::String, idle::String}}}
+    script::Union{String, @NamedTuple{path::String, text::String}},
+    workers::Vector{@NamedTuple{pid::Int, host::Union{Nothing, String}}},
+    slurm::Union{Nothing, @NamedTuple{queue::String, idle::String}}}
 
 """
     Juleana.workers_overview(mgr::WorkerManager)
@@ -369,6 +387,9 @@ function workers_overview(mgr::WorkerManager)
         [(; pid, host = isempty(mgr.hosts[pid]) ? nothing : mgr.hosts[pid]) for pid in pids]
     end
     user = get(ENV, "USER", "")
-    slurm = slurm_available ? (; queue = read(`$(mgr.squeue) -u $user`, String), idle = read(`$(mgr.sinfo) -t idle`, String)) : nothing
-    return convert(WorkersOverview, (; allocations = allocations(mgr), script, workers = workers_now, slurm))
+    slurm = slurm_available ?
+            (; queue = read(`$(mgr.squeue) -u $user`, String),
+        idle = read(`$(mgr.sinfo) -t idle`, String)) : nothing
+    return convert(WorkersOverview, (;
+        allocations = allocations(mgr), script, workers = workers_now, slurm))
 end

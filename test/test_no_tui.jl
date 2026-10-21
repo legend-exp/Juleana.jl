@@ -15,10 +15,12 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     data_config = legend_test_setup(root, TEST_DIRS)
     l200 = legend_test_data(data_config)
     p2 = DataPeriod(2)
-    args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
+    args = Dict{String, Any}("config" =>
+        joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
     cfg = ProcessingConfig(;
-        processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
-        p_processors = Dict{Symbol,ProcessorSpec}())
+        processors = Dict(:process_energy_calibration_cal =>
+            spec(:process_energy_calibration_cal, :run, 1)),
+        p_processors = Dict{Symbol, ProcessorSpec}())
     runs = DataRun.([6, 7])
     function loader(parsed_args)
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
@@ -31,10 +33,12 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     function run_logged(step; loader = loader, before_wait = nothing)
         logger = Test.TestLogger(; min_level = Logging.Info)
         code = with_logger(logger) do
-            Juleana.run_no_tui(args; processors = Dict{Symbol,Any}(:process_energy_calibration_cal => step),
+            Juleana.run_no_tui(args;
+                processors = Dict{Symbol, Any}(:process_energy_calibration_cal => step),
                 loader, interval = 0.05)
         end
-        return code, [string(r.message) for r in logger.logs if r.message isa AbstractString]
+        return code,
+        [string(r.message) for r in logger.logs if r.message isa AbstractString]
     end
 
     @testset "finished" begin
@@ -46,7 +50,8 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     end
 
     @testset "failed" begin
-        failing(cfg, l200, period, run; reprocess = false) = run == DataRun(6) ? error("stub failure") : nothing
+        failing(cfg, l200, period, run; reprocess = false) = run == DataRun(6) ?
+                                                             error("stub failure") : nothing
         code, messages = run_logged(failing)
         @test code == 1
         summary = only(filter(startswith("Processing failed after"), messages))
@@ -59,7 +64,9 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
         code, messages = run_logged((cfg, l200, period, run; reprocess = false) -> nothing;
             loader = parsed_args -> error("no data"))
         @test code == 1
-        @test any(m -> occursin("Setting up the session failed", m) && occursin("no data", m), messages)
+        @test any(
+            m -> occursin("Setting up the session failed", m) &&
+                 occursin("no data", m), messages)
     end
 
     @testset "interrupts stop the run" begin
@@ -72,7 +79,9 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
         end
         for interrupts in (1, 2)
             started[] = 0
-            ctrl = DataflowController(loader(args); processors = Dict{Symbol,Any}(:process_energy_calibration_cal => slow_step))
+            ctrl = DataflowController(loader(args);
+                processors = Dict{Symbol, Any}(:process_energy_calibration_cal =>
+                    slow_step))
             dispatch!(ctrl, SelectRuns([6]))
             dispatch!(ctrl, StartProcessing())
             @test timedwait(() -> started[] >= 1, 60) === :ok

@@ -36,14 +36,16 @@ after a simple A/E cut set on the DEP. It stores the selected window length toge
 # Returns
 The return value is not used by `run_processing`.
 """
-function process_aoe_optimization_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
-
+function process_aoe_optimization_cal(
+        processing_config, l200::LegendData, period::DataPeriod,
+        run::DataRun; reprocess::Bool = false, timeout::Real = 0)
     @info "Optimize PSD filter for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, filekey; system = :geds, only_processable = true) |>
+             filterby(@pf $usability == :on && $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
@@ -65,19 +67,22 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
     pars_db = PropDict(l200.par.rpars.aoeopt[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all detectors" end
+    if reprocess
+        @info "Reprocess all detectors"
+    end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"), Symbol("Window length"), Symbol("Survival Fraction"), Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Filter Type"),
+        Symbol("Window length"), Symbol("Survival Fraction"),
+        Symbol("Number of DEP"), Symbol("Number of SEP"), :Error)}
 
     # get worker pool
-    
+
     # flush stdout
     flush(stdout)
 
     function det_sg_optimization(chinfo_det::NamedTuple)
-        
-        ch  = chinfo_det.channel
+        ch = chinfo_det.channel
         det = chinfo_det.detector
 
         @info "Processing detector $det ($ch)"
@@ -86,18 +91,21 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
         @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         aoe_config_det = merge(optimization_config.default, get(optimization_config, det, PropDict()))
-        qc_string     = aoe_config_det.qc
-        aoe_filter      = collect(keys(aoe_config_det.aoe_filter))
+        qc_string = aoe_config_det.qc
+        aoe_filter = collect(keys(aoe_config_det.aoe_filter))
 
         result_wl_dict = Dict{Symbol, NamedTuple}()
-        log_info_dict  = Dict{Symbol, NamedTuple}()
+        log_info_dict = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
         if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $(det) already processed, check missing filters"
             for filter_type in aoe_filter
                 if haskey(pars_db[det], filter_type)
-                    log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), filter_type, pars_db[det][filter_type].wl, pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep, pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability),
+                        ProcessStatus(1), filter_type, pars_db[det][filter_type].wl,
+                        pars_db[det][filter_type].sf, pars_db[det][filter_type].n_dep,
+                        pars_db[det][filter_type].n_sep, "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -110,46 +118,48 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
             @debug "All filters already processed, skip detector"
             return (processed = processed_dict, log = log_info_dict)
         end
-        
+
         filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
             @warn "File $filename does not exist, Skip detector $det"
             throw(ErrorException("File $(filename) does not exist"))
         end
-        
-        wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate = @process_step "DEP and SEP data loader" begin
+
+        wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw,
+        wvfs_det_dep_pre, presum_rate = @process_step "DEP and SEP data loader" begin
             @debug "Loading Tl208 SEP and DEP data from $(filename)"
             dep_data = read_ldata(
                 (@pf (;
                     waveform_windowed = $Tl208DEP_Bi212FEP.waveform_windowed,
                     waveform_presummed = $Tl208DEP_Bi212FEP.waveform_presummed,
-                    daqenergy = $Tl208DEP_Bi212FEP.daqenergy,
+                    daqenergy = $Tl208DEP_Bi212FEP.daqenergy
                 )),
-                l200, DataTier(:jlpks), filekey, det,
+                l200, DataTier(:jlpks), filekey, det
             )
             sep_data = read_ldata(
                 (@pf (;
                     waveform_windowed = $Tl208SEP.waveform_windowed,
                     waveform_presummed = $Tl208SEP.waveform_presummed,
-                    presum_rate = $Tl208SEP.presum_rate,
+                    presum_rate = $Tl208SEP.presum_rate
                 )),
-                l200, DataTier(:jlpks), filekey, det,
+                l200, DataTier(:jlpks), filekey, det
             )
             wvfs_det_dep_bi121fep_wdw = dep_data.waveform_windowed
             wvfs_det_dep_bi121fep_pre = dep_data.waveform_presummed
-            presum_rate               = first(sep_data.presum_rate)
-            wvfs_det_dep_wdw          = wvfs_det_dep_bi121fep_wdw
-            wvfs_det_dep_pre          = wvfs_det_dep_bi121fep_pre
-            wvfs_det_sep_wdw          = sep_data.waveform_windowed
-            wvfs_det_sep_pre          = sep_data.waveform_presummed
-            wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre, presum_rate
+            presum_rate = first(sep_data.presum_rate)
+            wvfs_det_dep_wdw = wvfs_det_dep_bi121fep_wdw
+            wvfs_det_dep_pre = wvfs_det_dep_bi121fep_pre
+            wvfs_det_sep_wdw = sep_data.waveform_windowed
+            wvfs_det_sep_pre = sep_data.waveform_presummed
+            wvfs_det_sep_wdw, wvfs_det_sep_pre, wvfs_det_dep_wdw, wvfs_det_dep_pre,
+            presum_rate
         end
-        
+
         @showprogress desc="Computing $det ..." for filter_type in aoe_filter
             if haskey(processed_dict, filter_type)
                 continue
             end
-            
+
             try
                 @debug "Optimize $filter_type filter"
 
@@ -157,28 +167,42 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
 
                 plot_example_waveforms() = begin
                     fig = Makie.Figure(size = (900, 400))
-                    Makie.Label(fig[0, 1:2], get_plottitle(filekey, det, "Example Waveforms"; additional_type=string(filter_type)))
-                    for (col, (name, wvfs)) in enumerate(("DEP" => wvfs_det_dep_wdw, "SEP" => wvfs_det_sep_wdw))
+                    Makie.Label(fig[0, 1:2],
+                        get_plottitle(filekey, det, "Example Waveforms"; additional_type = string(filter_type)))
+                    for (col, (name, wvfs)) in enumerate((
+                        "DEP" => wvfs_det_dep_wdw, "SEP" => wvfs_det_sep_wdw))
                         ax = Makie.Axis(fig[1, col]; title = name, xlabel = "Time", ylabel = "Signal")
                         for wvf in Iterators.take(wvfs, 5)
                             Makie.lines!(ax, ustrip.(wvf.time), ustrip.(wvf.signal))
                         end
                     end
-                    save_plot(fig, l200, filekey, det, Symbol("error_dsp_dep_sep_$filter_type"))
+                    save_plot(
+                        fig, l200, filekey, det, Symbol("error_dsp_dep_sep_$filter_type"))
                 end
-                dsp_sep, dsp_dep = @process_step "$filter_type DSP of DEP and SEP" on_error = plot_example_waveforms begin
+                dsp_sep,
+                dsp_dep = @process_step "$filter_type DSP of DEP and SEP" on_error = plot_example_waveforms begin
                     # DSP
                     @debug "Generating DSP AoE grid for SEP and DEP data"
-                    dsp_dep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_dep_wdw, wvfs_det_dep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
-                    dsp_sep = legend_dsp_function("dsp_$(filter_type)_optimization_compressed", "dsp.aoe_optimization.aoe_filter.$filter_type")(wvfs_det_sep_wdw, wvfs_det_sep_pre, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det]; f_evaluate_qc=f_evaluate_qc, presum_rate=presum_rate)
+                    dsp_dep = legend_dsp_function(
+                        "dsp_$(filter_type)_optimization_compressed",
+                        "dsp.aoe_optimization.aoe_filter.$filter_type")(
+                        wvfs_det_dep_wdw, wvfs_det_dep_pre, dsp_config_det,
+                        pars_tau[det].τ, pars_fltoptimization[det];
+                        f_evaluate_qc = f_evaluate_qc, presum_rate = presum_rate)
+                    dsp_sep = legend_dsp_function(
+                        "dsp_$(filter_type)_optimization_compressed",
+                        "dsp.aoe_optimization.aoe_filter.$filter_type")(
+                        wvfs_det_sep_wdw, wvfs_det_sep_pre, dsp_config_det,
+                        pars_tau[det].τ, pars_fltoptimization[det];
+                        f_evaluate_qc = f_evaluate_qc, presum_rate = presum_rate)
                     dsp_sep, dsp_dep
                 end
 
                 dep_sep_after_qc = @process_step "$filter_type QC of DEP and SEP" begin
                     # generate simple QC cuts
                     @debug "Apply QC cuts for SEP and DEP"
-                    (dep = dsp_dep[ljl_propfunc(qc_string).(dsp_dep)], 
-                                sep = dsp_sep[ljl_propfunc(qc_string).(dsp_sep)]
+                    (dep = dsp_dep[ljl_propfunc(qc_string).(dsp_dep)],
+                        sep = dsp_sep[ljl_propfunc(qc_string).(dsp_sep)]
                     )
                 end
 
@@ -187,35 +211,47 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
 
                 plot_dep_sep_distributions() = begin
                     fig = Makie.Figure(size = (900, 700))
-                    Makie.Label(fig[0, 1:2], get_plottitle(filekey, det, "DEP and SEP"; additional_type=string(filter_type)))
-                    for (col, (name, data)) in enumerate(("DEP" => dep_sep_after_qc.dep, "SEP" => dep_sep_after_qc.sep))
+                    Makie.Label(fig[0, 1:2],
+                        get_plottitle(filekey, det, "DEP and SEP"; additional_type = string(filter_type)))
+                    for (col, (name, data)) in enumerate((
+                        "DEP" => dep_sep_after_qc.dep, "SEP" => dep_sep_after_qc.sep))
                         ax_aoe = Makie.Axis(fig[1, col]; title = "$name A/E", xlabel = "A/E", ylabel = "Counts")
                         Makie.hist!(ax_aoe, filter(isfinite, ustrip.(data.aoe)); bins = 100)
-                        ax_e = Makie.Axis(fig[2, col]; title = "$name energy", xlabel = "Energy", ylabel = "Counts")
+                        ax_e = Makie.Axis(fig[2, col]; title = "$name energy",
+                            xlabel = "Energy", ylabel = "Counts")
                         Makie.hist!(ax_e, filter(isfinite, ustrip.(data.energy)); bins = 100)
                     end
-                    save_plot(fig, l200, filekey, det, Symbol("error_window_length_optimization_$filter_type"))
+                    save_plot(fig, l200, filekey, det,
+                        Symbol("error_window_length_optimization_$filter_type"))
                 end
-                result_wl, report_wl = @process_step "$filter_type window length optimization" on_error = plot_dep_sep_distributions begin
+                result_wl,
+                report_wl = @process_step "$filter_type window length optimization" on_error = plot_dep_sep_distributions begin
                     # fit SG window length
                     @debug "Sweep through window lengths for SEP and DEP and get SEP survival fraction after simple PSD cut on DEP"
-                    fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe, dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe, getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
-                                                dep=aoe_config_flt.dep, dep_window=aoe_config_flt.dep_window, sep=aoe_config_flt.sep, sep_window=aoe_config_flt.sep_window, 
-                                                sep_rel_cut=aoe_config_flt.sep_rel_cut, 
-                                                min_aoe_quantile=aoe_config_flt.min_aoe_quantile, max_aoe_quantile=aoe_config_flt.max_aoe_quantile,
-                                                min_aoe_offset=aoe_config_flt.min_aoe_offset, max_aoe_offset=aoe_config_flt.max_aoe_offset,
-                                                dep_cut_search_fit_func=Symbol(aoe_config_flt.dep_cut_search_fit_func), sep_cut_search_fit_func=Symbol(aoe_config_flt.sep_cut_search_fit_func)
-                                                )
+                    fit_sf_wl(dep_sep_after_qc.dep.energy, dep_sep_after_qc.dep.aoe,
+                        dep_sep_after_qc.sep.energy, dep_sep_after_qc.sep.aoe,
+                        getproperty(dsp_config_det, Symbol("a_grid_wl_$(filter_type)"));
+                        dep = aoe_config_flt.dep, dep_window = aoe_config_flt.dep_window,
+                        sep = aoe_config_flt.sep, sep_window = aoe_config_flt.sep_window,
+                        sep_rel_cut = aoe_config_flt.sep_rel_cut,
+                        min_aoe_quantile = aoe_config_flt.min_aoe_quantile, max_aoe_quantile = aoe_config_flt.max_aoe_quantile,
+                        min_aoe_offset = aoe_config_flt.min_aoe_offset, max_aoe_offset = aoe_config_flt.max_aoe_offset,
+                        dep_cut_search_fit_func = Symbol(aoe_config_flt.dep_cut_search_fit_func), sep_cut_search_fit_func = Symbol(aoe_config_flt.sep_cut_search_fit_func)
+                    )
                 end
-                
-                p = LegendMakie.lplot(report_wl, title = get_plottitle(filekey, det, "$(uppercase(string(filter_type))) Filter Optimization"))
+
+                p = LegendMakie.lplot(report_wl,
+                    title = get_plottitle(filekey, det,
+                        "$(uppercase(string(filter_type))) Filter Optimization"))
                 save_plot(p, l200, filekey, det, Symbol("$(filter_type)_sweep"))
 
                 @info """Found optimal window length at $(result_wl.wl) with survival fraction $(round(u"percent", result_wl.sf, digits=2)) for detector $det ($ch)"""
 
                 # write log
-                log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), filter_type, result_wl.wl, result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
-                
+                log_info = log_nt((det, detector_status(chinfo_det.usability),
+                    ProcessStatus(1), filter_type, result_wl.wl,
+                    result_wl.sf, result_wl.n_dep, result_wl.n_sep, "-"))
+
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = true
                 result_wl_dict[filter_type] = result_wl
@@ -224,8 +260,11 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
                 GC.gc()
                 yield()
             catch e
-                e isa ProcessStepError || @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
+                e isa ProcessStepError ||
+                    @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                log_info = log_nt((
+                    det, detector_status(chinfo_det.usability), ProcessStatus(0),
+                    filter_type, "-", "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -239,7 +278,9 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
     start_time = now()
 
     # execute in parallel
-    result_sg = parallel(det_sg_optimization, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_aoe_optimization_cal")
+    result_sg = parallel(
+        det_sg_optimization, chinfo, log_nt; timeout = timeout, retry = false,
+        process_name = "$period-$run-process_aoe_optimization_cal")
 
     @info "Finished SG filter optimization"
 
@@ -258,7 +299,6 @@ function process_aoe_optimization_cal(processing_config, l200::LegendData, perio
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_sg))
-
 
     @info "Write log report"
     write_report(get_rreportfilename(l200, filekey, :aoe_optimization), report)

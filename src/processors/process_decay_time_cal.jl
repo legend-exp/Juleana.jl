@@ -32,14 +32,14 @@ loading, QC, DSP or the fit throws an error.
 # Returns
 Return `nothing`.
 """
-function process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
-        
+function process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod,
+        run::DataRun; reprocess::Bool = false, timeout::Real = 0)
     @info "Process decay time for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
+    chinfo = channelinfo(l200, filekey; system = :geds, only_processable = true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     dsp_config_pd = dataprod_config(l200).dsp(filekey)
@@ -53,13 +53,16 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     pars_db = PropDict(l200.par.rpars.pz[period, run])
 
     pars_db = ifelse(reprocess, PropDict(), pars_db)
-    if reprocess @info "Reprocess all detectors" end
+    if reprocess
+        @info "Reprocess all detectors"
+    end
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
-    
+    log_nt = NamedTuple{(
+        :Detector, :usability, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+
     # get worker pool
 
     # flush stdout
@@ -67,13 +70,13 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
 
     # function to process decay time
     function det_decay_time(chinfo_det::NamedTuple)
-
-        ch  = chinfo_det.channel
+        ch = chinfo_det.channel
         det = chinfo_det.detector
 
         if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ , "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1),
+                pars_db[det].τ, pars_db[det].fit.σ, "Already processed --> skipped."))
             return (processed = false, log = log_det)
         end
 
@@ -83,14 +86,14 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         pz_config_det = merge(pz_config.default, get(pz_config, det, PropDict()))
-        
+
         # unpack config
         min_τ, max_τ = pz_config_det.min_tau, pz_config_det.max_tau
-        nbins        = pz_config_det.nbins
-        rel_cut_fit  = pz_config_det.rel_cut_fit
-        peakname     = Symbol(pz_config_det.peakname)
-        qc_string    = pz_config_det.qc
-        max_wvfs     = pz_config_det.max_wvfs
+        nbins = pz_config_det.nbins
+        rel_cut_fit = pz_config_det.rel_cut_fit
+        peakname = Symbol(pz_config_det.peakname)
+        qc_string = pz_config_det.qc
+        max_wvfs = pz_config_det.max_wvfs
 
         filename = l200.tier[:jlpks, filekey, det]
         if !isfile(filename)
@@ -104,7 +107,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
             wvfs_det = read_ldata(peakname, l200, DataTier(:jlpks), filekey, det).waveform_presummed
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = sample(eachindex(wvfs_det), max_wvfs; replace=false, ordered=true)
+                sel = sample(eachindex(wvfs_det), max_wvfs; replace = false, ordered = true)
                 wvfs_det = wvfs_det[sel]
             end
             wvfs_det
@@ -132,19 +135,23 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         # get decay time
         plot_decay_times() = begin
             fig = Makie.Figure()
-            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Decay Times"), xlabel = "Decay time", ylabel = "Counts")
+            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Decay Times"),
+                xlabel = "Decay time", ylabel = "Counts")
             Makie.stephist!(ax, filter(isfinite, ustrip.(decay_times)); bins = 100)
             save_plot(fig, l200, filekey, det, :error_decay_time_extraction)
         end
-        result, report = @process_step "decay time extraction" on_error = plot_decay_times begin
+        result,
+        report = @process_step "decay time extraction" on_error = plot_decay_times begin
             filter!(x -> min_τ < x < max_τ, decay_times)
-            cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
+            cuts_τ = cut_single_peak(
+                decay_times, min_τ, max_τ, ; n_bins = nbins, relative_cut = rel_cut_fit)
             fit_single_trunc_gauss(decay_times, cuts_τ)
         end
         yield()
-        
+
         @debug_plot begin
-            p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey, det, "Decay Time Distribution"))
+            p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))",
+                title = get_plottitle(filekey, det, "Decay Time Distribution"))
             save_plot(p, l200, filekey, det, :decay_time)
         end
 
@@ -153,10 +160,12 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         status, message = if 350u"µs" <= mvalue(result.μ) <= 700u"µs"
             (process_succeeded, "-")
         else
-            (process_warning, "Decay time $(result.μ) is outside the expected 350–700 µs window.")
+            (process_warning,
+                "Decay time $(result.μ) is outside the expected 350–700 µs window.")
         end
         status == process_warning && @warn "$det ($ch): $message"
-        log_det = log_nt((det, detector_status(chinfo_det.usability), status, result.μ, result.σ, message))
+        log_det = log_nt((det, detector_status(chinfo_det.usability),
+            status, result.μ, result.σ, message))
         return (result = (τ = result.μ, fit = result), processed = true, log = log_det)
     end
 
@@ -164,7 +173,8 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(det_decay_time, chinfo, log_nt; timeout=timeout, retry=false, process_name="$period-$run-process_decay_time_cal")
+    result_pz = parallel(det_decay_time, chinfo, log_nt; timeout = timeout, retry = false,
+        process_name = "$period-$run-process_decay_time_cal")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
@@ -186,7 +196,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     @info "Write log report"
     write_report(get_rreportfilename(l200, filekey, :decay_time), report)
     @info report
-    
+
     # flush stdout
     flush(stdout)
 end

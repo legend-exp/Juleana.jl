@@ -6,7 +6,8 @@ using Test
 
 # git settings for the local test repositories: an identity, and cloning submodules from
 # local paths, which git refuses by default
-const GIT_TEST_ENV = ("GIT_AUTHOR_NAME" => "Test", "GIT_AUTHOR_EMAIL" => "test@example.org",
+const GIT_TEST_ENV = (
+    "GIT_AUTHOR_NAME" => "Test", "GIT_AUTHOR_EMAIL" => "test@example.org",
     "GIT_COMMITTER_NAME" => "Test", "GIT_COMMITTER_EMAIL" => "test@example.org",
     "GIT_CONFIG_COUNT" => "1", "GIT_CONFIG_KEY_0" => "protocol.file.allow", "GIT_CONFIG_VALUE_0" => "always")
 
@@ -37,7 +38,9 @@ end
         jlconfig = test_repo(joinpath(root, "jlconfig"), "jl.txt"; branches = ["jl-dev"])
         simconfig = test_repo(joinpath(root, "simconfig"), "sim.txt"; branches = ["dev"])
         metadata = test_repo(joinpath(root, "metadata"), "README.md")
-        for (path, url) in ("hardware" => hardware, joinpath("jldataprod", "config") => jlconfig, joinpath("simprod", "config") => simconfig)
+        for (path, url) in (
+            "hardware" => hardware, joinpath("jldataprod", "config") => jlconfig,
+            joinpath("simprod", "config") => simconfig)
             git(metadata, "submodule", "add", url, path)
         end
         git(metadata, "commit", "-m", "submodules")
@@ -55,29 +58,39 @@ end
         home = mkpath(joinpath(root, "home"))
 
         @testset "checks" begin
-            spec(; kw...) = Juleana.ProductionSpec(; name = "prod", parent, metadata_url = metadata, copy_software = false, kw...)
+            spec(; kw...) = Juleana.ProductionSpec(;
+                name = "prod", parent, metadata_url = metadata,
+                copy_software = false, kw...)
             @test Juleana.check_production(spec()) == joinpath(parent, "prod")
             @test_throws "may contain only letters" Juleana.check_production(spec(name = "a b"))
             @test_throws "must be an absolute path" Juleana.check_production(spec(parent = "relative"))
             @test_throws "$inside exists" Juleana.check_production(spec(name = "rawdata"))
             @test_throws "the branch name \"x;y\"" Juleana.check_production(spec(dataprod_branch = "x;y"))
             @test_throws "the branch name \"-f\"" Juleana.check_production(spec(metadata_ref = "-f"))
-            @test_throws "tier labels must be unique" Juleana.check_production(spec(tier_paths = ["raw" => inside, "raw" => outside]))
-            @test_throws "the tier label \"r w\"" Juleana.check_production(spec(tier_paths = ["r w" => inside]))
-            @test_throws "is not a folder" Juleana.check_production(spec(tier_paths = ["raw" => joinpath(root, "missing")]))
+            @test_throws "tier labels must be unique" Juleana.check_production(spec(tier_paths = [
+                "raw" => inside, "raw" => outside]))
+            @test_throws "the tier label \"r w\"" Juleana.check_production(spec(tier_paths = ["r w" =>
+                inside]))
+            @test_throws "is not a folder" Juleana.check_production(spec(tier_paths = ["raw" =>
+                joinpath(root, "missing")]))
             @test_throws "has no /rpars or /ppars component" Juleana.check_production(spec(pars = [outside]))
-            @test_throws "the parameter folder $(joinpath(root, "missing")) does not exist" Juleana.check_production(spec(pars = [joinpath(root, "missing")]))
-            @test_throws "for the shell \"fish\"" Juleana.check_production(spec(; set_default = true, shell = "fish", home))
+            @test_throws "the parameter folder $(joinpath(root, "missing")) does not exist" Juleana.check_production(spec(pars = [joinpath(
+                root, "missing")]))
+            @test_throws "for the shell \"fish\"" Juleana.check_production(spec(;
+                set_default = true, shell = "fish", home))
             # nothing was created
             @test readdir(parent) == ["rawdata"]
         end
 
         @testset "create" begin
             lines = String[]
-            config = Juleana.create_production(Juleana.ProductionSpec(; name = "prod", parent, metadata_url = metadata,
-                jldataprod_branch = "jl-dev", dataprod_branch = "dev", tier_paths = ["raw" => inside, "ext" => outside],
-                pars = [joinpath(root, "old", "generated", "jlpar", "rpars", "ecal")], set_default = true, shell = "zsh", home,
-                copy_software = false); log = line -> push!(lines, line))
+            config = Juleana.create_production(
+                Juleana.ProductionSpec(; name = "prod", parent, metadata_url = metadata,
+                    jldataprod_branch = "jl-dev", dataprod_branch = "dev",
+                    tier_paths = ["raw" => inside, "ext" => outside],
+                    pars = [joinpath(root, "old", "generated", "jlpar", "rpars", "ecal")], set_default = true, shell = "zsh", home,
+                    copy_software = false);
+                log = line -> push!(lines, line))
             path = joinpath(parent, "prod")
             @test config == joinpath(path, "config.json")
             meta = joinpath(path, "legend-metadata")
@@ -86,27 +99,44 @@ end
             @test isfile(joinpath(meta, "dev.txt"))
             @test isfile(joinpath(meta, "hardware", "dev.txt"))
             @test isfile(joinpath(meta, "jldataprod", "config", "jl-dev.txt"))
-            @test isfile(joinpath(meta, "simprod", "config", "sim.txt")) && !isfile(joinpath(meta, "simprod", "config", "dev.txt"))
-            @test all(d -> isdir(joinpath(path, "generated", d)), ["tier", "jllog", "jlplt", "jlreport", "jlpar/rpars", "jlpar/ppars"])
-            @test read(joinpath(path, "generated", "jlpar", "rpars", "ecal", "p03", "r000.json"), String) == "{}"
+            @test isfile(joinpath(meta, "simprod", "config", "sim.txt")) &&
+                  !isfile(joinpath(meta, "simprod", "config", "dev.txt"))
+            @test all(d -> isdir(joinpath(path, "generated", d)),
+                ["tier", "jllog", "jlplt", "jlreport", "jlpar/rpars", "jlpar/ppars"])
+            @test read(
+                joinpath(
+                    path, "generated", "jlpar", "rpars", "ecal", "p03", "r000.json"), String) ==
+                  "{}"
             # the data config is valid JSON with the extra tiers after `tier`
             text = read(config, String)
-            @test occursin("\"tier\": \"\$_/generated/tier/\",\n                \"tier/raw\": \"\$_/../rawdata\",\n                \"tier/ext\": \"$outside\",\n", text)
+            @test occursin(
+                "\"tier\": \"\$_/generated/tier/\",\n                \"tier/raw\": \"\$_/../rawdata\",\n                \"tier/ext\": \"$outside\",\n",
+                text)
             paths = Juleana.readlprops(config).setups.l200.paths
-            @test paths[Symbol("tier/jllog")] == joinpath(path, "generated", "jllog") * "/" && normpath(paths[Symbol("tier/raw")]) == inside
-            @test read(joinpath(home, ".zshrc"), String) == "export LEGEND_DATA_CONFIG=$config\n"
-            @test any(contains("Cloning $metadata"), lines) && any(contains("Wrote $config"), lines)
+            @test paths[Symbol("tier/jllog")] ==
+                  joinpath(path, "generated", "jllog") * "/" &&
+                  normpath(paths[Symbol("tier/raw")]) == inside
+            @test read(joinpath(home, ".zshrc"), String) ==
+                  "export LEGEND_DATA_CONFIG=$config\n"
+            @test any(contains("Cloning $metadata"), lines) &&
+                  any(contains("Wrote $config"), lines)
 
             # a second production replaces the line in the startup file and keeps the others
             write(joinpath(home, ".zshrc"), "alias x=y\nexport LEGEND_DATA_CONFIG=/old/config.json\n")
-            second = Juleana.create_production(Juleana.ProductionSpec(; name = "second", parent, metadata_url = metadata,
-                set_default = true, shell = "zsh", home, copy_software = false); log = _ -> nothing)
-            @test read(joinpath(home, ".zshrc"), String) == "alias x=y\nexport LEGEND_DATA_CONFIG=$second\n"
-            @test isfile(joinpath(parent, "second", "legend-metadata", "hardware", "hw.txt"))
+            second = Juleana.create_production(
+                Juleana.ProductionSpec(; name = "second", parent, metadata_url = metadata,
+                    set_default = true, shell = "zsh", home, copy_software = false);
+                log = _ -> nothing)
+            @test read(joinpath(home, ".zshrc"), String) ==
+                  "alias x=y\nexport LEGEND_DATA_CONFIG=$second\n"
+            @test isfile(joinpath(
+                parent, "second", "legend-metadata", "hardware", "hw.txt"))
             @test !isfile(joinpath(parent, "second", "legend-metadata", "dev.txt"))
             # a failing clone throws
-            @test_throws "failed with exit code" Juleana.create_production(Juleana.ProductionSpec(; name = "third", parent,
-                metadata_url = joinpath(root, "missing"), copy_software = false); log = _ -> nothing)
+            @test_throws "failed with exit code" Juleana.create_production(
+                Juleana.ProductionSpec(; name = "third", parent,
+                    metadata_url = joinpath(root, "missing"), copy_software = false);
+                log = _ -> nothing)
         end
 
         @testset "metadata ref" begin
@@ -124,25 +154,42 @@ end
             metadata = recorded
             for ref in ("release", "v1")
                 lines = String[]
-                Juleana.create_production(Juleana.ProductionSpec(; name = "ref-$ref", parent, metadata_url = metadata,
-                    metadata_ref = ref, copy_software = false); log = line -> push!(lines, line))
+                Juleana.create_production(
+                    Juleana.ProductionSpec(;
+                        name = "ref-$ref", parent, metadata_url = metadata,
+                        metadata_ref = ref, copy_software = false);
+                    log = line -> push!(lines, line))
                 meta = joinpath(parent, "ref-$ref", "legend-metadata")
                 # the submodules are at the commits the ref records
                 @test isfile(joinpath(meta, "hardware", "dev.txt"))
-                @test any(contains("Checking out $ref"), lines) && any(contains("Updating the submodules"), lines)
+                @test any(contains("Checking out $ref"), lines) &&
+                      any(contains("Updating the submodules"), lines)
             end
-            Juleana.create_production(Juleana.ProductionSpec(; name = "ref-main", parent, metadata_url = metadata, copy_software = false); log = _ -> nothing)
-            @test !isfile(joinpath(parent, "ref-main", "legend-metadata", "hardware", "dev.txt"))
+            Juleana.create_production(
+                Juleana.ProductionSpec(; name = "ref-main", parent,
+                    metadata_url = metadata, copy_software = false);
+                log = _ -> nothing)
+            @test !isfile(joinpath(
+                parent, "ref-main", "legend-metadata", "hardware", "dev.txt"))
             # a branch is checked out as a branch, a tag is detached
-            @test strip(read(`git -C $(joinpath(parent, "ref-release", "legend-metadata")) branch --show-current`, String)) == "release"
-            @test isempty(strip(read(`git -C $(joinpath(parent, "ref-v1", "legend-metadata")) branch --show-current`, String)))
+            @test strip(read(
+                `git -C $(joinpath(parent, "ref-release", "legend-metadata")) branch --show-current`,
+                String)) == "release"
+            @test isempty(strip(read(
+                `git -C $(joinpath(parent, "ref-v1", "legend-metadata")) branch --show-current`,
+                String)))
             # the branches apply on top of the ref
-            Juleana.create_production(Juleana.ProductionSpec(; name = "ref-top", parent, metadata_url = metadata,
-                metadata_ref = "v1", jldataprod_branch = "jl-dev", copy_software = false); log = _ -> nothing)
+            Juleana.create_production(
+                Juleana.ProductionSpec(; name = "ref-top", parent, metadata_url = metadata,
+                    metadata_ref = "v1", jldataprod_branch = "jl-dev", copy_software = false);
+                log = _ -> nothing)
             top = joinpath(parent, "ref-top", "legend-metadata")
-            @test isfile(joinpath(top, "hardware", "dev.txt")) && isfile(joinpath(top, "jldataprod", "config", "jl-dev.txt"))
-            @test_throws "failed with exit code" Juleana.create_production(Juleana.ProductionSpec(; name = "ref-bad", parent,
-                metadata_url = metadata, metadata_ref = "nope", copy_software = false); log = _ -> nothing)
+            @test isfile(joinpath(top, "hardware", "dev.txt")) &&
+                  isfile(joinpath(top, "jldataprod", "config", "jl-dev.txt"))
+            @test_throws "failed with exit code" Juleana.create_production(
+                Juleana.ProductionSpec(; name = "ref-bad", parent,
+                    metadata_url = metadata, metadata_ref = "nope", copy_software = false);
+                log = _ -> nothing)
         end
 
         @testset "software snapshot" begin
@@ -174,23 +221,31 @@ end
                 version = "0.2.0"
                 """)
             dest = joinpath(root, "software")
-            @test Juleana.snapshot_software(dest; manifest, source = juleana, log = _ -> nothing) == dest
-            @test isfile(joinpath(dest, "Juleana.jl", "src", "Juleana.jl")) && isfile(joinpath(dest, "Foo", "Project.toml"))
-            @test !ispath(joinpath(dest, "Juleana.jl", ".git")) && !ispath(joinpath(dest, "Foo", ".git"))
+            @test Juleana.snapshot_software(dest; manifest, source = juleana, log = _ -> nothing) ==
+                  dest
+            @test isfile(joinpath(dest, "Juleana.jl", "src", "Juleana.jl")) &&
+                  isfile(joinpath(dest, "Foo", "Project.toml"))
+            @test !ispath(joinpath(dest, "Juleana.jl", ".git")) &&
+                  !ispath(joinpath(dest, "Foo", ".git"))
             copied = TOML.parsefile(joinpath(dest, "Juleana.jl", "Manifest.toml"))
-            @test copied["deps"]["Juleana"][1]["path"] == "." && !haskey(copied["deps"]["Juleana"][1], "git-tree-sha1")
+            @test copied["deps"]["Juleana"][1]["path"] == "." &&
+                  !haskey(copied["deps"]["Juleana"][1], "git-tree-sha1")
             @test copied["deps"]["Foo"][1]["path"] == "../Foo"
-            @test copied["deps"]["Bar"][1]["git-tree-sha1"] == "0123" && copied["julia_version"] == "1.12.7"
+            @test copied["deps"]["Bar"][1]["git-tree-sha1"] == "0123" &&
+                  copied["julia_version"] == "1.12.7"
             provenance = read(joinpath(dest, "PROVENANCE.md"), String)
             commit = strip(read(`git -C $juleana rev-parse HEAD`, String))
             # the Manifest.toml of the checkout is not tracked, so the checkout counts as modified
             @test occursin("| Juleana | $juleana | $commit | yes |", provenance)
-            @test occursin("| Foo | $foo | $(strip(read(`git -C $foo rev-parse HEAD`, String))) | no |", provenance)
+            @test occursin(
+                "| Foo | $foo | $(strip(read(`git -C $foo rev-parse HEAD`, String))) | no |",
+                provenance)
             @test occursin("Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")", provenance)
             @test_throws "$dest exists" Juleana.snapshot_software(dest; manifest, source = juleana)
             # the environment of this process
             @test haskey(TOML.parsefile(Juleana.running_manifest())["deps"], "Juleana")
-            @test startswith(Juleana.software_version(), "Juleana $(pkgversion(Juleana))") && endswith(Juleana.software_version(), "Julia $VERSION")
+            @test startswith(Juleana.software_version(), "Juleana $(pkgversion(Juleana))") &&
+                  endswith(Juleana.software_version(), "Julia $VERSION")
         end
     end
 end

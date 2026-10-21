@@ -14,8 +14,10 @@ const HELP_KEYS = (
         ("c  p", "check the cal, phy processors"),
         ("d", "add the steps that checked steps wait for"),
         ("e", "edit the keyword arguments of the processor"),
-        ("e", "edit the workers, flags and Julia settings of the run modes (Run mode row of the Options pane)"),
-        ("Space  Enter", "cycle the option in the Options pane; open the picker of the data production or dataset"),
+        ("e",
+            "edit the workers, flags and Julia settings of the run modes (Run mode row of the Options pane)"),
+        ("Space  Enter",
+            "cycle the option in the Options pane; open the picker of the data production or dataset"),
         ("s", "start processing"),
         ("x  X", "stop after the running items, stop at once"),
         ("r", "reload the config"),
@@ -23,7 +25,7 @@ const HELP_KEYS = (
         ("W", "start workers"),
         ("N", "create a new data production"),
         ("w", "write the settings to the config file"),
-        ("Mouse", "click to check, fold or focus; wheel scrolls"),
+        ("Mouse", "click to check, fold or focus; wheel scrolls")
     ),
     graph = (
         ("↑ ↓ PgUp PgDn Home End", "move the cursor"),
@@ -31,7 +33,7 @@ const HELP_KEYS = (
         ("d", "add the steps that selected steps wait for"),
         ("h", "show or hide unselected processors"),
         ("v", "state icons of the last run or on disk"),
-        ("Mouse", "click a row, wheel moves the cursor"),
+        ("Mouse", "click a row, wheel moves the cursor")
     ),
     workers = (
         ("Tab", "switch between the allocations and the workers"),
@@ -45,7 +47,7 @@ const HELP_KEYS = (
         ("r", "read the overview again"),
         ("o", "edit the SLURM options: partition, time, nodes, workers, threads, memory"),
         ("e", "edit the start script (Ctrl-O saves, Esc closes)"),
-        ("Mouse", "click a row, wheel scrolls the output"),
+        ("Mouse", "click a row, wheel scrolls the output")
     ),
     progress = (
         ("↑ ↓ PgUp PgDn Home End", "move the cursor"),
@@ -55,7 +57,7 @@ const HELP_KEYS = (
         ("End", "newest message while they are open"),
         ("Esc", "close the messages"),
         ("f", "follow the running step"),
-        ("Mouse", "click a row, wheel moves the cursor"),
+        ("Mouse", "click a row, wheel moves the cursor")
     ),
     log = (
         ("↑ ↓ PgUp PgDn Home", "scroll; turns following off"),
@@ -63,7 +65,7 @@ const HELP_KEYS = (
         ("f", "follow the newest line"),
         ("l", "cycle the level: all, warnings, errors"),
         ("/", "filter the lines (Enter keeps, Esc clears)"),
-        ("Mouse", "wheel scrolls"),
+        ("Mouse", "wheel scrolls")
     ),
     reports = (
         ("↑ ↓ PgUp PgDn Home End", "move the cursor; scroll the failures"),
@@ -74,7 +76,7 @@ const HELP_KEYS = (
         ("r", "read the reports again"),
         ("↑ ↓ PgUp PgDn Home End", "scroll an open report"),
         ("Esc  q", "close the open report"),
-        ("Mouse", "click a row, wheel moves the cursor or scrolls"),
+        ("Mouse", "click a row, wheel moves the cursor or scrolls")
     ),
     history = (
         ("↑ ↓ ← →", "move the cursor; on a partition row ← → move by period"),
@@ -83,7 +85,7 @@ const HELP_KEYS = (
         ("r", "read the grid again"),
         ("↑ ↓ PgUp PgDn Home End", "scroll an open report"),
         ("Esc  q", "close the open report"),
-        ("Mouse", "click a cell, wheel moves the cursor"),
+        ("Mouse", "click a cell, wheel moves the cursor")
     ),
     common = (
         ("1-7", "open a page"),
@@ -93,8 +95,8 @@ const HELP_KEYS = (
         ("Ctrl-G", "toggle mouse reporting (off allows selecting text)"),
         ("Ctrl-Y", "copy the screen as text to the clipboard"),
         ("Ctrl-T  Ctrl-S", "Tachikoma: color themes, display settings"),
-        ("Ctrl-A  Ctrl-R", "Tachikoma: toggle animations, record the screen"),
-    ),
+        ("Ctrl-A  Ctrl-R", "Tachikoma: toggle animations, record the screen")
+    )
 )
 
 # Version of this package as `v1.2.3`, read once.
@@ -123,7 +125,11 @@ logo_segments(row) = row
 Width in terminal cells and number of rows of the logo `rows`, as in
 [`Juleana.render_logo`](@ref).
 """
-logo_size(rows) = (maximum(row -> sum(s -> textwidth(s[1]), logo_segments(row); init = 0), rows; init = 0), length(rows))
+function logo_size(rows)
+    (
+        maximum(row -> sum(s -> textwidth(s[1]), logo_segments(row); init = 0), rows; init = 0),
+        length(rows))
+end
 
 """
     Juleana.render_logo(rows, x, y, buf::Tachikoma.Buffer; max_x, max_y)
@@ -142,7 +148,8 @@ function render_logo(rows, x::Integer, y::Integer, buf::Tachikoma.Buffer;
         for (text, name) in logo_segments(row)
             style = Tachikoma.Style(; fg = logo_color(name))
             for char in text
-                if char != ' ' && cx <= max_x && cy <= max_y && cx >= buf.area.x && cy >= buf.area.y
+                if char != ' ' && cx <= max_x && cy <= max_y && cx >= buf.area.x &&
+                   cy >= buf.area.y
                     Tachikoma.set_char!(buf, cx, cy, char, style)
                 end
                 cx += textwidth(char)
@@ -162,8 +169,10 @@ function fitting_logo(width::Integer, height::Integer)
 end
 
 # The name `JuLeAna` in the colors of the logo.
-logo_name_spans() = [(part, Tachikoma.Style(; fg = TITLE_COLORS[i], bold = true)) for (i, part) in enumerate(("Ju", "Le", "Ana"))]
-
+function logo_name_spans()
+    [(part, Tachikoma.Style(; fg = TITLE_COLORS[i], bold = true))
+     for (i, part) in enumerate(("Ju", "Le", "Ana"))]
+end
 
 # `nothing` while the session loads, `:loaded` once it is loaded and `:failed` if loading failed.
 function load_outcome(snap)
@@ -177,7 +186,8 @@ end
 function splash_active(m::JuleanaTUI)
     m.splash || return false
     # with the new-production form open and no session to load, the screen ends after `splash_seconds`
-    waiting = isnothing(load_outcome(m.snap)) && !(!isnothing(m.production) && !isnothing(m.snap) && m.snap.state === :idle)
+    waiting = isnothing(load_outcome(m.snap)) &&
+              !(!isnothing(m.production) && !isnothing(m.snap) && m.snap.state === :idle)
     return waiting || time() - m.started_at < m.splash_seconds
 end
 
@@ -188,23 +198,29 @@ function render_splash(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffe
     dim = Tachikoma.tstyle(:text_dim)
     outcome = load_outcome(m.snap)
     spinner = string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))])
-    state = isnothing(outcome) ? [(spinner * " ", Tachikoma.tstyle(:warning)), ("Loading the session…", Tachikoma.tstyle(:text))] :
-        outcome === :loaded ? [("Session loaded", Tachikoma.tstyle(:success))] :
-        [("Loading the session failed", Tachikoma.tstyle(:error, bold = true))]
-    lines = [[(juleana_version(), dim)], [(DOCS_URL, Tachikoma.tstyle(:accent; underline = true, hyperlink = DOCS_URL))], [("", dim)], state]
+    state = isnothing(outcome) ?
+            [(spinner * " ", Tachikoma.tstyle(:warning)),
+        ("Loading the session…", Tachikoma.tstyle(:text))] :
+            outcome === :loaded ? [("Session loaded", Tachikoma.tstyle(:success))] :
+            [("Loading the session failed", Tachikoma.tstyle(:error, bold = true))]
+    lines = [[(juleana_version(), dim)],
+        [(DOCS_URL, Tachikoma.tstyle(:accent; underline = true, hyperlink = DOCS_URL))],
+        [("", dim)], state]
     logo = fitting_logo(area.width, area.height - 1 - length(lines))
     isnothing(logo) && pushfirst!(lines, logo_name_spans(), [("", dim)])
     logo_h = isnothing(logo) ? 0 : logo_size(logo)[2] + 1
     y = area.y + max(0, (area.height - logo_h - length(lines)) ÷ 2)
     if !isnothing(logo)
         w, h = logo_size(logo)
-        render_logo(logo, area.x + (area.width - w) ÷ 2, y, buf; max_x = Tachikoma.right(area), max_y = Tachikoma.bottom(area))
+        render_logo(logo, area.x + (area.width - w) ÷ 2, y, buf;
+            max_x = Tachikoma.right(area), max_y = Tachikoma.bottom(area))
         y += h + 1
     end
     for spans in lines
         y > Tachikoma.bottom(area) && break
         width = sum(s -> textwidth(s[1]), spans)
-        put_spans!(buf, area.x + max(0, (area.width - width) ÷ 2), y, Tachikoma.right(area), spans)
+        put_spans!(
+            buf, area.x + max(0, (area.width - width) ÷ 2), y, Tachikoma.right(area), spans)
         y += 1
     end
     return nothing
@@ -224,10 +240,12 @@ end
 # the root path of the production is clipped from the left, and nothing is drawn if even the
 # first line does not fit.
 function render_corner_logo(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
-    used = isempty(m.tabs._tab_rects) ? area.x - 1 : maximum(Tachikoma.right, m.tabs._tab_rects)
+    used = isempty(m.tabs._tab_rects) ? area.x - 1 :
+           maximum(Tachikoma.right, m.tabs._tab_rects)
     right = Tachikoma.right(area)
     available = right - used - 1
-    title = vcat(logo_name_spans(), [(" " * juleana_version(), Tachikoma.tstyle(:text_dim))])
+    title = vcat(logo_name_spans(), [(
+        " " * juleana_version(), Tachikoma.tstyle(:text_dim))])
     title_width = sum(s -> textwidth(s[1]), title)
     title_width <= available || return nothing
     put_spans!(buf, right - title_width + 1, area.y, right, title)
@@ -240,7 +258,7 @@ function render_corner_logo(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.
         room = available - textwidth(name) - 2
         root = textwidth(root) <= room ? root : room >= 2 ? "…" * last(root, room - 1) : ""
         isempty(root) ? [(name, Tachikoma.tstyle(:text))] :
-            [(name, Tachikoma.tstyle(:text)), ("  " * root, Tachikoma.tstyle(:text_dim))]
+        [(name, Tachikoma.tstyle(:text)), ("  " * root, Tachikoma.tstyle(:text_dim))]
     end
     width = sum(s -> textwidth(s[1]), spans)
     width <= available && put_spans!(buf, right - width + 1, area.y + 1, right, spans)
@@ -249,7 +267,7 @@ end
 
 # Draw the key help of the visible page of `m` as a panel centered in `area`.
 function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
-    sections = Tuple{String,Any}[]
+    sections = Tuple{String, Any}[]
     m.page == 1 && push!(sections, ("Setup page", HELP_KEYS.setup))
     m.page == 2 && push!(sections, ("Graph page", HELP_KEYS.graph))
     m.page == 3 && push!(sections, ("Workers page", HELP_KEYS.workers))
@@ -259,28 +277,34 @@ function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     m.page == 7 && push!(sections, ("History page", HELP_KEYS.history))
     push!(sections, ("All pages", HELP_KEYS.common))
     key_width = maximum(textwidth(k) for (_, entries) in sections for (k, _) in entries) + 2
-    lines = Vector{Tuple{String,Tachikoma.Style}}[]
+    lines = Vector{Tuple{String, Tachikoma.Style}}[]
     for (title, entries) in sections
         push!(lines, [(title, Tachikoma.tstyle(:accent, bold = true))])
         for (keys, description) in entries
-            push!(lines, [("  " * rpad(keys, key_width), Tachikoma.tstyle(:warning, bold = true)),
-                (description, Tachikoma.tstyle(:text))])
+            push!(lines,
+                [("  " * rpad(keys, key_width), Tachikoma.tstyle(:warning, bold = true)),
+                    (description, Tachikoma.tstyle(:text))])
         end
         push!(lines, [("", Tachikoma.tstyle(:text))])
     end
-    push!(lines, [(juleana_version() * "  ", Tachikoma.tstyle(:text_dim)),
-        (DOCS_URL, Tachikoma.tstyle(:accent; underline = true, hyperlink = DOCS_URL))])
+    push!(lines,
+        [(juleana_version() * "  ", Tachikoma.tstyle(:text_dim)),
+            (DOCS_URL, Tachikoma.tstyle(:accent; underline = true, hyperlink = DOCS_URL))])
     push!(lines, [("Esc, ? or q closes this panel", Tachikoma.tstyle(:text_dim))])
     width = maximum(sum(s -> textwidth(s[1]), spans) for spans in lines) + 4
     rect = Tachikoma.center(area, min(width + 2, area.width), min(length(lines) + 2, area.height))
     for row in rect.y:Tachikoma.bottom(rect), col in rect.x:Tachikoma.right(rect)
+
         Tachikoma.set_char!(buf, col, row, ' ', Tachikoma.RESET)
     end
-    inner = Tachikoma.render(Tachikoma.Block(; title = "Keys", border_style = Tachikoma.tstyle(:accent),
-        title_style = Tachikoma.tstyle(:title)), rect, buf)
+    inner = Tachikoma.render(
+        Tachikoma.Block(; title = "Keys", border_style = Tachikoma.tstyle(:accent),
+            title_style = Tachikoma.tstyle(:title)),
+        rect,
+        buf)
     # the version, link and closing hint stay visible; the key list is cut
-    footer = lines[end-1:end]
-    body = first(lines[1:end-2], max(0, inner.height - length(footer)))
+    footer = lines[(end - 1):end]
+    body = first(lines[1:(end - 2)], max(0, inner.height - length(footer)))
     for (i, spans) in pairs(vcat(body, footer))
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break

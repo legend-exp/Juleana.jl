@@ -1,7 +1,8 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 # Theme color and icon of each report state.
-const REPORT_COLORS = (ok = :success, warning = :warning, failed = :error, missing = :text_dim)
+const REPORT_COLORS = (
+    ok = :success, warning = :warning, failed = :error, missing = :text_dim)
 const REPORT_ICONS = (ok = "✓", warning = "!", failed = "✗", missing = "–")
 
 # Width of the level column of a group row: `partition`.
@@ -36,12 +37,12 @@ mutable struct ReportsPage
     source::Symbol
     groups::Vector{Any}
     # path of the processing history file, `nothing` if it does not exist
-    history::Union{Nothing,String}
+    history::Union{Nothing, String}
     # whether `groups` holds the result of a read of `source`
     loaded::Bool
     # whether a read of the reports is under way
     reading::Bool
-    error::Union{Nothing,String}
+    error::Union{Nothing, String}
     # number of the latest read of the reports; answers to older reads are dropped
     generation::Int
     # whether the page has been visible, and the controller state its data was read for
@@ -54,7 +55,7 @@ mutable struct ReportsPage
     top::Int
     # rows displayed per page at the last render
     height::Int
-    const expanded::Dict{Any,Bool}
+    const expanded::Dict{Any, Bool}
     # 1 for the list of reports, 2 for the failures
     focus::Int
     fail_top::Int
@@ -63,12 +64,12 @@ mutable struct ReportsPage
     # group of the failures shown at the last render
     fail_group::Any
     # failure summaries of the groups, and the groups whose failures are being read
-    const summaries::Dict{Any,Any}
+    const summaries::Dict{Any, Any}
     const pending::Set{Any}
     # path of the open report, its viewer once read, and a message instead of the viewer
-    viewer_path::Union{Nothing,String}
-    viewer::Union{Nothing,Tachikoma.MarkdownPane}
-    viewer_message::Union{Nothing,String}
+    viewer_path::Union{Nothing, String}
+    viewer::Union{Nothing, Tachikoma.MarkdownPane}
+    viewer_message::Union{Nothing, String}
     const requests::Vector{Any}
     # areas of the list block, of its rows and of the failures block at the last render
     rect::Tachikoma.Rect
@@ -76,9 +77,13 @@ mutable struct ReportsPage
     fail_rect::Tachikoma.Rect
 end
 
-ReportsPage() = ReportsPage(:all, Any[], nothing, false, false, nothing, 0, false, nothing, nothing, 1, 1, 1,
-    Dict{Any,Bool}(), 1, 1, 1, 0, nothing, Dict{Any,Any}(), Set{Any}(), nothing, nothing, nothing, Any[],
-    Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+function ReportsPage()
+    ReportsPage(
+        :all, Any[], nothing, false, false, nothing, 0, false, nothing, nothing, 1, 1, 1,
+        Dict{Any, Bool}(), 1, 1, 1, 0, nothing, Dict{Any, Any}(),
+        Set{Any}(), nothing, nothing, nothing, Any[],
+        Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+end
 
 """
     Juleana.strip_span_tags(text::AbstractString)
@@ -100,7 +105,8 @@ function wrap_cell(cell::AbstractString, width::Int)
     lines = String[]
     current = ""
     for word in split(cell)
-        for piece in (textwidth(word) <= width ? (word,) : (String(p) for p in Iterators.partition(word, width)))
+        for piece in (textwidth(word) <= width ? (word,) :
+                      (String(p) for p in Iterators.partition(word, width)))
             if isempty(current)
                 current = piece
             elseif textwidth(current) + 1 + textwidth(piece) <= width
@@ -129,19 +135,25 @@ function tables_as_code(text::AbstractString; width::Integer = REPORT_TABLE_WIDT
     out = String[]
     table = Vector{String}[]
     function flush_table()
-        rows = [cells for cells in table if !all(c -> !isempty(c) && all(in((':', '-')), c), cells)]
+        rows = [cells
+                for cells in table
+                if !all(c -> !isempty(c) && all(in((':', '-')), c), cells)]
         table = Vector{String}[]
         isempty(rows) && return nothing
         ncols = maximum(length, rows)
-        widths = [maximum((textwidth(r[i]) for r in rows if i <= length(r)); init = 0) for i in 1:ncols]
+        widths = [maximum((textwidth(r[i]) for r in rows if i <= length(r)); init = 0)
+                  for i in 1:ncols]
         # narrow the widest column until the table fits
-        while sum(widths) + 2 * (ncols - 1) > width && maximum(widths) > REPORT_MIN_COLUMN_WIDTH
+        while sum(widths) + 2 * (ncols - 1) > width &&
+              maximum(widths) > REPORT_MIN_COLUMN_WIDTH
             widths[argmax(widths)] -= 1
         end
         function push_row(r)
             cells = [wrap_cell(get(r, i, ""), max(widths[i], 1)) for i in 1:ncols]
             for k in 1:maximum(length, cells)
-                push!(out, rstrip(join((rpad(get(cells[i], k, ""), widths[i]) for i in 1:ncols), "  ")))
+                push!(out, rstrip(join(
+                    (rpad(get(cells[i], k, ""), widths[i])
+                    for i in 1:ncols), "  ")))
             end
         end
         push!(out, "```")
@@ -163,35 +175,52 @@ function tables_as_code(text::AbstractString; width::Integer = REPORT_TABLE_WIDT
     return join(out, '\n')
 end
 
-report_counts(reports) = (; (s => count(r -> r.state === s, reports) for s in (:ok, :warning, :failed, :missing))...)
+function report_counts(reports)
+    (;
+        (s => count(r -> r.state === s, reports)
+    for s in (:ok, :warning, :failed, :missing))...)
+end
 
 # Groups of the rows of `report_index` by processor, in order of first appearance. Each group
 # keeps its rows for `failure_summary`.
 function run_groups(rows)
     keys = unique((report_name(r.process), r.level, string(r.category)) for r in rows)
-    return Any[
-        let rs = [r for r in rows if (report_name(r.process), r.level, string(r.category)) == key]
-            reports = [(; period = string(r.period), run = isnothing(r.run) ? nothing : string(r.run), r.path, r.state, r.date) for r in rs]
-            (; key, name = display_name(first(rs).process), level = key[2], category = key[3], reports, counts = report_counts(reports), rows = rs)
-        end for key in keys]
+    return Any[let rs = [r
+                         for r in rows
+                         if (report_name(r.process), r.level, string(r.category)) == key]
+                   reports = [(; period = string(r.period),
+                                  run = isnothing(r.run) ? nothing : string(r.run),
+                                  r.path, r.state, r.date) for r in rs]
+                   (; key, name = display_name(first(rs).process),
+                       level = key[2], category = key[3], reports,
+                       counts = report_counts(reports), rows = rs)
+               end
+               for key in keys]
 end
 
 # Groups of the entries of `report_overview`; their failures are read on demand.
-overview_groups(overview) = Any[
-    (; key = (o.name, o.level, string(o.category)), name = display_name(Symbol(o.name)), o.level, category = string(o.category), o.reports,
-        counts = report_counts(o.reports), rows = nothing) for o in overview]
+function overview_groups(overview)
+    Any[(; key = (o.name, o.level, string(o.category)),
+            name = display_name(Symbol(o.name)), o.level,
+            category = string(o.category), o.reports,
+            counts = report_counts(o.reports), rows = nothing) for o in overview]
+end
 
 # Displayed rows: the processing history if its file exists, then a group row followed by the
 # rows of its reports if it is unfolded. The history row is a report row without a group.
 function reports_rows(page::ReportsPage)
     rows = @NamedTuple{key::Tuple, report::Bool, entry::Any, group::Any, unfolded::Bool}[]
-    isnothing(page.history) || push!(rows, (; key = (:history,), report = true, entry = (; path = page.history), group = nothing, unfolded = true))
+    isnothing(page.history) || push!(rows,
+        (; key = (:history,), report = true, entry = (; path = page.history),
+            group = nothing, unfolded = true))
     for g in page.groups
         unfolded = get(page.expanded, g.key) do
             g.counts.failed > 0
         end
         push!(rows, (; key = (g.key,), report = false, entry = g, group = g, unfolded))
-        unfolded && append!(rows, (; key = (g.key, r.period, r.run), report = true, entry = r, group = g, unfolded = true) for r in g.reports)
+        unfolded && append!(rows,
+            (; key = (g.key, r.period, r.run), report = true,
+                entry = r, group = g, unfolded = true) for r in g.reports)
     end
     return rows
 end
@@ -240,10 +269,12 @@ end
 function request_failures!(page::ReportsPage)
     page.source === :all || return nothing
     g = cursor_group(page)
-    (isnothing(g) || g.counts.failed == 0 || haskey(page.summaries, g.key) || g.key in page.pending) && return nothing
+    (isnothing(g) || g.counts.failed == 0 || haskey(page.summaries, g.key) ||
+     g.key in page.pending) && return nothing
     push!(page.pending, g.key)
     failed = [(r.period, r.run, r.path) for r in g.reports if r.state === :failed]
-    push!(page.requests, (; kind = :failures, group = g.key, reports = failed, page.generation))
+    push!(page.requests, (;
+        kind = :failures, group = g.key, reports = failed, page.generation))
     return nothing
 end
 
@@ -286,9 +317,11 @@ function read_reports(ctrl::DataflowController, request)
             history = isfile(path) ? path : nothing
             rows
         elseif request.kind === :failures
-            [(; process = request.group, period, run, read_report(path).failures) for (period, run, path) in request.reports]
+            [(; process = request.group, period, run, read_report(path).failures)
+             for (period, run, path) in request.reports]
         else
-            isfile(request.path) ? report_viewer(request.path, read(request.path, String)) : nothing
+            isfile(request.path) ? report_viewer(request.path, read(request.path, String)) :
+            nothing
         end
     catch e
         return (; request, error = first(split(sprint(showerror, e), '\n')))
@@ -299,7 +332,8 @@ end
 
 # The viewer of the report text `text`, titled with the file name.
 function report_viewer(path::AbstractString, text::AbstractString)
-    pane = Tachikoma.MarkdownPane(tables_as_code(strip_span_tags(text)); block = pane_block(basename(path), true), following = false,
+    pane = Tachikoma.MarkdownPane(tables_as_code(strip_span_tags(text));
+        block = pane_block(basename(path), true), following = false,
         h1_style = Tachikoma.tstyle(:title, bold = true), h2_style = Tachikoma.tstyle(:accent, bold = true),
         h3_style = Tachikoma.tstyle(:primary, bold = true), code_style = Tachikoma.tstyle(:success),
         text_style = Tachikoma.tstyle(:text), quote_style = Tachikoma.tstyle(:text_dim))
@@ -326,7 +360,8 @@ function reports_result!(page::ReportsPage, answer)
         page.error = failed ? answer.error : nothing
         failed && return nothing
         page.history = answer.history
-        page.groups = request.source === :run ? run_groups(answer.value) : overview_groups(answer.value)
+        page.groups = request.source === :run ? run_groups(answer.value) :
+                      overview_groups(answer.value)
         page.loaded = true
         request_failures!(page)
     elseif request.kind === :failures
@@ -336,7 +371,8 @@ function reports_result!(page::ReportsPage, answer)
             page.error = answer.error
         else
             rows = answer.value
-            page.summaries[request.group] = isempty(rows) ? [] : only(failure_summary(rows)).detectors
+            page.summaries[request.group] = isempty(rows) ? [] :
+                                            only(failure_summary(rows)).detectors
         end
     elseif request.path == page.viewer_path
         if failed
@@ -352,8 +388,10 @@ end
 
 # What the data of the page was read for: `nothing` while no session is loaded, else the
 # start and end of the last processing run.
-reports_mark(snap) = isnothing(snap) || snap.state in (:idle, :loading) ? nothing :
+function reports_mark(snap)
+    isnothing(snap) || snap.state in (:idle, :loading) ? nothing :
     (snap.outcome, snap.started, snap.finished)
+end
 
 """
     Juleana.reports_visit!(page::ReportsPage, snap)
@@ -434,14 +472,20 @@ function handle_reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)
         request_reports!(page)
     elseif key in (:up, :down, :pageup, :pagedown, :home, :end_key)
         if page.focus == 2
-            delta = key == :up ? -1 : key == :down ? 1 : key == :pageup ? -page.fail_height : key == :pagedown ? page.fail_height :
-                key == :home ? -page.fail_lines : page.fail_lines
+            delta = key == :up ? -1 :
+                    key == :down ? 1 :
+                    key == :pageup ? -page.fail_height :
+                    key == :pagedown ? page.fail_height :
+                    key == :home ? -page.fail_lines : page.fail_lines
             scroll_failures!(page, delta)
         else
             rows = reports_rows(page)
             idx = sync_reports_cursor!(page, rows)
-            delta = key == :up ? -1 : key == :down ? 1 : key == :pageup ? -page.height : key == :pagedown ? page.height :
-                key == :home ? -length(rows) : length(rows)
+            delta = key == :up ? -1 :
+                    key == :down ? 1 :
+                    key == :pageup ? -page.height :
+                    key == :pagedown ? page.height :
+                    key == :home ? -length(rows) : length(rows)
             move_reports_cursor!(page, rows, idx + delta)
         end
     elseif key in (:left, :right, :enter) && page.focus == 1
@@ -456,7 +500,8 @@ function handle_reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)
             g = rows[idx].group
             unfold = key == :enter ? !rows[idx].unfolded : key == :right
             page.expanded[g.key] = unfold
-            unfold || (page.cursor = (g.key,); page.index = findfirst(r -> r.key == page.cursor, rows))
+            unfold || (page.cursor = (g.key,);
+                page.index = findfirst(r -> r.key == page.cursor, rows))
         end
     else
         return false
@@ -486,7 +531,8 @@ function reports_mouse!(page::ReportsPage, evt::Tachikoma.MouseEvent)::Bool
             if idx in eachindex(rows)
                 page.focus = 1
                 move_reports_cursor!(page, rows, idx)
-                rows[idx].report || (page.expanded[rows[idx].group.key] = !rows[idx].unfolded)
+                rows[idx].report ||
+                    (page.expanded[rows[idx].group.key] = !rows[idx].unfolded)
                 used = true
             end
         end
@@ -508,36 +554,52 @@ end
 function report_group_spans(g, name_width, unfolded, with_missing)
     c = g.counts
     spans = [
-        ((unfolded ? "▾ " : "▸ ") * rpad(clip_text(g.name, name_width), name_width) * " ", Tachikoma.tstyle(:primary, bold = true)),
+        ((unfolded ? "▾ " : "▸ ") * rpad(clip_text(g.name, name_width), name_width) * " ",
+            Tachikoma.tstyle(:primary, bold = true)),
         (rpad(string(g.level), REPORT_LEVEL_WIDTH) * "  ", Tachikoma.tstyle(:text_dim)),
-        (rpad(g.category, REPORT_CATEGORY_WIDTH) * "  ", something(setup_tag_style(g.category), Tachikoma.tstyle(:text_dim))),
+        (rpad(g.category, REPORT_CATEGORY_WIDTH) * "  ",
+            something(setup_tag_style(g.category), Tachikoma.tstyle(:text_dim))),
         ("ok $(c.ok)", Tachikoma.tstyle(REPORT_COLORS.ok)),
         ("  warn $(c.warning)", Tachikoma.tstyle(REPORT_COLORS.warning)),
-        ("  fail $(c.failed)", Tachikoma.tstyle(REPORT_COLORS.failed)),
+        ("  fail $(c.failed)", Tachikoma.tstyle(REPORT_COLORS.failed))
     ]
-    with_missing && push!(spans, ("  miss $(c.missing)", Tachikoma.tstyle(REPORT_COLORS.missing)))
+    with_missing &&
+        push!(spans, ("  miss $(c.missing)", Tachikoma.tstyle(REPORT_COLORS.missing)))
     return spans
 end
 
-report_counts_text(c, with_missing) = "ok $(c.ok)  warn $(c.warning)  fail $(c.failed)" * (with_missing ? "  miss $(c.missing)" : "")
+function report_counts_text(c, with_missing)
+    "ok $(c.ok)  warn $(c.warning)  fail $(c.failed)" *
+    (with_missing ? "  miss $(c.missing)" : "")
+end
 
-history_spans() = [("▪ ", Tachikoma.tstyle(:primary, bold = true)), ("Processing history", Tachikoma.tstyle(:primary, bold = true))]
+function history_spans()
+    [("▪ ", Tachikoma.tstyle(:primary, bold = true)),
+        ("Processing history", Tachikoma.tstyle(:primary, bold = true))]
+end
 
 report_label(r) = isnothing(r.run) ? r.period : "$(r.period)-$(r.run)"
 
 function report_spans(r, label_width)
     state = r.state
     color = Tachikoma.tstyle(REPORT_COLORS[state])
-    spans = [("    ", Tachikoma.tstyle(:text)), (rpad(clip_text(report_label(r), label_width), label_width) * "  ", Tachikoma.tstyle(:text_bright)),
+    spans = [("    ", Tachikoma.tstyle(:text)),
+        (rpad(clip_text(report_label(r), label_width), label_width) * "  ",
+            Tachikoma.tstyle(:text_bright)),
         (rpad(REPORT_ICONS[state] * " " * string(state), 9), color)]
-    isnothing(r.date) || push!(spans, ("  " * Dates.format(r.date, dateformat"mm-dd HH:MM") * "Z", Tachikoma.tstyle(:text_dim)))
+    isnothing(r.date) ||
+        push!(spans, ("  " * Dates.format(r.date, dateformat"mm-dd HH:MM") * "Z",
+            Tachikoma.tstyle(:text_dim)))
     return spans
 end
 
 # Widths of the name and the counts of the group rows.
-report_columns(page::ReportsPage) = (;
-    name = maximum(textwidth(g.name) for g in page.groups),
-    counts = maximum(textwidth(report_counts_text(g.counts, page.source === :run)) for g in page.groups))
+function report_columns(page::ReportsPage)
+    (;
+        name = maximum(textwidth(g.name) for g in page.groups),
+        counts = maximum(textwidth(report_counts_text(g.counts, page.source === :run))
+        for g in page.groups))
+end
 
 function render_report_list(page::ReportsPage, area, buf)
     page.rect = area
@@ -545,11 +607,16 @@ function render_report_list(page::ReportsPage, area, buf)
     page.height = 1
     (area.width < 3 || area.height < 3) && return nothing
     with_missing = page.source === :run
-    inner = Tachikoma.render(pane_block(with_missing ? "Reports (current run)" : "Reports (all on disk)", page.focus == 1), area, buf)
+    inner = Tachikoma.render(
+        pane_block(with_missing ? "Reports (current run)" : "Reports (all on disk)", page.focus ==
+                                                                                     1),
+        area,
+        buf)
     x_max = Tachikoma.right(inner)
     dim = Tachikoma.tstyle(:text_dim)
     if !isnothing(page.error)
-        Tachikoma.set_string!(buf, inner.x, inner.y, page.error, Tachikoma.tstyle(:error); max_x = x_max)
+        Tachikoma.set_string!(
+            buf, inner.x, inner.y, page.error, Tachikoma.tstyle(:error); max_x = x_max)
         return nothing
     end
     if !page.loaded
@@ -558,7 +625,8 @@ function render_report_list(page::ReportsPage, area, buf)
     end
     rows = reports_rows(page)
     if isempty(rows)
-        Tachikoma.set_string!(buf, inner.x, inner.y, with_missing ? "No processing run yet." : "No reports.", dim; max_x = x_max)
+        Tachikoma.set_string!(buf, inner.x, inner.y,
+            with_missing ? "No processing run yet." : "No reports.", dim; max_x = x_max)
         return nothing
     end
     height = max(1, inner.height - (inner.height >= 3))
@@ -569,19 +637,30 @@ function render_report_list(page::ReportsPage, area, buf)
     idx < page.top && (page.top = idx)
     idx > page.top + height - 1 && (page.top = idx - height + 1)
 
-    name_width = clamp(report_columns(page).name, 1, max(8, inner.width - 4 - REPORT_LEVEL_WIDTH - 2 - REPORT_CATEGORY_WIDTH - report_columns(page).counts))
-    label_width = clamp(maximum((textwidth(report_label(r)) for g in page.groups for r in g.reports); init = 1), 1, max(1, inner.width ÷ 3))
+    name_width = clamp(report_columns(page).name,
+        1,
+        max(8, inner.width - 4 - REPORT_LEVEL_WIDTH - 2 - REPORT_CATEGORY_WIDTH -
+               report_columns(page).counts))
+    label_width = clamp(
+        maximum((textwidth(report_label(r)) for g in page.groups for r in g.reports); init = 1),
+        1,
+        max(1, inner.width ÷ 3))
     highlight = Tachikoma.tstyle(:border)
     for r in 0:(height - 1)
         row = page.top + r
         row <= length(rows) || break
         entry = rows[row]
-        spans = isnothing(entry.group) ? history_spans() : entry.report ? report_spans(entry.entry, label_width) : report_group_spans(entry.entry, name_width, entry.unfolded, with_missing)
-        put_spans!(buf, inner.x, inner.y + r, x_max, spans, row == idx ? highlight : nothing)
+        spans = isnothing(entry.group) ? history_spans() :
+                entry.report ? report_spans(entry.entry, label_width) :
+                report_group_spans(entry.entry, name_width, entry.unfolded, with_missing)
+        put_spans!(
+            buf, inner.x, inner.y + r, x_max, spans, row == idx ? highlight : nothing)
     end
     if inner.height >= 3
-        status = page.reading ? "Reading reports…" : "$(length(page.groups)) processors, $(sum(length(g.reports) for g in page.groups)) reports"
-        Tachikoma.set_string!(buf, inner.x, Tachikoma.bottom(inner), status, dim; max_x = x_max)
+        status = page.reading ? "Reading reports…" :
+                 "$(length(page.groups)) processors, $(sum(length(g.reports) for g in page.groups)) reports"
+        Tachikoma.set_string!(
+            buf, inner.x, Tachikoma.bottom(inner), status, dim; max_x = x_max)
     end
     return nothing
 end
@@ -599,11 +678,13 @@ function failure_lines(page::ReportsPage, g)
     end
     isempty(detectors) && return [[("No failures.", dim)]]
     noun = g.level === :partition ? "period" : "run"
-    lines = Vector{Tuple{String,Tachikoma.Style}}[]
+    lines = Vector{Tuple{String, Tachikoma.Style}}[]
     for d in detectors
         n = length(d.labels)
-        push!(lines, [(d.detector, Tachikoma.tstyle(:text_bright, bold = true)),
-            ("  $n $noun" * (n == 1 ? "" : "s") * ": " * join(d.labels, ", "), Tachikoma.tstyle(:text))])
+        push!(lines,
+            [(d.detector, Tachikoma.tstyle(:text_bright, bold = true)),
+                ("  $n $noun" * (n == 1 ? "" : "s") * ": " * join(d.labels, ", "),
+                    Tachikoma.tstyle(:text))])
         for err in d.errors
             push!(lines, [("    " * replace(err, '\n' => ' '), Tachikoma.tstyle(:error))])
         end
@@ -617,7 +698,9 @@ function render_failures(page::ReportsPage, area, buf)
     (area.width < 3 || area.height < 3) && return nothing
     g = page.loaded && isnothing(page.error) ? cursor_group(page) : nothing
     title = isnothing(g) ? "Failures" : "Failures: $(g.name) $(g.level) $(g.category)"
-    inner = Tachikoma.render(pane_block(clip_text(title, max(0, area.width - 6)), page.focus == 2), area, buf)
+    inner = Tachikoma.render(
+        pane_block(clip_text(title, max(0, area.width - 6)), page.focus ==
+                                                             2), area, buf)
     isnothing(g) && return nothing
     if g.key != page.fail_group
         page.fail_top, page.fail_group = 1, g.key
@@ -627,7 +710,8 @@ function render_failures(page::ReportsPage, area, buf)
     page.fail_top = clamp(page.fail_top, 1, last_top(length(lines), inner.height))
     for r in 0:(inner.height - 1)
         page.fail_top + r <= length(lines) || break
-        put_spans!(buf, inner.x, inner.y + r, Tachikoma.right(inner), lines[page.fail_top + r])
+        put_spans!(
+            buf, inner.x, inner.y + r, Tachikoma.right(inner), lines[page.fail_top + r])
     end
     return nothing
 end
@@ -641,7 +725,8 @@ function render_viewer(page, area, buf)
     inner = Tachikoma.render(pane_block(basename(page.viewer_path), true), area, buf)
     message = something(page.viewer_message, "Reading report…")
     style = Tachikoma.tstyle(isnothing(page.viewer_message) ? :text_dim : :error)
-    Tachikoma.set_string!(buf, inner.x, inner.y, message, style; max_x = Tachikoma.right(inner))
+    Tachikoma.set_string!(
+        buf, inner.x, inner.y, message, style; max_x = Tachikoma.right(inner))
     return nothing
 end
 
@@ -668,9 +753,15 @@ function render_reports(page::ReportsPage, area::Tachikoma.Rect, buf::Tachikoma.
     left_width = round(Int, 0.45 * area.width)
     if page.loaded && isnothing(page.error) && !isempty(page.groups)
         cols = report_columns(page)
-        left_width = clamp(2 + 2 + cols.name + 1 + REPORT_LEVEL_WIDTH + 2 + REPORT_CATEGORY_WIDTH + 2 + cols.counts + 2, left_width, round(Int, 0.6 * area.width))
+        left_width = clamp(
+            2 + 2 + cols.name + 1 + REPORT_LEVEL_WIDTH + 2 + REPORT_CATEGORY_WIDTH + 2 +
+            cols.counts + 2,
+            left_width,
+            round(Int, 0.6 * area.width))
     end
     render_report_list(page, Tachikoma.Rect(area.x, area.y, left_width, area.height), buf)
-    render_failures(page, Tachikoma.Rect(area.x + left_width, area.y, area.width - left_width, area.height), buf)
+    render_failures(page,
+        Tachikoma.Rect(area.x + left_width, area.y, area.width - left_width, area.height),
+        buf)
     return nothing
 end

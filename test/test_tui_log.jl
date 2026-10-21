@@ -2,7 +2,7 @@
 
 using Juleana
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Frame, Rect, GraphicsRegion,
-    PixelSnapshot, find_text, row_text, style_at
+                 PixelSnapshot, find_text, row_text, style_at
 using Logging: Logging, with_logger
 using LegendDataManagement: DataPeriod
 using Test
@@ -36,7 +36,9 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
 @testset "Log page" begin
     entries = Juleana.message_entries(sample_buffer())
     # an info line, a warning with two keyword lines, an error with one, an output line
-    @test [e.level for e in entries] == [Logging.Info, Logging.Warn, Logging.Warn, Logging.Warn, Logging.Error, Logging.Error, Logging.Info]
+    @test [e.level for e in entries] ==
+          [Logging.Info, Logging.Warn, Logging.Warn, Logging.Warn,
+        Logging.Error, Logging.Error, Logging.Info]
     @test length(unique(e.record for e in entries)) == 4
 
     @testset "level filter keeps the lines of a record" begin
@@ -48,7 +50,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         @test page.min_level == Logging.Warn
         shown = Juleana.shown_entries(page, entries)
         @test [entries[i].level for i in shown] ==
-            [e.level for e in entries if e.level >= Logging.Warn]
+              [e.level for e in entries if e.level >= Logging.Warn]
         @test warn_rows ⊆ shown
         press(page, entries, 'l')
         @test page.min_level == Logging.Error
@@ -65,7 +67,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         @test shown == findall(e -> e.level == Logging.Warn, entries)
         page.filter = "FIT failed"
         @test [entries[i].level for i in Juleana.shown_entries(page, entries)] ==
-            [e.level for e in entries if e.level == Logging.Error]
+              [e.level for e in entries if e.level == Logging.Error]
         page.filter = "no such text"
         @test isempty(Juleana.shown_entries(page, entries))
         page.filter = "worker"
@@ -78,7 +80,8 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         @test find_text(render_log_page(page, entries[1:0]), "No messages yet.") !== nothing
         tb = render_log_page(page, entries)
         text = log_text(tb)
-        @test occursin("loading the session", text) && occursin("fit failed", text) && occursin("(following)", text)
+        @test occursin("loading the session", text) && occursin("fit failed", text) &&
+              occursin("(following)", text)
         @test occursin("$(length(entries)) of $(length(entries)) lines", text)
         @test !occursin("older lines", text)
         page.filter = "zzz"
@@ -113,14 +116,16 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         page = Juleana.LogPage()
         entries = Juleana.message_entries(buf)
         tb = render_log_page(page, entries)
-        @test find_text(tb, "message 60") !== nothing && find_text(tb, "message 1 ") === nothing
+        @test find_text(tb, "message 60") !== nothing &&
+              find_text(tb, "message 1 ") === nothing
         with_logger(() -> @info("message 61"), buf)
         entries = Juleana.message_entries(buf)
         @test find_text(render_log_page(page, entries), "message 61") !== nothing
 
         @test press(page, entries, :up) && !page.follow
         tb = render_log_page(page, entries)
-        @test find_text(tb, "message 61") === nothing && find_text(tb, "message 60") !== nothing
+        @test find_text(tb, "message 61") === nothing &&
+              find_text(tb, "message 60") !== nothing
         @test occursin("lines", log_text(tb)) && !occursin("(following)", log_text(tb))
         # new messages do not move the view
         top = page.top
@@ -140,11 +145,16 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         # the wheel scrolls while the pointer is inside the block
         page = Juleana.LogPage()
         render_log_page(page, entries)
-        wheel(button, x = 5, y = 8) = MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
-        @test Juleana.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up), entries) && !page.follow
+        wheel(button, x = 5, y = 8) = MouseEvent(
+            x, y, button, Tachikoma.mouse_press, false, false, false)
+        @test Juleana.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up), entries) &&
+              !page.follow
         @test page.top == last(Juleana.shown_entries(page, entries)) - page.height + 1 - 3
         @test !Juleana.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up, 500, 8), entries)
-        @test !Juleana.log_mouse!(page, MouseEvent(5, 8, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), entries)
+        @test !Juleana.log_mouse!(page,
+            MouseEvent(
+                5, 8, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false),
+            entries)
     end
 
     @testset "editing the filter" begin
@@ -191,26 +201,32 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
     @testset "in the interface" begin
         root = mktempdir()
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
-        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
+        args = Dict{String, Any}("config" =>
+            joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         cfg = ProcessingConfig(;
-            processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
-            p_processors = Dict{Symbol,ProcessorSpec}())
+            processors = Dict(:process_energy_calibration_cal =>
+                spec(:process_energy_calibration_cal, :run, 1)),
+            p_processors = Dict{Symbol, ProcessorSpec}())
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
             l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg), partition_steps(cfg))
-        session = DataflowSession(; args, l200, config = cfg, periods, run_steps = run_steps(cfg),
+        session = DataflowSession(;
+            args, l200, config = cfg, periods, run_steps = run_steps(cfg),
             partition_steps = partition_steps(cfg), run_status, partition_status)
         buf = sample_buffer()
         render_model(m, w = 120, h = 30) = (tb = TestBackend(w, h);
             Tachikoma.view(m, Frame(tb.buf, Rect(1, 1, w, h), GraphicsRegion[], PixelSnapshot[])); tb)
-        m = Juleana.JuleanaTUI(DataflowController(session; processors = Dict{Symbol,Any}()), buf)
+        m = Juleana.JuleanaTUI(DataflowController(session; processors = Dict{Symbol, Any}()), buf)
         Tachikoma.update!(m, KeyEvent('5'))
         @test m.page == 5
         text = log_text(render_model(m))
-        @test occursin("fit failed", text) && occursin("l level", text) && occursin("1-7 page", text)
+        @test occursin("fit failed", text) && occursin("l level", text) &&
+              occursin("1-7 page", text)
         Tachikoma.update!(m, KeyEvent('l'))
         text = log_text(render_model(m))
-        @test m.log_page.min_level == Logging.Warn && occursin("(warnings)", text) && !occursin("loading the session", text)
-        wheel = MouseEvent(5, 10, Tachikoma.mouse_scroll_down, Tachikoma.mouse_press, false, false, false)
+        @test m.log_page.min_level == Logging.Warn && occursin("(warnings)", text) &&
+              !occursin("loading the session", text)
+        wheel = MouseEvent(
+            5, 10, Tachikoma.mouse_scroll_down, Tachikoma.mouse_press, false, false, false)
         Tachikoma.update!(m, wheel)
         @test !m.log_page.follow
         # typing a filter captures the keys that switch pages and quit

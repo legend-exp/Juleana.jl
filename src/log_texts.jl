@@ -6,7 +6,7 @@ Return `usability` as an HTML `<span>` string for Markdown reports, colored gree
 `:on`, yellow for `:ac`, red for `:off` and gray for any other value.
 """
 function detector_status(usability::Symbol)
-    color = get((on="green", ac="yellow", off="red"), usability, "gray")
+    color = get((on = "green", ac = "yellow", off = "red"), usability, "gray")
     return """<span style="color:$color">$usability</span>"""
 end
 
@@ -40,9 +40,11 @@ function master_status(results...)
             for log in logs
                 has_entries = true
                 usability = haskey(log, :usability) ? itr.usability : :on
-                if log.Status == process_succeeded || (usability == :off && log.Status == process_warning)
+                if log.Status == process_succeeded ||
+                   (usability == :off && log.Status == process_warning)
                     continue
-                elseif (usability == :ac && log.Status == process_warning) || (usability == :off && log.Status == process_failed)
+                elseif (usability == :ac && log.Status == process_warning) ||
+                       (usability == :off && log.Status == process_failed)
                     status = process_warning
                 else
                     return process_failed
@@ -68,7 +70,7 @@ julia> truncate_string("process_dsp_cal", 7)
 "process..."
 ```
 """
-function truncate_string(s::AbstractString, max_length::Integer=1000)
+function truncate_string(s::AbstractString, max_length::Integer = 1000)
     length(s) > max_length ? first(s, max_length) * "..." : s
 end
 
@@ -91,8 +93,9 @@ root_exception(e::CapturedException) = root_exception(e.ex)
 Return the text of the [`root_exception`](@ref) of `e`, shortened with
 [`truncate_string`](@ref) to `max_length` characters.
 """
-truncate_error(e, max_length::Integer=1000) =
+function truncate_error(e, max_length::Integer = 1000)
     truncate_string(string(root_exception(e)), max_length)
+end
 
 # Static report sections, one per processor; internal to the module.
 
@@ -179,7 +182,6 @@ This is the log for the SiPM calibration. The algorithm loads the physics data f
 After a mini DSP, the calibration is performed by fitting the 1 p.e. and 2 p.e. peaks with a gaussian function.
 The calibration constant and offset are extracted from the fit.
 """
-
 
 const evt_log_text = """## Evt
 This is the log for the event level. The algorithm iterates through each file each file and generates the event level table for each subsystem including correct calibrations and cut generation."""

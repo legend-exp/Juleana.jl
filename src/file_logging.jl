@@ -1,6 +1,7 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
-const LOG_LEVELS = Dict("debug" => Logging.Debug, "info" => Logging.Info, "warn" => Logging.Warn, "error" => Logging.Error)
+const LOG_LEVELS = Dict("debug" => Logging.Debug, "info" => Logging.Info,
+    "warn" => Logging.Warn, "error" => Logging.Error)
 
 """
     parse_log_level(level::AbstractString)
@@ -22,7 +23,7 @@ end
 
 # Log level of the running processor, set by `run_processing` and `run_step`; `nothing`
 # outside of a processor. `parallel` sets it again on the workers.
-const PROCESSOR_LOG_LEVEL = ScopedValue{Union{Nothing,LogLevel}}(nothing)
+const PROCESSOR_LOG_LEVEL = ScopedValue{Union{Nothing, LogLevel}}(nothing)
 
 """
     DEBUG_LOG_PACKAGES
@@ -32,7 +33,8 @@ Juleana, the Legend packages, BAT and the JuliaPhysics packages of the dataflow.
 counts when its name or the name of one of its parent modules starts with one of them, so
 submodules and package extensions such as `LegendMakieExt` are included.
 """
-const DEBUG_LOG_PACKAGES = ("Juleana", "Legend", "BAT", "RadiationDetectorDSP", "RadiationDetectorSignals",
+const DEBUG_LOG_PACKAGES = (
+    "Juleana", "Legend", "BAT", "RadiationDetectorDSP", "RadiationDetectorSignals",
     "RadiationSpectra", "SolidStateDetectors")
 
 # Whether `mod` or one of its parent modules is named with a prefix of `DEBUG_LOG_PACKAGES`.
@@ -54,7 +56,7 @@ Debug records pass when that level is `Logging.Debug` and their module is listed
 `JULIA_DEBUG`, or, inside a processor, belongs to one of the [`DEBUG_LOG_PACKAGES`](@ref).
 Records of other modules are rejected before their message is built.
 """
-struct ProcessorLevelLogger{L<:AbstractLogger} <: AbstractLogger
+struct ProcessorLevelLogger{L <: AbstractLogger} <: AbstractLogger
     inner::L
     level::LogLevel
 end
@@ -67,15 +69,18 @@ function passes(logger::ProcessorLevelLogger, level, _module, group)
     effective <= Logging.Debug || return false
     # `JULIA_DEBUG` lets debug records reach the logger without `shouldlog`
     return Base.CoreLogging.env_override_minlevel(group, _module) ||
-        (!isnothing(processor_level) && _module isa Module && debug_log_package(_module))
+           (!isnothing(processor_level) && _module isa Module && debug_log_package(_module))
 end
 
 min_enabled_level(::ProcessorLevelLogger) = Logging.Debug
-shouldlog(logger::ProcessorLevelLogger, level, _module, group, id) =
-    passes(logger, level, _module, group) && shouldlog(logger.inner, level, _module, group, id)
+function shouldlog(logger::ProcessorLevelLogger, level, _module, group, id)
+    passes(logger, level, _module, group) &&
+        shouldlog(logger.inner, level, _module, group, id)
+end
 catch_exceptions(logger::ProcessorLevelLogger) = catch_exceptions(logger.inner)
 
-function handle_message(logger::ProcessorLevelLogger, level, message, _module, group, id, file, line; kwargs...)
+function handle_message(logger::ProcessorLevelLogger, level, message,
+        _module, group, id, file, line; kwargs...)
     passes(logger, level, _module, group) || return nothing
     handle_message(logger.inner, level, message, _module, group, id, file, line; kwargs...)
 end
@@ -83,7 +88,10 @@ end
 # Text of a log message: a message that can be shown as Markdown, such as a processor's
 # report, is written as that Markdown.
 log_text(message::AbstractString) = String(message)
-log_text(message) = showable(MIME"text/markdown"(), message) ? sprint(show, MIME"text/markdown"(), message) : string(message)
+function log_text(message)
+    showable(MIME"text/markdown"(), message) ?
+    sprint(show, MIME"text/markdown"(), message) : string(message)
+end
 
 # One record per entry: `<UTC time> <level> [<module>] <message>`, further message lines
 # and `key = value` pairs indented below, and the source location for warnings and errors.
@@ -98,8 +106,9 @@ function format_log_record(io::IO, log)
     end
     for (key, value) in log.kwargs
         # `showerror` shows the errors inside wrappers such as `CompositeException`
-        text = key !== :exception ? string(value) : value isa Tuple{Exception,Any} ? sprint(showerror, value...) :
-            value isa Exception ? sprint(showerror, value) : string(value)
+        text = key !== :exception ? string(value) :
+               value isa Tuple{Exception, Any} ? sprint(showerror, value...) :
+               value isa Exception ? sprint(showerror, value) : string(value)
         println(io, "    ", key, " = ", replace(text, '\n' => "\n        "))
     end
     log.level >= Logging.Warn && println(io, "    @ ", log.file, ":", log.line)
@@ -125,17 +134,19 @@ Build the logger that [`init_process`](@ref) installs.
 
 Throw an `ArgumentError` when neither sink is requested.
 """
-function processing_logger(; log_file::Union{Nothing,AbstractString} = nothing,
-        log_level::LogLevel = Logging.Info, console_level::Union{Nothing,LogLevel} = Logging.Info)
+function processing_logger(; log_file::Union{Nothing, AbstractString} = nothing,
+        log_level::LogLevel = Logging.Info, console_level::Union{Nothing, LogLevel} = Logging.Info)
     isnothing(log_file) && isnothing(console_level) &&
         throw(ArgumentError("processing_logger: no log file and no console output requested"))
     # `JULIA_DEBUG` lets debug records of the listed modules pass every level check of the
     # composed loggers, so levels above debug are enforced on the record itself.
-    at_least(level, logger) = level <= Logging.Debug ? logger : ActiveFilteredLogger(log -> log.level >= level, logger)
+    at_least(level, logger) = level <= Logging.Debug ? logger :
+                              ActiveFilteredLogger(log -> log.level >= level, logger)
     sinks = AbstractLogger[]
     if !isnothing(console_level)
         console = UnderscoreSafeLogger(TerminalLogger(stderr, min(console_level, Logging.Info)))
-        push!(sinks, console_level <= Logging.Info ? console : at_least(console_level, console))
+        push!(sinks, console_level <= Logging.Info ? console :
+                     at_least(console_level, console))
     end
     if !isnothing(log_file)
         file = FormatLogger(format_log_record, log_file; append = true)
@@ -152,5 +163,6 @@ end
 Return the log file of the current process in the directory `log_path`: `head.log` on
 the main process, `worker-<id>-<hostname>.log` on a worker.
 """
-process_log_file(log_path::AbstractString) =
+function process_log_file(log_path::AbstractString)
     joinpath(log_path, myid() == 1 ? "head.log" : "worker-$(myid())-$(gethostname()).log")
+end

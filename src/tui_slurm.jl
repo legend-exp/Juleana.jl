@@ -3,13 +3,19 @@
 # Options of the SLURM job that the form edits: long name, the short option SLURM also accepts
 # for it (or `nothing`), label, and the pattern a value must match with its description.
 const SLURM_FORM_OPTIONS = (
-    (name = "partition", short = 'p', label = "partition", pattern = r"^\S+$", expected = "a name without spaces"),
-    (name = "time", short = 't', label = "time limit", pattern = r"^(\d+-)?\d+(:\d+){0,2}$",
+    (name = "partition", short = 'p', label = "partition",
+        pattern = r"^\S+$", expected = "a name without spaces"),
+    (name = "time", short = 't', label = "time limit",
+        pattern = r"^(\d+-)?\d+(:\d+){0,2}$",
         expected = "minutes, hh:mm:ss or d-hh:mm:ss"),
-    (name = "nodes", short = 'N', label = "nodes", pattern = r"^[1-9]\d*$", expected = "a positive integer"),
-    (name = "ntasks-per-node", short = nothing, label = "workers per node", pattern = r"^[1-9]\d*$", expected = "a positive integer"),
-    (name = "cpus-per-task", short = 'c', label = "threads per worker", pattern = r"^[1-9]\d*$", expected = "a positive integer"),
-    (name = "mem", short = nothing, label = "memory per node", pattern = r"^\d+[KMGT]?B?$"i, expected = "a size such as 30GB"),
+    (name = "nodes", short = 'N', label = "nodes",
+        pattern = r"^[1-9]\d*$", expected = "a positive integer"),
+    (name = "ntasks-per-node", short = nothing, label = "workers per node",
+        pattern = r"^[1-9]\d*$", expected = "a positive integer"),
+    (name = "cpus-per-task", short = 'c', label = "threads per worker",
+        pattern = r"^[1-9]\d*$", expected = "a positive integer"),
+    (name = "mem", short = nothing, label = "memory per node",
+        pattern = r"^\d+[KMGT]?B?$"i, expected = "a size such as 30GB")
 )
 
 """
@@ -21,8 +27,8 @@ no value is edited) and the error of the last typed value.
 """
 mutable struct SlurmForm
     cursor::Int
-    text::Union{Nothing,String}
-    error::Union{Nothing,String}
+    text::Union{Nothing, String}
+    error::Union{Nothing, String}
 end
 
 SlurmForm() = SlurmForm(1, nothing, nothing)
@@ -32,8 +38,11 @@ slurm_flag_index(flags, opt) = findfirst(f -> startswith(f, "--$(opt.name)="), f
 
 # A flag of `flags` that sets the option `opt` in another form than `--name=value`, which the
 # form does not change, or `nothing`.
-slurm_flag_conflict(flags, opt) = findfirst(f -> f == "--$(opt.name)" ||
-    (!isnothing(opt.short) && startswith(f, "-$(opt.short)")), flags)
+function slurm_flag_conflict(flags, opt)
+    findfirst(
+        f -> f == "--$(opt.name)" ||
+             (!isnothing(opt.short) && startswith(f, "-$(opt.short)")), flags)
+end
 
 """
     Juleana.slurm_option(flags::AbstractVector{<:AbstractString}, name::AbstractString)
@@ -91,7 +100,8 @@ function slurm_form_key!(form::SlurmForm, evt::Tachikoma.KeyEvent, snap, send)
     if !isnothing(form.text)
         if key == :enter
             try
-                send(SetRunmodeSettings(; slurm_flags = set_slurm_option(flags, opt.name, strip(form.text))))
+                send(SetRunmodeSettings(;
+                    slurm_flags = set_slurm_option(flags, opt.name, strip(form.text))))
                 form.text, form.error = nothing, nothing
             catch e
                 e isa ArgumentError || rethrow()
@@ -127,37 +137,51 @@ function render_slurm_form(form::SlurmForm, snap, area::Tachikoma.Rect, buf::Tac
     (isnothing(snap) || isnothing(snap.runmode_settings)) && return nothing
     flags = snap.runmode_settings.slurm_flags
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
-    highlight, error_style = Tachikoma.tstyle(:accent, bold = true), Tachikoma.tstyle(:error, bold = true)
+    highlight, error_style = Tachikoma.tstyle(:accent, bold = true),
+    Tachikoma.tstyle(:error, bold = true)
     label_width = maximum(o -> textwidth(o.label), SLURM_FORM_OPTIONS)
-    lines = Tuple{String,Any}[]
+    lines = Tuple{String, Any}[]
     for (n, opt) in enumerate(SLURM_FORM_OPTIONS)
         value = slurm_option(flags, opt.name)
         conflict = slurm_flag_conflict(flags, opt)
-        shown = !isnothing(conflict) ? "set by $(flags[conflict])" : something(value, "not set")
+        shown = !isnothing(conflict) ? "set by $(flags[conflict])" :
+                something(value, "not set")
         style = n == form.cursor ? highlight : isnothing(value) ? dim : text
         push!(lines, ("  " * rpad(opt.label, label_width) * "  " * shown, style))
     end
     shown = Set(something(slurm_flag_index(flags, o), 0) for o in SLURM_FORM_OPTIONS)
     others = [f for (i, f) in pairs(flags) if !(i in shown)]
-    push!(lines, ("", text), ("other flags: " * (isempty(others) ? "none" : join(others, " ")), dim))
-    push!(lines, ("New allocations use these settings; `w` on the Setup page writes them to the config.", dim))
+    push!(lines, ("", text), (
+        "other flags: " * (isempty(others) ? "none" : join(others, " ")), dim))
+    push!(lines, (
+        "New allocations use these settings; `w` on the Setup page writes them to the config.",
+        dim))
     push!(lines, ("", text))
     isnothing(form.text) || push!(lines, ("new value: " * form.text * "▏", highlight))
     isnothing(form.error) || push!(lines, (form.error, error_style))
-    push!(lines, (isnothing(form.text) ? "Enter: edit   Esc: close" : "Enter: set (empty: remove)   Esc: drop", dim))
+    push!(lines,
+        (
+            isnothing(form.text) ? "Enter: edit   Esc: close" :
+            "Enter: set (empty: remove)   Esc: drop",
+            dim))
 
     width = min(area.width, max(50, maximum(l -> textwidth(first(l)), lines) + 4))
     height = min(area.height, length(lines) + 2)
     box = Tachikoma.center(area, width, height)
     for y in box.y:Tachikoma.bottom(box), x in box.x:Tachikoma.right(box)
+
         Tachikoma.set_char!(buf, x, y, ' ', text)
     end
-    inner = Tachikoma.render(Tachikoma.Block(title = "SLURM settings (this session)",
-        border_style = Tachikoma.tstyle(:border_focus)), box, buf)
+    inner = Tachikoma.render(
+        Tachikoma.Block(title = "SLURM settings (this session)",
+            border_style = Tachikoma.tstyle(:border_focus)),
+        box,
+        buf)
     for (i, (line, style)) in enumerate(lines)
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
-        Tachikoma.set_string!(buf, inner.x + 1, y, line, style; max_x = Tachikoma.right(inner))
+        Tachikoma.set_string!(
+            buf, inner.x + 1, y, line, style; max_x = Tachikoma.right(inner))
     end
     return nothing
 end

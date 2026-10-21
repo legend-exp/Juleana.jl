@@ -31,12 +31,12 @@ mutable struct ProductionForm
     home::String
     # index into `production_fields(form)`
     cursor::Int
-    error::Union{Nothing,String}
+    error::Union{Nothing, String}
     # the candidates listed by the last Tab on a path field, empty if none
     hint::String
     phase::Symbol
     # folder of the production being created
-    path::Union{Nothing,String}
+    path::Union{Nothing, String}
     # the controller has accepted the `CreateProduction` command
     accepted::Bool
     # number of answered commands at which the answer to the `CreateProduction` command arrives, 0 before the submit
@@ -44,9 +44,12 @@ mutable struct ProductionForm
     log::Vector{String}
 end
 
-function ProductionForm(; parent::AbstractString = haskey(ENV, "LEGEND_DATA_CONFIG") ? dirname(dirname(abspath(last(data_config_files())))) : "",
+function ProductionForm(;
+        parent::AbstractString = haskey(ENV, "LEGEND_DATA_CONFIG") ?
+                                 dirname(dirname(abspath(last(data_config_files())))) : "",
         shell::AbstractString = basename(get(ENV, "SHELL", "")), home::AbstractString = homedir())
-    return ProductionForm("", parent, METADATA_URL, true, "", "main", "main", String[], String[], String[], false, true,
+    return ProductionForm("", parent, METADATA_URL, true, "", "main",
+        "main", String[], String[], String[], false, true,
         shell, home, 1, nothing, "", :edit, nothing, false, 0, String[])
 end
 
@@ -58,7 +61,7 @@ index into the list of a `:tier_label`, `:tier_path` or `:par` field and 0 for t
 The branch fields are present only if the branches are checked out.
 """
 function production_fields(form::ProductionForm)
-    fields = Tuple{Symbol,Int}[(:name, 0), (:parent, 0), (:url, 0), (:checkout, 0)]
+    fields = Tuple{Symbol, Int}[(:name, 0), (:parent, 0), (:url, 0), (:checkout, 0)]
     form.checkout && push!(fields, (:metadata_ref, 0), (:jldataprod, 0), (:dataprod, 0))
     for i in eachindex(form.tier_labels)
         push!(fields, (:tier_label, i), (:tier_path, i))
@@ -71,12 +74,15 @@ function production_fields(form::ProductionForm)
     return fields
 end
 
-production_text_kind(kind::Symbol) = kind in (:name, :parent, :url, :metadata_ref, :jldataprod, :dataprod, :tier_label, :tier_path, :par)
+function production_text_kind(kind::Symbol)
+    kind in (:name, :parent, :url, :metadata_ref, :jldataprod,
+        :dataprod, :tier_label, :tier_path, :par)
+end
 production_toggle_kind(kind::Symbol) = kind in (:checkout, :set_default, :copy_software)
 production_path_kind(kind::Symbol) = kind in (:parent, :tier_path, :par)
 
 # The text of a text field.
-function production_text(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
+function production_text(form::ProductionForm, (kind, i)::Tuple{Symbol, Int})
     kind === :name && return form.name
     kind === :parent && return form.parent
     kind === :url && return form.metadata_url
@@ -90,7 +96,7 @@ function production_text(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
 end
 
 # Replace the text of a text field.
-function production_set_text!(form::ProductionForm, (kind, i)::Tuple{Symbol,Int}, text::AbstractString)
+function production_set_text!(form::ProductionForm, (kind, i)::Tuple{Symbol, Int}, text::AbstractString)
     text = String(text)
     kind === :name ? (form.name = text) :
     kind === :parent ? (form.parent = text) :
@@ -122,7 +128,10 @@ function production_add_row!(form::ProductionForm, list::Symbol)
     else
         push!(form.pars, "")
     end
-    form.cursor = findfirst(==(list === :tier ? (:tier_label, length(form.tier_labels)) : (:par, length(form.pars))), production_fields(form))
+    form.cursor = findfirst(
+        ==(list === :tier ? (:tier_label, length(form.tier_labels)) :
+           (:par, length(form.pars))),
+        production_fields(form))
     return nothing
 end
 
@@ -142,7 +151,9 @@ function production_remove_row!(form::ProductionForm)
 end
 
 # The stripped text of a branch field, `nothing` if the branches are not checked out or the text is empty.
-production_branch(checkout, text) = checkout && !isempty(strip(text)) ? strip(text) : nothing
+function production_branch(checkout, text)
+    checkout && !isempty(strip(text)) ? strip(text) : nothing
+end
 
 """
     Juleana.production_spec(form::ProductionForm)
@@ -153,13 +164,15 @@ empty, and a tier row or parameter
 row without any text is left out.
 """
 function production_spec(form::ProductionForm)
-    tiers = [strip(l) => strip(p) for (l, p) in zip(form.tier_labels, form.tier_paths) if !isempty(strip(l)) || !isempty(strip(p))]
+    tiers = [strip(l) => strip(p)
+             for (l, p) in zip(form.tier_labels, form.tier_paths)
+             if !isempty(strip(l)) || !isempty(strip(p))]
     return ProductionSpec(;
         name = strip(form.name), parent = strip(form.parent), metadata_url = strip(form.metadata_url),
         metadata_ref = production_branch(form.checkout, form.metadata_ref),
         jldataprod_branch = production_branch(form.checkout, form.jldataprod_branch),
         dataprod_branch = production_branch(form.checkout, form.dataprod_branch),
-        tier_paths = Pair{String,String}[String(l) => String(p) for (l, p) in tiers],
+        tier_paths = Pair{String, String}[String(l) => String(p) for (l, p) in tiers],
         pars = String[strip(p) for p in form.pars if !isempty(strip(p))],
         form.set_default, form.copy_software, form.shell, form.home)
 end
@@ -265,11 +278,16 @@ function complete_path(text::AbstractString; home::AbstractString = homedir())
         e isa Base.IOError || rethrow()
         return (; text = expanded, candidates = String[])
     end
-    candidates = [n * "/" for n in names if startswith(n, prefix) && (!startswith(n, ".") || startswith(prefix, ".")) && isdir(joinpath(dir, n))]
+    candidates = [n * "/"
+                  for n in names
+                  if startswith(n, prefix) &&
+                         (!startswith(n, ".") || startswith(prefix, ".")) &&
+                         isdir(joinpath(dir, n))]
     isempty(candidates) && return (; text = expanded, candidates)
     common = first(candidates)
     for c in candidates
-        common = join(first(p) for p in Iterators.takewhile(p -> p[1] == p[2], zip(common, c)))
+        common = join(first(p)
+        for p in Iterators.takewhile(p -> p[1] == p[2], zip(common, c)))
     end
     return (; text = joinpath(dir, common), candidates)
 end
@@ -283,7 +301,8 @@ function production_complete!(form::ProductionForm, field)
     production_set_text!(form, field, completed)
     if length(candidates) > 1
         shown = first(candidates, 8)
-        form.hint = join(shown, "  ") * (length(candidates) > length(shown) ? "  and $(length(candidates) - length(shown)) more" : "")
+        form.hint = join(shown, "  ") * (length(candidates) > length(shown) ?
+                     "  and $(length(candidates) - length(shown)) more" : "")
     end
     return completed != text || length(candidates) > 1
 end
@@ -297,9 +316,11 @@ exception `error` becomes the error of the form and its fields can be corrected,
 command is accepted and the creation runs.
 """
 function production_answer!(form::ProductionForm, answered::Integer, error)
-    (form.phase === :creating && !form.accepted && answered == form.answer_at) || return nothing
+    (form.phase === :creating && !form.accepted && answered == form.answer_at) ||
+        return nothing
     if error isa Exception
-        form.phase, form.error = :edit, error isa ArgumentError ? error.msg : sprint(showerror, error)
+        form.phase, form.error = :edit,
+        error isa ArgumentError ? error.msg : sprint(showerror, error)
     else
         form.accepted = true
     end
@@ -327,7 +348,7 @@ function production_sync!(form::ProductionForm, snap, lines)
 end
 
 # Label of the field `(kind, i)`.
-function production_label(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
+function production_label(form::ProductionForm, (kind, i)::Tuple{Symbol, Int})
     kind === :name && return "Name"
     kind === :parent && return "Parent folder"
     kind === :url && return "Metadata URL"
@@ -342,7 +363,8 @@ function production_label(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
     kind === :add_par && return "[+] parameter folder to copy"
     if kind === :set_default
         rc = shell_rc_file(form.shell, form.home)
-        return "Set as default in " * (isnothing(rc) ? "the shell startup file" : basename(rc))
+        return "Set as default in " *
+               (isnothing(rc) ? "the shell startup file" : basename(rc))
     end
     kind === :copy_software && return "Copy the software into the production"
     return "[ Create ]"
@@ -357,19 +379,25 @@ highlighted, scrolled to keep it in view; below them the first line of the error
 last input, wrapped to at most three rows, and a line of keys. While the production is created, the lines of its log (the newest that fit)
 replace the fields, and a finished creation shows the path of the production.
 """
-function render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer; ticks::Integer = 0)
+function render_production(form::ProductionForm, snap, area::Tachikoma.Rect,
+        buf::Tachikoma.Buffer; ticks::Integer = 0)
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
-    highlight, error_style = Tachikoma.tstyle(:accent, bold = true), Tachikoma.tstyle(:error, bold = true)
+    highlight, error_style = Tachikoma.tstyle(:accent, bold = true),
+    Tachikoma.tstyle(:error, bold = true)
     for y in area.y:Tachikoma.bottom(area), x in area.x:Tachikoma.right(area)
+
         Tachikoma.set_char!(buf, x, y, ' ', text)
     end
     inner = Tachikoma.render(pane_block("New data production", true), area, buf)
     inner.height < 1 && return nothing
-    put(y, spans) = y <= Tachikoma.bottom(inner) && put_spans!(buf, inner.x + 1, y, Tachikoma.right(inner), spans)
+    put(y, spans) = y <= Tachikoma.bottom(inner) &&
+                    put_spans!(buf, inner.x + 1, y, Tachikoma.right(inner), spans)
     if form.phase !== :edit
         done = form.phase === :done
         spinner = string(Tachikoma.SPINNER_BRAILLE[mod1(ticks, length(Tachikoma.SPINNER_BRAILLE))])
-        put(inner.y, done ? [("Created and loaded $(form.path)", Tachikoma.tstyle(:success, bold = true))] :
+        put(inner.y,
+            done ?
+            [("Created and loaded $(form.path)", Tachikoma.tstyle(:success, bold = true))] :
             [(spinner * " ", Tachikoma.tstyle(:warning)), ("Creating $(form.path)", text)])
         put(inner.y + 1, [(done ? "Any key continues to the Setup page." : "", dim)])
         room = inner.height - 3
@@ -383,7 +411,11 @@ function render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf
     cursor = clamp(form.cursor, 1, length(fields))
     # the first line of the error, wrapped to at most three rows above the line of keys
     error_rows = isnothing(form.error) ? String[] :
-        first([join(c) for c in Iterators.partition(collect(first(split(form.error, '\n'))), max(1, inner.width - 2))], 3)
+                 first(
+        [join(c)
+         for c in Iterators.partition(collect(first(split(form.error, '\n'))), max(1, inner.width -
+                                                                                      2))],
+        3)
     visible = max(1, inner.height - 1 - max(1, length(error_rows)))
     top = clamp(cursor - visible ÷ 2, 1, max(1, length(fields) - visible + 1))
     label_width = maximum(f -> textwidth(production_label(form, f)), fields) + 2
@@ -393,20 +425,29 @@ function render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf
         focused = i == cursor
         label_style = focused ? highlight : text
         value = if production_text_kind(kind)
-            [(production_text(form, field) * (focused ? "▏" : ""), Tachikoma.tstyle(:text_bright))]
+            [(production_text(form, field) * (focused ? "▏" : ""),
+                Tachikoma.tstyle(:text_bright))]
         elseif production_toggle_kind(kind)
-            yes = kind === :checkout ? form.checkout : kind === :set_default ? form.set_default : form.copy_software
-            [(yes ? "yes" : "no", Tachikoma.tstyle(yes ? :success : :text_dim, bold = focused))]
+            yes = kind === :checkout ? form.checkout :
+                  kind === :set_default ? form.set_default : form.copy_software
+            [(yes ? "yes" : "no",
+                Tachikoma.tstyle(yes ? :success : :text_dim, bold = focused))]
         else
-            Tuple{String,Tachikoma.Style}[]
+            Tuple{String, Tachikoma.Style}[]
         end
-        label = production_text_kind(kind) || production_toggle_kind(kind) ? rpad(production_label(form, field), label_width) : production_label(form, field)
+        label = production_text_kind(kind) || production_toggle_kind(kind) ?
+                rpad(production_label(form, field), label_width) :
+                production_label(form, field)
         put(inner.y + row - 1, vcat([((focused ? "> " : "  ") * label, label_style)], value))
     end
-    isempty(error_rows) && !isempty(form.hint) && put(Tachikoma.bottom(inner) - 1, [(form.hint, dim)])
+    isempty(error_rows) && !isempty(form.hint) &&
+        put(Tachikoma.bottom(inner) - 1, [(form.hint, dim)])
     for (j, line) in enumerate(error_rows)
         put(Tachikoma.bottom(inner) - length(error_rows) + j - 1, [(line, error_style)])
     end
-    put(Tachikoma.bottom(inner), [("Tab complete path/next   Ctrl-O create   Ctrl-N/Ctrl-D add/remove row   Esc close", dim)])
+    put(Tachikoma.bottom(inner),
+        [(
+            "Tab complete path/next   Ctrl-O create   Ctrl-N/Ctrl-D add/remove row   Esc close",
+            dim)])
     return nothing
 end

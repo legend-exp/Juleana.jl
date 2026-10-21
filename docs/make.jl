@@ -32,12 +32,12 @@ makedocs(
             "Overview" => "processors.md",
             "HPGe calibration" => "processors_hpge.md",
             "Pulse shape discrimination" => "processors_psd.md",
-            "SiPMs, events and stability" => "processors_phy.md",
+            "SiPMs, events and stability" => "processors_phy.md"
         ],
         "API" => [
             "Dataflow" => "api.md",
             "Steps, plots and logging" => "api_debug.md",
-            "Terminal interface" => "api_tui.md",
+            "Terminal interface" => "api_tui.md"
         ],
         "LICENSE" => "LICENSE.md"
     ],

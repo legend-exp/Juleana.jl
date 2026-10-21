@@ -3,7 +3,7 @@
 # A literal of Julia syntax: a number, `true`/`false`, a string, a `:symbol`, or a vector
 # of these. Anything else, in particular code, is rejected.
 function literal_value(ex)
-    ex isa Union{Number,Bool,AbstractString} && return ex
+    ex isa Union{Number, Bool, AbstractString} && return ex
     ex isa QuoteNode && ex.value isa Symbol && return ex.value
     if ex isa Expr && ex.head === :vect
         values = map(literal_value, ex.args)
@@ -47,13 +47,15 @@ function parse_kwarg_value(text::AbstractString, current)
         return value
     end
     if current isa Bool
-        text in ("true", "false") || throw(ArgumentError("expected true or false, got `$text`"))
+        text in ("true", "false") ||
+            throw(ArgumentError("expected true or false, got `$text`"))
         return text == "true"
     end
     current isa Integer && return typed(Int, "an integer")
     current isa AbstractFloat && return typed(Float64, "a number")
     current isa AbstractString && return String(text)
-    current isa AbstractVector{Symbol} && return Symbol[Symbol(strip(s)) for s in split(text, ',') if !isempty(strip(s))]
+    current isa AbstractVector{Symbol} &&
+        return Symbol[Symbol(strip(s)) for s in split(text, ',') if !isempty(strip(s))]
     try
         # malformed text parses to an `:error` or `:incomplete` expression, which is no literal
         return literal_value(Meta.parse(text; raise = false))
@@ -78,8 +80,8 @@ the error of the last typed value.
 mutable struct KwargsEditor
     const step::Symbol
     cursor::Int
-    text::Union{Nothing,String}
-    error::Union{Nothing,String}
+    text::Union{Nothing, String}
+    error::Union{Nothing, String}
 end
 
 KwargsEditor(step::Symbol) = KwargsEditor(step, 1, nothing, nothing)
@@ -93,8 +95,10 @@ end
 
 # Rows of the editor in alphabetical order, so that setting a kwarg does not move it: the
 # kwargs set in the config or the session and the accepted ones, with whether each is set.
-editor_rows(proc) = [(key, haskey(proc.kwargs, key)) for key in
-    sort!(collect(union(keys(proc.kwargs), something(proc.accepted, Symbol[]))))]
+function editor_rows(proc)
+    [(key, haskey(proc.kwargs, key))
+     for key in sort!(collect(union(keys(proc.kwargs), something(proc.accepted, Symbol[]))))]
+end
 
 """
     Juleana.kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
@@ -158,14 +162,18 @@ below.
 function render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     proc = editor_processor(editor, snap)
     isnothing(proc) && return nothing
-    lines = Tuple{String,Any}[]
+    lines = Tuple{String, Any}[]
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
-    highlight, error_style = Tachikoma.tstyle(:accent, bold = true), Tachikoma.tstyle(:error, bold = true)
+    highlight, error_style = Tachikoma.tstyle(:accent, bold = true),
+    Tachikoma.tstyle(:error, bold = true)
     for (i, (name, isset)) in enumerate(editor_rows(proc))
         line = if isset
             changed = name in proc.overridden
             "$(changed ? "*" : " ") $name = $(format_kwarg(proc.kwargs[name]))" *
-                (changed ? "   (config: " * (haskey(proc.config_kwargs, name) ? format_kwarg(proc.config_kwargs[name]) : "not set") * ")" : "")
+            (changed ?
+             "   (config: " *
+             (haskey(proc.config_kwargs, name) ? format_kwarg(proc.config_kwargs[name]) :
+              "not set") * ")" : "")
         else
             "  $name"
         end
@@ -181,14 +189,20 @@ function render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Ta
     height = min(area.height, length(lines) + 2)
     box = Tachikoma.center(area, width, height)
     for y in box.y:Tachikoma.bottom(box), x in box.x:Tachikoma.right(box)
+
         Tachikoma.set_char!(buf, x, y, ' ', text)
     end
-    inner = Tachikoma.render(Tachikoma.Block(title = "Settings of $(display_name(editor.step)) $(proc.category) (this session)",
-        border_style = Tachikoma.tstyle(:border_focus)), box, buf)
+    inner = Tachikoma.render(
+        Tachikoma.Block(
+            title = "Settings of $(display_name(editor.step)) $(proc.category) (this session)",
+            border_style = Tachikoma.tstyle(:border_focus)),
+        box,
+        buf)
     for (i, (line, style)) in enumerate(lines)
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
-        Tachikoma.set_string!(buf, inner.x + 1, y, line, style; max_x = Tachikoma.right(inner))
+        Tachikoma.set_string!(
+            buf, inner.x + 1, y, line, style; max_x = Tachikoma.right(inner))
     end
     return nothing
 end

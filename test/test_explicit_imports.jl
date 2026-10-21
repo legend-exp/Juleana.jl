@@ -26,7 +26,7 @@ Test.@testset "ExplicitImports" begin
             :CoreLogging, :env_override_minlevel,
             # Non-public names of the LEGEND and utility packages used by the processors.
             :fast_flatten, :set_timelimit, :_fix_vov, :AchatBlue, :BEGeOrange, :CoaxGreen,
-            :add_watermarks!, :parameterplot!, :tottime, :totallocated, :format_bytes,
+            :add_watermarks!, :parameterplot!, :tottime, :totallocated, :format_bytes
         )
     )
 end # testset

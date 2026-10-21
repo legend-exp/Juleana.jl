@@ -31,7 +31,8 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
     @test [t.start for t in totals] == [DateTime(2022, 1, 2), DateTime(2022, 1, 1)]
     # known livetimes are summed, unknown ones skipped
     p16_totals = Juleana.period_summary(summary, p16)
-    @test [(t.category, t.nruns) for t in p16_totals] == [(:phy, 1), (:cal, 2), (:pzc, 2), (:fft, 3), (:ssc, 2)]
+    @test [(t.category, t.nruns) for t in p16_totals] ==
+          [(:phy, 1), (:cal, 2), (:pzc, 2), (:fft, 3), (:ssc, 2)]
     @test only(t.livetime for t in p16_totals if t.category === :ssc) == 840.0
     @test only(t.nanalysis for t in p16_totals if t.category === :cal) == 0
     @test isempty(Juleana.period_summary(summary, DataPeriod(99)))

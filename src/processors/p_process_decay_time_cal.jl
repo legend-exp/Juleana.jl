@@ -33,7 +33,8 @@ outside 350 to 700 µs. An entry fails if loading, QC, DSP or the fit throws an 
 # Returns
 `true` if at least one detector was skipped because of `only_first_period`, `false` otherwise. `run_processing` then waits for this step in the previous period.
 """
-function p_process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool = false, timeout::Real = 0, only_first_period::Bool = true)
     @info "Process decay time for all partitions containing period $period"
 
     rinfo = runinfo(l200, period) |> filterby(@pf $cal.is_analysis_run)
@@ -42,28 +43,33 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :cal; system=:geds, only_processable=true)
+    chinfo = channelinfo(l200, period, :cal; system = :geds, only_processable = true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
-    
-    if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
+    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status,
+        Symbol("Decay Time"), Symbol("σ"), :Error)}
+
+    if reprocess
+        @info "Reprocess all detectors"
+    else
+        @info "Only process detectors not in pars_db"
+    end
 
     # get worker pool
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
+    chinfo_unfolded = get_partition_channelinfo(
+        l200, chinfo, period, :cal; unfold_partitions = true)
 
     # flush stdout
     flush(stdout)
-    
+
     # function to process decay time
     function det_decay_time(chinfo_det::NamedTuple)
-
-        ch  = chinfo_det.channel
+        ch = chinfo_det.channel
         det = chinfo_det.detector
         part = chinfo_det.partition
 
@@ -77,21 +83,27 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
 
         partinfo_det = partitioninfo(l200, det, part)
         @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
-    
-        filekey_det = start_filekey(l200, (first(partinfo_det.period), first(partinfo_det.run), :cal))
+
+        filekey_det = start_filekey(l200, (
+            first(partinfo_det.period), first(partinfo_det.run), :cal))
         @debug "Found filekey $filekey_det"
 
         validity_det = get_partitionvalidity(l200, det, part)
 
         if only_first_period && period != first(partinfo_det.period)
             @info "Only first period in partition $part for $period in $det ($ch)"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), fill("-", 2)..., "Only first periods --> skipped."))
-            return (processed = false, log = log_det, validity = validity_det, skipped = true)
-        end 
+            log_det = log_nt((
+                det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                fill("-", 2)..., "Only first periods --> skipped."))
+            return (
+                processed = false, log = log_det, validity = validity_det, skipped = true)
+        end
 
         if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), pars_db_det[det].τ, pars_db_det[det].fit.σ, "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability),
+                part, ProcessStatus(1), pars_db_det[det].τ,
+                pars_db_det[det].fit.σ, "Already processed --> skipped."))
             return (processed = false, log = log_det, validity = validity_det)
         end
 
@@ -106,14 +118,14 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         @debug "Loaded PZ config: $(lstring(pz_config_det))"
 
         # unpack config
-        min_τ, max_τ  = pz_config_det.min_tau, pz_config_det.max_tau
-        nbins         = pz_config_det.nbins
-        rel_cut_fit   = pz_config_det.rel_cut_fit
-        n_evts        = pz_config_det.n_evts
-        max_wvfs      = pz_config_det.max_wvfs
+        min_τ, max_τ = pz_config_det.min_tau, pz_config_det.max_tau
+        nbins = pz_config_det.nbins
+        rel_cut_fit = pz_config_det.rel_cut_fit
+        n_evts = pz_config_det.n_evts
+        max_wvfs = pz_config_det.max_wvfs
         select_random = pz_config_det.select_random
-        peakname      = Symbol(pz_config_det.peakname)
-        qc_string     = pz_config_det.qc
+        peakname = Symbol(pz_config_det.peakname)
+        qc_string = pz_config_det.qc
 
         # load data
         wvfs_det = @process_step "$peakname data loading" begin
@@ -122,14 +134,18 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
             # selected waveforms are loaded from disk.
             f_timestamp = ljl_propfunc("$peakname.timestamp")
             wvfs_det = fast_flatten(map(partinfo_det) do r
-                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det)
+                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks),
+                    DataCategory(:cal), r.period, r.run, det)
                 n_sel = n_evts == -1 ? length(ts) : min(n_evts, length(ts))
-                ts_sel = select_random ? sample(ts, n_sel; replace=false, ordered=true) : ts[begin:begin+n_sel-1]
-                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det; filterby=@pf $timestamp in ts_sel)
+                ts_sel = select_random ?
+                         sample(ts, n_sel; replace = false, ordered = true) :
+                         ts[begin:(begin + n_sel - 1)]
+                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal),
+                    r.period, r.run, det; filterby = @pf $timestamp in ts_sel)
             end).waveform_presummed
             if length(wvfs_det) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                wvfs_det = wvfs_det[sample(eachindex(wvfs_det), max_wvfs; replace=false, ordered=true)]
+                wvfs_det = wvfs_det[sample(eachindex(wvfs_det), max_wvfs; replace = false, ordered = true)]
             end
             wvfs_det
         end
@@ -155,19 +171,24 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         # get decay time
         plot_decay_times() = begin
             fig = Makie.Figure()
-            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey_det, part, det, "Decay Times"), xlabel = "Decay time", ylabel = "Counts")
+            ax = Makie.Axis(
+                fig[1, 1]; title = get_plottitle(filekey_det, part, det, "Decay Times"),
+                xlabel = "Decay time", ylabel = "Counts")
             Makie.stephist!(ax, filter(isfinite, ustrip.(decay_times)); bins = 100)
             save_plot(fig, l200, part, filekey_det, det, :error_decay_time_extraction)
         end
-        result, report = @process_step "decay time extraction" on_error = plot_decay_times begin
+        result,
+        report = @process_step "decay time extraction" on_error = plot_decay_times begin
             filter!(x -> min_τ < x < max_τ, decay_times)
-            cuts_τ = cut_single_peak(decay_times, min_τ, max_τ,; n_bins=nbins, relative_cut=rel_cut_fit)
-            fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty=true)
+            cuts_τ = cut_single_peak(
+                decay_times, min_τ, max_τ, ; n_bins = nbins, relative_cut = rel_cut_fit)
+            fit_single_trunc_gauss(decay_times, cuts_τ; uncertainty = true)
         end
         yield()
-        
+
         @debug_plot begin
-            p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))", title = get_plottitle(filekey_det, part, det, "Decay Time Distribution"))
+            p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))",
+                title = get_plottitle(filekey_det, part, det, "Decay Time Distribution"))
             save_plot(p, l200, part, filekey_det, det, :decay_time)
         end
 
@@ -176,15 +197,18 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         status, message = if 350u"µs" <= mvalue(result.μ) <= 700u"µs"
             (process_succeeded, "-")
         else
-            (process_warning, "Decay time $(result.μ) is outside the expected 350–700 µs window.")
+            (process_warning,
+                "Decay time $(result.μ) is outside the expected 350–700 µs window.")
         end
         status == process_warning && @warn "$det ($ch) in partition $part: $message"
-        log_det = log_nt((det, detector_status(chinfo_det.usability), part, status, result.μ, result.σ, message))
+        log_det = log_nt((det, detector_status(chinfo_det.usability),
+            part, status, result.μ, result.σ, message))
 
         # generate detector result
-        result_det = (result = (τ = result.μ, fit = result), processed = true, log = log_det, validity = validity_det)
+        result_det = (result = (τ = result.μ, fit = result), processed = true,
+            log = log_det, validity = validity_det)
         result_pz_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
-        
+
         pars_db_det = create_pars(pars_db_det, result_pz_det)
         write_pars(l200.par.ppars.pz[det], part, pars_db_det)
         write_validity(l200.par.ppars.pz[det], filekey_det, part)
@@ -197,7 +221,8 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
     start_time = now()
 
     # execute in parallel
-    result_pz = parallel(det_decay_time, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_decay_time_cal")
+    result_pz = parallel(det_decay_time, chinfo_unfolded, log_nt; timeout = timeout,
+        retry = false, process_name = "$period-p_process_decay_time_cal")
 
     @info "Finished decay time extraction"
 
@@ -220,7 +245,7 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
     @info "Write log report"
     write_report(get_preportfilename(l200, filekey, :decay_time), report)
     @info report
-    
+
     # flush stdout
     flush(stdout)
 

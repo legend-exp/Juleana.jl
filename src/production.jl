@@ -5,7 +5,8 @@ const PRODUCTION_NAME = r"^[a-zA-Z0-9._-]+$"
 const TIER_LABEL = r"^[a-zA-Z0-9_-]+$"
 const BRANCH_NAME = r"^[a-zA-Z0-9._/][a-zA-Z0-9._/-]*$"
 # folders of a new production below `generated/`
-const GENERATED_DIRS = ("tier", "jllog", "jlplt", "jlreport", "jlpar", joinpath("jlpar", "rpars"), joinpath("jlpar", "ppars"))
+const GENERATED_DIRS = ("tier", "jllog", "jlplt", "jlreport", "jlpar",
+    joinpath("jlpar", "rpars"), joinpath("jlpar", "ppars"))
 
 # `git submodule foreach` scripts that check out `branch` in the metadata submodules: the
 # `jldataprod` config and overrides submodules, and all others except those and the
@@ -57,10 +58,10 @@ Base.@kwdef struct ProductionSpec
     name::String
     parent::String
     metadata_url::String = METADATA_URL
-    metadata_ref::Union{Nothing,String} = nothing
-    jldataprod_branch::Union{Nothing,String} = nothing
-    dataprod_branch::Union{Nothing,String} = nothing
-    tier_paths::Vector{Pair{String,String}} = Pair{String,String}[]
+    metadata_ref::Union{Nothing, String} = nothing
+    jldataprod_branch::Union{Nothing, String} = nothing
+    dataprod_branch::Union{Nothing, String} = nothing
+    tier_paths::Vector{Pair{String, String}} = Pair{String, String}[]
     pars::Vector{String} = String[]
     set_default::Bool = false
     copy_software::Bool = true
@@ -69,7 +70,10 @@ Base.@kwdef struct ProductionSpec
 end
 
 # The startup file of `shell` in `home`, `nothing` for an unsupported shell.
-shell_rc_file(shell, home) = shell == "bash" ? joinpath(home, ".bashrc") : shell == "zsh" ? joinpath(home, ".zshrc") : nothing
+function shell_rc_file(shell, home)
+    shell == "bash" ? joinpath(home, ".bashrc") :
+    shell == "zsh" ? joinpath(home, ".zshrc") : nothing
+end
 
 """
     Juleana.check_production(spec::ProductionSpec)
@@ -85,7 +89,8 @@ shell is `bash` or `zsh`. Throws an `ArgumentError` that names the first problem
 function check_production(spec::ProductionSpec)
     occursin(PRODUCTION_NAME, spec.name) ||
         throw(ArgumentError("the production name $(repr(spec.name)) may contain only letters, digits, '.', '_' and '-'"))
-    isabspath(spec.parent) || throw(ArgumentError("the production folder must be an absolute path, got $(repr(spec.parent))"))
+    isabspath(spec.parent) ||
+        throw(ArgumentError("the production folder must be an absolute path, got $(repr(spec.parent))"))
     path = joinpath(spec.parent, spec.name)
     ispath(path) && throw(ArgumentError("$path exists; remove it or choose another name"))
     for branch in (spec.metadata_ref, spec.jldataprod_branch, spec.dataprod_branch)
@@ -93,7 +98,8 @@ function check_production(spec::ProductionSpec)
             throw(ArgumentError("the branch name $(repr(branch)) may contain only letters, digits, '.', '_', '/' and '-' and may not start with '-'"))
     end
     labels = first.(spec.tier_paths)
-    allunique(labels) || throw(ArgumentError("tier labels must be unique, got $(join(labels, ", "))"))
+    allunique(labels) ||
+        throw(ArgumentError("tier labels must be unique, got $(join(labels, ", "))"))
     for (label, tier) in spec.tier_paths
         occursin(TIER_LABEL, label) ||
             throw(ArgumentError("the tier label $(repr(label)) may contain only letters, digits, '_' and '-'"))
@@ -101,7 +107,8 @@ function check_production(spec::ProductionSpec)
     end
     for pars in spec.pars
         isdir(pars) || throw(ArgumentError("the parameter folder $pars does not exist"))
-        isnothing(pars_subpath(pars)) && throw(ArgumentError("the parameter folder $pars has no /rpars or /ppars component"))
+        isnothing(pars_subpath(pars)) &&
+            throw(ArgumentError("the parameter folder $pars has no /rpars or /ppars component"))
     end
     spec.set_default && isnothing(shell_rc_file(spec.shell, spec.home)) &&
         throw(ArgumentError("cannot set the default production for the shell $(repr(spec.shell)); set LEGEND_DATA_CONFIG by hand"))
@@ -123,7 +130,8 @@ function run_logged(cmd::Cmd, log)
         log(line)
     end
     wait(process)
-    success(process) || throw(ErrorException("command failed with exit code $(process.exitcode): $cmd"))
+    success(process) ||
+        throw(ErrorException("command failed with exit code $(process.exitcode): $cmd"))
     return nothing
 end
 
@@ -137,7 +145,7 @@ production, is written relative to it as `\$_/..`.
 """
 function data_config_text(tier_paths, parent)
     tiers = join(("                \"tier/$label\": \"$(startswith(path, rstrip(parent, '/') * "/") ? "\$_/.." * path[length(rstrip(parent, '/'))+1:end] : path)\",\n"
-        for (label, path) in tier_paths))
+    for (label, path) in tier_paths))
     return """
         {
             "setups": {
@@ -198,13 +206,17 @@ function create_production(spec::ProductionSpec; log = line -> @info(line))
     end
     if !isnothing(spec.jldataprod_branch)
         log("Checking out $(spec.jldataprod_branch) in the jldataprod config and overrides submodules")
-        run_logged(`git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(jldataprod_checkout(spec.jldataprod_branch))`, log)
+        run_logged(
+            `git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(jldataprod_checkout(spec.jldataprod_branch))`,
+            log)
     end
     if !isnothing(spec.dataprod_branch)
         log("Checking out $(spec.dataprod_branch) in the metadata and its other submodules")
         run_logged(`git -C $metadata checkout $(spec.dataprod_branch)`, log)
         run_logged(`git -C $metadata pull origin $(spec.dataprod_branch)`, log)
-        run_logged(`git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(dataprod_checkout(spec.dataprod_branch))`, log)
+        run_logged(
+            `git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(dataprod_checkout(spec.dataprod_branch))`,
+            log)
     end
     foreach(d -> mkpath(joinpath(path, "generated", d)), GENERATED_DIRS)
     log("Created the folders in $(joinpath(path, "generated"))")
@@ -248,7 +260,9 @@ function copy_package_tree(src, dest)
             append!(files, relpath.(joinpath.(root, fs), src))
         end
     else
-        listed = split(read(`git -C $src ls-files -z --cached --others --exclude-standard`, String), '\0'; keepempty = false)
+        listed = split(
+            read(`git -C $src ls-files -z --cached --others --exclude-standard`, String),
+            '\0'; keepempty = false)
         append!(files, filter(f -> isfile(joinpath(src, f)), listed))
     end
     for f in files
@@ -280,7 +294,9 @@ function running_manifest()
         dir = dirname(project)
         for name in ("Manifest-v$(VERSION.major).$(VERSION.minor).toml", "Manifest.toml")
             manifest = joinpath(dir, name)
-            isfile(manifest) && haskey(get(TOML.parsefile(manifest), "deps", Dict()), "Juleana") && return manifest
+            isfile(manifest) &&
+                haskey(get(TOML.parsefile(manifest), "deps", Dict()), "Juleana") &&
+                return manifest
         end
     end
     throw(ErrorException("running_manifest: no environment of the load path has Juleana in its manifest"))
@@ -306,31 +322,37 @@ with `Pkg.Apps.develop(path = "<dest>/Juleana.jl")`:
 
 Returns `dest`. Throws if `dest` exists.
 """
-function snapshot_software(dest::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana),
+function snapshot_software(
+        dest::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana),
         log = line -> @info(line))
     ispath(dest) && throw(ArgumentError("snapshot_software: $dest exists"))
     data = TOML.parsefile(manifest)
     deps = data["deps"]
-    copies = Pair{String,String}["Juleana" => source]
+    copies = Pair{String, String}["Juleana" => source]
     for (name, entries) in deps, entry in entries
+
         name != "Juleana" && haskey(entry, "path") || continue
         path = entry["path"]
-        push!(copies, name => (isabspath(path) ? path : normpath(joinpath(dirname(manifest), path))))
+        push!(copies, name =>
+            (isabspath(path) ? path : normpath(joinpath(dirname(manifest), path))))
     end
     lines = ["# Software of this production", "",
         "Copied $(Dates.format(now(UTC), HISTORY_TIME_FORMAT)) UTC by $(get(ENV, "USER", "unknown"))@$(gethostname()) " *
-            "with Julia $VERSION. Install it with `Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")`.", "",
+        "with Julia $VERSION. Install it with `Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")`.", "",
         "| Package | Source | Commit | Uncommitted changes |", "|---|---|---|---|"]
     for (name, path) in copies
         target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
         copy_package_tree(path, target)
         state = git_state(path)
-        push!(lines, "| $name | $path | $(isnothing(state) ? "–" : state.commit) | $(isnothing(state) ? "–" : state.modified ? "yes" : "no") |")
+        push!(lines,
+            "| $name | $path | $(isnothing(state) ? "–" : state.commit) | $(isnothing(state) ? "–" : state.modified ? "yes" : "no") |")
         log("Copied $name from $path to $target")
     end
     for (name, entries) in deps, entry in entries
+
         if name == "Juleana"
-            foreach(k -> delete!(entry, k), ("git-tree-sha1", "repo-url", "repo-rev", "repo-subdir"))
+            foreach(k -> delete!(entry, k), (
+                "git-tree-sha1", "repo-url", "repo-rev", "repo-subdir"))
             entry["path"] = "."
         elseif haskey(entry, "path")
             entry["path"] = "../$name"
@@ -351,6 +373,7 @@ has uncommitted changes, and the Julia version.
 """
 function software_version()
     state = git_state(pkgdir(Juleana))
-    checkout = isnothing(state) ? "" : " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
+    checkout = isnothing(state) ? "" :
+               " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
     return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION"
 end

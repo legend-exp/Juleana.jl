@@ -3,25 +3,35 @@
 const TUI_PAGES = ("Setup", "Graph", "Workers", "Progress", "Log", "Reports", "History")
 
 # Colors of the letters of the logo title, in the order of the letters of `JuLeAna`.
-const TITLE_COLORS = (Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
+const TITLE_COLORS = (
+    Tachikoma.ColorRGB(0xcb, 0x3c, 0x33), Tachikoma.ColorRGB(0x38, 0x98, 0x26),
     Tachikoma.ColorRGB(0x95, 0x58, 0xb2))
 
 # Keys shown on the bottom row, as `(key, description)` per page: Setup, Graph, Progress, Log, others.
-const SETUP_HINTS = (("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
+const SETUP_HINTS = (
+    ("Tab", "pane"), ("Space", "toggle"), ("/", "filter"), ("s", "start"), ("x/X", "stop"),
     ("W", "workers"), ("e", "settings"), ("w", "write"))
-const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add required"), ("h", "unselected"), ("v", "last run/disk"))
-const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"), ("Enter on step", "messages"), ("f", "follow"))
-const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"), ("End", "newest"), ("Esc", "close"), ("f", "follow"))
-const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"), ("f", "follow"), ("l", "level"), ("/", "filter"))
-const REPORTS_HINTS = (("↑↓", "move"), ("Enter", "open"), ("a", "all/run"), ("r", "reload"), ("Tab", "pane"))
+const GRAPH_HINTS = (("↑↓", "move"), ("Space", "select"), ("d", "add required"),
+    ("h", "unselected"), ("v", "last run/disk"))
+const PROGRESS_HINTS = (("↑↓ PgUp PgDn", "move"), ("Enter ←→", "fold"),
+    ("Enter on step", "messages"), ("f", "follow"))
+const PROGRESS_OPEN_HINTS = (("↑↓", "move"), ("PgUp PgDn", "scroll messages"),
+    ("End", "newest"), ("Esc", "close"), ("f", "follow"))
+const LOG_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("End", "newest"),
+    ("f", "follow"), ("l", "level"), ("/", "filter"))
+const REPORTS_HINTS = (
+    ("↑↓", "move"), ("Enter", "open"), ("a", "all/run"), ("r", "reload"), ("Tab", "pane"))
 const REPORTS_OPEN_HINTS = (("↑↓ PgUp PgDn", "scroll"), ("Esc", "close"))
-const HISTORY_HINTS = (("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"), ("a", "all/selected runs"))
+const HISTORY_HINTS = (
+    ("↑↓←→", "move"), ("Enter", "open report"), ("r", "reload"), ("a", "all/selected runs"))
 const HISTORY_OPEN_HINTS = REPORTS_OPEN_HINTS
-const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"), ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
+const WORKERS_HINTS = (("Tab", "pane"), ("↑↓", "move"), ("s", "SLURM"),
+    ("a", "add"), ("c/C", "cancel"), ("p", "postpone"),
     ("o", "options"), ("e", "script"), ("r", "reload"))
 const WORKERS_EDIT_HINTS = (("Ctrl-O", "save"), ("Esc", "close"))
 const WORKERS_FORM_HINTS = (("↑↓", "option"), ("Enter", "edit/set"), ("Esc", "close"))
-const PRODUCTION_HINTS = (("↑↓ Tab", "field"), ("Space", "toggle"), ("Ctrl-N", "add row"), ("Ctrl-D", "remove row"),
+const PRODUCTION_HINTS = (("↑↓ Tab", "field"), ("Space", "toggle"),
+    ("Ctrl-N", "add row"), ("Ctrl-D", "remove row"),
     ("Ctrl-O", "create"), ("Esc", "close"))
 const PRODUCTION_DONE_HINTS = (("any key", "continue"),)
 const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "help"))
@@ -30,7 +40,7 @@ const COMMON_HINTS = (("1-$(length(TUI_PAGES))", "page"), ("q", "quit"), ("?", "
 const ALERT_SECONDS = 10.0
 
 # One line kept by a `MessageBuffer`.
-const MessageEntry = NamedTuple{(:level, :record, :text),Tuple{LogLevel,Int,String}}
+const MessageEntry = NamedTuple{(:level, :record, :text), Tuple{LogLevel, Int, String}}
 
 """
     MessageBuffer(capacity::Integer = 1000)
@@ -57,15 +67,18 @@ mutable struct MessageBuffer <: AbstractLogger
     const entries::Vector{MessageEntry}
     const capacity::Int
     # unfinished last line of each captured stream
-    const partial::Dict{Symbol,String}
-    alert::Union{Nothing,NamedTuple{(:level, :text, :time),Tuple{LogLevel,String,Float64}}}
+    const partial::Dict{Symbol, String}
+    alert::Union{
+        Nothing, NamedTuple{(:level, :text, :time), Tuple{LogLevel, String, Float64}}}
     # number of the last record
     record::Int
 end
 
 function MessageBuffer(capacity::Integer = 1000)
-    capacity > 0 || throw(ArgumentError("MessageBuffer: capacity must be positive, got $capacity"))
-    return MessageBuffer(ReentrantLock(), MessageEntry[], capacity, Dict{Symbol,String}(), nothing, 0)
+    capacity > 0 ||
+        throw(ArgumentError("MessageBuffer: capacity must be positive, got $capacity"))
+    return MessageBuffer(
+        ReentrantLock(), MessageEntry[], capacity, Dict{Symbol, String}(), nothing, 0)
 end
 
 min_enabled_level(::MessageBuffer) = Logging.Info
@@ -74,7 +87,8 @@ catch_exceptions(::MessageBuffer) = true
 
 function push_line!(buf::MessageBuffer, level::LogLevel, record::Integer, line::AbstractString)
     push!(buf.entries, (; level, record, text = String(line)))
-    length(buf.entries) > buf.capacity && deleteat!(buf.entries, 1:(length(buf.entries) - buf.capacity))
+    length(buf.entries) > buf.capacity &&
+        deleteat!(buf.entries, 1:(length(buf.entries) - buf.capacity))
     return nothing
 end
 
@@ -85,18 +99,24 @@ function markdown_summary(markdown::AbstractString)
     lines = split(chomp(markdown), '\n')
     length(lines) <= 20 && return join(lines, '\n')
     i_heading = something(findfirst(startswith("## "), lines), findfirst(startswith('#'), lines), Some(nothing))
-    title = isnothing(i_heading) ? strip(first(lines)) : strip(lstrip(lines[i_heading], '#'))
+    title = isnothing(i_heading) ? strip(first(lines)) :
+            strip(lstrip(lines[i_heading], '#'))
     i_status = findfirst(contains("Processor Status"), lines)
-    m = isnothing(i_status) ? nothing : match(r"Success|Warning|Failure", join(lines[i_status:min(i_status + 3, end)], " "))
-    return "$title: " * (isnothing(m) ? "" : "$(m.match), ") * "$(length(lines)) lines, full text in head.log"
+    m = isnothing(i_status) ? nothing :
+        match(r"Success|Warning|Failure", join(lines[i_status:min(i_status + 3, end)], " "))
+    return "$title: " * (isnothing(m) ? "" : "$(m.match), ") *
+           "$(length(lines)) lines, full text in head.log"
 end
 
-function handle_message(buf::MessageBuffer, level, message, _module, group, id, file, line; kwargs...)
+function handle_message(
+        buf::MessageBuffer, level, message, _module, group, id, file, line; kwargs...)
     message isa ProgressLogging.Progress && return nothing
     level < Logging.Info && return nothing
-    text = message isa AbstractString ? String(message) : markdown_summary(log_text(message))
+    text = message isa AbstractString ? String(message) :
+           markdown_summary(log_text(message))
     for (key, value) in kwargs
-        key === :exception && value isa Tuple{Exception,Any} && (value = sprint(showerror, first(value)))
+        key === :exception && value isa Tuple{Exception, Any} &&
+            (value = sprint(showerror, first(value)))
         key === :exception && value isa Exception && (value = sprint(showerror, value))
         text *= "\n  $key = $value"
     end
@@ -104,9 +124,11 @@ function handle_message(buf::MessageBuffer, level, message, _module, group, id, 
     @lock buf.lock begin
         record = (buf.record += 1)
         for (i, l) in enumerate(split(text, '\n'))
-            push_line!(buf, LogLevel(level), record, i == 1 ? "$stamp $(rpad(string(level), 5)) $l" : "               $l")
+            push_line!(buf, LogLevel(level), record,
+                i == 1 ? "$stamp $(rpad(string(level), 5)) $l" : "               $l")
         end
-        level >= Logging.Warn && (buf.alert = (; level = LogLevel(level), text = first(split(text, '\n')), time = time()))
+        level >= Logging.Warn && (buf.alert = (;
+            level = LogLevel(level), text = first(split(text, '\n')), time = time()))
     end
     step = PROGRESS_STEP[]
     isnothing(step) || step_message!(step..., LogLevel(level), text)
@@ -127,7 +149,8 @@ function append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString
             l = rstrip(l, '\r')
             isempty(strip(l)) && continue
             m = match(r"(Warning|Error):\s*(.*)$", l)
-            level = isnothing(m) ? Logging.Info : m[1] == "Error" ? Logging.Error : Logging.Warn
+            level = isnothing(m) ? Logging.Info :
+                    m[1] == "Error" ? Logging.Error : Logging.Warn
             push_line!(buf, level, (buf.record += 1), l)
             isnothing(m) || (buf.alert = (; level, text = String(m[2]), time = time()))
         end
@@ -206,15 +229,15 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     page::Int
     quit::Bool
     # `:quit` while the quit dialog is open
-    dialog::Union{Nothing,Symbol}
+    dialog::Union{Nothing, Symbol}
     quit_after_stop::Bool
     refreshing::Bool
-    timer::Union{Nothing,Tachikoma.CancelToken}
+    timer::Union{Nothing, Tachikoma.CancelToken}
     snap::Any
     progress::Any
     busy::Vector{BusyItem}
-    step_msgs::NamedTuple{(:key, :messages),Tuple{Any,Vector{StepMessage}}}
-    command_error::Union{Nothing,String}
+    step_msgs::NamedTuple{(:key, :messages), Tuple{Any, Vector{StepMessage}}}
+    command_error::Union{Nothing, String}
     # number of `:tick` events, which advances the spinner
     ticks::Int
     # whether the startup screen is on, when `start!` ran, and whether the key help is open
@@ -222,7 +245,7 @@ mutable struct JuleanaTUI <: Tachikoma.Model
     started_at::Float64
     help::Bool
     # the open new-production form, which replaces the visible page
-    production::Union{Nothing,ProductionForm}
+    production::Union{Nothing, ProductionForm}
     # minimum seconds of the startup screen
     const splash_seconds::Float64
     # frame, `update!` and garbage collection times, see `InterfaceTiming`
@@ -230,19 +253,26 @@ mutable struct JuleanaTUI <: Tachikoma.Model
 end
 
 # Tab bar of the pages, each tab labeled with its number and name.
-tab_bar() = Tachikoma.TabBar(
-    [[Tachikoma.Span(string(i), Tachikoma.tstyle(:warning)), Tachikoma.Span(" " * name, Tachikoma.tstyle(:text))]
-        for (i, name) in pairs(TUI_PAGES)];
-    focused = true,
-    tab_style = Tachikoma.TabBarStyle(;
-        decoration = Tachikoma.BoxTabs(; box = Tachikoma.BOX_ROUNDED),
-        active = Tachikoma.tstyle(:accent, bold = true),
-        inactive = Tachikoma.tstyle(:text_dim)),
-)
+function tab_bar()
+    Tachikoma.TabBar(
+        [[Tachikoma.Span(string(i), Tachikoma.tstyle(:warning)),
+             Tachikoma.Span(" " * name, Tachikoma.tstyle(:text))]
+         for (i, name) in pairs(TUI_PAGES)];
+        focused = true,
+        tab_style = Tachikoma.TabBarStyle(;
+            decoration = Tachikoma.BoxTabs(; box = Tachikoma.BOX_ROUNDED),
+            active = Tachikoma.tstyle(:accent, bold = true),
+            inactive = Tachikoma.tstyle(:text_dim))
+    )
+end
 
-function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(), LogPage(), ReportsPage(), HistoryPage(), WorkersPage(),
-        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
+function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer();
+        splash_seconds::Real = 1.5)
+    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf),
+        SetupPage(), GraphPage(), ProgressPage(), LogPage(),
+        ReportsPage(), HistoryPage(), WorkersPage(),
+        tab_bar(), 0, 0, 1, false, nothing, false, false, nothing, nothing, nothing,
+        BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0,
         false, 0.0, false, nothing, splash_seconds, InterfaceTiming())
     errormonitor(Threads.@spawn run_commands(m))
     return m
@@ -278,7 +308,8 @@ end
 
 # The messages of the step open on the Progress page; the field types are fixed, so that the
 # result of a read has the same type for every step.
-const StepMessages = @NamedTuple{key::Union{Nothing,ProgressKey}, messages::Vector{StepMessage}}
+const StepMessages = @NamedTuple{
+    key::Union{Nothing, ProgressKey}, messages::Vector{StepMessage}}
 
 # Read the controller state in a background task, one read at a time. The read carries
 # the number of commands answered when it started, so that a read older than an answer
@@ -291,7 +322,8 @@ function refresh!(m::JuleanaTUI)
     Tachikoma.spawn_task!(m.queue, :refresh) do
         messages = isnothing(key) ? StepMessage[] : step_messages(ctrl, key)
         check_idle!(ctrl)
-        return (answered, snapshot(ctrl), progress(ctrl), busy_workers(ctrl), StepMessages((; key, messages)),
+        return (answered, snapshot(ctrl), progress(ctrl),
+            busy_workers(ctrl), StepMessages((; key, messages)),
             creating ? production_log(ctrl) : String[])
     end
     return nothing
@@ -304,7 +336,8 @@ function start!(m::JuleanaTUI)
     m.splash, m.started_at = true, time()
     m.timer = Tachikoma.spawn_timer!(m.queue, :tick, 0.5; repeat = true)
     if snapshot(m.ctrl).state === :idle
-        if isnothing(get(m.ctrl.args, "config", nothing)) || get(m.ctrl.args, "new_production", false) === true
+        if isnothing(get(m.ctrl.args, "config", nothing)) ||
+           get(m.ctrl.args, "new_production", false) === true
             m.production = ProductionForm()
         else
             send_command!(m, LoadSession())
@@ -347,7 +380,9 @@ function update_task!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
         # a read from before the last answer may miss its command: keep the page, read again
         if answered == m.answered
             sync_setup!(m.setup, m.snap; pending = m.pending > 0)
-            isnothing(m.production) || production_sync!(m.production, m.snap, length(evt.value) > 5 ? evt.value[6] : String[])
+            isnothing(m.production) ||
+                production_sync!(m.production, m.snap, length(evt.value) > 5 ?
+                                                       evt.value[6] : String[])
         else
             refresh!(m)
         end
@@ -409,7 +444,8 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     end
     m.splash = false
     if m.help
-        if evt.action != Tachikoma.key_release && (evt.key == :escape || ctrl_c || (evt.key == :char && evt.char in ('?', 'q')))
+        if evt.action != Tachikoma.key_release &&
+           (evt.key == :escape || ctrl_c || (evt.key == :char && evt.char in ('?', 'q')))
             m.help = false
         end
         return nothing
@@ -438,22 +474,28 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
         return nothing
     end
     n = length(TUI_PAGES)
-    if m.page == 1 && !ctrl_c && setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
+    if m.page == 1 && !ctrl_c &&
+       setup_key!(m.setup, evt, m.snap, cmd -> send_command!(m, cmd))
         if m.setup.new_production
             m.setup.new_production = false
             m.production = ProductionForm()
         end
         return nothing
     end
-    m.page == 2 && !ctrl_c && graph_key!(m.graph_page, evt, m.snap, cmd -> send_command!(m, cmd)) && return nothing
-    m.page == 3 && !ctrl_c && workers_key!(m.workers_page, evt, cmd -> send_command!(m, cmd); m.snap) && return nothing
+    m.page == 2 && !ctrl_c &&
+        graph_key!(m.graph_page, evt, m.snap, cmd -> send_command!(m, cmd)) &&
+        return nothing
+    m.page == 3 && !ctrl_c &&
+        workers_key!(m.workers_page, evt, cmd -> send_command!(m, cmd); m.snap) &&
+        return nothing
     if m.page == 4 && !ctrl_c
         open = m.progress_page.open
         used = progress_key!(m.progress_page, evt, m.progress)
         m.progress_page.open == open || refresh!(m)
         used && return nothing
     end
-    m.page == 5 && !ctrl_c && log_key!(m.log_page, evt, message_entries(m.messages)) && return nothing
+    m.page == 5 && !ctrl_c && log_key!(m.log_page, evt, message_entries(m.messages)) &&
+        return nothing
     m.page == 6 && !ctrl_c && reports_key!(m.reports_page, evt) && return nothing
     m.page == 7 && !ctrl_c && history_key!(m.history_page, evt) && return nothing
     if ctrl_c || (evt.key == :char && evt.char == 'q')
@@ -559,7 +601,9 @@ end
 # Rows of the status panel under the tabs: its border and two lines.
 const STATUS_HEIGHT = 4
 
-format_duration(seconds::Real) = (s = round(Int, seconds); join(lpad.((s ÷ 3600, (s % 3600) ÷ 60, s % 60), 2, '0'), ":"))
+function format_duration(seconds::Real)
+    (s = round(Int, seconds); join(lpad.((s ÷ 3600, (s % 3600) ÷ 60, s % 60), 2, '0'), ":"))
+end
 
 # Spans of the first line of the status panel: spinner while the controller works, the
 # controller state, the last run, the workers and the countdown to the cancel of idle worker
@@ -569,38 +613,52 @@ function status_spans(m::JuleanaTUI)
     sep = ("  ·  ", Tachikoma.tstyle(:border))
     snap = m.snap
     state = isnothing(snap) ? :starting : snap.state
-    state_style = state === :ready ? Tachikoma.tstyle(:success, bold = true) : state === :running ? Tachikoma.tstyle(:accent, bold = true) :
-        Tachikoma.tstyle(:warning, bold = true)
-    left = Tuple{String,Tachikoma.Style}[]
+    state_style = state === :ready ? Tachikoma.tstyle(:success, bold = true) :
+                  state === :running ? Tachikoma.tstyle(:accent, bold = true) :
+                  Tachikoma.tstyle(:warning, bold = true)
+    left = Tuple{String, Tachikoma.Style}[]
     state in (:loading, :running, :stopping) &&
-        push!(left, (string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))]) * " ", state_style))
+        push!(left,
+            (
+                string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))]) *
+                " ",
+                state_style))
     push!(left, (uppercase(string(state)), state_style))
     if !isnothing(snap)
         if !isnothing(snap.outcome)
-            outcome_color = snap.outcome === :finished ? :success : snap.outcome === :failed ? :error : :warning
-            push!(left, sep, ("last run: ", Tachikoma.tstyle(:text)), (string(snap.outcome), Tachikoma.tstyle(outcome_color, bold = true)))
+            outcome_color = snap.outcome === :finished ? :success :
+                            snap.outcome === :failed ? :error : :warning
+            push!(left, sep, ("last run: ", Tachikoma.tstyle(:text)),
+                (string(snap.outcome), Tachikoma.tstyle(outcome_color, bold = true)))
         end
         abandoned = count(b -> b.abandoned, m.busy)
-        push!(left, sep, ("workers $(snap.nworkers)", Tachikoma.tstyle(:primary, bold = true)))
-        isempty(m.busy) || push!(left, (", $(length(m.busy)) busy", Tachikoma.tstyle(:secondary, bold = true)))
+        push!(left, sep, (
+            "workers $(snap.nworkers)", Tachikoma.tstyle(:primary, bold = true)))
+        isempty(m.busy) || push!(left, (
+            ", $(length(m.busy)) busy", Tachikoma.tstyle(:secondary, bold = true)))
         abandoned > 0 && push!(left, (", $abandoned abandoned", Tachikoma.tstyle(:warning)))
         if !isnothing(snap.idle_deadline)
             # the countdown to the cancel of idle worker allocations
             left_s = max(0, (snap.idle_deadline - now(UTC)) / Millisecond(1000))
-            push!(left, (", idle cancel in $(format_duration(left_s))", Tachikoma.tstyle(left_s < 300 ? :warning : :text_dim)))
+            push!(left,
+                (", idle cancel in $(format_duration(left_s))",
+                    Tachikoma.tstyle(left_s < 300 ? :warning : :text_dim)))
         end
     end
-    right = Tuple{String,Tachikoma.Style}[]
+    right = Tuple{String, Tachikoma.Style}[]
     if !isnothing(m.command_error)
-        push!(right, (first(split(m.command_error, '\n')), Tachikoma.tstyle(:error, bold = true)))
+        push!(right, (
+            first(split(m.command_error, '\n')), Tachikoma.tstyle(:error, bold = true)))
     else
         alert = @lock m.messages.lock m.messages.alert
         if !isnothing(alert) && time() - alert.time < ALERT_SECONDS
-            style = alert.level >= Logging.Error ? Tachikoma.tstyle(:error, bold = true) : Tachikoma.tstyle(:warning)
+            style = alert.level >= Logging.Error ? Tachikoma.tstyle(:error, bold = true) :
+                    Tachikoma.tstyle(:warning)
             push!(right, (alert.text, style))
         elseif !isnothing(snap) && !isnothing(snap.last_error)
             # stays until the next load or run, so that a failed load does not look like a hang
-            push!(right, (first(split(snap.last_error, '\n')), Tachikoma.tstyle(:error, bold = true)))
+            push!(right, (
+                first(split(snap.last_error, '\n')), Tachikoma.tstyle(:error, bold = true)))
         end
     end
     return left, right
@@ -619,19 +677,27 @@ function render_status(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffe
     if !isempty(right) && room >= 8
         text = first(only(right))
         text = textwidth(text) <= room ? text : first(text, room - 1) * "…"
-        put_spans!(buf, x_max - textwidth(text), inner.y, x_max, [(text, last(only(right)))])
+        put_spans!(
+            buf, x_max - textwidth(text), inner.y, x_max, [(text, last(only(right)))])
     end
     put_spans!(buf, inner.x + 1, inner.y, min(x_max, used), left)
     inner.height >= 2 || return nothing
     snap = m.snap
     line = Tachikoma.Rect(inner.x + 1, inner.y + 1, max(0, inner.width - 2), 1)
     if isnothing(snap) || isnothing(snap.started) || isnothing(m.progress)
-        Tachikoma.set_string!(buf, line.x, line.y, "No processing run in this session.", Tachikoma.tstyle(:text_dim); max_x = x_max)
+        Tachikoma.set_string!(buf, line.x, line.y, "No processing run in this session.",
+            Tachikoma.tstyle(:text_dim); max_x = x_max)
     else
-        elapsed = format_duration((something(snap.finished, now(UTC)) - snap.started) / Millisecond(1000))
+        elapsed = format_duration((something(snap.finished, now(UTC)) - snap.started) /
+                                  Millisecond(1000))
         label = "$(round(Int, 100 * m.progress.fraction))%   $elapsed"
-        color = snap.state in (:running, :stopping) ? :accent : snap.outcome === :finished ? :success : snap.outcome === :failed ? :error : :warning
-        Tachikoma.render(Tachikoma.Gauge(m.progress.fraction; label, filled_style = Tachikoma.tstyle(color)), line, buf)
+        color = snap.state in (:running, :stopping) ? :accent :
+                snap.outcome === :finished ? :success :
+                snap.outcome === :failed ? :error : :warning
+        Tachikoma.render(
+            Tachikoma.Gauge(m.progress.fraction; label, filled_style = Tachikoma.tstyle(color)),
+            line,
+            buf)
     end
     return nothing
 end
@@ -665,7 +731,8 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     tabs.active = m.page
     tab_h = Tachikoma.tab_height(tabs.tab_style.decoration)
     layout = Tachikoma.Layout(
-        Tachikoma.Vertical, [Tachikoma.Fixed(tab_h), Tachikoma.Fixed(STATUS_HEIGHT), Tachikoma.Fill(), Tachikoma.Fixed(1)]
+        Tachikoma.Vertical, [Tachikoma.Fixed(tab_h), Tachikoma.Fixed(STATUS_HEIGHT),
+            Tachikoma.Fill(), Tachikoma.Fixed(1)]
     )
     tab_area, status_area, body_area, keys_area = Tachikoma.split_layout(layout, render_frame(f.area, f.buffer))
 
@@ -673,34 +740,59 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
     render_corner_logo(m, tab_area, f.buffer)
     if splash_active(m)
         # the startup screen also takes the rows of the status panel
-        render_splash(m, Tachikoma.Rect(body_area.x, status_area.y, body_area.width, body_area.height + status_area.height), f.buffer)
+        render_splash(m,
+            Tachikoma.Rect(body_area.x, status_area.y, body_area.width, body_area.height +
+                                                                        status_area.height),
+            f.buffer)
     elseif !isnothing(m.production)
         render_production(m.production, m.snap, body_area, f.buffer; ticks = m.ticks)
     elseif m.page == 1
         render_setup(m.setup, m.snap, body_area, f.buffer)
     elseif m.page == 2
-        render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer; grid = m.graph_page.disk ? m.history_page.grid : nothing)
+        render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer;
+            grid = m.graph_page.disk ? m.history_page.grid : nothing)
     elseif m.page == 3
-        render_workers(m.workers_page, m.snap, m.busy, message_entries(m.messages), body_area, f.buffer)
+        render_workers(m.workers_page, m.snap, m.busy,
+            message_entries(m.messages), body_area, f.buffer)
     elseif m.page == 4
-        render_progress(m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
+        render_progress(
+            m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
     elseif m.page == 5
         render_log(m.log_page, message_entries(m.messages), body_area, f.buffer;
-            capacity = m.messages.capacity, log_path = isnothing(m.snap) ? nothing : m.snap.log_path)
+            capacity = m.messages.capacity, log_path = isnothing(m.snap) ? nothing :
+                                                       m.snap.log_path)
     elseif m.page == 6
         render_reports(m.reports_page, body_area, f.buffer)
     elseif m.page == 7
         render_history(m.history_page, body_area, f.buffer)
     end
     splash_active(m) || render_status(m, status_area, f.buffer)
-    hints = (!isnothing(m.production) ? (m.production.phase === :done ? PRODUCTION_DONE_HINTS : m.production.phase === :creating ? () : PRODUCTION_HINTS) :
-        m.page == 1 ? SETUP_HINTS : m.page == 2 ? GRAPH_HINTS : m.page == 3 ? (!isnothing(m.workers_page.form) ? WORKERS_FORM_HINTS : isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) : m.page == 4 ? (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) : m.page == 5 ? LOG_HINTS :
-        m.page == 6 ? (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
-        m.page == 7 ? (isnothing(m.history_page.viewer_path) ? HISTORY_HINTS : HISTORY_OPEN_HINTS) : ())
-    spans = Tuple{String,Tachikoma.Style}[]
+    hints = (!isnothing(m.production) ?
+             (m.production.phase === :done ? PRODUCTION_DONE_HINTS :
+              m.production.phase === :creating ? () : PRODUCTION_HINTS) :
+             m.page == 1 ? SETUP_HINTS :
+             m.page == 2 ? GRAPH_HINTS :
+             m.page == 3 ?
+             (!isnothing(m.workers_page.form) ? WORKERS_FORM_HINTS :
+              isnothing(m.workers_page.editor) ? WORKERS_HINTS : WORKERS_EDIT_HINTS) :
+             m.page == 4 ?
+             (isnothing(m.progress_page.open) ? PROGRESS_HINTS : PROGRESS_OPEN_HINTS) :
+             m.page == 5 ? LOG_HINTS :
+             m.page == 6 ?
+             (isnothing(m.reports_page.viewer_path) ? REPORTS_HINTS : REPORTS_OPEN_HINTS) :
+             m.page == 7 ?
+             (isnothing(m.history_page.viewer_path) ? HISTORY_HINTS : HISTORY_OPEN_HINTS) :
+             ())
+    spans = Tuple{String, Tachikoma.Style}[]
     # `q` closes an open report instead of quitting and is text in the editor
-    for (key, description) in (hints..., (!isnothing(m.production) || m.page == 3 && (!isnothing(m.workers_page.editor) || !isnothing(m.workers_page.form)) || m.page == 6 && !isnothing(m.reports_page.viewer_path) || m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
-        push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)), (" " * description * " ", Tachikoma.tstyle(:text_dim)))
+    for (key, description) in (hints...,
+        (!isnothing(m.production) ||
+         m.page == 3 &&
+         (!isnothing(m.workers_page.editor) || !isnothing(m.workers_page.form)) ||
+         m.page == 6 && !isnothing(m.reports_page.viewer_path) ||
+         m.page == 7 && !isnothing(m.history_page.viewer_path) ? () : COMMON_HINTS)...)
+        push!(spans, (" " * key, Tachikoma.tstyle(:warning, bold = true)),
+            (" " * description * " ", Tachikoma.tstyle(:text_dim)))
     end
     put_spans!(f.buffer, keys_area.x, keys_area.y, Tachikoma.right(keys_area), spans)
 
@@ -709,9 +801,9 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
         modal = Tachikoma.Modal(;
             title = "Processing runs",
             message = "s: stop after the running items, then quit\n" *
-                "q: quit now, ending the run and its workers\n" *
-                "c: cancel, keep processing",
-            confirm_label = "", cancel_label = "",
+                      "q: quit now, ending the run and its workers\n" *
+                      "c: cancel, keep processing",
+            confirm_label = "", cancel_label = ""
         )
         Tachikoma.render(modal, f.area, f.buffer)
     end
@@ -743,7 +835,8 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
     theme = tui_theme(something(get(parsed_args, "theme", nothing), load_theme_name()))
     messages = MessageBuffer()
     # The log file exists only once the session has loaded: log the thread setup then.
-    default_threads, interactive_threads = Threads.nthreads(:default), Threads.nthreads(:interactive)
+    default_threads, interactive_threads = Threads.nthreads(:default),
+    Threads.nthreads(:interactive)
     loop_thread, loop_pool = Threads.threadid(), Threads.threadpool()
     function load(args)
         session = loader(args)
@@ -767,7 +860,8 @@ end
 
 # Run the interface loop on `m` with `theme`; the output of this process goes to `messages`.
 # `kwargs` are passed on to `Tachikoma.app`.
-function run_app(m::JuleanaTUI, messages::MessageBuffer; theme::Tachikoma.Theme = tui_theme(load_theme_name()), kwargs...)
+function run_app(m::JuleanaTUI, messages::MessageBuffer;
+        theme::Tachikoma.Theme = tui_theme(load_theme_name()), kwargs...)
     return with_theme(theme) do
         Tachikoma.app(m; on_stdout = text -> append_output!(messages, :stdout, text),
             on_stderr = text -> append_output!(messages, :stderr, text), kwargs...)

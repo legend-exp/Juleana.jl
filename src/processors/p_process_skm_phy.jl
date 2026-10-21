@@ -23,8 +23,9 @@ For each run, all `jlevt` files of the run (except filekeys listed as bad) are r
 # Returns
 Always `false`: no run is skipped, so `run_processing` does not wait for this step in the previous period.
 """
-function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true, use_cache::Bool=true)
-    
+function p_process_skm_phy(
+        processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool = false,
+        timeout::Real = 0, only_first_period::Bool = true, use_cache::Bool = true)
     @info "Event skimmed tier for runs containing period $period"
 
     rinfo = runinfo(l200, period) |> filterby(@pf $phy.is_analysis_run)
@@ -33,51 +34,65 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     filekey = first(rinfo).phy.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :phy; system=:geds)
+    chinfo = channelinfo(l200, period, :phy; system = :geds)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
-    exposure = get_exposure(l200, chinfo.detector, period; is_analysis_run=true, check_pf=@pf $processable && $usability == :on && $psd_usability == :on && $det_type != :coax)
+    exposure = get_exposure(l200,
+        chinfo.detector,
+        period;
+        is_analysis_run = true,
+        check_pf = @pf $processable && $usability == :on && $psd_usability == :on &&
+                       $det_type != :coax)
     @info "Total exposure: $(round(unit(exposure), exposure, digits=2))"
 
-    if reprocess @info "Reprocess all runs" else @info "Only process runs not found" end
+    if reprocess
+        @info "Reprocess all runs"
+    else
+        @info "Only process runs not found"
+    end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Filekey, :Status, Symbol("SF of Events after PSD"), Symbol("SF of Events after LAr"), Symbol("SF of Events after LAr & PSD"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+    log_nt = NamedTuple{(:Filekey, :Status, Symbol("SF of Events after PSD"),
+        Symbol("SF of Events after LAr"), Symbol("SF of Events after LAr & PSD"),
+        Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # get worker pool
 
     # flush stdout
-    flush(stdout)    
-    
+    flush(stdout)
+
     function skm_fk(fk::FileKey)
         r = fk.run
         p = fk.period
 
-        filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), only(runinfo(l200, (p, r, :phy)).keys))
+        filekeys = filter(!in(bad_filekeys(l200; load_key = :all)), only(runinfo(l200, (
+            p, r, :phy)).keys))
         @info "Found $(length(filekeys)) filekeys for run $r in period $p"
 
         @info "Processing run $r in period $p"
         dsp_timer = TimerOutput()
         skmfilename = l200.tier[:jlskm, fk]
         @info "Using output file: $(basename(skmfilename))"
-        
+
         # start processing
         n_psd, n_lar, n_larpsd = 0.0u"percent", 0.0u"percent", 0.0u"percent"
         skipped = false
         write_files(skmfilename; use_cache, mode = CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(skmfilename)), remove old Evt."
-                rm(outfilename, force=true)
-                rm(skmfilename, force=true)
+                rm(outfilename, force = true)
+                rm(skmfilename, force = true)
             elseif isfile(outfilename)
                 @info "File $(basename(skmfilename)) already exists, skip"
                 skm_data = read_ldata(
-                    (@pf (; is_valid_psd = $geds.is_valid_psd, is_valid_lar = $ged_spm.is_valid_lar)),
-                    l200, DataTier(:jlskm), fk,
+                    (@pf (; is_valid_psd = $geds.is_valid_psd,
+                        is_valid_lar = $ged_spm.is_valid_lar)),
+                    l200, DataTier(:jlskm), fk
                 )
                 n_psd = mean(skm_data.is_valid_psd) * 100u"percent"
                 n_lar = mean(skm_data.is_valid_lar) * 100u"percent"
-                n_larpsd = mean(skm_data.is_valid_psd .&& skm_data.is_valid_lar) * 100u"percent"
+                n_larpsd = mean(skm_data.is_valid_psd .&& skm_data.is_valid_lar) *
+                           100u"percent"
                 skipped = true
                 return
             end
@@ -85,31 +100,37 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
             # open output file
             @timeit dsp_timer "Evt" begin
                 # generate evt level table
-                skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig && $ged_pmt.is_valid_muon && $geds.is_valid_qc && $geds.is_valid_trig && $geds.is_valid_hit && $geds.multiplicity == 1 && $geds.max_e_cusp_ctc_cal > 500.0u"keV"
+                skm_sel_pf = @pf !$aux.pulser.aux_trig && !$aux.forcedtrigger.aux_trig &&
+                                 $ged_pmt.is_valid_muon && $geds.is_valid_qc &&
+                                 $geds.is_valid_trig && $geds.is_valid_hit &&
+                                 $geds.multiplicity == 1 &&
+                                 $geds.max_e_cusp_ctc_cal > 500.0u"keV"
                 out_t = @process_step "event table loading of $fk" begin
-                    read_ldata(l200, DataTier(:jlevt), filekeys; filterby=skm_sel_pf)
+                    read_ldata(l200, DataTier(:jlevt), filekeys; filterby = skm_sel_pf)
                 end
                 # get number of forced, physical and pulser triggers
                 n_psd = mean(out_t.geds.is_valid_psd) * 100u"percent"
                 @debug "SF after PSD: $(round(u"percent", n_psd, digits=2))"
                 n_lar = mean(out_t.ged_spm.is_valid_lar) * 100u"percent"
                 @debug "SF after LAr: $(round(u"percent", n_lar, digits=2))"
-                n_larpsd = mean(out_t.geds.is_valid_psd .&& out_t.ged_spm.is_valid_lar) * 100u"percent"
+                n_larpsd = mean(out_t.geds.is_valid_psd .&& out_t.ged_spm.is_valid_lar) *
+                           100u"percent"
                 @debug "SF after LAr & PSD: $(round(u"percent", n_larpsd, digits=2))"
                 lh5open(outfilename, "cw") do ds
                     ds[:jlskm] = LegendEventAnalysis._fix_vov(out_t)
                 end
             end
-            
+
             @info "Finished processing $(basename(skmfilename))"
         end
 
         # create total timer by summing over memory usage and time
-        total_time      = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(dsp_timer)))
+        total_time = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(dsp_timer)))
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
-        
+
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), n_psd, n_lar, n_larpsd, total_time, total_allocated, ""))
+        log_fk = log_nt((
+            fk, ProcessStatus(1), n_psd, n_lar, n_larpsd, total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = !skipped)
     end
@@ -117,7 +138,8 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     # get start time
     start_time = now()
 
-    result_skm = parallel(skm_fk, rinfo.phy.startkey, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_skm_phy")
+    result_skm = parallel(skm_fk, rinfo.phy.startkey, log_nt; timeout = timeout,
+        retry = false, process_name = "$period-p_process_skm_phy")
 
     @info "Finished skimmed file processing"
 

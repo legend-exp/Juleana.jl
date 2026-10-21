@@ -2,7 +2,7 @@
 
 using Juleana
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Frame, Rect, GraphicsRegion,
-    PixelSnapshot, find_text, row_text
+                 PixelSnapshot, find_text, row_text
 using LegendDataManagement: DataPeriod, DataRun
 using Dates: DateTime
 using Logging: Logging
@@ -32,7 +32,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
 
 @testset "Progress page" begin
     p3, r1, r2 = DataPeriod(3), DataRun(1), DataRun(2)
-    done_key, run_key, wait_key, part_key = (p3, r1, :run_a), (p3, r1, :run_b), (p3, r2, :run_a), (p3, nothing, :p_part)
+    done_key, run_key, wait_key, part_key = (p3, r1, :run_a),
+    (p3, r1, :run_b), (p3, r2, :run_a), (p3, nothing, :p_part)
 
     # one finished step, one running step with a failed item and workers 2 and 3, two waiting steps
     function running_store()
@@ -55,12 +56,15 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
     @testset "bar_segments" begin
         @test Juleana.bar_segments([3, 1, 0, 6], 20) == [6, 2, 0, 12]
         @test Juleana.bar_segments([0, 0, 0], 20) == [0, 0, 0]
-        for counts in ([1, 1, 1, 1], [1, 0, 0, 2], [7, 3, 5, 11], [1, 100]), width in (1, 7, 10, 20)
+        for counts in ([1, 1, 1, 1], [1, 0, 0, 2], [7, 3, 5, 11], [1, 100]),
+            width in (1, 7, 10, 20)
+
             segments = Juleana.bar_segments(counts, width)
             @test sum(segments) == width && all(>=(0), segments)
         end
         # cumulative rounding keeps the order: the boundary after each segment is its rounded share
-        @test cumsum(Juleana.bar_segments([1, 1, 1], 10)) == round.(Int, 10 .* [1, 2, 3] ./ 3)
+        @test cumsum(Juleana.bar_segments([1, 1, 1], 10)) ==
+              round.(Int, 10 .* [1, 2, 3] ./ 3)
     end
 
     @testset "no run yet" begin
@@ -81,18 +85,21 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         tb = render_page(page, prog, busy)
         text = page_text(tb)
         @test occursin("%  1/4 steps done", text)
-        @test occursin("running 1", text) && occursin("waiting 2", text) && occursin("done 1", text)
+        @test occursin("running 1", text) && occursin("waiting 2", text) &&
+              occursin("done 1", text)
         @test occursin("Steps (following)", text)
         # the running group is unfolded, the finished one is not
         @test occursin("▾ p03-r001", text) && occursin("▸ p03-r002", text)
-        @test occursin("run_b", text) && occursin("✓ run_a", text) && !occursin("○", text) && !occursin("p_part", text)
+        @test occursin("run_b", text) && occursin("✓ run_a", text) &&
+              !occursin("○", text) && !occursin("p_part", text)
         @test occursin("1/10", text)
         @test occursin("w 2,3", text)
         @test occursin("/min", text) && occursin("ETA", text)
         @test occursin("1 failed", text)
         # busy workers
         @test occursin("Busy workers (2)", text)
-        @test find_text(tb, "w 2") !== nothing && occursin("fk2", text) && occursin("fk3", text)
+        @test find_text(tb, "w 2") !== nothing && occursin("fk2", text) &&
+              occursin("fk3", text)
         @test occursin("p03-r001 run_b", text)
         # the cursor follows the running step
         @test page.cursor == run_key
@@ -162,7 +169,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         # mouse wheel
         page = Juleana.ProgressPage()
         render_page(page, prog, Juleana.BusyItem[])
-        wheel(button, x = 5, y = 8) = MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
+        wheel(button, x = 5, y = 8) = MouseEvent(
+            x, y, button, Tachikoma.mouse_press, false, false, false)
         @test Juleana.progress_mouse!(page, wheel(Tachikoma.mouse_scroll_up), prog)
         @test !page.follow
         @test !Juleana.progress_mouse!(page, wheel(Tachikoma.mouse_scroll_up, 5, 1), prog)
@@ -170,7 +178,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         # a left click on a row moves the cursor there; on a group row it also folds or unfolds
         page = Juleana.ProgressPage()
         render_page(page, prog, Juleana.BusyItem[])
-        click(y) = MouseEvent(5, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
+        click(y) = MouseEvent(
+            5, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
         rows = Juleana.progress_rows(page, prog)
         row_y(i) = page.list.y + i - page.top
         @test rows[2].step
@@ -184,7 +193,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         # a vanished cursor row falls back to the nearest row
         page.cursor = (p3, r2, :gone)
         page.index = 100
-        @test Juleana.sync_cursor!(page, Juleana.progress_rows(page, prog)) == length(Juleana.progress_rows(page, prog))
+        @test Juleana.sync_cursor!(page, Juleana.progress_rows(page, prog)) ==
+              length(Juleana.progress_rows(page, prog))
     end
 
     @testset "scrolling follows the running step" begin
@@ -210,7 +220,9 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test occursin("p03-r001", text) && !occursin("p03-r026", text)
         # following scrolls to the running step again
         Juleana.progress_key!(page, KeyEvent('f'), prog)
-        @test occursin("p03-r026", page_text(render_page(page, prog, Juleana.BusyItem[], 120, 14), 14))
+        @test occursin("p03-r026", page_text(
+            render_page(
+                page, prog, Juleana.BusyItem[], 120, 14), 14))
     end
 
     @testset "messages pane" begin
@@ -226,8 +238,12 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         prog = progress(store)
         msgs = (; key = done_key, messages = step_messages(store, done_key))
         none = Juleana.BusyItem[]
-        render(page, msgs = msgs, h = 30) = page_text(render_page(page, prog, none, 120, h; msgs), h)
-        row_y(page, key) = page.list.y + findfirst(r -> r.key == key, Juleana.progress_rows(page, prog)) - page.top
+        render(page, msgs = msgs, h = 30) = page_text(
+            render_page(
+                page, prog, none, 120, h; msgs), h)
+        row_y(page, key) = page.list.y +
+                           findfirst(r -> r.key == key, Juleana.progress_rows(page, prog)) -
+                           page.top
 
         page = Juleana.ProgressPage()
         text = render(page)
@@ -240,7 +256,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test page.open == done_key && !page.follow
         text = render(page)
         @test occursin("p03-r001 run_a: 3 messages", text)
-        @test occursin("Info  loading", text) && occursin("Warn  low statistics", text) && occursin("Error fit failed", text)
+        @test occursin("Info  loading", text) && occursin("Warn  low statistics", text) &&
+              occursin("Error fit failed", text)
         # continuation lines are indented under the level column
         @test occursin(" "^15 * "  channel = 7", text)
         # the error of a failed step comes first, before the first message
@@ -264,7 +281,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test Juleana.progress_key!(page, KeyEvent(:down), prog)
         @test page.cursor == run_key && page.open == run_key
         text = render(page, (; key = run_key, messages = Juleana.StepMessage[]))
-        @test occursin("p03-r001 run_b: 0 messages", text) && occursin("No messages from this step.", text)
+        @test occursin("p03-r001 run_b: 0 messages", text) &&
+              occursin("No messages from this step.", text)
         # messages read for another step are not shown
         @test occursin("Reading messages", render(page, msgs))
         @test Juleana.progress_key!(page, KeyEvent(:home), prog)
@@ -276,7 +294,8 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         # a click on a step row opens the pane, a click on a group row folds
         page = Juleana.ProgressPage()
         render_page(page, prog, none)
-        click(y) = MouseEvent(5, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
+        click(y) = MouseEvent(
+            5, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
         @test Juleana.progress_mouse!(page, click(row_y(page, done_key)), prog)
         @test page.open == done_key && page.cursor == done_key && !page.follow
         @test Juleana.progress_mouse!(page, click(row_y(page, (p3, r1))), prog)
@@ -303,13 +322,15 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         page.cursor = done_key
         Juleana.progress_key!(page, KeyEvent(:enter), prog)
         text = render(page, msgs)
-        @test occursin("40 messages", text) && occursin("message 40", text) && !occursin("message 1 ", text * " ")
+        @test occursin("40 messages", text) && occursin("message 40", text) &&
+              !occursin("message 1 ", text * " ")
         @test page.pane_follow && page.pane_lines == 40
         bottom_top = page.pane_top
         @test Juleana.progress_key!(page, KeyEvent(:pageup), prog)
         @test !page.pane_follow && page.cursor == done_key
         text = render(page, msgs)
-        @test page.pane_top == bottom_top - page.pane_height && !occursin("message 40", text)
+        @test page.pane_top == bottom_top - page.pane_height &&
+              !occursin("message 40", text)
         @test Juleana.progress_key!(page, KeyEvent(:pagedown), prog)
         @test page.pane_follow && occursin("message 40", render(page, msgs))
         Juleana.progress_key!(page, KeyEvent(:pageup), prog)
@@ -334,26 +355,31 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         store = running_store()
         root = mktempdir()
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
-        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
+        args = Dict{String, Any}("config" =>
+            joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         cfg = ProcessingConfig(;
-            processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
-            p_processors = Dict{Symbol,ProcessorSpec}())
+            processors = Dict(:process_energy_calibration_cal =>
+                spec(:process_energy_calibration_cal, :run, 1)),
+            p_processors = Dict{Symbol, ProcessorSpec}())
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
             l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg), partition_steps(cfg))
-        session = DataflowSession(; args, l200, config = cfg, periods, run_steps = run_steps(cfg),
+        session = DataflowSession(;
+            args, l200, config = cfg, periods, run_steps = run_steps(cfg),
             partition_steps = partition_steps(cfg), run_status, partition_status)
-        m = Juleana.JuleanaTUI(DataflowController(session; processors = Dict{Symbol,Any}()))
+        m = Juleana.JuleanaTUI(DataflowController(session; processors = Dict{Symbol, Any}()))
         m.progress, m.busy = progress(store), busy_workers(store)
         Tachikoma.update!(m, KeyEvent('4'))
         @test m.page == 4
         text = page_text(render_model(m))
         @test occursin("Steps (following)", text) && occursin("Busy workers (2)", text)
-        @test occursin("↑↓ PgUp PgDn move", text) && occursin("Enter on step messages", text)
+        @test occursin("↑↓ PgUp PgDn move", text) &&
+              occursin("Enter on step messages", text)
         Tachikoma.update!(m, KeyEvent(:down))
         @test !m.progress_page.follow
         Tachikoma.update!(m, KeyEvent('f'))
         @test m.progress_page.follow
-        wheel = MouseEvent(5, 13, Tachikoma.mouse_scroll_down, Tachikoma.mouse_press, false, false, false)
+        wheel = MouseEvent(
+            5, 13, Tachikoma.mouse_scroll_down, Tachikoma.mouse_press, false, false, false)
         Tachikoma.update!(m, wheel)
         @test !m.progress_page.follow
         Tachikoma.update!(m, KeyEvent('1'))
@@ -369,9 +395,12 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         Juleana.step_message!(m.ctrl.progress, key, Logging.Warn, "low statistics")
         Juleana.set_step_state!(m.ctrl.progress, key, :failed; error = "fit failed")
         Tachikoma.update!(m, KeyEvent('4'))
-        refresh_done() = (t = time() + 60; while m.refreshing && time() < t
-            Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue); sleep(0.02)
-        end; !m.refreshing)
+        refresh_done() = (t = time() + 60;
+            while m.refreshing && time() < t
+                Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue)
+                sleep(0.02)
+            end;
+            !m.refreshing)
         @test refresh_done()
         Juleana.refresh!(m)
         @test refresh_done()
@@ -383,11 +412,14 @@ page_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
         @test refresh_done()
         t_end = time() + 60
         while m.step_msgs.key != key && time() < t_end
-            Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue); sleep(0.02)
+            Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue)
+            sleep(0.02)
         end
-        @test m.step_msgs.key == key && [e.text for e in m.step_msgs.messages] == ["low statistics"]
+        @test m.step_msgs.key == key &&
+              [e.text for e in m.step_msgs.messages] == ["low statistics"]
         text = page_text(render_model(m))
-        @test occursin("1 message", text) && occursin("low statistics", text) && occursin("fit failed", text)
+        @test occursin("1 message", text) && occursin("low statistics", text) &&
+              occursin("fit failed", text)
         @test occursin("Esc close", text) && !occursin("PgUp PgDn move", text)
         Tachikoma.update!(m, KeyEvent(:escape))
         @test isnothing(m.progress_page.open)

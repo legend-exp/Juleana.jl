@@ -9,7 +9,8 @@
 # report files keep the name the processor had before the suffix was added.
 function report_name(process::Symbol)
     name = chopprefix(chopprefix(string(process), "p_process_"), "process_")
-    return process in values(RENAMED_PROCESSORS) ? String(chopsuffix(name, "_cal")) : String(name)
+    return process in values(RENAMED_PROCESSORS) ? String(chopsuffix(name, "_cal")) :
+           String(name)
 end
 
 # the cells of a Markdown table row
@@ -32,19 +33,23 @@ where `<name>` is the processor name without its `process_` or `p_process_` pref
 without the `_cal` suffix of the processors in [`RENAMED_PROCESSORS`](@ref).
 `run` is not used for the partition level. The file system is not accessed.
 """
-function report_path(jlrep::AbstractString, process::Symbol, level::Symbol, period, run, category; setup = "l200")
+function report_path(jlrep::AbstractString, process::Symbol,
+        level::Symbol, period, run, category; setup = "l200")
     name = report_name(process)
     if level == :run
         return joinpath(jlrep, "rreport", string(category), string(period), string(run),
             "$setup-$period-$run-$category-$name.md")
     elseif level == :partition
-        return joinpath(jlrep, "preport", string(period), string(category), "$setup-$period-$category-$name.md")
+        return joinpath(jlrep, "preport", string(period), string(category),
+            "$setup-$period-$category-$name.md")
     end
     throw(ArgumentError("report level must be :run or :partition, got $(repr(level))"))
 end
 
-report_path(l200::LegendData, process::Symbol, level::Symbol, period, run, category; kwargs...) =
+function report_path(
+        l200::LegendData, process::Symbol, level::Symbol, period, run, category; kwargs...)
     report_path(l200.tier[:jlrep], process, level, period, run, category; kwargs...)
+end
 
 """
     read_report(path::AbstractString)
@@ -77,7 +82,8 @@ function read_report(path::AbstractString)
     date = nothing
     processor_state = nothing
     if !isfile(path)
-        return (; path = String(path), state = :missing, date, n_entries, n_failed, n_warnings, failures)
+        return (; path = String(path), state = :missing, date,
+            n_entries, n_failed, n_warnings, failures)
     end
 
     # consecutive table rows form a table: header row, separator row, data rows
@@ -96,7 +102,8 @@ function read_report(path::AbstractString)
     end
 
     for table in tables
-        length(table) >= 2 && all(c -> !isempty(c) && all(in((':', '-')), c), table[2]) || continue
+        length(table) >= 2 && all(c -> !isempty(c) && all(in((':', '-')), c), table[2]) ||
+            continue
         header = table[1]
         rows = @view table[3:end]
         if header == ["Processor Status"]
@@ -132,7 +139,10 @@ function read_report(path::AbstractString)
                 [cells[i_det]]
             end
             # the type and the partition distinguish several entries per detector
-            suffix = join([cells[i] for i in (i_type, i_part) if !isnothing(i) && !(cells[i] in ("", "-"))], ", ")
+            suffix = join(
+                [cells[i]
+                 for i in (i_type, i_part) if !isnothing(i) && !(cells[i] in ("", "-"))],
+                ", ")
             isempty(suffix) || (labels = labels .* " ($suffix)")
             err = join([cells[i] for i in i_errs if !(cells[i] in ("", "-"))], " | ")
             append!(failures, [(l, err) for l in labels])
@@ -170,17 +180,21 @@ n_entries, n_failed, n_warnings, failures)` with the fields of [`read_report`](@
 function report_index(jlrep::AbstractString, processors, period_runs; setup = "l200")
     rows = []
     for spec in processors, (period, runs) in period_runs
+
         (; name, level, category) = spec
         for run in (level == :partition ? (nothing,) : runs)
             path = report_path(jlrep, name, level, period, run, category; setup)
-            push!(rows, (; process = name, level, category, period, run, read_report(path)...))
+            push!(rows, (;
+                process = name, level, category, period, run, read_report(path)...))
         end
     end
     return rows
 end
 
-report_index(l200::LegendData, processors, periods, runs; kwargs...) =
-    report_index(l200.tier[:jlrep], processors, [period => processable_runs(l200, period, runs) for period in periods]; kwargs...)
+function report_index(l200::LegendData, processors, periods, runs; kwargs...)
+    report_index(l200.tier[:jlrep], processors,
+        [period => processable_runs(l200, period, runs) for period in periods]; kwargs...)
+end
 
 # the label of the run (`p03-r001`) or of the period for the partition level
 row_label(row) = isnothing(row.run) ? string(row.period) : "$(row.period)-$(row.run)"
@@ -198,14 +212,17 @@ are the `failures` of the rows, so no file is read.
 function failure_summary(rows)
     processes = unique(row.process for row in rows)
     return map(processes) do process
-        failed = Dict{String, NamedTuple{(:labels, :errors), Tuple{Vector{String}, Vector{String}}}}()
+        failed = Dict{
+            String, NamedTuple{(:labels, :errors), Tuple{Vector{String}, Vector{String}}}}()
         for row in rows, (label, err) in row.failures
+
             row.process == process || continue
             entry = get!(() -> (; labels = String[], errors = String[]), failed, first(split(label, " (")))
             push!(entry.labels, row_label(row))
             isempty(err) || push!(entry.errors, err)
         end
-        detectors = [(; detector, labels = unique(e.labels), errors = unique(e.errors)) for (detector, e) in sort!(collect(failed); by = first)]
+        detectors = [(; detector, labels = unique(e.labels), errors = unique(e.errors))
+                     for (detector, e) in sort!(collect(failed); by = first)]
         (; process, detectors)
     end
 end
@@ -235,7 +252,8 @@ reports of processors that are not in `processors` come last in their level, ord
 """
 function report_overview(jlrep::AbstractString; processors = ())
     groups = Dict{Tuple{Symbol, String, String}, Vector{Any}}()
-    subdirs(dir) = isdir(dir) ? [d for d in readdir(dir) if isdir(joinpath(dir, d))] : String[]
+    subdirs(dir) = isdir(dir) ? [d for d in readdir(dir) if isdir(joinpath(dir, d))] :
+                   String[]
     function scan(dir, level, period, run, category)
         isdir(dir) || return
         # <setup>-<period>-<run>-<category>-<name>.md
@@ -250,26 +268,33 @@ function report_overview(jlrep::AbstractString; processors = ())
                 (; period, run, path, report.state, report.date))
         end
     end
-    for category in subdirs(joinpath(jlrep, "rreport")), period in subdirs(joinpath(jlrep, "rreport", category)),
-            run in subdirs(joinpath(jlrep, "rreport", category, period))
+    for category in subdirs(joinpath(jlrep, "rreport")),
+        period in subdirs(joinpath(jlrep, "rreport", category)),
+        run in subdirs(joinpath(jlrep, "rreport", category, period))
         scan(joinpath(jlrep, "rreport", category, period, run), :run, period, run, category)
     end
-    for period in subdirs(joinpath(jlrep, "preport")), category in subdirs(joinpath(jlrep, "preport", period))
-        scan(joinpath(jlrep, "preport", period, category), :partition, period, nothing, category)
+    for period in subdirs(joinpath(jlrep, "preport")),
+        category in subdirs(joinpath(jlrep, "preport", period))
+
+        scan(joinpath(jlrep, "preport", period, category),
+            :partition, period, nothing, category)
     end
 
     overview = map(collect(groups)) do ((level, name, category), reports)
         sort!(reports; by = r -> (r.period, something(r.run, "")))
         dated = filter(r -> !isnothing(r.date), reports)
         latest = isempty(dated) ? nothing : argmax(r -> r.date, dated)
-        counts = (; ok = count(r -> r.state == :ok, reports), warning = count(r -> r.state == :warning, reports),
+        counts = (; ok = count(r -> r.state == :ok, reports),
+            warning = count(r -> r.state == :warning, reports),
             failed = count(r -> r.state == :failed, reports))
         (; name, level, category, nreports = length(reports), counts,
             last_date = isnothing(latest) ? nothing : latest.date,
             latest_path = isnothing(latest) ? nothing : latest.path, reports)
     end
     ranks = Dict((spec.level, report_name(spec.name)) => spec.rank for spec in processors)
-    return sort!(overview; by = o -> (o.level == :partition, get(ranks, (o.level, o.name), typemax(Int)), o.name, o.category))
+    return sort!(overview;
+        by = o -> (o.level == :partition,
+            get(ranks, (o.level, o.name), typemax(Int)), o.name, o.category))
 end
 
 report_overview(l200::LegendData; kwargs...) = report_overview(l200.tier[:jlrep]; kwargs...)

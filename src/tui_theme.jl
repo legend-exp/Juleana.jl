@@ -18,7 +18,7 @@ const NIGHT_OWL_THEME = Tachikoma.Theme(
     Tachikoma.Color256(41),   # success
     Tachikoma.Color256(222),  # warning
     Tachikoma.Color256(203),  # error
-    Tachikoma.Color256(255),  # title
+    Tachikoma.Color256(255)  # title
 )
 
 # Colors of the interface, from the colors of the logo (red `#cb3c33`, green `#389826`,
@@ -40,7 +40,7 @@ const JULEANA_THEME = Tachikoma.Theme(
     Tachikoma.Color256(77),   # success
     Tachikoma.Color256(214),  # warning
     Tachikoma.Color256(196),  # error
-    Tachikoma.Color256(167),   # title
+    Tachikoma.Color256(167)   # title
 )
 
 """
@@ -61,7 +61,8 @@ lists the names for an unknown one.
 """
 function tui_theme(name::AbstractString)
     i = findfirst(t -> t.name == name, TUI_THEMES)
-    isnothing(i) && throw(ArgumentError("unknown theme `$name`; the themes are " * join((t.name for t in TUI_THEMES), ", ")))
+    isnothing(i) && throw(ArgumentError("unknown theme `$name`; the themes are " *
+                        join((t.name for t in TUI_THEMES), ", ")))
     return TUI_THEMES[i]
 end
 

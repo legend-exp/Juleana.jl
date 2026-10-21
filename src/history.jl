@@ -1,7 +1,8 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 const HISTORY_TITLE = "# Processing history"
-const HISTORY_COLUMNS = ["Processor", "Level", "Category", "Period", "Run", "Outcome", "Started (UTC)", "Finished (UTC)",
+const HISTORY_COLUMNS = ["Processor", "Level", "Category", "Period", "Run",
+    "Outcome", "Started (UTC)", "Finished (UTC)",
     "Items ok/failed/not run"]
 const HISTORY_TIME_FORMAT = dateformat"yyyy-mm-dd HH:MM:SS"
 
@@ -24,7 +25,8 @@ Return the Markdown section of the processing history for the processing run `en
 """
 function history_section(entry)
     io = IOBuffer()
-    println(io, "## ", format_history_time(entry.started), " UTC, ", entry.user, "@", entry.host, ": ", entry.outcome)
+    println(io, "## ", format_history_time(entry.started), " UTC, ",
+        entry.user, "@", entry.host, ": ", entry.outcome)
     println(io)
     println(io, "Finished: ", format_history_time(entry.finished), " UTC  ")
     println(io, "Log folder: ", entry.log_path, isnothing(entry.software) ? "" : "  ")
@@ -74,7 +76,8 @@ format.
 function read_history(path::AbstractString)
     entries = NamedTuple[]
     isfile(path) || return entries
-    malformed(i, line) = throw(ArgumentError("read_history: line $i of $path does not follow the history format: $(repr(line))"))
+    malformed(i,
+        line) = throw(ArgumentError("read_history: line $i of $path does not follow the history format: $(repr(line))"))
     current = nothing
     flush!() = isnothing(current) || push!(entries, current)
     for (i, line) in enumerate(eachline(path))
@@ -82,14 +85,19 @@ function read_history(path::AbstractString)
             flush!()
             m = match(r"^## (.+) UTC, (.+)@(.+): (\w+)$", line)
             isnothing(m) && malformed(i, line)
-            current = (; started = parse_history_time(m[1]), finished = nothing, user = String(m[2]), host = String(m[3]),
+            current = (; started = parse_history_time(m[1]), finished = nothing,
+                user = String(m[2]), host = String(m[3]),
                 outcome = Symbol(m[4]), log_path = "", software = nothing, steps = NamedTuple[])
         elseif isnothing(current) || isempty(strip(line)) || line == HISTORY_TITLE
-            isnothing(current) && !isempty(strip(line)) && line != HISTORY_TITLE && malformed(i, line)
+            isnothing(current) && !isempty(strip(line)) && line != HISTORY_TITLE &&
+                malformed(i, line)
         elseif startswith(line, "Finished: ")
-            current = merge(current, (; finished = parse_history_time(strip(chopsuffix(chopprefix(line, "Finished: "), "UTC  ")))))
+            current = merge(current,
+                (;
+                    finished = parse_history_time(strip(chopsuffix(chopprefix(line, "Finished: "), "UTC  ")))))
         elseif startswith(line, "Log folder: ")
-            current = merge(current, (; log_path = String(chopsuffix(chopprefix(line, "Log folder: "), "  "))))
+            current = merge(current, (;
+                log_path = String(chopsuffix(chopprefix(line, "Log folder: "), "  "))))
         elseif startswith(line, "Software: ")
             current = merge(current, (; software = String(chopprefix(line, "Software: "))))
         elseif startswith(line, "|")
@@ -98,10 +106,14 @@ function read_history(path::AbstractString)
             (cells == HISTORY_COLUMNS || all(c -> c == "---", cells)) && continue
             counts = tryparse.(Int, split(cells[9], '/'))
             (length(counts) == 3 && !any(isnothing, counts)) || malformed(i, line)
-            push!(current.steps, (; process = Symbol(cells[1]), level = Symbol(cells[2]), category = Symbol(cells[3]),
-                period = DataPeriod(cells[4]), run = cells[5] == "–" ? nothing : DataRun(cells[5]), outcome = Symbol(cells[6]),
-                started = parse_history_time(cells[7]), finished = parse_history_time(cells[8]),
-                done = counts[1], failed = counts[2], notrun = counts[3]))
+            push!(current.steps,
+                (; process = Symbol(cells[1]), level = Symbol(cells[2]),
+                    category = Symbol(cells[3]),
+                    period = DataPeriod(cells[4]), run = cells[5] == "–" ? nothing :
+                                                         DataRun(cells[5]),
+                    outcome = Symbol(cells[6]),
+                    started = parse_history_time(cells[7]), finished = parse_history_time(cells[8]),
+                    done = counts[1], failed = counts[2], notrun = counts[3]))
         else
             malformed(i, line)
         end
@@ -143,32 +155,43 @@ A cell without a report and without such a step is missing from `cells`. Reports
 of processors, periods or runs that are not in the arguments are ignored.
 """
 function history_grid(processors, period_runs, overview, history)
-    reports = Dict{Any,Any}()
+    reports = Dict{Any, Any}()
     for group in overview, r in group.reports
+
         reports[(group.name, group.level, group.category, r.period, r.run)] = r
     end
-    latest = Dict{Any,Any}()
+    latest = Dict{Any, Any}()
     for entry in history, s in entry.steps
+
         s.outcome in HISTORY_GRID_OUTCOMES || continue
         # the history is in chronological order, so a later step replaces an earlier one
         date = something(s.finished, s.started, entry.finished, Some(nothing))
-        latest[(s.process, s.level, s.category, s.period, s.run)] = (; state = s.outcome, date, source = :history, path = entry.log_path, ran = !isnothing(s.started))
+        latest[(s.process, s.level, s.category, s.period, s.run)] = (;
+            state = s.outcome, date, source = :history,
+            path = entry.log_path, ran = !isnothing(s.started))
     end
     rows = map(processors) do spec
         (; name, level, category) = spec
-        cells = Dict{Any,Any}()
+        cells = Dict{Any, Any}()
         for (period, runs) in period_runs, run in (level == :partition ? (nothing,) : runs)
-            r = get(reports, (report_name(name), level, string(category), string(period), isnothing(run) ? nothing : string(run)), nothing)
+
+            r = get(reports,
+                (report_name(name), level, string(category),
+                    string(period), isnothing(run) ? nothing : string(run)),
+                nothing)
             report = isnothing(r) ? nothing : (; r.state, r.date, source = :report, r.path)
             h = get(latest, (name, level, category, period, run), nothing)
-            newer = !isnothing(h) && (isnothing(report) || (h.ran && (isnothing(report.date) ||
-                (!isnothing(h.date) && h.date > report.date))))
+            newer = !isnothing(h) &&
+                    (isnothing(report) || (h.ran && (isnothing(report.date) ||
+                       (!isnothing(h.date) && h.date > report.date))))
             cell = newer ? (; h.state, h.date, h.source, h.path) : report
             isnothing(cell) || (cells[(period, run)] = cell)
         end
         (; process = name, level, category, cells)
     end
-    return (; periods = [(; period, runs = collect(runs)) for (period, runs) in period_runs], rows)
+    return (;
+        periods = [(; period, runs = collect(runs)) for (period, runs) in period_runs],
+        rows)
 end
 
 """
@@ -183,11 +206,14 @@ those of a stopped or cancelled step, `total` all counted cells.
 function disk_counts(row, period_runs)
     counts = Dict(:ok => 0, :warning => 0, :failed => 0, :missing => 0)
     for (period, runs) in period_runs, run in (row.level === :partition ? (nothing,) : runs)
+
         cell = get(row.cells, (period, run), nothing)
-        state = isnothing(cell) || cell.state in (:stopped, :cancelled) ? :missing : cell.state
+        state = isnothing(cell) || cell.state in (:stopped, :cancelled) ? :missing :
+                cell.state
         counts[state] += 1
     end
-    return (; ok = counts[:ok], warning = counts[:warning], failed = counts[:failed], missing = counts[:missing],
+    return (; ok = counts[:ok], warning = counts[:warning],
+        failed = counts[:failed], missing = counts[:missing],
         total = sum(values(counts)))
 end
 
@@ -198,5 +224,9 @@ Return the state of a processor on disk from its [`Juleana.disk_counts`](@ref): 
 if a cell failed, else `:missing` if a cell is missing, else `:warning` if a cell has a
 warning, else `:ok`; `nothing` if there are no cells.
 """
-disk_state(counts) = counts.total == 0 ? nothing : counts.failed > 0 ? :failed : counts.missing > 0 ? :missing :
+function disk_state(counts)
+    counts.total == 0 ? nothing :
+    counts.failed > 0 ? :failed :
+    counts.missing > 0 ? :missing :
     counts.warning > 0 ? :warning : :ok
+end

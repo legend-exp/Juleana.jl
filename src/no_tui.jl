@@ -6,10 +6,12 @@ const EXIT_CODES = Dict(:finished => 0, :failed => 1, :stopped => 2)
 function run_summary(snap, p)
     duration = canonicalize(round(snap.finished - snap.started, Second))
     counts = join(("$n $state" for (state, n) in pairs(p.counts) if n > 0), ", ")
-    lines = ["Processing $(snap.outcome) after $duration", "Steps: " * (isempty(counts) ? "none" : counts)]
+    lines = ["Processing $(snap.outcome) after $duration",
+        "Steps: " * (isempty(counts) ? "none" : counts)]
     for state in (:failed, :cancelled)
         steps = [step_label(e) for e in p.steps if e.state === state]
-        isempty(steps) || push!(lines, "$(uppercasefirst(string(state))): " * join(steps, ", "))
+        isempty(steps) ||
+            push!(lines, "$(uppercasefirst(string(state))): " * join(steps, ", "))
     end
     isnothing(snap.last_error) || push!(lines, "Error: $(snap.last_error)")
     return join(lines, "\n")
@@ -54,7 +56,8 @@ number of steps per state and the failed and cancelled steps.
 The exit code is `0` when the run finished, `1` when it failed or the session could not
 be set up, and `2` when it was stopped.
 """
-function run_no_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
+function run_no_tui(
+        parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         loader = setup_session, interval::Real = 1)
     ctrl = DataflowController(parsed_args; processors, loader)
     dispatch!(ctrl, LoadSession())

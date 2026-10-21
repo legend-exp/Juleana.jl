@@ -26,8 +26,9 @@ The method is the same as in `process_filter_optimization_cal`: for each filter 
 # Returns
 `true` if at least one detector and partition was skipped because of `only_first_period`, otherwise `false`. `run_processing` uses this to wait for the same step in the previous period.
 """
-function p_process_filter_optimization_cal(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
-    
+function p_process_filter_optimization_cal(
+        processing_config, l200::LegendData, period::DataPeriod;
+        reprocess::Bool = false, timeout::Real = 0, only_first_period::Bool = true)
     @info "Optimize filter for all partitions containing period $period"
 
     rinfo = runinfo(l200, period) |> filterby(@pf $cal.is_analysis_run)
@@ -36,32 +37,37 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :cal; system=:geds, only_processable=true)
+    chinfo = channelinfo(l200, period, :cal; system = :geds, only_processable = true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
-    if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
+    if reprocess
+        @info "Reprocess all detectors"
+    else
+        @info "Only process detectors not in pars_db"
+    end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Filter Type"), Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
-    
+    log_nt = NamedTuple{(:Detector, :usability, :Partition, :Status, Symbol("Filter Type"),
+        Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
+
     # get worker pool
 
     # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(l200, chinfo, period, :cal; unfold_partitions=true)
+    chinfo_unfolded = get_partition_channelinfo(
+        l200, chinfo, period, :cal; unfold_partitions = true)
 
     # flush stdout
     flush(stdout)
 
     function det_filter_optimization(chinfo_det::NamedTuple)
-
-        ch  = chinfo_det.channel
+        ch = chinfo_det.channel
         det = chinfo_det.detector
         part = chinfo_det.partition
 
         @debug "Processing detector $det ($ch)"
-        
+
         make_par_dir(joinpath(data_path(l200.par.ppars.fltopt), string(det)))
         pars_db_det = if isfile(joinpath(data_path(l200.par.ppars.fltopt[det]), "$part.yaml"))
             PropDict(l200.par.ppars.fltopt[det, part])
@@ -72,8 +78,9 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
 
         partinfo_det = partitioninfo(l200, det, part)
         @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
-    
-        filekey_det = start_filekey(l200, (first(partinfo_det.period), first(partinfo_det.run), :cal))
+
+        filekey_det = start_filekey(l200, (
+            first(partinfo_det.period), first(partinfo_det.run), :cal))
         @debug "Found filekey $filekey_det"
 
         validity_det = get_partitionvalidity(l200, det, part)
@@ -86,30 +93,34 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
         @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
         optimization_config = dataprod_config(l200).dsp(filekey_det).flt_optimization
-        optimization_config_det = merge(optimization_config.p_default, get(optimization_config.p, det, PropDict()))
+        optimization_config_det = merge(
+            optimization_config.p_default, get(optimization_config.p, det, PropDict()))
         @debug "Loaded optimization config: $(lstring(optimization_config_det))"
-        
+
         # extract config
-        n_evts        = optimization_config_det.n_evts
-        max_wvfs      = optimization_config_det.max_wvfs
+        n_evts = optimization_config_det.n_evts
+        max_wvfs = optimization_config_det.max_wvfs
         select_random = optimization_config_det.select_random
-        qc_string     = optimization_config_det.qc
-        peakname      = Symbol(optimization_config_det.peakname)
-        e_filter      = collect(keys(optimization_config_det.e_filter))
+        qc_string = optimization_config_det.qc
+        peakname = Symbol(optimization_config_det.peakname)
+        e_filter = collect(keys(optimization_config_det.e_filter))
 
         result_rt_ft_dict = Dict{Symbol, NamedTuple}()
-        log_info_dict  = Dict{Symbol, NamedTuple}()
+        log_info_dict = Dict{Symbol, NamedTuple}()
         processed_dict = Dict{Symbol, Bool}()
 
         if (only_first_period && period != first(partinfo_det.period))
             @info "Only first period in partition $part for $period in $det ($ch)"
             for filter_type in e_filter
-                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, fill("-", 3)..., "Only first periods --> skipped."))
+                log_info = log_nt((
+                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    filter_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
             end
-            return (processed = processed_dict, log = log_info_dict, validity = validity_det, skipped = true)
+            return (processed = processed_dict, log = log_info_dict,
+                validity = validity_det, skipped = true)
         end
 
         if !reprocess && !redo_detector(det) && haskey(pars_db_det, det)
@@ -117,7 +128,11 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
             for filter_type in e_filter
                 if haskey(pars_db_det[det], filter_type)
                     @debug "Filter $filter_type already processed, skip"
-                    log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, pars_db_det[det][filter_type].rt, pars_db_det[det][filter_type].ft, pars_db_det[det][filter_type].min_fwhm, "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), part,
+                        ProcessStatus(1), filter_type, pars_db_det[det][filter_type].rt,
+                        pars_db_det[det][filter_type].ft,
+                        pars_db_det[det][filter_type].min_fwhm,
+                        "Already processed --> skipped."))
                     # add results to dict
                     log_info_dict[filter_type] = log_info
                     processed_dict[filter_type] = false
@@ -128,27 +143,33 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
         # check if all filters are already processed
         if length(keys(processed_dict)) == length(e_filter)
             @debug "All filters already processed, skip detector"
-            return (processed = processed_dict, log = log_info_dict, validity = validity_det)
+            return (
+                processed = processed_dict, log = log_info_dict, validity = validity_det)
         end
 
         # load data
-        wvfs_det_pre, wvfs_det_wdw, presum_rate = @process_step "$peakname data loading" begin
+        wvfs_det_pre, wvfs_det_wdw,
+        presum_rate = @process_step "$peakname data loading" begin
             @debug "Loading $peakname data from $(part), select $(ifelse(select_random, "randomly ", ""))$n_evts events from each run"
             # The events of each run are selected by timestamp before reading, so only the
             # selected waveforms are loaded from disk.
             f_timestamp = ljl_propfunc("$peakname.timestamp")
             peak_data = fast_flatten(map(partinfo_det) do r
-                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det)
+                ts = read_ldata(f_timestamp, l200, DataTier(:jlpks),
+                    DataCategory(:cal), r.period, r.run, det)
                 n_sel = n_evts == -1 ? length(ts) : min(n_evts, length(ts))
-                ts_sel = select_random ? sample(ts, n_sel; replace=false, ordered=true) : ts[begin:begin+n_sel-1]
-                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal), r.period, r.run, det; filterby=@pf $timestamp in ts_sel)
+                ts_sel = select_random ?
+                         sample(ts, n_sel; replace = false, ordered = true) :
+                         ts[begin:(begin + n_sel - 1)]
+                read_ldata(peakname, l200, DataTier(:jlpks), DataCategory(:cal),
+                    r.period, r.run, det; filterby = @pf $timestamp in ts_sel)
             end)
             wvfs_det_pre = peak_data.waveform_presummed
             wvfs_det_wdw = peak_data.waveform_windowed
             presum_rate = peak_data.presum_rate
             if length(wvfs_det_pre) > max_wvfs
                 @warn "$peakname events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = sample(eachindex(wvfs_det_pre), max_wvfs; replace=false, ordered=true)
+                sel = sample(eachindex(wvfs_det_pre), max_wvfs; replace = false, ordered = true)
                 wvfs_det_pre = wvfs_det_pre[sel]
                 wvfs_det_wdw = wvfs_det_wdw[sel]
                 presum_rate = presum_rate[sel]
@@ -160,7 +181,8 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
         # get QC cuts
         wvfs_det_pre, wvfs_det_wdw, blmean_wdw = @process_step "QC cuts" begin
             @debug "Get QC cuts"
-            dsp_qc = dsp_qc_flt_optimization_compressed(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, f_evaluate_qc)
+            dsp_qc = dsp_qc_flt_optimization_compressed(
+                wvfs_det_pre, dsp_config_det, pars_tau[det].τ, f_evaluate_qc)
             qc = ljl_propfunc(qc_string).(dsp_qc)
             blmean_wdw = dsp_qc.blmean ./ presum_rate
             wvfs_det_pre = wvfs_det_pre[findall(qc)]
@@ -181,31 +203,43 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
             if haskey(processed_dict, filter_type)
                 continue
             end
-            
+
             try
                 @debug "Optimize $filter_type filter"
 
                 optimization_config_flt = optimization_config_det.e_filter[filter_type]
                 # unpack config
-                e_grid_rt            = getproperty(dsp_config_det, Symbol("e_grid_rt_$(filter_type)"))
-                e_grid_ft            = getproperty(dsp_config_det, Symbol("e_grid_ft_$(filter_type)"))
+                e_grid_rt = getproperty(dsp_config_det, Symbol("e_grid_rt_$(filter_type)"))
+                e_grid_ft = getproperty(dsp_config_det, Symbol("e_grid_ft_$(filter_type)"))
 
                 # optimize RT
                 enc_grid = @process_step "$filter_type RT DSP for FEP" begin
                     @debug "Generate $filter_type ENC filter grid"
-                    legend_dsp_function("dsp_$(filter_type)_rt_optimization", "dsp.flt_optimization.e_filter.$filter_type")(wvfs_det_pre, dsp_config_det, pars_tau[det].τ; ft=optimization_config_flt.ft_fixed)
+                    legend_dsp_function("dsp_$(filter_type)_rt_optimization",
+                        "dsp.flt_optimization.e_filter.$filter_type")(
+                        wvfs_det_pre, dsp_config_det, pars_tau[det].τ;
+                        ft = optimization_config_flt.ft_fixed)
                 end
                 yield()
                 GC.gc()
-                result_rt, report_rt = @process_step "$filter_type rise time extraction" begin
-                    fit_enc_sigmas(enc_grid, e_grid_rt, optimization_config_flt.min_enc, optimization_config_flt.max_enc, optimization_config_flt.nbins_enc_sigmas, optimization_config_flt.rel_cut_fit_enc_sigmas)
+                result_rt,
+                report_rt = @process_step "$filter_type rise time extraction" begin
+                    fit_enc_sigmas(enc_grid, e_grid_rt, optimization_config_flt.min_enc,
+                        optimization_config_flt.max_enc,
+                        optimization_config_flt.nbins_enc_sigmas,
+                        optimization_config_flt.rel_cut_fit_enc_sigmas)
                 end
-                @debug format("Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC", result_rt.min_enc)
+                @debug format(
+                    "Found optimal $filter_type RT at $(result_rt.rt) with ENC {:.2f} ADC",
+                    result_rt.min_enc)
                 yield()
 
                 @debug_plot begin
-                    p = LegendMakie.lplot(report_rt, title = get_plottitle(filekey_det, part, det, "Noise Sweep"; additional_type=string(filter_type)))
-                    save_plot(p, l200, part, filekey_det, det, Symbol("noise_sweep_$(filter_type)"))
+                    p = LegendMakie.lplot(report_rt,
+                        title = get_plottitle(filekey_det, part, det, "Noise Sweep";
+                            additional_type = string(filter_type)))
+                    save_plot(p, l200, part, filekey_det, det,
+                        Symbol("noise_sweep_$(filter_type)"))
                 end
 
                 # optimize FT
@@ -213,23 +247,38 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
                 GC.gc()
                 e_grid = @process_step "$filter_type FT DSP for FEP" begin
                     @debug "Generate $filter_type FT energy grid"
-                    legend_dsp_function("dsp_$(filter_type)_ft_optimization", "dsp.flt_optimization.e_filter.$filter_type")(wvfs_det_pre, dsp_config_det, pars_tau[det].τ, mvalue(result_rt.rt))
+                    legend_dsp_function("dsp_$(filter_type)_ft_optimization",
+                        "dsp.flt_optimization.e_filter.$filter_type")(
+                        wvfs_det_pre, dsp_config_det, pars_tau[det].τ, mvalue(result_rt.rt))
                 end
                 yield()
                 GC.gc()
-                result_ft, report_ft = @process_step "$filter_type flat-top time extraction" begin
-                    fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt, optimization_config_flt.min_e_fep, optimization_config_flt.max_e_fep, optimization_config_flt.rel_cut_fit_e_fep, optimization_config_det.apply_ctc; 
-                                            n_bins=optimization_config_flt.nbins_e_fep, peak=optimization_config_det.peak, window=(optimization_config_det.left_window_size, optimization_config_det.right_window_size), ft_fwhm_tol=optimization_config_det.ft_fwhm_tol)
+                result_ft,
+                report_ft = @process_step "$filter_type flat-top time extraction" begin
+                    fit_fwhm_ft(e_grid, e_grid_ft, qdrift, result_rt.rt,
+                        optimization_config_flt.min_e_fep,
+                        optimization_config_flt.max_e_fep,
+                        optimization_config_flt.rel_cut_fit_e_fep,
+                        optimization_config_det.apply_ctc;
+                        n_bins = optimization_config_flt.nbins_e_fep, peak = optimization_config_det.peak,
+                        window = (optimization_config_det.left_window_size,
+                            optimization_config_det.right_window_size),
+                        ft_fwhm_tol = optimization_config_det.ft_fwhm_tol)
                 end
                 @debug "Found optimal $filter_type FT at $(result_ft.ft) with FWHM $(round(u"keV", result_ft.min_fwhm, digits=2))"
                 yield()
-                
+
                 @debug_plot begin
-                    p = LegendMakie.lplot(report_ft, title = get_plottitle(filekey_det, part, det, "FEP FT Scan"; additional_type=string(filter_type)))
-                    save_plot(p, l200, part, filekey_det, det, Symbol("fwhm_ft_scan_$(filter_type)"))
+                    p = LegendMakie.lplot(report_ft,
+                        title = get_plottitle(filekey_det, part, det, "FEP FT Scan";
+                            additional_type = string(filter_type)))
+                    save_plot(p, l200, part, filekey_det, det,
+                        Symbol("fwhm_ft_scan_$(filter_type)"))
                 end
 
-                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(1), filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
+                log_info = log_nt((
+                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    filter_type, result_rt.rt, result_ft.ft, result_ft.min_fwhm, "-"))
 
                 # add results to dict
                 result_rt_ft_dict[filter_type] = merge(result_rt, result_ft)
@@ -240,8 +289,11 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
                 GC.gc()
                 yield()
             catch e
-                e isa ProcessStepError || @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
-                log_info = log_nt((det, detector_status(chinfo_det.usability), part, ProcessStatus(0), filter_type, "-", "-", "-", "$(truncate_error(e))"))
+                e isa ProcessStepError ||
+                    @error "Filter: $filter_type filter optimization: $(truncate_error(e))"
+                log_info = log_nt((
+                    det, detector_status(chinfo_det.usability), part, ProcessStatus(0),
+                    filter_type, "-", "-", "-", "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
                 processed_dict[filter_type] = false
@@ -249,9 +301,10 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
         end
 
         # generate detector result
-        result_det = (result = result_rt_ft_dict, processed = processed_dict, log = log_info_dict, validity = validity_det)
+        result_det = (result = result_rt_ft_dict, processed = processed_dict,
+            log = log_info_dict, validity = validity_det)
         result_flt_det = Dict{NamedTuple, NamedTuple}(chinfo_det => result_det)
-        
+
         pars_db_det = create_pars(pars_db_det, result_flt_det)
         write_pars(l200.par.ppars.fltopt[det], part, pars_db_det)
         write_validity(l200.par.ppars.fltopt[det], filekey_det, part)
@@ -264,7 +317,9 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
     start_time = now()
 
     # execute in parallel
-    result_flt = parallel(det_filter_optimization, chinfo_unfolded, log_nt; timeout=timeout, retry=false, process_name="$period-p_process_filter_optimization_cal")
+    result_flt = parallel(
+        det_filter_optimization, chinfo_unfolded, log_nt; timeout = timeout,
+        retry = false, process_name = "$period-p_process_filter_optimization_cal")
     @info "Finished filter optimization"
 
     @info "Write $period validity"
@@ -285,7 +340,7 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
     @info "Write log report"
     write_report(get_preportfilename(l200, filekey, :filter_optimization), report)
     @info report
-    
+
     # flush stdout
     flush(stdout)
 

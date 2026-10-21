@@ -10,7 +10,9 @@ them.
 """
 function partition_periods(l200::LegendData, period::DataPeriod)
     periods = Set([period])
-    for category in (:cal, :phy), periods_runs in values(l200.metadata.datasets[Symbol("$(category)_groupings")].default)
+    for category in (:cal, :phy),
+        periods_runs in values(l200.metadata.datasets[Symbol("$(category)_groupings")].default)
+
         partition = DataPeriod.(collect(keys(periods_runs)))
         period in partition && union!(periods, partition)
     end
@@ -79,31 +81,41 @@ function run_processing(
         cfg::ProcessingConfig, l200, periods::AbstractVector{DataPeriod},
         run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol},
         run_status::AbstractDict, partition_status::AbstractDict;
-        processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
-        processor_log_level::Union{Nothing,LogLevel} = cfg.processor_log_level,
-        processor_plot_level::Union{Nothing,Symbol} = cfg.processor_plot_level, max_parallel_steps::Integer = cfg.max_parallel_steps, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
-        abandon::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false), progress_store::Union{Nothing,ProgressStore} = nothing
-    )
-    unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((run_steps, partition_steps))))
+        processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{
+            Nothing, Bool} = nothing,
+        processor_log_level::Union{Nothing, LogLevel} = cfg.processor_log_level,
+        processor_plot_level::Union{Nothing, Symbol} = cfg.processor_plot_level, max_parallel_steps::Integer = cfg.max_parallel_steps,
+        stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
+        abandon::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false), progress_store::Union{
+            Nothing, ProgressStore} = nothing
+)
+    unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((
+        run_steps, partition_steps))))
     isempty(unregistered) ||
         throw(ArgumentError("run_processing: unregistered processor(s) $(join(unregistered, ", "))"))
     max_parallel_steps >= 0 ||
         throw(ArgumentError("run_processing: max_parallel_steps must be zero (no limit) or positive, got $max_parallel_steps"))
     overrides = isnothing(reprocess) ? (;) : (; reprocess)
     # every step lists the same runs of the period
-    period_runs = Dict(period => sort!(collect(keys(last(first(run_status[period]))))) for period in periods if !isempty(run_steps))
-    spec(step) = haskey(cfg.processors, step) ? cfg.processors[step] : cfg.p_processors[step]
+    period_runs = Dict(period => sort!(collect(keys(last(first(run_status[period])))))
+    for period in periods if !isempty(run_steps))
+    spec(step) = haskey(cfg.processors, step) ? cfg.processors[step] :
+                 cfg.p_processors[step]
     # settings of the running processor, also seen by `parallel`
     step_scope(step) = (ERROR_PLOTS => spec(step).error_plots,
         PROCESSOR_LOG_LEVEL => something(processor_log_level, spec(step).log_level),
-        PLOT_LEVEL => something(processor_plot_level, spec(step).plot_level), PLOT_FORMATS => cfg.plot_formats)
+        PLOT_LEVEL => something(processor_plot_level, spec(step).plot_level), PLOT_FORMATS =>
+            cfg.plot_formats)
 
-    waits = waited_processors(processor_graph(cfg), Iterators.flatten((run_steps, partition_steps)))
+    waits = waited_processors(processor_graph(cfg), Iterators.flatten((
+        run_steps, partition_steps)))
     if !check_dependencies
-        same_level(step, (u, same_run)) = spec(u).level === spec(step).level && (spec(step).level === :partition || same_run)
-        waits = Dict(step => filter(w -> same_level(step, w), w_step) for (step, w_step) in waits)
+        same_level(step, (u, same_run)) = spec(u).level === spec(step).level &&
+                                          (spec(step).level === :partition || same_run)
+        waits = Dict(step => filter(w -> same_level(step, w), w_step)
+        for (step, w_step) in waits)
     end
-    spans = Dict{DataPeriod,Vector{DataPeriod}}()
+    spans = Dict{DataPeriod, Vector{DataPeriod}}()
     span(period) = get!(() -> filter(in(periods), partition_periods(l200, period)), spans, period)
     # the steps that the step `node` waits for
     function predecessors((period, run, step))
@@ -114,22 +126,31 @@ function run_processing(
             elseif same_run
                 push!(out, (period, run, u))
             else
-                append!(out, ProgressKey[(q, r, u) for q in span(period) for r in period_runs[q]])
+                append!(out, ProgressKey[(q, r, u) for q in span(period)
+                                         for r in period_runs[q]])
             end
         end
         return out
     end
 
-    nodes = vcat(ProgressKey[(period, nothing, step) for period in periods for step in partition_steps],
-        ProgressKey[(period, run, step) for period in periods for run in get(period_runs, period, DataRun[]) for step in run_steps])
+    nodes = vcat(
+        ProgressKey[(period, nothing, step) for period in periods
+                    for step in partition_steps],
+        ProgressKey[(period, run, step) for period in periods
+                    for run in get(period_runs, period, DataRun[]) for step in run_steps])
     isnothing(progress_store) || reset_progress!(progress_store, nodes)
-    mark(key, state; error = nothing) = isnothing(progress_store) || set_step_state!(progress_store, key, state; error)
-    blockers = Dict{ProgressKey,Set{ProgressKey}}(node => Set(predecessors(node)) for node in nodes)
-    dependents = Dict{ProgressKey,Vector{ProgressKey}}(node => ProgressKey[] for node in nodes)
+    mark(key, state; error = nothing) = isnothing(progress_store) ||
+                                        set_step_state!(progress_store, key, state; error)
+    blockers = Dict{ProgressKey, Set{ProgressKey}}(node => Set(predecessors(node))
+    for node in nodes)
+    dependents = Dict{ProgressKey, Vector{ProgressKey}}(node => ProgressKey[]
+    for node in nodes)
     for (node, preds) in blockers, pred in preds
+
         push!(dependents[pred], node)
     end
-    priority((period, run, step)) = (spec(step).rank, step, period.no, isnothing(run) ? -1 : run.no)
+    priority((period, run, step)) = (
+        spec(step).rank, step, period.no, isnothing(run) ? -1 : run.no)
     ready = sort!(ProgressKey[node for node in nodes if isempty(blockers[node])]; by = priority)
 
     # Run the step `node` and return whether it was skipped and, for a partition step,
@@ -154,7 +175,8 @@ function run_processing(
             @info "Process $step of $period-$run"
             tracked(node) do
                 with(step_scope(step)...) do
-                    processors[step](cfg, l200, period, run; merge(NamedTuple(spec(step).kwargs), overrides)...)
+                    processors[step](cfg, l200, period, run;
+                        merge(NamedTuple(spec(step).kwargs), overrides)...)
                 end
             end
             flush(stdout)
@@ -167,16 +189,18 @@ function run_processing(
     function tracked(f, key)
         mark(key, :running)
         try
-            return isnothing(progress_store) ? f() : with(f, PROGRESS_STEP => (progress_store, key))
+            return isnothing(progress_store) ? f() :
+                   with(f, PROGRESS_STEP => (progress_store, key))
         catch e
-            e isa ProcessingStopped ? mark(key, :stopped) : mark(key, :failed; error = sprint(showerror, e))
+            e isa ProcessingStopped ? mark(key, :stopped) :
+            mark(key, :failed; error = sprint(showerror, e))
             rethrow()
         end
     end
 
     finished = Set{ProgressKey}()
     # partition steps that finish when the same step of the previous period has finished
-    after_previous = Dict{ProgressKey,Vector{ProgressKey}}()
+    after_previous = Dict{ProgressKey, Vector{ProgressKey}}()
     function finish!(node, skipped)
         push!(finished, node)
         period, run, step = node
@@ -190,19 +214,21 @@ function run_processing(
         end
         for d in dependents[node]
             delete!(blockers[d], node)
-            isempty(blockers[d]) && insert!(ready, searchsortedfirst(ready, d; by = priority), d)
+            isempty(blockers[d]) &&
+                insert!(ready, searchsortedfirst(ready, d; by = priority), d)
         end
         foreach(n -> finish!(n, false), pop!(after_previous, node, ProgressKey[]))
     end
 
     done_nodes = Channel{ProgressKey}(Inf)
-    tasks = Dict{ProgressKey,Task}()
+    tasks = Dict{ProgressKey, Task}()
     errors = Any[]
     try
         # `parallel` reads the stop flags from the scope; spawned tasks inherit it.
         with(PROCESSING_STOP => stop, PROCESSING_ABANDON => abandon) do
             while true
-                while !isempty(ready) && isempty(errors) && !stop[] && (max_parallel_steps == 0 || length(tasks) < max_parallel_steps)
+                while !isempty(ready) && isempty(errors) && !stop[] &&
+                      (max_parallel_steps == 0 || length(tasks) < max_parallel_steps)
                     # local to the iteration: each task must report its own step
                     started = popfirst!(ready)
                     tasks[started] = Threads.@spawn try
@@ -229,12 +255,15 @@ function run_processing(
         end
         if isempty(errors) && !stop[] && length(finished) < length(nodes)
             stuck = [join(filter(!isnothing, n), "-") for n in nodes if !(n in finished)]
-            push!(errors, ErrorException("run_processing: these steps wait for each other in a circle: $(join(stuck, ", "))"))
+            push!(errors,
+                ErrorException("run_processing: these steps wait for each other in a circle: $(join(stuck, ", "))"))
         end
-        stop[] && isempty(errors) && length(finished) < length(nodes) && push!(errors, ProcessingStopped())
+        stop[] && isempty(errors) && length(finished) < length(nodes) &&
+            push!(errors, ProcessingStopped())
     finally
         # steps that never finished: stopped by the user or cancelled by a failure
-        isnothing(progress_store) || finish_progress!(progress_store, stop[] ? :stopped : :cancelled)
+        isnothing(progress_store) ||
+            finish_progress!(progress_store, stop[] ? :stopped : :cancelled)
     end
     isempty(errors) || throw(CompositeException(errors))
     return nothing

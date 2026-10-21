@@ -7,7 +7,8 @@ const WORKERS_READ_SECONDS = 5.0
 const WORKERS_WHEEL_LINES = 3
 
 # Theme color of each state of a worker allocation.
-const WORKERS_STATE_COLORS = (running = :success, ended = :text_dim, failed = :error, cancelled = :warning)
+const WORKERS_STATE_COLORS = (
+    running = :success, ended = :text_dim, failed = :error, cancelled = :warning)
 
 # A line of worker output as Distributed relays it to the output of the head process.
 const WORKERS_OUTPUT_LINE = r"^\s*From worker (\d+):\t(.*)$"
@@ -29,8 +30,8 @@ answers with [`Juleana.workers_result!`](@ref). The selections are kept by alloc
 and process ID, so they stay on their item when the lists change.
 """
 mutable struct WorkersPage
-    overview::Union{Nothing,NamedTuple}
-    error::Union{Nothing,String}
+    overview::Union{Nothing, NamedTuple}
+    error::Union{Nothing, String}
     # whether a read of the overview is under way
     reading::Bool
     # `time()` of the latest queued read
@@ -39,8 +40,8 @@ mutable struct WorkersPage
     focus::Int
     # `:workers` or `:slurm`
     tab::Symbol
-    alloc_id::Union{Nothing,Int}
-    worker_pid::Union{Nothing,Int}
+    alloc_id::Union{Nothing, Int}
+    worker_pid::Union{Nothing, Int}
     # first displayed row of each list and of the SLURM text
     alloc_top::Int
     worker_top::Int
@@ -49,12 +50,12 @@ mutable struct WorkersPage
     alloc_back::Int
     worker_back::Int
     # `:cancel` or `:all` while the cancel of allocations waits for confirmation
-    confirm::Union{Nothing,Symbol}
+    confirm::Union{Nothing, Symbol}
     confirm_id::Int
-    editor::Union{Nothing,Tachikoma.TextArea}
-    form::Union{Nothing,SlurmForm}
+    editor::Union{Nothing, Tachikoma.TextArea}
+    form::Union{Nothing, SlurmForm}
     # message shown in place of the editor
-    notice::Union{Nothing,String}
+    notice::Union{Nothing, String}
     const requests::Vector{Any}
     # areas of the lists and output panes at the last render
     alloc_list::Tachikoma.Rect
@@ -63,8 +64,12 @@ mutable struct WorkersPage
     worker_out::Tachikoma.Rect
 end
 
-WorkersPage() = WorkersPage(nothing, nothing, false, -Inf, 1, :workers, nothing, nothing, 1, 1, 1, 0, 0, nothing, 0, nothing, nothing, nothing, Any[],
-    Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+function WorkersPage()
+    WorkersPage(nothing, nothing, false, -Inf, 1, :workers, nothing, nothing,
+        1, 1, 1, 0, 0, nothing, 0, nothing, nothing, nothing, Any[],
+        Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(
+            1, 1, 0, 0))
+end
 
 """
     Juleana.take_requests!(page::WorkersPage)
@@ -134,11 +139,15 @@ function workers_stale!(page::WorkersPage)
     return nothing
 end
 
-workers_allocations(page::WorkersPage) = isnothing(page.overview) ? () : page.overview.allocations
+function workers_allocations(page::WorkersPage)
+    isnothing(page.overview) ? () : page.overview.allocations
+end
 workers_list(page::WorkersPage) = isnothing(page.overview) ? () : page.overview.workers
 
 # Index of the item with `key` equal to `id` in `items`, the first item if there is none, 0 for no items.
-workers_index(items, key, id) = isempty(items) ? 0 : something(findfirst(x -> getproperty(x, key) == id, items), 1)
+function workers_index(items, key, id)
+    isempty(items) ? 0 : something(findfirst(x -> getproperty(x, key) == id, items), 1)
+end
 
 """
     Juleana.workers_selected_allocation(page::WorkersPage)
@@ -163,10 +172,14 @@ function workers_selected_worker(page::WorkersPage)
 end
 
 # Whether the overview has SLURM output.
-workers_has_slurm(page::WorkersPage) = !isnothing(page.overview) && !isnothing(page.overview.slurm)
+function workers_has_slurm(page::WorkersPage)
+    !isnothing(page.overview) && !isnothing(page.overview.slurm)
+end
 
 # The pane shown at the right: `:slurm` only if the overview has SLURM output.
-workers_tab(page::WorkersPage) = page.tab === :slurm && workers_has_slurm(page) ? :slurm : :workers
+function workers_tab(page::WorkersPage)
+    page.tab === :slurm && workers_has_slurm(page) ? :slurm : :workers
+end
 
 # Move the selection of the focused list, or the text of the SLURM pane, by `delta` rows.
 function workers_move!(page::WorkersPage, delta)
@@ -202,7 +215,8 @@ end
 
 # Open the editor on the start script of the overview, or the notice that says why there is none.
 function open_script_editor!(page::WorkersPage)
-    script = isnothing(page.overview) ? "The start script has not been read yet." : page.overview.script
+    script = isnothing(page.overview) ? "The start script has not been read yet." :
+             page.overview.script
     if script isa AbstractString
         page.notice = String(script)
     else
@@ -237,7 +251,8 @@ is the latest controller snapshot. Return `true` if the key was used and `false`
   - Other keys, such as `1` to `7` and `q`, are not used while no editor, form, message or question is open.
 """
 function workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = nothing)::Bool
-    modal = !isnothing(page.editor) || !isnothing(page.form) || !isnothing(page.notice) || !isnothing(page.confirm)
+    modal = !isnothing(page.editor) || !isnothing(page.form) || !isnothing(page.notice) ||
+            !isnothing(page.confirm)
     evt.action == Tachikoma.key_release && return modal
     if !isnothing(page.form)
         slurm_form_key!(page.form, evt, snap, send) === :close && (page.form = nothing)
@@ -309,7 +324,8 @@ text) under the pointer by three lines. The mouse does nothing while the editor,
 question is open. Return `true` if the event was used.
 """
 function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
-    (!isnothing(page.editor) || !isnothing(page.form) || !isnothing(page.notice) || !isnothing(page.confirm)) && return false
+    (!isnothing(page.editor) || !isnothing(page.form) || !isnothing(page.notice) ||
+     !isnothing(page.confirm)) && return false
     evt.action == Tachikoma.mouse_press || return false
     if evt.button == Tachikoma.mouse_left
         if Base.contains(page.alloc_list, evt.x, evt.y)
@@ -320,7 +336,8 @@ function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
             items[i].id == page.alloc_id || (page.alloc_back = 0)
             page.alloc_id = items[i].id
             return true
-        elseif Base.contains(page.worker_list, evt.x, evt.y) && workers_tab(page) === :workers
+        elseif Base.contains(page.worker_list, evt.x, evt.y) &&
+               workers_tab(page) === :workers
             items = workers_list(page)
             i = page.worker_top + evt.y - page.worker_list.y
             i in eachindex(items) || return false
@@ -346,23 +363,32 @@ function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
 end
 
 # Text of the item `b` of the busy workers: processor and period or run.
-workers_busy_text(b) = display_name(b.step) * " " * (isnothing(b.run) ? string(b.period) : "$(b.period)-$(b.run)")
+function workers_busy_text(b)
+    display_name(b.step) * " " *
+    (isnothing(b.run) ? string(b.period) : "$(b.period)-$(b.run)")
+end
 
 # Spans of the row of the allocation `a` at the time `at`.
 function workers_allocation_spans(a, at)
     color = WORKERS_STATE_COLORS[a.state]
-    duration = format_duration(((something(a.finished, at)) - a.started) / Millisecond(1000))
-    job = isnothing(a.job_name) ? "" : a.job_name * (isempty(a.job_ids) ? "" : " (" * join(a.job_ids, ",") * ")") * "  "
-    spans = [(lpad(a.id, 2) * " ", Tachikoma.tstyle(:text_bright)), (rpad(a.backend, 6) * " ", Tachikoma.tstyle(:text)),
-        (rpad(a.state, 9) * " ", Tachikoma.tstyle(color, bold = a.state === :running)), (job, Tachikoma.tstyle(:text_dim)),
-        ((a.state === :running ? duration : "ended after " * duration), Tachikoma.tstyle(:text))]
+    duration = format_duration(((something(a.finished, at)) - a.started) /
+                               Millisecond(1000))
+    job = isnothing(a.job_name) ? "" :
+          a.job_name * (isempty(a.job_ids) ? "" : " (" * join(a.job_ids, ",") * ")") * "  "
+    spans = [(lpad(a.id, 2) * " ", Tachikoma.tstyle(:text_bright)),
+        (rpad(a.backend, 6) * " ", Tachikoma.tstyle(:text)),
+        (rpad(a.state, 9) * " ", Tachikoma.tstyle(color, bold = a.state === :running)), (
+            job, Tachikoma.tstyle(:text_dim)),
+        ((a.state === :running ? duration : "ended after " * duration),
+            Tachikoma.tstyle(:text))]
     a.state === :failed && push!(spans, ("  exit $(a.exit_code)", Tachikoma.tstyle(:error)))
     return spans
 end
 
 # Spans of the row of the worker `w`; `item` is its busy item or `nothing`.
 function workers_worker_spans(w, item)
-    spans = [(lpad(w.pid, 3) * " ", Tachikoma.tstyle(:text_bright)), (rpad(isnothing(w.host) ? "…" : w.host, 12) * " ", Tachikoma.tstyle(:text))]
+    spans = [(lpad(w.pid, 3) * " ", Tachikoma.tstyle(:text_bright)),
+        (rpad(isnothing(w.host) ? "…" : w.host, 12) * " ", Tachikoma.tstyle(:text))]
     if isnothing(item)
         push!(spans, ("idle", Tachikoma.tstyle(:text_dim)))
     else
@@ -382,7 +408,8 @@ function workers_draw_list!(buf, inner, rows, selected, top, focused)
         i <= length(rows) || break
         marked = i == selected
         spans = vcat([(marked ? "▶ " : "  ", Tachikoma.tstyle(:accent, bold = true))], rows[i])
-        put_spans!(buf, inner.x, inner.y + r, Tachikoma.right(inner), spans, marked && focused ? Tachikoma.tstyle(:border) : nothing)
+        put_spans!(buf, inner.x, inner.y + r, Tachikoma.right(inner), spans,
+            marked && focused ? Tachikoma.tstyle(:border) : nothing)
     end
     return top
 end
@@ -391,14 +418,22 @@ end
 # unless scrolled up by `back` lines. Return the clamped `back` and the area inside the block.
 function workers_draw_output!(buf, area, title, lines, back, focused)
     back = clamp(back, 0, max(0, length(lines) - max(0, area.height - 2)))
-    inner = Tachikoma.render(pane_block(clip_text(title * (back > 0 ? "  (scrolled up $back)" : ""), max(0, area.width - 6)), focused), area, buf)
+    inner = Tachikoma.render(
+        pane_block(
+            clip_text(title * (back > 0 ? "  (scrolled up $back)" : ""), max(0, area.width -
+                                                                                6)),
+            focused),
+        area,
+        buf)
     if isempty(lines)
-        Tachikoma.set_string!(buf, inner.x, inner.y, "No output.", Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(inner))
+        Tachikoma.set_string!(buf, inner.x, inner.y, "No output.",
+            Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(inner))
     elseif inner.height > 0
         last_line = length(lines) - back
         for (r, i) in enumerate(max(1, last_line - inner.height + 1):last_line)
             text, style = lines[i]
-            Tachikoma.set_string!(buf, inner.x, inner.y + r - 1, text, style; max_x = Tachikoma.right(inner))
+            Tachikoma.set_string!(
+                buf, inner.x, inner.y + r - 1, text, style; max_x = Tachikoma.right(inner))
         end
     end
     return back, inner
@@ -406,11 +441,12 @@ end
 
 # Output lines of the worker `pid` among the message `entries`: the lines relayed with its prefix, without the prefix.
 function workers_output_lines(entries, pid)
-    lines = Tuple{String,Tachikoma.Style}[]
+    lines = Tuple{String, Tachikoma.Style}[]
     for e in entries
         m = match(WORKERS_OUTPUT_LINE, e.text)
         (isnothing(m) || parse(Int, m[1]) != pid) && continue
-        color = e.level >= Logging.Error ? :error : e.level >= Logging.Warn ? :warning : :text
+        color = e.level >= Logging.Error ? :error :
+                e.level >= Logging.Warn ? :warning : :text
         push!(lines, (replace(m[2], '\t' => "    "), Tachikoma.tstyle(color)))
     end
     return lines
@@ -426,17 +462,26 @@ function workers_info_spans(page::WorkersPage, snap, busy, at)
         push!(spans, ("no idle cancel", Tachikoma.tstyle(:text_dim)))
     else
         left = max(0, round(Int, (snap.idle_deadline - at) / Millisecond(1000)))
-        push!(spans, ("idle cancel in $(lpad(left ÷ 60, 2, '0')):$(lpad(left % 60, 2, '0'))", Tachikoma.tstyle(left < 300 ? :warning : :text)))
+        push!(spans,
+            ("idle cancel in $(lpad(left ÷ 60, 2, '0')):$(lpad(left % 60, 2, '0'))",
+                Tachikoma.tstyle(left < 300 ? :warning : :text)))
     end
-    page.reading && !isnothing(page.overview) && push!(spans, ("  reading…", Tachikoma.tstyle(:text_dim)))
-    isnothing(page.error) || push!(spans, ("  " * page.error, Tachikoma.tstyle(:error, bold = true)))
+    page.reading && !isnothing(page.overview) &&
+        push!(spans, ("  reading…", Tachikoma.tstyle(:text_dim)))
+    isnothing(page.error) ||
+        push!(spans, ("  " * page.error, Tachikoma.tstyle(:error, bold = true)))
     return spans
 end
 
 # Draw the start script editor over the whole `area`.
 function workers_render_editor(page::WorkersPage, area, buf)
     (area.width < 3 || area.height < 3) && return nothing
-    inner = Tachikoma.render(pane_block(clip_text("Start script  (Ctrl-O saves, Esc closes)", max(0, area.width - 6)), true), area, buf)
+    inner = Tachikoma.render(
+        pane_block(
+            clip_text("Start script  (Ctrl-O saves, Esc closes)", max(0, area.width -
+                                                                         6)), true),
+        area,
+        buf)
     Tachikoma.render(page.editor, inner, buf)
     return nothing
 end
@@ -462,7 +507,8 @@ While the start script is edited the editor fills the whole area. A message abou
 start script, the form of the SLURM options and the question before a cancel are drawn
 over the page.
 """
-function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
+function render_workers(
+        page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
         at::DateTime = now(UTC))
     page.alloc_list = page.worker_list = page.alloc_out = page.worker_out = Tachikoma.Rect(area.x, area.y, 0, 0)
     if !isnothing(page.editor)
@@ -470,27 +516,40 @@ function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.
         return nothing
     end
     (area.width < 20 || area.height < 7) && return nothing
-    info, body = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Fixed(1), Tachikoma.Fill()]), area)
-    put_spans!(buf, info.x, info.y, Tachikoma.right(info), workers_info_spans(page, snap, busy, at))
-    left, right = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Horizontal, [Tachikoma.Fill(), Tachikoma.Fill()]), body)
-    message(inner, text, color) = Tachikoma.set_string!(buf, inner.x, inner.y, text, Tachikoma.tstyle(color); max_x = Tachikoma.right(inner))
-    top, bottom = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Percent(40), Tachikoma.Fill()]), left)
+    info, body = Tachikoma.split_layout(
+        Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Fixed(1), Tachikoma.Fill()]), area)
+    put_spans!(buf, info.x, info.y, Tachikoma.right(info),
+        workers_info_spans(page, snap, busy, at))
+    left, right = Tachikoma.split_layout(
+        Tachikoma.Layout(Tachikoma.Horizontal, [Tachikoma.Fill(), Tachikoma.Fill()]), body)
+    message(inner, text, color) = Tachikoma.set_string!(
+        buf, inner.x, inner.y, text, Tachikoma.tstyle(color);
+        max_x = Tachikoma.right(inner))
+    top, bottom = Tachikoma.split_layout(
+        Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Percent(40), Tachikoma.Fill()]),
+        left)
 
     allocations = workers_allocations(page)
     selected = workers_index(allocations, :id, page.alloc_id)
     inner = Tachikoma.render(pane_block("Allocations", page.focus == 1), top, buf)
     page.alloc_list = inner
     if isnothing(page.overview)
-        message(inner, isnothing(page.error) ? "Reading the allocations…" : page.error, isnothing(page.error) ? :text_dim : :error)
+        message(inner, isnothing(page.error) ? "Reading the allocations…" : page.error,
+            isnothing(page.error) ? :text_dim : :error)
     elseif isempty(allocations)
         message(inner, "No allocations. `a` starts workers.", :text_dim)
     else
-        page.alloc_top = workers_draw_list!(buf, inner, [workers_allocation_spans(a, at) for a in allocations], selected, page.alloc_top, page.focus == 1)
+        page.alloc_top = workers_draw_list!(
+            buf, inner, [workers_allocation_spans(a, at) for a in allocations],
+            selected, page.alloc_top, page.focus == 1)
     end
     alloc = workers_selected_allocation(page)
-    title = isnothing(alloc) ? "Output of the allocation" : "Output of allocation $(alloc.id)"
-    lines = isnothing(alloc) ? Tuple{String,Tachikoma.Style}[] : [(replace(l, '\t' => "    "), Tachikoma.tstyle(:text)) for l in alloc.output]
-    page.alloc_back, page.alloc_out = workers_draw_output!(buf, bottom, title, lines, page.alloc_back, page.focus == 1)
+    title = isnothing(alloc) ? "Output of the allocation" :
+            "Output of allocation $(alloc.id)"
+    lines = isnothing(alloc) ? Tuple{String, Tachikoma.Style}[] :
+            [(replace(l, '\t' => "    "), Tachikoma.tstyle(:text)) for l in alloc.output]
+    page.alloc_back, page.alloc_out = workers_draw_output!(
+        buf, bottom, title, lines, page.alloc_back, page.focus == 1)
 
     has_slurm = workers_has_slurm(page)
     slurm = workers_tab(page) === :slurm
@@ -498,14 +557,19 @@ function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.
     if slurm
         inner = Tachikoma.render(pane_block(tab_title, page.focus == 2), right, buf)
         page.worker_list = inner
-        text = [split(chomp(page.overview.slurm.queue), '\n'); ""; split(chomp(page.overview.slurm.idle), '\n')]
+        text = [split(chomp(page.overview.slurm.queue), '\n'); "";
+                split(chomp(page.overview.slurm.idle), '\n')]
         page.slurm_top = clamp(page.slurm_top, 1, max(1, length(text) - inner.height + 1))
         for (r, line) in enumerate(text[page.slurm_top:min(end, page.slurm_top + inner.height - 1)])
-            Tachikoma.set_string!(buf, inner.x, inner.y + r - 1, replace(line, '\t' => " "), Tachikoma.tstyle(:text); max_x = Tachikoma.right(inner))
+            Tachikoma.set_string!(
+                buf, inner.x, inner.y + r - 1, replace(line, '\t' => " "),
+                Tachikoma.tstyle(:text); max_x = Tachikoma.right(inner))
         end
         return workers_render_modals(page, snap, area, buf)
     end
-    wtop, wbottom = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Percent(40), Tachikoma.Fill()]), right)
+    wtop, wbottom = Tachikoma.split_layout(
+        Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Percent(40), Tachikoma.Fill()]),
+        right)
     inner = Tachikoma.render(pane_block(tab_title, page.focus == 2), wtop, buf)
     page.worker_list = inner
     workers = workers_list(page)
@@ -516,12 +580,16 @@ function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.
     else
         items = Dict(b.worker => b for b in busy)
         rows = [workers_worker_spans(w, get(items, w.pid, nothing)) for w in workers]
-        page.worker_top = workers_draw_list!(buf, inner, rows, workers_index(workers, :pid, page.worker_pid), page.worker_top, page.focus == 2)
+        page.worker_top = workers_draw_list!(
+            buf, inner, rows, workers_index(workers, :pid, page.worker_pid),
+            page.worker_top, page.focus == 2)
     end
     worker = workers_selected_worker(page)
     title = isnothing(worker) ? "Output of the worker" : "Output of worker $(worker.pid)"
-    lines = isnothing(worker) ? Tuple{String,Tachikoma.Style}[] : workers_output_lines(entries, worker.pid)
-    page.worker_back, page.worker_out = workers_draw_output!(buf, wbottom, title, lines, page.worker_back, page.focus == 2)
+    lines = isnothing(worker) ? Tuple{String, Tachikoma.Style}[] :
+            workers_output_lines(entries, worker.pid)
+    page.worker_back, page.worker_out = workers_draw_output!(
+        buf, wbottom, title, lines, page.worker_back, page.focus == 2)
     return workers_render_modals(page, snap, area, buf)
 end
 
@@ -531,13 +599,21 @@ function workers_render_modals(page::WorkersPage, snap, area, buf)
     if !isnothing(page.form)
         render_slurm_form(page.form, snap, area, buf)
     elseif !isnothing(page.notice)
-        Tachikoma.render(Tachikoma.Modal(; title = "Start script", message = page.notice * "\n\nany key: close",
-            confirm_label = "", cancel_label = ""), area, buf)
+        Tachikoma.render(
+            Tachikoma.Modal(;
+                title = "Start script", message = page.notice * "\n\nany key: close",
+                confirm_label = "", cancel_label = ""),
+            area,
+            buf)
     elseif !isnothing(page.confirm)
-        what = page.confirm === :all ? "all running allocations" : "allocation $(page.confirm_id)"
-        Tachikoma.render(Tachikoma.Modal(; title = "Cancel workers",
-            message = "Cancel $what?\nItems running on these workers fail.\n\ny: cancel   any other key: keep",
-            confirm_label = "", cancel_label = ""), area, buf)
+        what = page.confirm === :all ? "all running allocations" :
+               "allocation $(page.confirm_id)"
+        Tachikoma.render(
+            Tachikoma.Modal(; title = "Cancel workers",
+                message = "Cancel $what?\nItems running on these workers fail.\n\ny: cancel   any other key: keep",
+                confirm_label = "", cancel_label = ""),
+            area,
+            buf)
     end
     return nothing
 end

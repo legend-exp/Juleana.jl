@@ -6,8 +6,9 @@ using LegendTestData: legend_test_data_path
 using Distributed: nprocs
 using Logging: global_logger
 using ParallelProcessingTools: ppt_worker_pool, ppt_worker_pool!
-using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, LegendData, readlprops,
-    start_filekey, writelprops
+using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, LegendData,
+                            readlprops,
+                            start_filekey, writelprops
 using LegendDataManagement.LDMUtils: get_preportfilename, get_rreportfilename
 
 const TEST_METADATA = joinpath(legend_test_data_path(), "data", "legend", "metadata")
@@ -17,12 +18,13 @@ const TEST_METADATA = joinpath(legend_test_data_path(), "data", "legend", "metad
 # return the path of the data config.
 function legend_test_setup(root::AbstractString, dirs)
     config = joinpath(root, "config.json")
-    write(config, """
-        {"setups": {"l200": {
-            "paths": {"metadata": "$TEST_METADATA", "tier": "$root/tier", "par": "$root/par",
-                      "log": "$root/log", "plt": "$root/plt"},
-            "dataset": "valid"}}}
-        """)
+    write(
+        config, """
+      {"setups": {"l200": {
+          "paths": {"metadata": "$TEST_METADATA", "tier": "$root/tier", "par": "$root/par",
+                    "log": "$root/log", "plt": "$root/plt"},
+          "dataset": "valid"}}}
+      """)
     for d in dirs
         mkpath(joinpath(root, "tier", d))
     end
@@ -30,9 +32,12 @@ function legend_test_setup(root::AbstractString, dirs)
 end
 
 # `LegendData(:l200)` for the data config `config`.
-legend_test_data(config::AbstractString) = withenv(() -> LegendData(:l200), "LEGEND_DATA_CONFIG" => config)
+function legend_test_data(config::AbstractString)
+    withenv(() -> LegendData(:l200), "LEGEND_DATA_CONFIG" => config)
+end
 
-const TEST_DIRS = ["raw/cal/p02/r006", "raw/cal/p02/r007", "raw/cal/p03/r000", "raw/cal/p13", "raw/phy/p16/r006"]
+const TEST_DIRS = ["raw/cal/p02/r006", "raw/cal/p02/r007",
+    "raw/cal/p03/r000", "raw/cal/p13", "raw/phy/p16/r006"]
 
 const RUN_REPORT = """
 | Detector | Status | Filter Type | Error |
@@ -47,7 +52,9 @@ const PARTITION_REPORT = """
 | V01 | Success | 1 | - |
 """
 
-spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :cal, rank, kwargs...)
+function spec(name, level, rank; kwargs...)
+    ProcessorSpec(; name, level, category = :cal, rank, kwargs...)
+end
 
 @testset "config" begin
     root = mktempdir()
@@ -62,7 +69,8 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test Juleana.available_runs(l200, p16) == DataRun.(6:9)
         @test Juleana.available_runs(l200, DataPeriod(99)) == DataRun[]
         # the dataset `valid` lists runs of p02 and p03 only
-        valid = withenv(() -> LegendData(:l200; dataset = :valid), "LEGEND_DATA_CONFIG" => data_config)
+        valid = withenv(() -> LegendData(:l200; dataset = :valid), "LEGEND_DATA_CONFIG" =>
+            data_config)
         @test Juleana.available_periods(valid) == [p2, p3]
         @test Juleana.available_runs(valid, p3) == DataRun.(0:5)
         @test Juleana.available_runs(valid, p16) == DataRun[]
@@ -71,20 +79,25 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
     @testset "processable_runs" begin
         @test Juleana.processable_runs(l200, p2, nothing) == DataRun.(0:7)
         @test Juleana.processable_runs(l200, p2, [DataRun(7)]) == [DataRun(7)]
-        @test (@test_logs (:warn, "Run r008 not found in period p02") Juleana.processable_runs(l200, p2, DataRun.([6, 8]))) == [DataRun(6)]
+        @test (@test_logs (:warn, "Run r008 not found in period p02") Juleana.processable_runs(
+            l200, p2, DataRun.([6, 8]))) == [DataRun(6)]
     end
 
     cfg = ProcessingConfig(;
         processors = Dict(
-            :process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1),
+            :process_energy_calibration_cal =>
+                spec(:process_energy_calibration_cal, :run, 1),
             :process_dsp_cal => spec(:process_dsp_cal, :run, 2; enabled = false)),
-        p_processors = Dict(:p_process_aoe_cut_cal => spec(:p_process_aoe_cut_cal, :partition, 1)))
+        p_processors = Dict(:p_process_aoe_cut_cal =>
+            spec(:p_process_aoe_cut_cal, :partition, 1)))
 
     @testset "setup_dependency_graph" begin
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
-            l200, cfg, [p2, p3, DataPeriod(99)], nothing, [:process_energy_calibration_cal], Symbol[])
+            l200, cfg, [p2, p3, DataPeriod(99)], nothing,
+            [:process_energy_calibration_cal], Symbol[])
         @test periods == [p2, p3]
-        @test sort(collect(keys(run_status[p2][:process_energy_calibration_cal]))) == DataRun.(0:7)
+        @test sort(collect(keys(run_status[p2][:process_energy_calibration_cal]))) ==
+              DataRun.(0:7)
         # only the selected steps start as unfinished
         @test !any(values(run_status[p2][:process_energy_calibration_cal]))
         @test all(values(run_status[p2][:process_dsp_cal]))
@@ -99,7 +112,8 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
     @testset "DataflowSession" begin
         periods, run_status, partition_status = Juleana.setup_dependency_graph(
             l200, cfg, [p2], nothing, Symbol[], Symbol[])
-        session = DataflowSession(; args = Dict{String,Any}(), l200, config = cfg, periods,
+        session = DataflowSession(;
+            args = Dict{String, Any}(), l200, config = cfg, periods,
             run_steps = [:process_energy_calibration_cal], partition_steps = [:p_process_aoe_cut_cal],
             run_status, partition_status)
         @test isnothing(session.runs)
@@ -112,7 +126,8 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
 
         session.runs = [DataRun(6)]
         Juleana.reset_dependency_graph!(session)
-        @test collect(keys(session.run_status[p2][:process_energy_calibration_cal])) == [DataRun(6)]
+        @test collect(keys(session.run_status[p2][:process_energy_calibration_cal])) ==
+              [DataRun(6)]
 
         shown = sprint(show, session)
         @test occursin("1 period(s)", shown)
@@ -125,21 +140,27 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test Juleana.partition_periods(l200, p2) == [p2]
 
         # `run_processing(session)` runs the session's steps and marks them as finished
-        calls = Tuple{Symbol,DataPeriod,Any}[]
+        calls = Tuple{Symbol, DataPeriod, Any}[]
         calls_lock = ReentrantLock()
-        run_stub(cfg, l200, period, run; kwargs...) = (lock(() -> push!(calls, (:run, period, run)), calls_lock); nothing)
-        partition_stub(cfg, l200, period; kwargs...) = (lock(() -> push!(calls, (:partition, period, nothing)), calls_lock); false)
+        run_stub(cfg, l200, period, run; kwargs...) = (
+            lock(() -> push!(calls, (:run, period, run)), calls_lock); nothing)
+        partition_stub(cfg, l200, period; kwargs...) = (
+            lock(() -> push!(calls, (:partition, period, nothing)), calls_lock); false)
         Juleana.reset_dependency_graph!(session)
-        run_processing(session; processors = Dict{Symbol,Any}(
-            :process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal => partition_stub))
-        @test sort(calls; by = string) == sort([[(:run, p2, r) for r in DataRun.(0:7)]; (:partition, p2, nothing)]; by = string)
+        run_processing(session;
+            processors = Dict{Symbol, Any}(
+                :process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal =>
+                    partition_stub))
+        @test sort(calls; by = string) ==
+              sort([[(:run, p2, r) for r in DataRun.(0:7)]; (:partition, p2, nothing)]; by = string)
         @test all(values(session.run_status[p2][:process_energy_calibration_cal]))
         @test session.partition_status[p2][:p_process_aoe_cut_cal]
     end
 
     @testset "load_qc_evaluator" begin
         fk = start_filekey(l200, (p2, DataRun(6), :cal))
-        @test ismissing(@test_logs (:info, r"ML training file not found") match_mode = :any load_qc_evaluator(l200, fk))
+        @test ismissing(@test_logs (:info, r"ML training file not found") match_mode = :any load_qc_evaluator(
+            l200, fk))
     end
 
     @testset "setup_processing" begin
@@ -148,10 +169,13 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         processing_config = joinpath(root, "processing_config.yaml")
         writelprops(processing_config, props)
         log_path = joinpath(root, "logs")
-        args = Juleana.parse_commandline(["-c", processing_config, "-p", "2", "13", "-p", "3", "-r", "6", "-o", log_path, "--or"])
+        args = Juleana.parse_commandline(["-c", processing_config, "-p", "2", "13",
+            "-p", "3", "-r", "6", "-o", log_path, "--or"])
         @test args["dataset"] == "default"
-        @test Juleana.parse_commandline(["-c", processing_config, "--dataset", "valid"])["dataset"] == "valid"
-        bad_args = Juleana.parse_commandline(["-c", processing_config, "--dataset", "no_such_dataset"])
+        @test Juleana.parse_commandline(["-c", processing_config, "--dataset", "valid"])["dataset"] ==
+              "valid"
+        bad_args = Juleana.parse_commandline([
+            "-c", processing_config, "--dataset", "no_such_dataset"])
         withenv("LEGEND_DATA_CONFIG" => nothing) do
             @test_throws "dataset no_such_dataset is not in the metadata datasets/runlists" Juleana.setup_processing(bad_args)
         end
@@ -184,14 +208,16 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
         @test session isa DataflowSession
         # only p02 and p13 have run r006 to process; `--or` schedules no partition steps
         @test session.periods == [p2, p13]
-        @test session.run_steps == run_steps(session.config) && isempty(session.partition_steps)
+        @test session.run_steps == run_steps(session.config) &&
+              isempty(session.partition_steps)
         @test nprocs() == n
         @test isempty(readdir(workdir))
         @test isfile(joinpath(log_path, "head.log"))
 
         # SLURM without `submit_jobs`: the start script goes to the config folder of the data
         # production, which LEGEND_DATA_CONFIG of the config names, and nothing is started
-        slurm_args = merge(args, Dict{String,Any}("runmode" => "slurm", "submit_jobs" => false))
+        slurm_args = merge(args, Dict{String, Any}("runmode" => "slurm", "submit_jobs" =>
+            false))
         try
             cd(workdir) do
                 withenv("LEGEND_DATA_CONFIG" => nothing, "SLURM_NTASKS" => "2") do
@@ -202,7 +228,8 @@ spec(name, level, rank; kwargs...) = ProcessorSpec(; name, level, category = :ca
             global_logger(logger)
             ppt_worker_pool!(pool)
         end
-        @test occursin("srun --job-name=julia-", read(joinpath(dirname(data_config), "config", "startjlworkers.sh"), String))
+        @test occursin("srun --job-name=julia-",
+            read(joinpath(dirname(data_config), "config", "startjlworkers.sh"), String))
         @test isempty(readdir(workdir)) && nprocs() == n
     end
 end
