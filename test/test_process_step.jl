@@ -19,6 +19,51 @@ function capture_nested(x)
     end
 end
 
+module RerunTarget
+    using Juleana: @process_step
+    # visible only in this module, so a rerun must run in it
+    above(values, threshold) = filter(>(threshold), values)
+    function mean_above(values, threshold)
+        @process_step "mean above $threshold" begin
+            selected = above(values, threshold)
+            isempty(selected) && error("nothing above $threshold")
+            sum(selected) / length(selected)
+        end
+    end
+end
+
+function rerun_nested(x)
+    @process_step "outer" begin
+        y = @process_step "inner" sqrt(x)
+        y > 2 || error("too small")
+        y
+    end
+end
+
+function rerun_continue()
+    for i in 1:2
+        @process_step "loop step" begin
+            i == 2 && continue
+            error("first")
+        end
+    end
+end
+
+rerun_context(fail) = @process_step "context" begin
+    fail && error("x")
+    (Juleana.WRITE_PARS[], Juleana.CURRENT_ITEM[])
+end
+
+# The single failure that `f()` captures, also as the failures of the last `run_step` call
+function capture_failure(f, item = nothing)
+    capture = (; step = :proc, args = (), failures = Juleana.Failure[], lock = ReentrantLock())
+    with_logger(NullLogger()) do
+        try with(f, Juleana.DEBUG_CAPTURE => capture, Juleana.CURRENT_ITEM => item) catch end
+    end
+    Juleana.LAST_FAILURES[] = capture.failures
+    return only(capture.failures)
+end
+
 @testset "process_step" begin
     @testset "value and scope" begin
         function assigns(x)
@@ -148,6 +193,41 @@ end
             try capture_nested(1) catch end
         end
         @test length(failures) == 1
+    end
+
+    @testset "rerun" begin
+        f = capture_failure(() -> RerunTarget.mean_above([1, 2], 5))
+        @test Juleana.failure_info(f).mod === RerunTarget
+        # unchanged, it fails in the same way and replaces the failure
+        @test_throws ErrorException("nothing above 5") with_logger(() -> Juleana.rerun(f), NullLogger())
+        f2 = Juleana.failure()
+        @test f2 !== f && only(Juleana.failures()) === f2 && Juleana.failure_info(f2).name == "mean above 5"
+        @test f2.values == [1, 2]
+        # an override fixes it
+        @test Juleana.rerun(f2; values = [4, 6, 8]) == 7.0
+        @test Juleana.rerun(f2; values = [1, 3], threshold = 0) == 2.0
+        @test_throws "rerun: thresh is not a captured variable of \"mean above 5\"; the captured variables are threshold, values" Juleana.rerun(f2; thresh = 0)
+
+        # a failed outer step with an inner one
+        f = capture_failure(() -> rerun_nested(1))
+        @test Juleana.failure_info(f).name == "outer" && propertynames(f) == (:x,)
+        @test Juleana.rerun(f; x = 9) == 3.0
+
+        # the item of the failure, and no parameters are written
+        row = (detector = DetectorId(:V00048B), usability = :on)
+        f = capture_failure(() -> rerun_context(true), row)
+        @test Juleana.rerun(f; fail = false) == (false, row)
+
+        f = capture_failure(rerun_continue)
+        @test_throws "rerun: the block of \"loop step\" contains `continue`, which leaves the block" Juleana.rerun(f)
+        @test Juleana.block_exit(:(return 1)) == "return"
+        @test Juleana.block_exit(:(if a; break; end)) == "break"
+        @test Juleana.block_exit(:(@goto done)) == "@goto"
+        @test Juleana.block_exit(:(for i in 1:2; i == 1 && continue; break; end)) === nothing
+        @test Juleana.block_exit(:(while true; break; end)) === nothing
+        @test Juleana.block_exit(:(g(x) = return x)) === nothing
+        @test Juleana.block_exit(:(map(x -> return x, 1:2))) === nothing
+        @test Juleana.block_exit(:(function g(); return 1; end)) === nothing
     end
 
     @testset "log location" begin

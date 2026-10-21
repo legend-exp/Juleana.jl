@@ -159,6 +159,7 @@ Juleana.failures
 Juleana.failure_info
 Juleana.failure_variables
 Juleana.@locals
+Juleana.rerun
 load_qc_evaluator
 Juleana.redo_detector
 Juleana.detector_selected
