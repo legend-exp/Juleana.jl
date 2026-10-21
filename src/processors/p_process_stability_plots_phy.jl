@@ -48,7 +48,7 @@ function p_process_stability_plots_phy(processing_config, l200::LegendData, peri
     filekey = first(rinfo).phy.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
+    chinfo = channelinfo(l200, period, :phy; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     if reprocess @info "Reprocess all detectors" end

@@ -36,7 +36,7 @@ function p_process_filter_optimization_cal(processing_config, l200::LegendData, 
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true)
+    chinfo = channelinfo(l200, period, :cal; system=:geds, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)

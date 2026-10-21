@@ -8,7 +8,7 @@ For each run, all `jlevt` files of the run (except filekeys listed as bad) are r
 
 # Inputs
 - `jlevt` tier of the `phy` filekeys listed in the runinfo for each analysis run in `period` (run info `phy.is_analysis_run`).
-- Channel info of the `geds` system and bad-filekey list from `bad_filekeys(l200)`.
+- Channel info of the `geds` system for the `phy` analysis runs of `period`, merged over the runs by `channelinfo(l200, period, :phy)`, and the bad-filekey list from `bad_filekeys(l200)`.
 
 # Outputs
 - `jlskm` tier: one file per run (named by the start filekey of the run), table `jlskm`.
@@ -33,7 +33,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     filekey = first(rinfo).phy.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds)
+    chinfo = channelinfo(l200, period, :phy; system=:geds)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     exposure = get_exposure(l200, chinfo.detector, period; is_analysis_run=true, check_pf=@pf $processable && $usability == :on && $psd_usability == :on && $det_type != :coax)

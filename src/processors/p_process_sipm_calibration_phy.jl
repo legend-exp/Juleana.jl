@@ -50,7 +50,7 @@ function p_process_sipm_calibration_phy(processing_config, l200::LegendData, per
     filekey = first(rinfo).phy.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:spms, only_processable=true)
+    chinfo = channelinfo(l200, period, :phy; system=:spms, only_processable=true)
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end

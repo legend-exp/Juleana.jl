@@ -9,8 +9,8 @@ This is the partition-level counterpart of [`process_aoe_optimization_cal`](@ref
 Detectors with `low_aoe_status` of `:valid` or `:present` are processed.
 
 # Inputs
-- First `cal` start filekey of the analysis runs of `period` (selects the channels), and the start filekey of the
-  first run of each partition (selects the configuration).
+- Channel info of the `cal` analysis runs of `period`, merged over the runs by `channelinfo(l200, period, :cal)`, and
+  the start filekey of the first run of each partition (selects the configuration).
 - Windowed and presummed waveforms of the `Tl208DEP_Bi212FEP` and `Tl208SEP` selections from the `jlpks` tier of the
   `cal` runs in the partition. The configuration entry `n_evts` sets how many events are read per run, and
   `select_random` whether they are chosen randomly.
@@ -51,7 +51,7 @@ function p_process_aoe_optimization_cal(processing_config, l200::LegendData, per
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, period, :cal; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)

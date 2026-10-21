@@ -48,7 +48,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, filekey; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
+    chinfo = channelinfo(l200, period, :cal; system=:geds, only_processable=true) |> filterby(@pf $low_aoe_status in [:valid, :present])
     @info "Loaded channel info with $(length(chinfo)) detectors"
 
     if reprocess @info "Reprocess all detectors" else @info "Only process detectors not in pars_db" end
