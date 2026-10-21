@@ -16,7 +16,7 @@ that is not `:on` and whose run is in no `cal` partition takes its parameters fr
 with the closest run.
 
 # Inputs
-- `raw` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `raw` tier of the `phy` filekeys of the run listed in the runinfo, except the filekeys marked unprocessable
 - `dataprod_config(l200).dsp(filekey)`, `dataprod_config(l200).sipm(filekey)` and `dataprod_config(l200).pmt(filekey)`
 - `l200.par[pars_type, :pz]`, `l200.par[pars_type, :fltopt]`, `l200.par[pars_type, :aoeopt]` and `l200.par[pars_type, :sipmopt]`, with `pars_type` being `:ppars` if `use_partition_pars` is `true` and `:rpars` otherwise
 - the QC evaluator from `load_qc_evaluator(l200, filekey)`
@@ -39,7 +39,7 @@ function process_dsp_phy(processing_config, l200::LegendData, period::DataPeriod
     
     @info "Process DSP for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, period, run]))
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (period, run, :phy)).keys))
     
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found start filekey $filekey"

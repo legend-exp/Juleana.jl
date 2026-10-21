@@ -13,7 +13,7 @@ A detector with fewer than 5000 events fails. A warning is logged if single-puls
 the `is_valid_e` flag.
 
 # Inputs
-- `jldsp` tier of all `cal` filekeys of the run, except the filekeys marked bad
+- `jldsp` tier of the `cal` filekeys of the run listed in the runinfo, except the filekeys marked bad
 - `raw` tier timestamps of the pulser channel
 - `dataprod_config(l200).qc(filekey)` and `dataprod_config(l200).energy(filekey)`
 - `l200.par.rpars.qcs[period, run]` (existing parameters, unless `reprocess` is `true`)
@@ -36,8 +36,8 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
 
     @info "Generate calibration QC flags for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), search_disk(FileKey, l200.tier[:jldsp, :cal, period, run]))
-    raw_filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), search_disk(FileKey, l200.tier[:raw, :cal, period, run]))
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), only(runinfo(l200, (period, run, :cal)).keys))
+    raw_filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), only(runinfo(l200, (period, run, :cal)).keys))
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found filekey $filekey"
 

@@ -35,7 +35,7 @@ using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, Data
     dataprod_config, get_aux_cal_propfunc, get_aux_evt_detsel_propfunc, get_exposure,
     get_ged_evt_kwargs, get_values, is_analysis_run, is_lrun, ljl_propfunc, lreport,
     lreport!, lstring, partitioninfo, process_failed, process_succeeded, process_warning,
-    read_ldata, readlprops, runinfo, search_disk, start_filekey, writelprops, writelreport
+    read_ldata, readlprops, runinfo, start_filekey, writelprops, writelreport
 using LegendDataManagement.LDMUtils: LDMUtils, create_logtbl, create_metadatatbl, create_pars,
     create_validity, get_mltrainfilename, get_partition_channelinfo,
     get_partitionvalidity, get_plottitle, get_preportfilename, get_rreportfilename,

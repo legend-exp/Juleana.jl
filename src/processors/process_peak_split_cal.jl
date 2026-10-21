@@ -4,7 +4,7 @@
 
 Extract the events in the Th-228 peaks from the raw `cal` data of the HPGe detectors (`geds`) of a run.
 
-For each detector, the DAQ energy of all raw `cal` files of the run, except the filekeys
+For each detector, the DAQ energy of the raw `cal` files of the run listed in the runinfo, except the filekeys
 marked unprocessable, is calibrated with the parameters of
 [`process_daq_energy_calibration_cal`](@ref), and the events inside the energy windows given
 by `peaks` (for example `Tl208FEP` and `Tl208SEP`) are written with their raw waveforms. A
@@ -12,7 +12,7 @@ detector without DAQ energy calibration fails. The processor throws an error if 
 found.
 
 # Inputs
-- `raw` tier of all `cal` filekeys of the run, except the filekeys marked unprocessable
+- `raw` tier of the `cal` filekeys of the run listed in the runinfo, except the filekeys marked unprocessable
 - `l200.par.rpars.daqecal[period, run]`: DAQ energy calibration function `func` per detector
 - `dataprod_config(l200).raw(filekey)`, sections `default` and per detector, entry `peaks`
 

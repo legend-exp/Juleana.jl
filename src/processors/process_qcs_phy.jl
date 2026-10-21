@@ -13,7 +13,7 @@ events. A detector with fewer than 5000 events fails. A warning is logged if sin
 fail the `is_valid_dsp` flag.
 
 # Inputs
-- `jldsp` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `jldsp` tier of the `phy` filekeys of the run listed in the runinfo, except the filekeys marked unprocessable
 - `jlaux` tier column `aux_trig` of the pulser and forced-trigger channels
 - `dataprod_config(l200).qc(filekey)`
 - `l200.par.rpars.qcs[period, Symbol("<run>-phy")]` (existing parameters, unless `reprocess` is `true`)
@@ -36,7 +36,7 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
 
     @info "Generate physics QC flags for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:jldsp, :phy, period, run]))
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (period, run, :phy)).keys))
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found filekey $filekey"
 

@@ -7,7 +7,7 @@ Create the skimmed event tier (`jlskm`) of the `phy` analysis runs of `period`, 
 For each run, all `jlevt` files of the run (except filekeys listed as bad) are read and only events that are neither pulser nor forced triggers are kept, and that have `ged_pmt.is_valid_muon`, `geds.is_valid_qc`, `geds.is_valid_trig`, `geds.is_valid_hit`, `geds.multiplicity == 1` and `geds.max_e_cusp_ctc_cal > 500.0u"keV"`. The report lists the fraction of the selected events that pass the PSD cut, the LAr cut, and both. The total exposure of the period is logged.
 
 # Inputs
-- `jlevt` tier of all `phy` filekeys of each analysis run in `period` (run info `phy.is_analysis_run`).
+- `jlevt` tier of the `phy` filekeys listed in the runinfo for each analysis run in `period` (run info `phy.is_analysis_run`).
 - Channel info of the `geds` system and bad-filekey list from `bad_filekeys(l200)`.
 
 # Outputs
@@ -21,7 +21,7 @@ For each run, all `jlevt` files of the run (except filekeys listed as bad) are r
 - `only_first_period`: accepted for a uniform call signature; it has no effect in this processor.
 
 # Returns
-Always `true`.
+Always `false`: no run is skipped, so `run_processing` does not wait for this step in the previous period.
 """
 function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true, use_cache::Bool=true)
     
@@ -53,7 +53,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
         r = fk.run
         p = fk.period
 
-        filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), search_disk(FileKey, l200.tier[:jlevt, :phy, p, r]))
+        filekeys = filter(!in(bad_filekeys(l200; load_key=:all)), only(runinfo(l200, (p, r, :phy)).keys))
         @info "Found $(length(filekeys)) filekeys for run $r in period $p"
 
         @info "Processing run $r in period $p"
@@ -62,7 +62,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
         @info "Using output file: $(basename(skmfilename))"
         
         # start processing
-        global n_psd, n_lar, n_larpsd = 0, 0, 0
+        n_psd, n_lar, n_larpsd = 0.0u"percent", 0.0u"percent", 0.0u"percent"
         write_files(skmfilename; use_cache, mode = CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(skmfilename)), remove old Evt."
@@ -77,7 +77,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
                 n_psd = mean(skm_data.is_valid_psd) * 100u"percent"
                 n_lar = mean(skm_data.is_valid_lar) * 100u"percent"
                 n_larpsd = mean(skm_data.is_valid_psd .&& skm_data.is_valid_lar) * 100u"percent"
-                return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_larpsd, n_lar, n_psd, "", "", "")), processed = false)
+                return (timer = dsp_timer, log = log_nt((fk, ProcessStatus(1), n_psd, n_lar, n_larpsd, "", "", "")), processed = false)
             end
 
             # open output file
@@ -107,7 +107,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
         
         # create log
-        log_fk = log_nt((fk, ProcessStatus(1), n_larpsd, n_lar, n_psd, total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(1), n_psd, n_lar, n_larpsd, total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
@@ -137,7 +137,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
     # flush stdout
     flush(stdout)
 
-    return true
+    return false
 end
 
 register_processor!(p_process_skm_phy; output_tiers = [:jlskm], detector_selection = false)

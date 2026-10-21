@@ -9,7 +9,7 @@ The method is the same as in `process_sipm_optimization_phy`, but the waveforms 
 a detector's partition are used and the results are valid for the whole partition.
 
 # Inputs
-- `raw` tier of the `phy` filekeys of all runs of each detector's partition (excluding filekeys
+- `raw` tier of the `phy` filekeys listed in the runinfo for all runs of each detector's partition (excluding filekeys
   marked `unprocessable`), fields `waveform_bit_drop` and `timestamp`, limited to `n_evts`
   events per detector.
 - `jlpls` tier tags of the pulser channel named by `dataprod_config(l200).qc(filekey).pulser.puls_detector`;
@@ -85,7 +85,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
         partinfo_det = partitioninfo(l200, det, part)
         @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
 
-        filekeys = reduce(vcat, [filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, r.period, r.run])) for r in partinfo_det])
+        filekeys = reduce(vcat, [filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (r.period, r.run, :phy)).keys)) for r in partinfo_det])
     
         filekey_det = first(getproperty(partinfo_det, :phy)).startkey
         @debug "Found filekey $filekey_det"
@@ -148,7 +148,7 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
             @debug "Loading SiPM data from $(part)"
             if length(data_det) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sort!(sample(eachindex(data_det), max_wvfs; replace = false))
                 data_det = data_det[sel]
             end
             data_det

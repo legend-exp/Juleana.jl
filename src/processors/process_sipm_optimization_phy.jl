@@ -13,7 +13,7 @@ the threshold waveforms are fitted (`fit_sipm_threshold`) and their sigma is tak
 trigger threshold.
 
 # Inputs
-- `raw` tier of the `phy` filekeys of the run (excluding filekeys marked `unprocessable`),
+- `raw` tier of the `phy` filekeys of the run listed in the runinfo (excluding filekeys marked `unprocessable`),
   fields `waveform_bit_drop` and `timestamp`.
 - `jlaux` tier fields `timestamp` and `aux_trig` of the pulser channel named by
   `dataprod_config(l200).qc(filekey).pulser.puls_detector`; waveforms within `puls_ts_window`
@@ -45,7 +45,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
         
     @info "Process SiPM optimization for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, period, run]))
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (period, run, :phy)).keys))
 
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found filekey $filekey"
@@ -127,7 +127,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
             @debug "Loading SiPM data from $(period)-$(run)"
             if length(data_det) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
-                sel = rand(1:max_wvfs, max_wvfs)
+                sel = sort!(sample(eachindex(data_det), max_wvfs; replace = false))
                 data_det = data_det[sel]
             end
             data_det

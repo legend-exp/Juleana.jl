@@ -23,13 +23,11 @@ function split_peaks(l200::LegendData, period::DataPeriod, run::DataRun, categor
     # create log line Tuple
     log_nt = NamedTuple{(:Detector, :usability, :Status, :Counts, Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
-    # get input and output directories
-    input_datadir = l200.tier[:raw, category, period, run]
-    output_datadir = mkpath(l200.tier[:jlpks, category, period, run])
-    @assert isdir(input_datadir) && isdir(output_datadir)
+    # get output directory
+    mkpath(l200.tier[:jlpks, category, period, run])
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, input_datadir))
-    isempty(filekeys) && error("No files found in \"$input_datadir\"")
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (period, run, category)).keys))
+    isempty(filekeys) && error("No $category filekeys of period $period run $run in the runinfo")
     @info "Found $(length(filekeys)) $category filekeys"
 
     # flush stdout

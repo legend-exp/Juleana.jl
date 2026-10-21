@@ -4,10 +4,10 @@
 
 Build the event tier (`jlevt`) of the `phy` run from the `jldsp` files, combining the listed subsystems.
 
-For each `phy` filekey with a `jldsp` file, the DSP data of the detectors of all `subsystems` are read, calibrated and combined into one event table by `calibrate_all`, including the cut flags. Per file the log counts forced triggers, pulser triggers and physical triggers (events with `geds.is_valid_qc` and more than one entry in `geds.trig_e_det`). If the PMT output is not empty and `:pmts` is in `subsystems`, a separate PMT file (`jlpmt` tier) is written.
+For each `phy` filekey of the run listed in the runinfo, the `jldsp` file must exist. The DSP data of the detectors of all `subsystems` are read, calibrated and combined into one event table by `calibrate_all`, including the cut flags. Per file the log counts forced triggers, pulser triggers and physical triggers (events with `geds.is_valid_qc` and more than one entry in `geds.trig_e_det`). If the PMT output is not empty and `:pmts` is in `subsystems`, a separate PMT file (`jlpmt` tier) is written.
 
 # Inputs
-- `jldsp` tier of all `phy` filekeys of the run.
+- `jldsp` tier of the `phy` filekeys of the run listed in the runinfo.
 - Channel info of every system in `subsystems` and the calibration parameters used by `calibrate_all`.
 
 # Outputs
@@ -28,7 +28,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
     
     @info "Process events for period $period and run $run"
 
-    filekeys = search_disk(FileKey, l200.tier[:jldsp, :phy, period, run])
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (period, run, :phy)).keys))
     
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found start filekey $filekey"

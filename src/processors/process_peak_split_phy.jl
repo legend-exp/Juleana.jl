@@ -10,7 +10,7 @@ is calibrated with the parameters of [`process_daq_energy_calibration_cal`](@ref
 `cal` data of the same run.
 
 # Inputs
-- `raw` tier of all `phy` filekeys of the run, except the filekeys marked unprocessable
+- `raw` tier of the `phy` filekeys of the run listed in the runinfo, except the filekeys marked unprocessable
 - `l200.par.rpars.daqecal[period, run]`: DAQ energy calibration function `func` per detector
 - `dataprod_config(l200).raw(filekey)` for the `phy` filekey, sections `default` and per detector, entry `peaks`
 

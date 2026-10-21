@@ -4,7 +4,7 @@
 
 Calibrate the DAQ online energy (`daqenergy`) of the HPGe detectors (`geds`) of a `cal` run.
 
-For each detector, the `daqenergy` of all raw `cal` files of the run, except the filekeys
+For each detector, the `daqenergy` of the raw `cal` files of the run listed in the runinfo, except the filekeys
 marked unprocessable, is calibrated automatically with the Th-228 lines (`th228_cal_lines`)
 by `autocal_energy`. The result is a linear calibration `c * daqenergy` in keV, which
 [`process_peak_split_cal`](@ref) and [`process_peak_split_phy`](@ref) use to select the
@@ -12,7 +12,7 @@ events of their peaks. When the calibration fails, the uncalibrated spectrum is 
 instead.
 
 # Inputs
-- `raw` tier of all `cal` filekeys of the run, except the filekeys marked unprocessable
+- `raw` tier of the `cal` filekeys of the run listed in the runinfo, except the filekeys marked unprocessable
 - `dataprod_config(l200).raw(filekey)`, sections `default` and per detector
 
 # Outputs
@@ -40,8 +40,8 @@ function process_daq_energy_calibration_cal(processing_config, l200::LegendData,
     raw_config = dataprod_config(l200).raw(filekey)
     @debug "Loaded raw config: $(lstring(raw_config))"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :cal, period, run]))
-    isempty(filekeys) && error("No files found in \"$(l200.tier[:raw, :cal, period, run])\"")
+    filekeys = filter(!in(bad_filekeys(l200; load_key=:unprocessable)), only(runinfo(l200, (period, run, :cal)).keys))
+    isempty(filekeys) && error("No cal filekeys of period $period run $run in the runinfo")
     @info "Found $(length(filekeys)) cal filekeys"
 
     @debug "Create pars db"
