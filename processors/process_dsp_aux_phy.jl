@@ -40,15 +40,17 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
         end
 
         try
-            raw_data = read_ldata(l200, DataTier(:raw), filekeys, det)
-
             dsp_config_pd = dataprod_config(l200).dsp(filekey)
             dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
             dsp_config_det = DSPConfig(dsp_config_pd_det)
             @debug "Loaded DSP config: $(lstring(dsp_config_det))"
 
+            dsp_function = Symbol(dsp_config_pd.additional_detectors[det])
+            raw_fields = Tuple(Symbol.(dsp_config_pd.raw_fields[dsp_function]))
+            raw_data = read_ldata(raw_fields, l200, DataTier(:raw), filekeys, det)
+
             @debug "Generate DSP for $det"
-            dsp_data = getfield(LegendDSP, Symbol(dsp_config_pd.additional_detectors[det]))(raw_data, dsp_config_det)
+            dsp_data = getfield(LegendDSP, dsp_function)(raw_data, dsp_config_det)
 
             @debug "Calibrate DSP data"
             evt_config_pd_det = dataprod_config(l200).evt(filekey).aux[det]
