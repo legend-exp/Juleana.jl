@@ -2,7 +2,7 @@
 # `process_peak_split_phy`: the events of each peak window of the raw config, selected with
 # the DAQ energy calibration of the run, go to the `jlpks` file of the detector.
 function split_peaks(l200::LegendData, period::DataPeriod, run::DataRun, category::Symbol, process_name::Symbol;
-        reprocess::Bool, timeout::Real)
+        reprocess::Bool, timeout::Real, use_cache::Bool)
 
     @info "Process $category peak splitting for period $period and run $run"
 
@@ -76,7 +76,7 @@ function split_peaks(l200::LegendData, period::DataPeriod, run::DataRun, categor
                 @debug "Reading raw data for detector $det ($ch) from $(length(filekeys)) files"
                 energy_filter = @pf minimum_energy <= f_calib((daqenergy = $daqenergy,)) <= maximum_energy
                 slim_data = read_ldata(l200, DataTier(:raw), filekeys, det; filterby=energy_filter)
-                write_files(output_filename, use_cache=false, mode=CreateOrReplace()) do outfile
+                write_files(output_filename; use_cache, mode=CreateOrReplace()) do outfile
                     lh5open(outfile, "w") do output
                         for (label, window) in energy_windows
                             @debug "Filtering $label for detector $det ($ch)"

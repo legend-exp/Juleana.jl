@@ -26,13 +26,14 @@ partition with the closest run.
 # Keywords
 - `reprocess`: remove the existing `jldsp` files and process all detectors again; otherwise detectors already present in a file are skipped
 - `timeout`: seconds allowed per filekey in `parallel` (0 = no limit)
+- `use_cache`: write each output file to a local cache directory first and move it to its place when done; otherwise write it next to its final location (default: `true`)
 - `max_wvfs`: not used by this processor
 - `use_partition_pars`: read the decay time and optimization parameters from the partition-level parameters (`:ppars`) instead of the run-level parameters (`:rpars`)
 
 # Returns
 Return `nothing`.
 """
-function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=10000, use_partition_pars::Bool=true)
+function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, max_wvfs::Int=10000, use_partition_pars::Bool=true, use_cache::Bool=true)
     
     @info "Process DSP for period $period and run $run"
 
@@ -121,7 +122,7 @@ function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod
         # detector ids of failed detectors
         failed_detectors = DetectorId[]
         # start processing
-        write_files(dspfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(dspfilename; use_cache, mode = CreateOrModify()) do outfilename
                 @timeit dsp_timer "Startup" begin
                     if reprocess && isfile(dspfilename)
                         @info "Reprocess $(basename(dspfilename)), remove old DSP."

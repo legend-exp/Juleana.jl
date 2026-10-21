@@ -58,7 +58,7 @@ using LegendSpecFits: LegendSpecFits, autocal_energy, ctc_energy, cut_single_pea
 using Base.ScopedValues: ScopedValue, with
 using Distributed: Distributed, AbstractWorkerPool, RemoteException, myid, nprocs, nworkers, procs, remotecall_fetch, workers
 using Logging: Logging, AbstractLogger, LogLevel, global_logger
-using LoggingExtras: ActiveFilteredLogger, FormatLogger, MinLevelLogger, TeeLogger
+using LoggingExtras: ActiveFilteredLogger, FormatLogger, TeeLogger
 import Makie
 import Measures
 using Measurements: Measurements, value as mvalue
@@ -177,11 +177,11 @@ export ProcessorGraph, processor_graph, topological_order, required_processors, 
 export run_processing, run_step, ProcessingStopped, ProgressStore, progress, busy_workers, step_messages, show_progress
 export DataflowSession
 export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, ReloadConfig,
-    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetAnalysisRunsOnly, SetRunmode, SetRunmodeSettings, SetCheckDependencies, SetKwarg,
+    SelectPeriods, SelectRuns, SelectSteps, SetReprocess, SetProcessorLogLevel, SetAnalysisRunsOnly, SetRunmode, SetRunmodeSettings, SetCheckDependencies, SetKwarg,
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
     CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction, SelectProduction, SelectDataset
 
-public effective_config, root_exception, @process_step, ProcessStepError, Failure, failure, failures, failure_info, failure_variables, @locals, rerun, escape_log_underscores, processing_logger, process_log_file, parse_log_level, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
+public effective_config, root_exception, @process_step, ProcessStepError, Failure, failure, failures, failure_info, failure_variables, @locals, rerun, escape_log_underscores, processing_logger, ProcessorLevelLogger, DEBUG_LOG_PACKAGES, process_log_file, parse_log_level, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
     main, setup_session, run_no_tui, run_tui, parse_commandline,
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
     history_path, append_history, read_history, history_grid,

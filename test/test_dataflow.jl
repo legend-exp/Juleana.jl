@@ -2,11 +2,15 @@
 
 using Juleana
 using Test
-using Logging: NullLogger, with_logger
+using Logging: Logging, ConsoleLogger, NullLogger, with_logger
 using Distributed: addprocs, myid, rmprocs, @everywhere
 using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, LegendData, lreport
 using LegendDataManagement.LDMUtils: create_logtbl
 using ParallelProcessingTools: FlexWorkerPool, ppt_worker_pool, ppt_worker_pool!
+
+module LegendRunStepTest
+ping(det) = @debug "debug of $det"
+end
 
 # Records what `display` hands to it: shown text as is, `image/png` as `mime => x`.
 struct RecordingDisplay <: AbstractDisplay
@@ -90,6 +94,9 @@ const REPORT = """
         @test !args["analysis_runs_only"] && !args["ignore_config"] && !args["no_tui"]
         @test isnothing(args["runmode"])
         @test args["log_path"] == ""
+        @test isnothing(args["processor_log_level"])
+        @test Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "warn"])["processor_log_level"] == "warn"
+        @test_throws "out of range input for --processor-log-level" Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "verbose"])
 
         args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "4", "-p", "6", "--rm", "slurm", "--op"])
         @test args["periods"] == [["3", "4"], ["6"]]
@@ -456,6 +463,23 @@ const REPORT = """
         report = markdown(out)
         @test occursin("### l200-p03-r001-cal-V2-error_fit", report) && !occursin("<img", report)
         @test occursin("[l200-p03-r001-cal-V2-error_fit.png](../jlplt/rplt/cal/p03/r001/proc/l200-p03-r001-cal-V2-error_fit.png)", report)
+
+        # a log level given to `run_step` also applies to the terminal
+        function logging_proc(cfg, l200, period, run; reprocess = false)
+            parallel(items, Row) do itr
+                LegendRunStepTest.ping(itr.detector)
+                (processed = true, log = Row((itr.detector, :on, 1, "")))
+            end
+        end
+        terminal(; kw...) = sprint() do io
+            with_logger(ConsoleLogger(io, Logging.Info)) do
+                run_step(:failing_proc, 3, 1; config = failing_cfg, l200, output_dir, detectors = [:V2],
+                    processors = Dict{Symbol,Any}(:failing_proc => logging_proc), kw...)
+            end
+        end
+        @test occursin("debug of V2", terminal(; log_level = :debug))
+        @test !occursin("debug of V2", terminal())
+        @test_throws "`log_level` is :verbose, expected :debug, :info, :warn or :error" terminal(; log_level = :verbose)
 
         # the selection reaches the workers
         original_pool = ppt_worker_pool()

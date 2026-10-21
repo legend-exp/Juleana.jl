@@ -66,6 +66,7 @@ SelectPeriods
 SelectRuns
 SelectSteps
 SetReprocess
+SetProcessorLogLevel
 SetAnalysisRunsOnly
 SetRunmode
 SetRunmodeSettings
@@ -173,6 +174,8 @@ Juleana.write_report
 
 ```@docs
 Juleana.processing_logger
+Juleana.ProcessorLevelLogger
+Juleana.DEBUG_LOG_PACKAGES
 Juleana.process_log_file
 Juleana.parse_log_level
 UnderscoreSafeLogger

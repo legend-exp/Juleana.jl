@@ -2,6 +2,7 @@
 
 using Juleana
 using Test
+using Logging
 using LegendDataManagement: DataPeriod, DataRun, readlprops
 
 const CONFIG_DIR = joinpath(dirname(@__DIR__), "config")
@@ -35,7 +36,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         spec = shipped.processors[:process_dsp_cal]
         @test spec.level === :run && spec.category === :cal && spec.rank == 6 && !spec.enabled
         @test spec.dependencies == [:p_process_aoe_optimization_cal, :process_aoe_optimization_cal]
-        @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true)
+        @test spec.kwargs == Dict{Symbol,Any}(:reprocess => false, :max_wvfs => 1000, :timeout => 0, :use_partition_pars => true, :use_cache => true)
         @test shipped.p_processors[:p_process_energy_cal].level === :partition
         @test shipped.p_processors[:p_process_energy_cal].category === :cal
         @test shipped.p_processors[:p_process_skm_phy].category === :phy
@@ -104,6 +105,16 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test !shipped.processors[:process_dsp_cal].error_plots
         @test ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["error_plots"] = true)).processors[:process_dsp_cal].error_plots
         @test_throws "`processors.process_dsp_cal.error_plots` must be a Bool" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["error_plots"] = "yes"))
+        @test shipped.processors[:process_dsp_cal].log_level == Logging.Info
+        @test ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["log_level"] = "debug")).processors[:process_dsp_cal].log_level == Logging.Debug
+        @test_throws "missing key `processors.process_dsp_cal.log_level`" ProcessingConfig(edited(d -> delete!(d["processors"]["process_dsp_cal"], "log_level")))
+        @test_throws "missing key `p_processors.p_process_energy_cal.log_level`" ProcessingConfig(edited(d -> delete!(d["p_processors"]["p_process_energy_cal"], "log_level")))
+        @test_throws "`processors.process_dsp_cal.log_level` must be one of \"debug\", \"info\", \"warn\" or \"error\", got \"verbose\"" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["log_level"] = "verbose"))
+        @test ProcessorSpec(; name = :x, level = :run, category = :cal, rank = 1).log_level == Logging.Info
+        @test isnothing(shipped.processor_log_level)
+        @test ProcessingConfig(edited(d -> d["config"]["processor_log_level"] = "debug")).processor_log_level == Logging.Debug
+        @test_throws "`config.processor_log_level` must be one of" ProcessingConfig(edited(d -> d["config"]["processor_log_level"] = "verbose"))
+        @test isnothing(ProcessingConfig(; processors = Dict{Symbol,ProcessorSpec}(), p_processors = Dict{Symbol,ProcessorSpec}()).processor_log_level)
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))
         @test_throws "unknown key `extra`" ProcessingConfig(edited(d -> d["extra"] = 1))
         # the idle timeout is optional
@@ -201,7 +212,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
 
     @testset "check_processor_kwargs" begin
         processor(entries...) = Dict{String,Any}(
-            "enabled" => true, "category" => "cal", "rank" => 1, "dependencies" => Any[], "kwargs" => Dict{String,Any}(entries...))
+            "enabled" => true, "category" => "cal", "rank" => 1, "dependencies" => Any[], "log_level" => "info", "kwargs" => Dict{String,Any}(entries...))
         d = deepcopy(base)
         d["processors"] = Dict{String,Any}("process_a" => processor("reprocess" => true, "timeout" => 1))
         d["p_processors"] = Dict{String,Any}("p_process_b" => processor("anything" => 1))

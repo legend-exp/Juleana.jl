@@ -17,12 +17,13 @@ For each run, all `jlevt` files of the run (except filekeys listed as bad) are r
 # Keywords
 - `reprocess`: recreate the `jlskm` file of each run, removing existing ones. If `false`, existing files are kept and only the survival fractions are read for the report.
 - `timeout`: seconds allowed per run in `parallel` (0 = no limit).
+- `use_cache`: write each output file to a local cache directory first and move it to its place when done; otherwise write it next to its final location (default: `true`)
 - `only_first_period`: accepted for a uniform call signature; it has no effect in this processor.
 
 # Returns
 Always `true`.
 """
-function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true)
+function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeriod; reprocess::Bool=false, timeout::Real=0, only_first_period::Bool=true, use_cache::Bool=true)
     
     @info "Event skimmed tier for runs containing period $period"
 
@@ -62,7 +63,7 @@ function p_process_skm_phy(processing_config, l200::LegendData, period::DataPeri
         
         # start processing
         global n_psd, n_lar, n_larpsd = 0, 0, 0
-        write_files(skmfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(skmfilename; use_cache, mode = CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 @info "Reprocess $(basename(skmfilename)), remove old Evt."
                 rm(outfilename, force=true)

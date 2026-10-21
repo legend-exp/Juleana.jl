@@ -20,6 +20,66 @@ function parse_log_level(level::AbstractString)
     return LOG_LEVELS[level]
 end
 
+# Log level of the running processor, set by `run_processing` and `run_step`; `nothing`
+# outside of a processor. `parallel` sets it again on the workers.
+const PROCESSOR_LOG_LEVEL = ScopedValue{Union{Nothing,LogLevel}}(nothing)
+
+"""
+    DEBUG_LOG_PACKAGES
+
+Name prefixes of the packages whose debug records a processor at log level `debug` writes:
+Juleana, the Legend packages, BAT and the JuliaPhysics packages of the dataflow. A module
+counts when its name or the name of one of its parent modules starts with one of them, so
+submodules and package extensions such as `LegendMakieExt` are included.
+"""
+const DEBUG_LOG_PACKAGES = ("Juleana", "Legend", "BAT", "RadiationDetectorDSP", "RadiationDetectorSignals",
+    "RadiationSpectra", "SolidStateDetectors")
+
+# Whether `mod` or one of its parent modules is named with a prefix of `DEBUG_LOG_PACKAGES`.
+function debug_log_package(mod::Module)
+    while true
+        name = String(nameof(mod))
+        any(prefix -> startswith(name, prefix), DEBUG_LOG_PACKAGES) && return true
+        parentmodule(mod) === mod && return false
+        mod = parentmodule(mod)
+    end
+end
+
+"""
+    ProcessorLevelLogger(inner::AbstractLogger, level::LogLevel)
+
+Logger that passes to `inner` the records at or above the log level of the running
+processor (see [`ProcessorSpec`](@ref)), or at or above `level` outside of a processor.
+Debug records pass when that level is `Logging.Debug` and their module is listed in
+`JULIA_DEBUG`, or, inside a processor, belongs to one of the [`DEBUG_LOG_PACKAGES`](@ref).
+Records of other modules are rejected before their message is built.
+"""
+struct ProcessorLevelLogger{L<:AbstractLogger} <: AbstractLogger
+    inner::L
+    level::LogLevel
+end
+
+function passes(logger::ProcessorLevelLogger, level, _module, group)
+    processor_level = PROCESSOR_LOG_LEVEL[]
+    effective = something(processor_level, logger.level)
+    level = convert(LogLevel, level)
+    level > Logging.Debug && return level >= effective
+    effective <= Logging.Debug || return false
+    # `JULIA_DEBUG` lets debug records reach the logger without `shouldlog`
+    return Base.CoreLogging.env_override_minlevel(group, _module) ||
+        (!isnothing(processor_level) && _module isa Module && debug_log_package(_module))
+end
+
+min_enabled_level(::ProcessorLevelLogger) = Logging.Debug
+shouldlog(logger::ProcessorLevelLogger, level, _module, group, id) =
+    passes(logger, level, _module, group) && shouldlog(logger.inner, level, _module, group, id)
+catch_exceptions(logger::ProcessorLevelLogger) = catch_exceptions(logger.inner)
+
+function handle_message(logger::ProcessorLevelLogger, level, message, _module, group, id, file, line; kwargs...)
+    passes(logger, level, _module, group) || return nothing
+    handle_message(logger.inner, level, message, _module, group, id, file, line; kwargs...)
+end
+
 # Text of a log message: a message that can be shown as Markdown, such as a processor's
 # report, is written as that Markdown.
 log_text(message::AbstractString) = String(message)
@@ -53,10 +113,11 @@ Build the logger that [`init_process`](@ref) installs.
 
 - With `log_file`, records are appended to that file, one timestamped entry per record,
   and the file is flushed after every record. Progress bar records of ProgressLogging
-  (see [`show_progress`](@ref)) are not written. `log_level = Logging.Debug` writes the
-  records of level `Info` and above plus the debug records of the modules listed in the
-  `JULIA_DEBUG` environment variable; any other level writes only the records at or above
-  it.
+  (see [`show_progress`](@ref)) are not written. The file gets the records at or above the
+  level of the running processor, and outside of a processor those at or above `log_level`
+  (see [`ProcessorLevelLogger`](@ref)); at `Logging.Debug` this includes the debug records of
+  the modules listed in the `JULIA_DEBUG` environment variable, and inside a processor those
+  of the [`DEBUG_LOG_PACKAGES`](@ref).
 - With `console_level` not `nothing`, records go to a `TerminalLogger` wrapped in an
   [`UnderscoreSafeLogger`](@ref). `console_level = Logging.Info` shows the debug
   records of the `JULIA_DEBUG` modules as well; a higher level shows only the records at
@@ -77,10 +138,10 @@ function processing_logger(; log_file::Union{Nothing,AbstractString} = nothing,
         push!(sinks, console_level <= Logging.Info ? console : at_least(console_level, console))
     end
     if !isnothing(log_file)
-        file = MinLevelLogger(FormatLogger(format_log_record, log_file; append = true), Logging.Info)
+        file = FormatLogger(format_log_record, log_file; append = true)
         # progress bars are for the terminal only
         no_bars = ActiveFilteredLogger(log -> !(log.message isa ProgressLogging.Progress), file)
-        push!(sinks, at_least(log_level, no_bars))
+        push!(sinks, ProcessorLevelLogger(no_bars, log_level))
     end
     return length(sinks) == 1 ? only(sinks) : TeeLogger(sinks...)
 end

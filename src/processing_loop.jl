@@ -21,6 +21,7 @@ end
     run_processing(cfg::ProcessingConfig, l200, periods, run_steps, partition_steps,
         run_status, partition_status; processors::AbstractDict{Symbol}=PROCESSORS,
         check_dependencies::Bool=true, reprocess::Union{Nothing,Bool}=nothing,
+        processor_log_level::Union{Nothing,LogLevel}=cfg.processor_log_level,
         max_parallel_steps::Integer=cfg.max_parallel_steps, stop::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false),
         abandon::Threads.Atomic{Bool}=Threads.Atomic{Bool}(false),
         progress_store::Union{Nothing,ProgressStore}=nothing)
@@ -60,7 +61,9 @@ run: no further step starts, and [`parallel`](@ref) hands no further items to wo
 throws [`ProcessingStopped`](@ref) once its running items have finished. With `abandon[]`
 also `true`, `parallel` throws without waiting for its running items, which go on in the
 background. `reprocess`, when not `nothing`, overrides the `reprocess` keyword of every
-processor. A step without an entry in `processors` throws an `ArgumentError` before any
+processor, and `processor_log_level`, when not `nothing`, the `log_level` of every
+processor; a processor's log records are written at that level (see
+[`ProcessorLevelLogger`](@ref)). A step without an entry in `processors` throws an `ArgumentError` before any
 work starts. Return `nothing`.
 
 With a [`ProgressStore`](@ref) as `progress_store`, the store is reset to the scheduled
@@ -74,7 +77,7 @@ function run_processing(
         run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol},
         run_status::AbstractDict, partition_status::AbstractDict;
         processors::AbstractDict{Symbol} = PROCESSORS, check_dependencies::Bool = true, reprocess::Union{Nothing,Bool} = nothing,
-        max_parallel_steps::Integer = cfg.max_parallel_steps, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
+        processor_log_level::Union{Nothing,LogLevel} = cfg.processor_log_level, max_parallel_steps::Integer = cfg.max_parallel_steps, stop::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false),
         abandon::Threads.Atomic{Bool} = Threads.Atomic{Bool}(false), progress_store::Union{Nothing,ProgressStore} = nothing
     )
     unregistered = filter(!in(keys(processors)), collect(Iterators.flatten((run_steps, partition_steps))))
@@ -86,6 +89,9 @@ function run_processing(
     # every step lists the same runs of the period
     period_runs = Dict(period => sort!(collect(keys(last(first(run_status[period]))))) for period in periods if !isempty(run_steps))
     spec(step) = haskey(cfg.processors, step) ? cfg.processors[step] : cfg.p_processors[step]
+    # settings of the running processor, also seen by `parallel`
+    step_scope(step) = (ERROR_PLOTS => spec(step).error_plots,
+        PROCESSOR_LOG_LEVEL => something(processor_log_level, spec(step).log_level))
 
     waits = waited_processors(processor_graph(cfg), Iterators.flatten((run_steps, partition_steps)))
     if !check_dependencies
@@ -130,7 +136,7 @@ function run_processing(
             kwargs = merge(NamedTuple(spec(step).kwargs), (; only_first_period), overrides)
             @info "Process $step of $period"
             lower = tracked(node) do
-                with(() -> processors[step](cfg, l200, period; kwargs...), ERROR_PLOTS => spec(step).error_plots)
+                with(() -> processors[step](cfg, l200, period; kwargs...), step_scope(step)...)
             end
             return (; skipped = false, lower = lower === true)
         end
@@ -142,7 +148,7 @@ function run_processing(
         else
             @info "Process $step of $period-$run"
             tracked(node) do
-                with(ERROR_PLOTS => spec(step).error_plots) do
+                with(step_scope(step)...) do
                     processors[step](cfg, l200, period, run; merge(NamedTuple(spec(step).kwargs), overrides)...)
                 end
             end

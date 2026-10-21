@@ -18,12 +18,13 @@ For each `phy` filekey with a `jldsp` file, the DSP data of the detectors of all
 # Keywords
 - `reprocess`: recreate the `jlevt` file (and the `jlpmt` file) of each filekey, removing existing ones. If `false`, existing `jlevt` files are kept and only their trigger counts are read for the report.
 - `timeout`: seconds allowed per filekey in `parallel` (0 = no limit). Failed filekeys are retried (`retry=true`).
+- `use_cache`: write each output file to a local cache directory first and move it to its place when done; otherwise write it next to its final location (default: `true`)
 - `subsystems`: systems included in the event table, default `[:geds, :spms, :pmts, :aux]`.
 
 # Returns
 `nothing`.
 """
-function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, subsystems::Vector{Symbol}=[:geds, :spms, :pmts, :aux])
+function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, subsystems::Vector{Symbol}=[:geds, :spms, :pmts, :aux], use_cache::Bool=true)
     
     @info "Process events for period $period and run $run"
 
@@ -53,7 +54,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
         # number of forced, pulser and physical triggers
         n_forced, n_pulser, n_phy = 0, 0, 0
         # start processing
-        write_files(evtfilename, use_cache = true, mode = CreateOrModify()) do outfilename
+        write_files(evtfilename; use_cache, mode = CreateOrModify()) do outfilename
                 if reprocess && isfile(outfilename)
                     @info "Reprocess $(basename(evtfilename)), remove old Evt."
                     rm(outfilename, force=true)
@@ -95,7 +96,7 @@ function process_evt_phy(processing_config, l200::LegendData, period::DataPeriod
                         end
                         # write pmt evt file
                         if !isempty(pmts_out_t) && (:pmts in subsystems)
-                            write_files(pmtevtfilename, use_cache = true, mode = CreateOrModify()) do pmtoutfilename
+                            write_files(pmtevtfilename; use_cache, mode = CreateOrModify()) do pmtoutfilename
                                 # Remove cached PMT file if reprocess is enabled
                                 if reprocess && isfile(pmtoutfilename)
                                     @info "Reprocess $(basename(pmtevtfilename)), remove old PMT."

@@ -9,6 +9,13 @@ module LogTestModule
 f() = @debug "debug from LogTestModule"
 end
 
+module LegendLogTest
+f() = @debug "debug from LegendLogTest"
+module Sub
+f() = @debug "debug from LegendLogTest.Sub"
+end
+end
+
 # Log records written by `f()` through a file-only `processing_logger`.
 function logged_lines(f; log_level, debug_modules = "")
     log_file = tempname()
@@ -65,6 +72,47 @@ end
         # other levels drop debug records even of the `JULIA_DEBUG` modules
         @test !any(contains("debug from LogTestModule"), logged_lines(log_all; log_level = Logging.Info, debug_modules = "LogTestModule"))
         @test !any(contains("info record"), logged_lines(log_all; log_level = Logging.Warn, debug_modules = "LogTestModule"))
+    end
+
+    @testset "processor log level" begin
+        log_all() = (@info "info record"; LegendLogTest.f(); LegendLogTest.Sub.f(); LogTestModule.f())
+        in_processor(level) = () -> Juleana.with(log_all, Juleana.PROCESSOR_LOG_LEVEL => level)
+        has(lines, text) = any(contains(text), lines)
+
+        # a processor at `debug` writes the debug records of the listed packages only
+        lines = logged_lines(in_processor(Logging.Debug); log_level = Logging.Info)
+        @test has(lines, "info record")
+        @test has(lines, "debug from LegendLogTest") && has(lines, "debug from LegendLogTest.Sub")
+        @test !has(lines, "debug from LogTestModule")
+        # `JULIA_DEBUG` adds its modules
+        @test has(logged_lines(in_processor(Logging.Debug); log_level = Logging.Info, debug_modules = "LogTestModule"),
+            "debug from LogTestModule")
+        # the processor level replaces the process level
+        lines = logged_lines(in_processor(Logging.Warn); log_level = Logging.Debug, debug_modules = "LogTestModule")
+        @test isempty(lines)
+        lines = logged_lines(in_processor(Logging.Info); log_level = Logging.Error, debug_modules = "LegendLogTest")
+        @test has(lines, "info record") && !has(lines, "debug from")
+        # outside of a processor, `debug` covers only the `JULIA_DEBUG` modules
+        @test !has(logged_lines(log_all; log_level = Logging.Debug), "debug from")
+        @test Juleana.debug_log_package(Juleana) && Juleana.debug_log_package(LegendLogTest.Sub)
+        @test !Juleana.debug_log_package(Base) && !Juleana.debug_log_package(LogTestModule)
+
+        # two processors at the same time keep their own levels
+        log_file = tempname()
+        with_logger(Juleana.processing_logger(; log_file, log_level = Logging.Info, console_level = nothing)) do
+            @sync for (name, level) in (("chatty", Logging.Debug), ("quiet", Logging.Info))
+                Threads.@spawn Juleana.with(Juleana.PROCESSOR_LOG_LEVEL => level) do
+                    for _ in 1:20
+                        @info "info of $name"
+                        LegendLogTest.f()
+                        yield()
+                    end
+                end
+            end
+        end
+        lines = readlines(log_file)
+        @test count(contains("info of chatty"), lines) == 20 && count(contains("info of quiet"), lines) == 20
+        @test count(contains("debug from LegendLogTest"), lines) == 20
     end
 
     @testset "progress records" begin

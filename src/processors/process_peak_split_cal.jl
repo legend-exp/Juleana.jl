@@ -23,11 +23,12 @@ found.
 # Keywords
 - `reprocess`: recreate the `jlpks` files; otherwise a detector with a readable `jlpks` file is skipped (an unreadable file is removed and recreated)
 - `timeout`: seconds allowed per detector in `parallel` (0 = no limit)
+- `use_cache`: write each output file to a local cache directory first and move it to its place when done; otherwise write it next to its final location (default: `false`)
 
 # Returns
 Return `nothing`.
 """
-process_peak_split_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0) =
-    split_peaks(l200, period, run, :cal, :process_peak_split_cal; reprocess, timeout)
+process_peak_split_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, use_cache::Bool=false) =
+    split_peaks(l200, period, run, :cal, :process_peak_split_cal; reprocess, timeout, use_cache)
 
 register_processor!(process_peak_split_cal; output_tiers = [:jlpks])

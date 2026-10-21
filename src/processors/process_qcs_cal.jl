@@ -27,11 +27,12 @@ the `is_valid_e` flag.
 # Keywords
 - `reprocess`: discard the existing parameters and process all detectors; otherwise a detector with complete parameters and an existing `jlqcs` file is skipped
 - `timeout`: seconds allowed per detector in `parallel` (0 = no limit)
+- `use_cache`: write each output file to a local cache directory first and move it to its place when done; otherwise write it next to its final location (default: `true`)
 
 # Returns
 Return `nothing`.
 """
-function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, use_cache::Bool=true)
 
     @info "Generate calibration QC flags for period $period and run $run"
 
@@ -165,7 +166,7 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
         savelfig(LegendMakie.lsavefig, fig, l200, filekey, det, :qc_survival_fractions)
 
         # write QC flags
-        write_files(qcsfilename, use_cache = true, mode = CreateOrReplace()) do outfilename
+        write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
             lh5open(outfilename, "w") do outdata
                 outdata[:jlqcs, det] = qc
             end

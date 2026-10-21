@@ -3,6 +3,7 @@
 using Juleana
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Rect, find_text, row_text
 using LegendDataManagement: DataPeriod, DataRun
+using Logging: Logging
 using Test
 
 # `legend_test_setup`, `legend_test_data`, `TEST_DIRS` and `spec`
@@ -78,7 +79,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 01"]
 
         tb = render_setup_page(m)
-        for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config",
+        for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config", "Processor log level: config",
                 "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 14", "Run steps: 1 × 14 runs",
                 "Partition steps: 1 × 2 periods")
             @test find_text(tb, text) !== nothing
@@ -178,6 +179,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, ' ')
         @test setup_refreshed!(m)
         @test m.snap.reprocess === false
+        press!(m, :down, ' ')
+        @test setup_refreshed!(m)
+        @test m.snap.processor_log_level == Logging.Debug
         press!(m, :down, :enter)
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
@@ -376,8 +380,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         render_setup_page(m)
         options = m.setup.options
         @test m.snap.check_dependencies
-        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 1, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
-        @test m.setup.focus == 4 && m.setup.option == 2 && !m.setup.periods.focused
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 2, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test m.setup.focus == 4 && m.setup.option == 3 && !m.setup.periods.focused
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
         tb = render_setup_page(m)

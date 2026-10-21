@@ -127,6 +127,7 @@ The processors that do not support chosen detectors (`process_evt_phy`,
 | `--periods`, `-p` | Periods to process, each optionally with runs: `-p 3 4` (all runs of p03 and p04), `-p 6,1` (r001 of p06), `-p 6,1-3` (r001 to r003), `-p 6,1,4-6`; repeatable, e.g. `-p 6,1 -p 7,2-4` |
 | `--runs`, `-r`    | Runs to process in the periods given without runs; requires `--periods` and cannot be combined with periods given with runs |
 | `--reprocess`     | Reprocess all detectors, discarding existing results; sets `reprocess` of every processor |
+| `--processor-log-level` | Log level of the processors' records: `debug`, `info`, `warn` or `error`; replaces `processor_log_level` of the config and the `log_level` of each processor |
 | `--only_runs`, `--or` | Run only the run-level processors |
 | `--only_partitions`, `--op` | Run only the partition-level processors |
 | `--analysis_runs_only` | Process only runs marked as analysis runs in the metadata |
@@ -149,6 +150,11 @@ The `config` folder of the data production is the folder `config` next to the fi
 by `LEGEND_DATA_CONFIG`. Without `--config`, Juleana reads
 `config/processing_config.yaml` from it. If that file does not exist, Juleana creates the
 folder and copies the `config/processing_config.yaml` shipped with Juleana there first. The folder also holds the worker start script `startjlworkers.sh`.
+
+The "Processor log level" row of the Setup page cycles through "config" (each processor's
+own `log_level`), `debug`, `info`, `warn` and `error`. It starts as the level given by
+`--processor-log-level` or `processor_log_level` of the config. `w` writes the level to
+`config.processor_log_level`, and removes that key when the row is "config".
 
 `w` on the Setup page writes the current settings to `config/processing_config.yaml` of
 the data production, after a confirmation; an existing file is kept as

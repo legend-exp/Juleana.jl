@@ -3,6 +3,7 @@
 # Rows of the options pane: label and the values a row cycles through.
 const SETUP_OPTIONS = (
     (:reprocess, "Reprocess", (nothing, true, false)),
+    (:processor_log_level, "Processor log level", (nothing, Logging.Debug, Logging.Info, Logging.Warn, Logging.Error)),
     (:check_dependencies, "Check dependencies", (true, false)),
     (:analysis_runs_only, "Analysis runs only", (true, false)),
     (:runmode, "Run mode", (:local, :slurm)),
@@ -156,6 +157,7 @@ option_value(snap, key) = getproperty(snap, key)
 
 function option_command(key, value)
     key === :reprocess && return SetReprocess(value)
+    key === :processor_log_level && return SetProcessorLogLevel(value)
     key === :check_dependencies && return SetCheckDependencies(value)
     key === :runmode && return SetRunmode(value)
     return SetAnalysisRunsOnly(value)
@@ -441,7 +443,7 @@ function cycle_option(page::SetupPage, snap, send)
     return nothing
 end
 
-format_option(value) = value === nothing ? "config" : value === true ? "yes" : value === false ? "no" : string(value)
+format_option(value) = value === nothing ? "config" : value isa LogLevel ? only(name for (name, level) in LOG_LEVELS if level == value) : value === true ? "yes" : value === false ? "no" : string(value)
 
 # Lines of the summary of what a start would process.
 function setup_summary(snap)

@@ -12,7 +12,7 @@ exist, Juleana first copies the config shipped with Juleana there; a `processing
 current settings to that file and keeps the previous file as `processing_config.yaml.bak`.
 See [Running the dataflow](running.md). The
 file is loaded into a [`ProcessingConfig`](@ref); all keys of the `config` and
-`processing` sections are required except `idle_timeout_minutes`, and a missing or
+`processing` sections are required except `idle_timeout_minutes` and `processor_log_level`, and a missing or
 unknown key stops the dataflow with an error that names the key.
 
 ## `config`
@@ -40,7 +40,14 @@ The run mode, the worker settings, environment variables and logging:
    that every process writes to its log file in the log directory (`head.log` for the
    main process, `worker-<id>-<host>.log` for each worker). `"debug"` adds the debug
    records of the packages listed in `JULIA_DEBUG`.
-6. **`idle_timeout_minutes`** (optional, default `20`): when no processing has run for
+6. **`processor_log_level`** (optional): `"debug"`, `"info"`, `"warn"` or `"error"`.
+   Without it, the processors' own records are written at `log_level`. With it, it
+   replaces `log_level` for them; see `log_level` of the processor entries below. The command line option
+   `--processor-log-level` replaces the value of the config, and the "Processor log level"
+   row of the Setup page replaces both. The level in effect is the one of the Setup page,
+   else the command line, else `processor_log_level`, else the `log_level` of each
+   processor entry.
+7. **`idle_timeout_minutes`** (optional, default `20`): when no processing has run for
    this many minutes, the worker allocations started from the terminal user interface
    are cancelled, so that idle workers do not hold a machine or a SLURM allocation. The
    time counts from the end of the last processing run, the start of the newest
@@ -88,6 +95,7 @@ process_dsp_cal:
   enabled: true
   category: cal
   rank: 5
+  log_level: info
   kwargs:
     reprocess: true
     max_wvfs: 1000
@@ -116,6 +124,13 @@ All fields are required:
    waits for the selected processors that its unselected dependencies depend on.
    Every dependency must name a configured processor, the dependencies must not form a
    cycle, and processor names must be unique across `processors` and `p_processors`.
+
+6. **`log_level`**: `"debug"`, `"info"`, `"warn"` or `"error"`, the level of the
+   processor's records in the log files. With `"debug"`, the debug records of Juleana,
+   the Legend* packages, BAT*, RadiationDetectorDSP, RadiationDetectorSignals,
+   RadiationSpectra, SolidStateDetectors and their extensions are written as well while
+   the processor runs. `config.processor_log_level`, when set, replaces this value for
+   all processors.
 
 One field is optional:
 

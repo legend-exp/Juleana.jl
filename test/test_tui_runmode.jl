@@ -99,7 +99,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         @test m.setup.focus == 4
         press('e')
         @test isnothing(m.setup.editor)
-        press(:down, :down)
+        press(:down, :down, :down)
         press('e')
         @test isnothing(m.setup.editor)
         press(:down)

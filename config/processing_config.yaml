@@ -35,6 +35,7 @@ processors:
   process_daq_energy_calibration_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 1
     kwargs:
       reprocess: false
@@ -44,26 +45,31 @@ processors:
   process_peak_split_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 2
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: false
     dependencies:
       - process_daq_energy_calibration_cal
 
   process_peak_split_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 13
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: false
     dependencies:
       - process_daq_energy_calibration_cal
 
   process_decay_time_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 3
     kwargs:
       reprocess: false
@@ -74,6 +80,7 @@ processors:
   process_filter_optimization_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 4
     kwargs:
       reprocess: false
@@ -84,6 +91,7 @@ processors:
   process_aoe_optimization_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 5
     kwargs:
       reprocess: false
@@ -94,11 +102,13 @@ processors:
   process_dsp_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 6
     kwargs:
       reprocess: false
       max_wvfs: 1000
       timeout: 0
+      use_cache: true
       use_partition_pars: true
     dependencies:
       - p_process_aoe_optimization_cal
@@ -107,16 +117,19 @@ processors:
   process_qcs_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 7
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: true
     dependencies:
       - process_dsp_cal
 
   process_ct_correction_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 8
     kwargs:
       reprocess: false
@@ -127,6 +140,7 @@ processors:
   process_energy_calibration_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 9
     kwargs:
       reprocess: false
@@ -137,6 +151,7 @@ processors:
   process_aoe_calibration_cut_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 10
     kwargs:
       reprocess: false
@@ -147,6 +162,7 @@ processors:
   process_lq_calibration_cut_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 11
     kwargs:
       reprocess: false
@@ -157,6 +173,7 @@ processors:
   process_psd_efficiencies_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 12
     kwargs:
       reprocess: false
@@ -171,15 +188,18 @@ processors:
   process_dsp_aux_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 13
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: true
     dependencies: []
 
   process_sipm_optimization_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 13
     kwargs:
       reprocess: false
@@ -190,10 +210,12 @@ processors:
   process_dsp_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 14
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: true
       max_wvfs: 1000
       use_partition_pars: true
     dependencies:
@@ -205,16 +227,19 @@ processors:
   process_qcs_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 16
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: true
     dependencies:
       - process_dsp_phy
 
   process_sipm_calibration_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 17
     kwargs:
       reprocess: false
@@ -225,10 +250,12 @@ processors:
   process_evt_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 17
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: true
     dependencies:
       - p_process_sipm_calibration_phy
       - process_sipm_calibration_phy
@@ -236,6 +263,7 @@ processors:
   process_stability_plots_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 13
     kwargs:
       reprocess: false
@@ -247,6 +275,7 @@ p_processors:
   p_process_decay_time_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 1
     kwargs:
       reprocess: false
@@ -257,6 +286,7 @@ p_processors:
   p_process_filter_optimization_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 2
     kwargs:
       reprocess: false
@@ -267,6 +297,7 @@ p_processors:
   p_process_aoe_optimization_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 3
     kwargs:
       reprocess: false
@@ -278,6 +309,7 @@ p_processors:
   p_process_energy_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 4
     kwargs:
       reprocess: false
@@ -288,6 +320,7 @@ p_processors:
   p_process_aoe_calibration_cut_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 5
     kwargs:
       reprocess: false
@@ -298,6 +331,7 @@ p_processors:
   p_process_aoe_cut_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 6
     kwargs:
       reprocess: false
@@ -309,6 +343,7 @@ p_processors:
   p_process_lq_calibration_cut_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 7
     kwargs:
       reprocess: false
@@ -319,6 +354,7 @@ p_processors:
   p_process_psd_efficiencies_cal:
     enabled: false
     category: cal
+    log_level: info
     rank: 8
     kwargs:
       reprocess: false
@@ -331,6 +367,7 @@ p_processors:
   p_process_sipm_optimization_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 9
     kwargs:
       reprocess: false
@@ -341,6 +378,7 @@ p_processors:
   p_process_sipm_calibration_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 10
     kwargs:
       reprocess: false
@@ -351,16 +389,19 @@ p_processors:
   p_process_skm_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 11
     kwargs:
       reprocess: false
       timeout: 0
+      use_cache: true
     dependencies:
       - process_evt_phy
 
   p_process_stability_plots_phy:
     enabled: false
     category: phy
+    log_level: info
     rank: 12
     kwargs:
       reprocess: false

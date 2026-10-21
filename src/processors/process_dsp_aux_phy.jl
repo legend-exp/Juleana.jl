@@ -25,11 +25,12 @@ trigger threshold marked.
 # Keywords
 - `reprocess`: process detectors again whose `jlaux` file exists; otherwise a detector with a readable `jlaux` file is skipped
 - `timeout`: seconds allowed per auxiliary detector in `parallel` (0 = no limit)
+- `use_cache`: write each output file to a local cache directory first and move it to its place when done; otherwise write it next to its final location (default: `true`)
 
 # Returns
 Return `nothing`.
 """
-function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0)
+function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool=false, timeout::Real=0, use_cache::Bool=true)
 
     @info "Process auxiliary detector DSP for period $period and run $run"
 
@@ -123,7 +124,7 @@ function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPe
             savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
 
             @info "Write DSP data to disk"
-            write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
+            write_files(dspfilename; use_cache, mode = CreateOrReplace()) do outfilename
                 lh5open(outfilename, "w") do outdata
                     outdata[:jlaux, det] = merged_table
                 end
