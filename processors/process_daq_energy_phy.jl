@@ -39,9 +39,7 @@ function process_daq_energy_phy(processing_config::PropDict, l200::LegendData, p
         end
 
         spectrum_timer = TimerOutput()
-        n_events = 0
         bins = 0:0.5:3000
-        h_cal = fit(Histogram, Float64[], bins)
 
         @timeit spectrum_timer "$det" begin
             @timeit spectrum_timer "Load DAQ Calibration" begin
@@ -49,20 +47,11 @@ function process_daq_energy_phy(processing_config::PropDict, l200::LegendData, p
                 f_calib = ljl_propfunc(pars_db[det].func)
             end
             @timeit spectrum_timer "Get Calibrated DAQ Energy" begin
-                for fk in filekeys
-                    filename = l200.tier[:raw, fk]
-                    data = nothing
-                    try
-                        @debug "Loading DAQ energy from $(filename)"
-                        data = read_ldata(:daqenergy, l200, DataTier(:raw), fk, det)
-                    catch e
-                        @error "DAQ energy from $(basename(filename)) cannot be loaded: $(truncate_error(e))"
-                        throw(LoadError(string(basename(filename)), 154, "DAQ energy from $(basename(filename)) cannot be loaded: $(truncate_error(e))"))
-                    end
-                    e_cal = ustrip.(u"keV", f_calib.(data))
-                    h_cal.weights .+= fit(Histogram, e_cal, bins).weights
-                    n_events += length(e_cal)
-                end
+                @debug "Reading DAQ energy for detector $det from $(length(filekeys)) files"
+                data = read_ldata(:daqenergy, l200, DataTier(:raw), filekeys, det)
+                e_cal = ustrip.(u"keV", f_calib.(data))
+                h_cal = fit(Histogram, e_cal, bins)
+                n_events = length(e_cal)
             end
 
             @timeit spectrum_timer "Plot DAQ Energy" begin
