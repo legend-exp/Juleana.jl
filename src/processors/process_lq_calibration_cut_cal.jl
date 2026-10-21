@@ -13,7 +13,7 @@ computed for the configured peaks and the Qbb window with that cut.
 # Inputs
 - First `cal` filekey of the run.
 - `l200.par.rpars.ecal[period, run]`: the calibration function of the energy type `e_type`, and the DEP resolution
-  from the `e_cusp_ctc` fit of the `Tl208DEP` peak.
+  from the `Tl208DEP` peak fit of the same energy type.
 - `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of the `cal` run.
 - `dataprod_config(l200).psd(filekey).lq`, `default` merged with the detector section: `e_type`, `lq_funcs`,
   `lq_classifiers`, `qdrift_expression`, `dep_mu`, the drift time correction settings (`ctc_dep_edgesigma`,
@@ -151,7 +151,7 @@ function process_lq_calibration_cut_cal(processing_config, l200::LegendData, per
                     read_ldata(row -> merge(NamedTuple{(e_type_cal,)}((cal_func(row),)), row), l200, :jldsp, :cal, period, run, det)[qc_mask]
                 end
                 e_cal = getproperty(hit_cal, e_type)
-                dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+                dep_σ = mvalue(pars_energy[det][Symbol(first(split(string(e_type), "_cal")))].fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
                 hit_cal, e_cal, dep_σ
             else
                 nothing, nothing, nothing

@@ -288,7 +288,7 @@ function process_psd_efficiencies_cal(processing_config, l200::LegendData, perio
     lreport!(report, StructArray(var"Processor Status" = [master_status(result_psd)]))
     lreport!(report, "Date of processing: $(utc_timestamp())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
-    lreport!(report, aoe_log_text)
+    lreport!(report, psd_efficiencies_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")

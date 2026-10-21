@@ -93,7 +93,7 @@ end
 
     @testset "report texts are internal" begin
         texts = filter(n -> endswith(string(n), "_log_text"), names(Juleana; all = true))
-        @test length(texts) == 18
+        @test length(texts) == 19
         @test all(n -> getfield(Juleana, n) isa String, texts)
         @test !any(n -> Base.isexported(Juleana, n) || Base.ispublic(Juleana, n), texts)
     end

@@ -10,7 +10,7 @@ computed once per detector and partition. Detectors with `lq_status` of `:valid`
 
 # Inputs
 - `l200.par.rpars.ecal[period, run]` of every run in the partition: the calibration function of the energy type `e_type`.
-- `l200.par.ppars.ecal[det, part]`: the DEP resolution from the `e_cusp_ctc` fit of the `Tl208DEP` peak.
+- `l200.par.ppars.ecal[det, part]`: the DEP resolution from the `Tl208DEP` peak fit of the same energy type.
 - `jlqcs` tier (single pulse, non-pulser events) and `jldsp` tier of all `cal` runs in the partition.
 - `dataprod_config(l200).psd(filekey).lq` of the first run of the partition, `p_default` merged with `p[det]`, with
   the same entries as described for `process_lq_calibration_cut_cal`.
@@ -180,7 +180,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                     end
                     for pinfo in partinfo_det])
                 e_cal = getproperty(hit_cal, e_type)
-                dep_σ = mvalue(pars_energy[det].e_cusp_ctc.fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
+                dep_σ = mvalue(pars_energy[det][Symbol(first(split(string(e_type), "_cal")))].fit.Tl208DEP.fwhm / (2 * sqrt(2 * log(2))))
                 hit_cal, e_cal, dep_σ
             else
                 nothing, nothing, nothing
