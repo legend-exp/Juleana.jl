@@ -40,6 +40,16 @@ processors:
       timeout: 0
     dependencies: []
 
+  process_daq_energy_phy:
+    enabled: false
+    n_workers: all
+    category: phy
+    rank: 2
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies: []
+
   process_peak_split_cal:
     enabled: true
     n_workers: all
