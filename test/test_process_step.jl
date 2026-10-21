@@ -208,7 +208,7 @@ end
         @test Juleana.failure_variables(f) == Dict(:x => 5, :outer => 5, :mid => 10)
         @test sprint(show, f) == "Failure(\"inner 5\" for V00048B)"
         @test sprint(show, MIME"text/plain"(), f) == "\"inner 5\" failed for V00048B in proc p03 r001 at $(info.file):$(info.line)\n" *
-            "  error: ErrorException(\"boom\")\n  variables: mid, outer, x"
+            "  error: ErrorException(\"boom\")\n  variables: mid, outer, x\n  code:\n    inner_new = 3x\n    error(\"boom\")"
         @test Juleana.define_locals(module_for_locals, f) == [:mid, :outer, :x]
         @test module_for_locals.mid == 10 && module_for_locals.x == 5
         @test occursin("2 failed `@process_step` captured", sprint(Juleana.print_failures, [f, f]))
@@ -290,12 +290,23 @@ end
         # at the failure, with the variables of the capture
         stops = stops_of(() -> paused_steps(1); infiltrate = true)
         @test only(stops).vars == Dict(:x => 1, :a => 2, :b => 4)
+        # the stop at a failure logs the code of the step
+        Juleana.STOP_HOOK[] = (args...) -> nothing
+        try
+            capture = Juleana.debug_capture(:proc, (); infiltrate = true)
+            @test_logs (:error,) (:info, r"^Stopped at the failed fails\. The code of the step:\n```julia\nerror\(\"boom ") try
+                with(() -> paused_steps(1), Juleana.DEBUG_CAPTURE => capture)
+            catch
+            end
+        finally
+            Juleana.STOP_HOOK[] = nothing
+        end
         @test isempty(stops_of(() -> paused_steps(1)))
         # a pause logs where it stopped
         Juleana.STOP_HOOK[] = (args...) -> nothing
         try
             capture = Juleana.debug_capture(:proc, (); pause = ["second"])
-            @test (@test_logs (:info, "Paused after second; its value is `step_value`") with(() -> (@process_step "second" 4), Juleana.DEBUG_CAPTURE => capture)) == 4
+            @test (@test_logs (:info, "Paused after second; its value is `step_value`. The code of the step:\n```julia\n4\n```") with(() -> (@process_step "second" 4), Juleana.DEBUG_CAPTURE => capture)) == 4
         finally
             Juleana.STOP_HOOK[] = nothing
         end

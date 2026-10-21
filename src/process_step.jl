@@ -97,7 +97,7 @@ macro process_step(name, args...)
             process_step_failed($err, $(esc(name)), $file, $line,
                 capturing($err) ? Base.@locals() : nothing, $(QuoteNode(block)), $__module__, $(esc(hook)))
         end
-        pausing() && process_step_paused($(esc(name)), $file, $line, Base.@locals(), $__module__, $value)
+        pausing() && process_step_paused($(esc(name)), $file, $line, Base.@locals(), $__module__, $value, $(QuoteNode(block)))
         $value
     end
 end
@@ -109,12 +109,18 @@ pausing() = (capture = DEBUG_CAPTURE[]; !isnothing(capture) && !isnothing(captur
 # The variables of `variables` without the names that macros generate, which start with '#'.
 processor_variables(variables) = Dict{Symbol,Any}(k => v for (k, v) in variables if !startswith(string(k), '#'))
 
-function process_step_paused(name, file, line, variables, mod, value)
+# The code of the step `block`, without line numbers, as lines of Julia
+function step_code(block)
+    ex = Base.remove_linenums!(deepcopy(block))
+    return Meta.isexpr(ex, :block) ? join(string.(ex.args), "\n") : string(ex)
+end
+
+function process_step_paused(name, file, line, variables, mod, value, block)
     pause = DEBUG_CAPTURE[].pause
     pause === :all || string(name) in pause || return nothing
     item = CURRENT_ITEM[]
     det = hasproperty(item, :detector) ? " for $(item.detector)" : ""
-    @info "Paused after $name$det; its value is `step_value`" _file = file _line = line
+    @info "Paused after $name$det; its value is `step_value`. The code of the step:\n```julia\n$(step_code(block))\n```" _file = file _line = line
     STOP_HOOK[](mod, merge(processor_variables(variables), Dict{Symbol,Any}(:step_value => value)), file, line)
     return nothing
 end
@@ -140,7 +146,10 @@ function process_step_failed(e, name, file, line, variables = nothing, block = n
             @warn "the error plot of $(step_error.name)$det failed: $(truncate_error(hook_error))" _file = file _line = line
         end
     end
-    !isnothing(vars) && capture.infiltrate && STOP_HOOK[](mod, vars, file, line)
+    if !isnothing(vars) && capture.infiltrate
+        @info "Stopped at the failed $(step_error.name)$det. The code of the step:\n```julia\n$(step_code(block))\n```" _file = file _line = line
+        STOP_HOOK[](mod, vars, file, line)
+    end
     throw(step_error)
 end
 
@@ -215,7 +224,8 @@ function Base.show(io::IO, ::MIME"text/plain", f::Failure)
     println(io, "\"", info.name, "\" failed", isnothing(info.detector) ? "" : " for $(info.detector)", " in ",
         info.step, " ", join(string.(info.args), " "), " at ", info.file, ":", info.line)
     println(io, "  error: ", truncate_error(info.exception))
-    print(io, "  variables: ", join(propertynames(f), ", "))
+    println(io, "  variables: ", join(propertynames(f), ", "))
+    print(io, "  code:\n", join(("    " * l for l in split(step_code(info.block), '\n')), '\n'))
 end
 
 # The failures of the last `run_step` call.
