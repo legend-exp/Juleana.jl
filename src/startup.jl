@@ -7,6 +7,7 @@ using ParallelProcessingTools: getlabel
     # load packages
     using LegendHDF5IO, LegendDSP, LegendSpecFits, LegendDataTypes, LegendDataManagement, LegendDataManagement.LDMUtils, LegendEventAnalysis
     using IntervalSets, PropertyFunctions, TypedTables, PropDicts, StatsBase
+    using Distributions: Hypergeometric, Normal, cdf, ccdf, quantile
     using Unitful, UnitfulAtomic, Format, LaTeXStrings, Printf, Measures, Dates, Measurements
     using Measurements: value as mvalue
     using Measurements: uncertainty as muncert

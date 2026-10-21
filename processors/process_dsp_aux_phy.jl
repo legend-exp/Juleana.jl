@@ -13,78 +13,78 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     chinfo_aux = filterby(get_aux_evt_detsel_propfunc(l200, filekey))(chinfo)
     @info "Loaded auxiliary detectors: $(join(string.(chinfo_aux.detector), ", "))"
 
-    # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Number Events"), :Error)}
+    dsp_config_pd = dataprod_config(l200).dsp(filekey)
+    evt_config_pd = dataprod_config(l200).evt(filekey)
 
-    # get worker pool
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Number Events"), :Error)}
+    log_fk_nt = NamedTuple{(:Filekey, :Status, Symbol("Processed Detectors"), Symbol("Failed Detectors"), :Error)}
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    function det_dsp_aux(chinfo_det::NamedTuple)
-
-        ch  = chinfo_det.channel
-        det = chinfo_det.detector
-
-        @info "Processing DSP for auxiliary detector $det ($ch)"
-        dspfilename = l200.tier[:jlaux, filekey, det]
-
-        if !reprocess && isfile(dspfilename)
-            try
-                n_evts = length(read_ldata(:timestamp, l200, DataTier(:jlaux), filekey, det))
-                @info "DSP for auxiliary detector $det ($ch) already exists, skip"
-                return (result = (n_evts = n_evts,), processed = false,
-                    log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$n_evts", "Already processed --> skipped.")))
-            catch e
-                @warn "Error reading existing DSP file for auxiliary detector $det ($ch): $(truncate_error(e))"
-                @info "Reprocess auxiliary detector $det ($ch)"
+    function filekey_dsp_aux(fk::FileKey)
+        dspfilename = l200.tier[:jlaux, fk]
+        n_processed = 0
+        failed_detectors = DetectorId[]
+        write_files(dspfilename, use_cache=true, mode=CreateOrModify()) do outfilename
+            if reprocess && isfile(outfilename)
+                rm(outfilename, force=true)
+            end
+            lh5open(outfilename, "cw") do outdata
+                for chinfo_det in chinfo_aux
+                    ch, det = chinfo_det.channel, chinfo_det.detector
+                    if haskey(outdata, "jlaux/$det")
+                        @info "DSP for auxiliary detector $det ($ch) in $fk already exists, skip"
+                        continue
+                    end
+                    @info "Processing DSP for auxiliary detector $det ($ch) in $fk"
+                    try
+                        dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
+                        dsp_config_det = DSPConfig(dsp_config_pd_det)
+                        dsp_function = Symbol(dsp_config_pd.additional_detectors[det])
+                        raw_fields = Tuple(Symbol.(dsp_config_pd.raw_fields[dsp_function]))
+                        raw_data = read_ldata(raw_fields, l200, DataTier(:raw), fk, det)
+                        dsp_data = getfield(LegendDSP, dsp_function)(raw_data, dsp_config_det)
+                        auxcal_pf = get_aux_cal_propfunc(l200, filekey, det)
+                        cal_output = auxcal_pf.(dsp_data)
+                        outdata[:jlaux, det] = merge(columns(dsp_data), columns(cal_output))
+                        n_processed += 1
+                    catch e
+                        @error "Error while running DSP for auxiliary detector $det in $fk: $(truncate_error(e))"
+                        push!(failed_detectors, det)
+                    end
+                end
             end
         end
+        return (processed=n_processed > 0,
+            log=log_fk_nt((fk, ProcessStatus(isempty(failed_detectors) ? 1 : 0), n_processed, string.(failed_detectors), "")))
+    end
 
+    start_time = now()
+    result_filekeys = parallel(filekeys, filekey_dsp_aux, log_fk_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
+
+    result_dsp_aux = map(chinfo_aux) do chinfo_det
+        det = chinfo_det.detector
         try
-            dsp_config_pd = dataprod_config(l200).dsp(filekey)
-            dsp_config_pd_det = merge(dsp_config_pd.default, get(dsp_config_pd, det, PropDict()))
-            dsp_config_det = DSPConfig(dsp_config_pd_det)
-            @debug "Loaded DSP config: $(lstring(dsp_config_det))"
-
-            dsp_function = Symbol(dsp_config_pd.additional_detectors[det])
-            raw_fields = Tuple(Symbol.(dsp_config_pd.raw_fields[dsp_function]))
-            raw_data = read_ldata(raw_fields, l200, DataTier(:raw), filekeys, det)
-
-            @debug "Generate DSP for $det"
-            dsp_data = getfield(LegendDSP, dsp_function)(raw_data, dsp_config_det)
-
-            @debug "Calibrate DSP data"
-            evt_config_pd_det = dataprod_config(l200).evt(filekey).aux[det]
-            auxcal_pf = get_aux_cal_propfunc(l200, filekey, det)
-            cal_output = auxcal_pf.(dsp_data)
-
-            merged_table = merge(columns(dsp_data), columns(cal_output))
-
-            # Energy spectrum with the auxiliary trigger threshold.
-            @info "Generate auxiliary DSP cross-check plot for $det"
-            energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit=2)
+            energy_type, threshold = split(evt_config_pd.aux[det].cal.aux_trig, '>'; limit=2)
             energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
-            energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
-            log_min = floor(log10(max(minimum(energy), 1.0)))
-            log_max = max(log_min + 1, ceil(log10(max(maximum(energy), threshold))))
-            bins = 10.0 .^ range(log_min, log_max; length=101)
-            p = LegendMakie.lhist(energy;
-                bins = bins,
-                figsize = (700, 450),
-                title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
-                xlabel = "$energy_type (ADC)",
-                ylabel = "Counts / bin",
-                xscale = Makie.log10,
-                yscale = Makie.log10,
-                xlims = extrema(bins),
-                legend_position = :none,
-                juleana_logo = false,
-            )
-            ax = Makie.current_axis()
-            Makie.vlines!(ax, [threshold]; color=LegendMakie.BEGeOrange, linestyle=:dash,
-                linewidth=2, label="$energy_type > $threshold")
-            Makie.axislegend(ax; position=:rt)
-            savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
-
+            dsp_data = read_ldata(l200, DataTier(:jlaux), filekeys, det)
+            energy = ustrip.(getproperty(dsp_data, energy_type))
+            n_evts = length(energy)
+            filter!(x -> isfinite(x) && x > 0, energy)
+            if !isempty(energy)
+                log_min = floor(Int, log10(minimum(energy)))
+                log_max = max(log_min + 1, floor(Int, log10(max(maximum(energy), threshold))) + 1)
+                bins = 10.0 .^ (log_min:0.05:log_max)
+                p = LegendMakie.lhist(fit(Histogram, energy, bins);
+                    figsize=(700, 450), title=get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
+                    xlabel="$energy_type (ADC)", ylabel="Counts / bin", yscale=Makie.log10,
+                    xticks=Makie.LogTicks(Makie.WilkinsonTicks(5; k_min=3)), juleana_logo=false)
+                ax = Makie.current_axis()
+                ax.xscale = Makie.log10
+                Makie.vlines!(ax, [threshold]; color=LegendMakie.BEGeOrange, linestyle=:dash,
+                    linewidth=2, label="$energy_type > $threshold")
+                Makie.axislegend(ax; position=:rt)
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
+            end
             # e_max versus t_max with logarithmic energy bins and count colors.
             if hasproperty(dsp_data, :e_max) && hasproperty(dsp_data, :t_max)
                 @info "Generate auxiliary DSP energy versus maximum-time plot for $det"
@@ -109,40 +109,28 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy_tmax)
             end
 
-            @info "Write DSP data to disk"
-            write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
-                lh5open(outfilename, "w") do outdata
-                    outdata[:jlaux, det] = merged_table
-                end
-            end
-
-            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$(length(dsp_data))", ""))
-            @info "Finished DSP for auxiliary detector $det ($ch): $(length(dsp_data)) events"
-
-            return (result = (n_evts = length(dsp_data),), processed = true, log = log_det)
+            chinfo_det => (result=(n_evts=n_evts,), processed=true,
+                log=log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$n_evts", "")))
         catch e
-            @error "Error while running DSP for auxiliary detector $det: $(e)"
-            return (processed = false, log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "0", "$e")))
+            @error "Error plotting auxiliary DSP for detector $det: $(truncate_error(e))"
+            chinfo_det => (processed=false,
+                log=log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "-", truncate_error(e))))
         end
     end
-
-    # get start time
-    start_time = now()
-
-    # execute in parallel
-    result_dsp_aux = parallel(chinfo_aux, det_dsp_aux, log_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
     @info "Finished auxiliary detector DSP"
 
     report = lreport()
     lreport!(report, "# Main Log")
-    lreport!(report, StructArray(var"Processor Status" = [master_status(result_dsp_aux)]))
+    lreport!(report, StructArray(var"Processor Status" = [master_status(result_filekeys, result_dsp_aux)]))
     lreport!(report, "Date of processing: $(now())")
     lreport!(report, "Total Processing time: $(canonicalize(now() - start_time))")
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
     lreport!(report, "# Results")
     lreport!(report, create_logtbl(result_dsp_aux))
+    lreport!(report, "# Filekeys")
+    lreport!(report, create_logtbl(result_filekeys))
 
     @info "Write log report"
     writelreport(get_rreportfilename(l200, filekey, Symbol("$(last(split(string(nameof(var"#self#")), "process_")))")), report)
