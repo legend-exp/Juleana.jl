@@ -19,29 +19,6 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     # get worker pool
     wpool = get_workerPool(processing_config, nameof(var"#self#"))
 
-    function plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
-        energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
-        log_min = floor(log10(max(minimum(energy), 1.0)))
-        log_max = max(log_min + 1, ceil(log10(max(maximum(energy), threshold))))
-        bins = 10.0 .^ range(log_min, log_max; length=101)
-        p = LegendMakie.lhist(energy;
-            bins = bins,
-            figsize = (700, 450),
-            title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
-            xlabel = "$energy_type (ADC)",
-            ylabel = "Counts / bin",
-            xscale = Makie.log10,
-            yscale = Makie.log10,
-            xlims = extrema(bins),
-            legend_position = :none,
-        )
-        ax = Makie.current_axis()
-        Makie.vlines!(ax, [threshold]; color=LegendMakie.BEGeOrange, linestyle=:dash,
-            linewidth=2, label="$energy_type > $threshold")
-        Makie.axislegend(ax; position=:lt)
-        p
-    end
-
     function det_dsp_aux(chinfo_det::NamedTuple)
 
         ch  = chinfo_det.channel
@@ -80,11 +57,55 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
             merged_table = merge(columns(dsp_data), columns(cal_output))
 
+            # Energy spectrum with the auxiliary trigger threshold.
             @info "Generate auxiliary DSP cross-check plot for $det"
             energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit=2)
             energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
-            p = plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
+            energy = filter(x -> isfinite(x) && x > 0, ustrip.(getproperty(dsp_data, energy_type)))
+            log_min = floor(log10(max(minimum(energy), 1.0)))
+            log_max = max(log_min + 1, ceil(log10(max(maximum(energy), threshold))))
+            bins = 10.0 .^ range(log_min, log_max; length=101)
+            p = LegendMakie.lhist(energy;
+                bins = bins,
+                figsize = (700, 450),
+                title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
+                xlabel = "$energy_type (ADC)",
+                ylabel = "Counts / bin",
+                xscale = Makie.log10,
+                yscale = Makie.log10,
+                xlims = extrema(bins),
+                legend_position = :none,
+                juleana_logo = false,
+            )
+            ax = Makie.current_axis()
+            Makie.vlines!(ax, [threshold]; color=LegendMakie.BEGeOrange, linestyle=:dash,
+                linewidth=2, label="$energy_type > $threshold")
+            Makie.axislegend(ax; position=:rt)
             savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
+
+            # e_max versus t_max with logarithmic energy bins and count colors.
+            if hasproperty(dsp_data, :e_max) && hasproperty(dsp_data, :t_max)
+                @info "Generate auxiliary DSP energy versus maximum-time plot for $det"
+                t_max = ustrip.(u"µs", dsp_data.t_max)
+                e_max = ustrip.(dsp_data.e_max)
+                valid = isfinite.(t_max) .& isfinite.(e_max) .& (e_max .> 0)
+                log_min = floor(log10(minimum(e_max[valid])))
+                log_max = max(log_min + 1, ceil(log10(maximum(e_max[valid]))))
+                energy_bins = 10.0 .^ range(log_min, log_max; length=201)
+                energy_bins[end] = nextfloat(last(energy_bins))
+                time_bins = first(StatsBase.fit(StatsBase.Histogram, t_max[valid]; nbins=200).edges)
+                p = LegendMakie.lhist(t_max[valid], e_max[valid];
+                    bins = (time_bins, energy_bins),
+                    figsize = (800, 500),
+                    title = get_plottitle(filekey, det, "e_max vs. t_max"),
+                    xlabel = "t_max (µs)",
+                    ylabel = "e_max (ADC)",
+                    yscale = Makie.log10,
+                    colorbarlabel = "Counts / bin",
+                    juleana_logo = false,
+                )
+                savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy_tmax)
+            end
 
             @info "Write DSP data to disk"
             write_files(dspfilename, use_cache=true, mode = CreateOrReplace()) do outfilename
