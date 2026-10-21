@@ -367,7 +367,7 @@ function step_report(step, args, level, outputs, dir, selection, reports, plot_r
     plot_det(file) = plot_detector(file, level)
     detectors = isnothing(selection) ? sort!(unique(plot_det.(plots))) : sort!(collect(selection))
     for det in detectors
-        det_plots = sort!(filter(p -> plot_det(p) == det, plots); by = mtime)
+        det_plots = sort!(filter(p -> plot_det(p) == det, plots); by = p -> (mtime(p), p))
         isempty(det_plots) && continue
         lreport!(report, "## $det")
         for file in det_plots

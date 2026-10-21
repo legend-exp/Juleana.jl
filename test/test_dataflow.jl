@@ -319,6 +319,8 @@ const REPORT = """
                 plot_dir = mkpath(joinpath(l200.tier[:jlplt], "rplt", "cal", string(period), string(run), "proc"))
                 for name in ("proc_fit", "proc_check")
                     Juleana.CairoMakie.save(joinpath(plot_dir, "l200-$period-$run-cal-$det-$name.png"), Juleana.Makie.Figure(size = (40, 30)))
+                    # the report orders plots by modification time, which file systems resolve to a few ms
+                    sleep(0.05)
                 end
                 (processed = true, log = Row((det, :on, 1, "")), value = scale)
             end
