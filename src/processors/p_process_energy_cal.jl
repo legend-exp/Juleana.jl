@@ -4,7 +4,7 @@
 
 Calibrate the energy per detector and `cal` partition for all partitions that contain `period` (HPGe detectors `geds`).
 
-For each energy type in `energy_types` of the partition energy config, the energies of all runs of the partition are calibrated with the run-level calibration function (`cal.func` from `l200.par.rpars.ecal`) and concatenated, after selecting single-pulse, non-pulser events that pass the quality cuts. The Th-228 peaks in the resulting spectrum are fitted with the functions in `th228_fit_func`, then a polynomial calibration curve (`cal_pol_order`) and a FWHM curve (`fwhm_pol_order`) are fitted to the peaks that pass the fit quality cuts in `qc`. Peaks in `cal_fit_excluded_peaks` and `fwhm_fit_excluded_peaks` are left out of the respective fit.
+For each energy type in `energy_types` of the partition energy config, the energies of all runs of the partition are calibrated with the run-level calibration function (`cal.func` from `l200.par.rpars.ecal`) and concatenated, after selecting single-pulse, non-pulser events that pass the quality cuts. The Th-228 peaks in the resulting spectrum are fitted with the functions in `th228_fit_func`, then a polynomial calibration curve (`cal_pol_order`) and a FWHM curve (`fwhm_pol_order` for energy types ending in `_ctc`, otherwise a quadratic FWHM² model) are fitted to the peaks that pass the fit quality cuts in `qc`. Peaks in `cal_fit_excluded_peaks` and `fwhm_fit_excluded_peaks` are left out of the respective fit.
 
 # Inputs
 - `jlqcs` and `jldsp` tiers of all `cal` runs of each partition, for each detector.
@@ -204,10 +204,12 @@ function p_process_energy_cal(processing_config, l200::LegendData, period::DataP
 
                 th228_names_qc_fwhm_fit = [p for p in th228_names_qc if !(p in Symbol.(energy_config_det.fwhm_fit_excluded_peaks))]
 
+                # energies without charge trapping correction get a quadratic FWHM² model
+                fwhm_order = endswith(string(e_type), "_ctc") ? energy_config_det.fwhm_pol_order : 2
                 result_fwhm, report_fwhm = @process_step "$e_type FWHM fitting" begin
                     fwhm_fit = [result_fit[p].fwhm for p in th228_names_qc_fwhm_fit]
                     pp_fit = [th228_lines_dict[p] for p in th228_names_qc_fwhm_fit]
-                    fit_fwhm(energy_config_det.fwhm_pol_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
+                    fit_fwhm(fwhm_order, pp_fit, fwhm_fit; e_type_cal=Symbol("$(e_type)_cal"), uncertainty=true)
                 end
                 @debug "Found $e_type FWHM: $(round(u"keV", result_fwhm.qbb, digits=2))"
                 fwhm_notfit =  [result_fit[p].fwhm for p in th228_names if !(p in th228_names_qc_fwhm_fit)]
