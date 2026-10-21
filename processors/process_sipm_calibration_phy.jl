@@ -71,7 +71,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         try
             @debug "Load DSP data"
             # load DSP data and apply QC cut
-            data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, period, run, det)
+            data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, period, run, det; ignore_keys=:all)
         catch e
             @error "Error in loading DSP data for detector $det ($ch): $(truncate_error(e))"
             throw(ErrorException("Error data loader"))
@@ -80,7 +80,7 @@ function process_sipm_calibration_phy(processing_config::PropDict, l200::LegendD
         is_pulser = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, period, run, det_puls).tags
+            data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls; ignore_keys=:all)
             is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
         catch e

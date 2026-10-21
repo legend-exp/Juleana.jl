@@ -42,6 +42,8 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         end
 
         partinfo_det = partitioninfo(l200, det, part)
+        ignored_filekeys = bad_filekeys(l200)
+        partinfo_read = filter(r -> any(!in(ignored_filekeys), only(runinfo(l200, (r.period, r.run, :phy)).keys)), partinfo_det)
         @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
     
         filekey_det = first(getproperty(partinfo_det, :phy)).startkey
@@ -100,7 +102,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
             # load DSP data and apply QC cut
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
                 @debug "Load DSP data for detector $det"
-                data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_det, det)
+                data_dsp = read_ldata(l200, DataTier(:jldsp), :phy, partinfo_read, det; ignore_keys=:all)
             end
         catch e
             @error "Error in loading DSP data for detector $det: $(truncate_error(e))"
@@ -111,7 +113,7 @@ function p_process_sipm_calibration_phy(processing_config::PropDict, l200::Legen
         try
             @debug "Get Pulser tags"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls).tags
+                data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, partinfo_read, det_puls; ignore_keys=:all)
                 is_pulser = flag_coincidences(data_dsp.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
                 @debug "Found $(count(is_pulser)) pulser events"
             end

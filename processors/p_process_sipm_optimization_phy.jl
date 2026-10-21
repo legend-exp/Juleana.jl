@@ -44,7 +44,8 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         partinfo_det = partitioninfo(l200, det, part)
         @debug "Loaded detector partition info with $(length(partinfo_det)) runs"
 
-        filekeys = reduce(vcat, [filter(!in(bad_filekeys(l200; load_key=:unprocessable)), search_disk(FileKey, l200.tier[:raw, :phy, r.period, r.run])) for r in partinfo_det])
+        ignored_filekeys = bad_filekeys(l200)
+        partinfo_read = filter(r -> any(!in(ignored_filekeys), only(runinfo(l200, (r.period, r.run, :phy)).keys)), partinfo_det)
     
         filekey_det = first(getproperty(partinfo_det, :phy)).startkey
         @debug "Found filekey $filekey_det"
@@ -104,7 +105,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         # load data
         data_det = nothing
         try
-            data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), filekeys, det; n_evts=optimization_config_det.n_evts)
+            data_det = read_ldata((:waveform_bit_drop, :timestamp), l200, DataTier(:raw), :phy, partinfo_read, det; ignore_keys=:all, n_evts=optimization_config_det.n_evts)
             @debug "Loading SiPM data from $(part)"
             if length(data_det) > max_wvfs
                 @warn "SiPM events exceed $max_wvfs, keep only $max_wvfs events"
@@ -119,7 +120,7 @@ function p_process_sipm_optimization_phy(processing_config::PropDict, l200::Lege
         wvfs_det = nothing
         try
             @debug "Get Pulser tags"
-            data_pulser = read_ldata(:tags, l200, DataTier(:jlpls), :phy, partinfo_det, det_puls).tags
+            data_pulser = read_ldata((:timestamp, :aux_trig), l200, DataTier(:jlaux), :phy, partinfo_read, det_puls; ignore_keys=:all)
             is_pulser = flag_coincidences(data_det.timestamp, data_pulser.timestamp[data_pulser.aux_trig], ts_window = pulser_config_det.puls_ts_window)
             @debug "Found $(count(is_pulser)) pulser events"
             wvfs_det = data_det[findall(.!is_pulser)].waveform_bit_drop[:]
