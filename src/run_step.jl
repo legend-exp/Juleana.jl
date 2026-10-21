@@ -370,23 +370,47 @@ Base.show(io::IO, ::MIME"text/html", p::ReportPlot) =
 
 Base.show(io::IO, ::MIME"text/plain", p::ReportPlot) = print(io, p.file)
 
+# The VS Code plot pane shows HTML of this MIME type; other displays do not accept it.
+const PLOT_PANE_HTML = MIME"application/vnd.julia-vscode.plotpane+html"()
+
+# The Markdown report `markdown` as an HTML page, with its tables, HTML status cells and
+# embedded plots.
+function report_html(markdown::AbstractString)
+    parser = CommonMark.Parser()
+    CommonMark.enable!(parser, CommonMark.TableRule())
+    style = "<style>body{background:white;color:black;font-family:sans-serif} " *
+        "table{border-collapse:collapse} th,td{border:1px solid #999;padding:2px 6px}</style>"
+    return style * CommonMark.html(parser(markdown))
+end
+
 """
     display_report(report)
+    display_report(path::AbstractString)
 
-Display the report `report` of [`run_step`](@ref), e.g. `step.report`, with `display`: the
-text and tables as usual, and each [`ReportPlot`](@ref) as an image by the first display in
-the display stack that shows `image/png`. In a terminal, such displays come with
-KittyTerminalImages (Kitty, Ghostty) and ImageInTerminal (terminals with Sixel support,
-needs ImageIO to read the PNG); in VS Code, the plots go to the plot pane. Without such a
-display, a plot is shown by its file name.
+Display the report `report` of [`run_step`](@ref), e.g. `step.report`, or the Markdown
+report file at `path`, e.g. a report of the production found with
+[`Juleana.report_path`](@ref) or `step.report_file`.
+
+In VS Code with the plot pane on, the report is shown there as one page, with its tables
+and plots. Otherwise `report` is shown with `display`: the text and tables as usual, and
+each [`ReportPlot`](@ref) as an image by the first display in the display stack that shows
+`image/png`. In a terminal, such displays come with KittyTerminalImages (Kitty, Ghostty)
+and ImageInTerminal (terminals with Sixel support, needs ImageIO to read the PNG). Without
+such a display, a plot is shown by its file name. A report file is shown as formatted
+Markdown text.
 
 # Examples
 ```julia
 using KittyTerminalImages
 Juleana.display_report(step.report)
+Juleana.display_report(Juleana.report_path(l200, :process_energy_calibration_cal, :run, DataPeriod(3), DataRun(0), :cal))
 ```
 """
 function display_report(report)
+    if displayable(PLOT_PANE_HTML)
+        display(PLOT_PANE_HTML, report_html(sprint(show, MIME"text/markdown"(), report)))
+        return nothing
+    end
     text = Any[]
     show_text() = isempty(text) || (display(lreport(text...)); empty!(text))
     for content in report._contents
@@ -404,6 +428,19 @@ function display_report(report)
         end
     end
     show_text()
+    return nothing
+end
+
+function display_report(path::AbstractString)
+    isfile(path) || throw(ArgumentError("display_report: there is no report file at $path"))
+    markdown = read(path, String)
+    if displayable(PLOT_PANE_HTML)
+        display(PLOT_PANE_HTML, report_html(markdown))
+    else
+        parser = CommonMark.Parser()
+        CommonMark.enable!(parser, CommonMark.TableRule())
+        display(parser(markdown))
+    end
     return nothing
 end
 

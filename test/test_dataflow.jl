@@ -15,6 +15,13 @@ end
 Base.display(d::RecordingDisplay, x) = (push!(d.shown, x); nothing)
 Base.display(d::RecordingDisplay, mime::MIME"image/png", x) = (push!(d.shown, mime => x); nothing)
 
+# Stands in for the VS Code plot pane: records the HTML pages it is handed.
+struct PlotPaneDisplay <: AbstractDisplay
+    shown::Vector{Any}
+end
+Base.displayable(::PlotPaneDisplay, ::MIME"application/vnd.julia-vscode.plotpane+html") = true
+Base.display(d::PlotPaneDisplay, ::MIME"application/vnd.julia-vscode.plotpane+html", x) = (push!(d.shown, x); nothing)
+
 # Stands in for `LegendData`: every run is in the run info, and every period is its own
 # partition.
 struct FakeData end
@@ -341,6 +348,21 @@ const REPORT = """
         @test !(first(recorder.shown) isa Pair) && occursin("# run_proc: p03 r001", sprint(show, MIME"text/markdown"(), first(recorder.shown)))
         @test [basename(last(x).file) for x in recorder.shown if x isa Pair] ==
             ["l200-p03-r001-cal-V2-proc_fit.png", "l200-p03-r001-cal-V2-proc_check.png"]
+        # in the VS Code plot pane: one HTML page with the tables and the plots, also from the report file
+        pane = PlotPaneDisplay([])
+        pushdisplay(pane)
+        try
+            Juleana.display_report(out.report)
+            Juleana.display_report(out.report_file)
+        finally
+            popdisplay(pane)
+        end
+        @test length(pane.shown) == 2
+        for page in pane.shown
+            @test occursin("<h1>run_proc: p03 r001", page) && occursin("<table>", page)
+            @test count("<img src=\"data:image/png;base64,", page) == 2
+        end
+        @test_throws "there is no report file at" Juleana.display_report(joinpath(output_dir, "missing.md"))
 
         # production outputs: the other detectors are skipped as processed, everything is written there
         out = step(:run_proc, 3, 1; detectors = [:V2], outputs = :production, scale = 3)
