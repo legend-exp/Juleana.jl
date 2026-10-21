@@ -129,7 +129,9 @@ function run_processing(
             only_first_period = DataPeriod(period.no - 1) in periods
             kwargs = merge(NamedTuple(spec(step).kwargs), (; only_first_period), overrides)
             @info "Process $step of $period"
-            lower = tracked(() -> processors[step](cfg, l200, period; kwargs...), node)
+            lower = tracked(node) do
+                with(() -> processors[step](cfg, l200, period; kwargs...), ERROR_PLOTS => spec(step).error_plots)
+            end
             return (; skipped = false, lower = lower === true)
         end
         key = (period, run, spec(step).category)
@@ -139,7 +141,11 @@ function run_processing(
             @warn "$period-$run-$(spec(step).category) is not in runinfo, skip $step"
         else
             @info "Process $step of $period-$run"
-            tracked(() -> processors[step](cfg, l200, period, run; merge(NamedTuple(spec(step).kwargs), overrides)...), node)
+            tracked(node) do
+                with(ERROR_PLOTS => spec(step).error_plots) do
+                    processors[step](cfg, l200, period, run; merge(NamedTuple(spec(step).kwargs), overrides)...)
+                end
+            end
             flush(stdout)
             return (; skipped = false, lower = false)
         end

@@ -117,6 +117,13 @@ All fields are required:
    Every dependency must name a configured processor, the dependencies must not form a
    cycle, and processor names must be unique across `processors` and `p_processors`.
 
+One field is optional:
+
+- **`error_plots`**: `true` or `false` (the default). With `true`, a failed step of the
+  processor saves the debug plot of its `on_error` hook, see [`Juleana.@process_step`](@ref).
+  The plot is saved with the other plots of the detector, with a name starting with
+  `error_`.
+
 A key or dependency that uses a former processor name from `Juleana.RENAMED_PROCESSORS`
 (for example `process_decay_time` for `process_decay_time_cal`) is read as the current
 name, and a warning names both once when the config is loaded. A config that contains

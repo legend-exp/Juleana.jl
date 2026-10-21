@@ -7,6 +7,11 @@ const CURRENT_ITEM = ScopedValue{Any}(nothing)
 # that `@process_step` captures; `nothing` otherwise.
 const DEBUG_CAPTURE = ScopedValue{Any}(nothing)
 
+# Whether a failed `@process_step` runs its `on_error` hook: the `error_plots` setting of the
+# running processor, or the `error_plots` keyword of `run_step`. `parallel` sets it again on
+# the workers.
+const ERROR_PLOTS = ScopedValue{Bool}(false)
+
 """
     ProcessStepError <: Exception
 
@@ -24,6 +29,7 @@ Base.show(io::IO, e::ProcessStepError) = print(io, e.name, ": ", e.exception)
 
 """
     @process_step name block
+    @process_step name on_error = hook block
 
 Run `block` as one named step of a processor and return its value. If `block` throws, log
 `"<name> failed for <detector>: <error>"` as an `@error` and throw a
@@ -41,14 +47,34 @@ Inside [`run_step`](@ref) with `debug = true`, the innermost failing step also c
 [`Failure`](@ref) with the local variables of the processor at the step, see
 [`Juleana.failure`](@ref).
 
+`hook` is a function without arguments that saves a debug plot of the failure, with the
+variables of the processor, and a plot name starting with `error_`; the report of
+[`run_step`](@ref) links such plots instead of embedding them. The innermost failing step
+calls it when the `error_plots` setting of the processor (or of `run_step`) is on, before
+the `ProcessStepError` is thrown. If `hook` throws, a warning is logged and the error of the
+step is thrown unchanged. `hook` is only evaluated when `block` fails.
+
 # Examples
 ```julia
 result_simple, report_simple = @process_step "\$e_type simple calibration" begin
     simple_calibration(e_uncal, th228_lines, left_window_sizes, right_window_sizes)
 end
+
+result_simple, report_simple = @process_step "\$e_type simple calibration" on_error = () ->
+        savelfig(LegendMakie.lsavefig, lplot(e_uncal), l200, filekey, det, Symbol("error_simple_calibration_\$e_type")) begin
+    simple_calibration(e_uncal, th228_lines, left_window_sizes, right_window_sizes)
+end
 ```
 """
-macro process_step(name, block)
+macro process_step(name, args...)
+    isempty(args) && throw(ArgumentError("@process_step needs a name and a block"))
+    block, options = last(args), Base.front(args)
+    hook = nothing
+    for option in options
+        Meta.isexpr(option, :(=), 2) && first(option.args) === :on_error ||
+            throw(ArgumentError("@process_step: unknown option `$option`, expected `on_error = hook`"))
+        hook = last(option.args)
+    end
     err = gensym("err")
     return quote
         try
@@ -56,14 +82,14 @@ macro process_step(name, block)
         catch $err
             # `Base.@locals` must run here, in the processor; it only runs in debug mode
             process_step_failed($err, $(esc(name)), $(string(__source__.file)), $(__source__.line),
-                capturing($err) ? Base.@locals() : nothing, $(QuoteNode(block)), $__module__)
+                capturing($err) ? Base.@locals() : nothing, $(QuoteNode(block)), $__module__, $(esc(hook)))
         end
     end
 end
 
 capturing(e) = !isnothing(DEBUG_CAPTURE[]) && !(e isa ProcessStepError)
 
-function process_step_failed(e, name, file, line, variables = nothing, block = nothing, mod = nothing)
+function process_step_failed(e, name, file, line, variables = nothing, block = nothing, mod = nothing, on_error = nothing)
     e isa ProcessStepError && rethrow()
     item = CURRENT_ITEM[]
     step_error = ProcessStepError(string(name), item, root_exception(e))
@@ -76,6 +102,13 @@ function process_step_failed(e, name, file, line, variables = nothing, block = n
         failure = Failure(step_error.name, capture.step, capture.args, item, step_error.exception,
             catch_backtrace(), vars, block, mod, file, line)
         lock(() -> push!(capture.failures, failure), capture.lock)
+    end
+    if !isnothing(on_error) && ERROR_PLOTS[]
+        try
+            on_error()
+        catch hook_error
+            @warn "the error plot of $(step_error.name)$det failed: $(truncate_error(hook_error))" _file = file _line = line
+        end
     end
     throw(step_error)
 end

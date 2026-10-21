@@ -153,7 +153,7 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
             throw(ArgumentError("parallel: no failure_log method for items of type $T"))
     end
     # ScopedValues do not reach the workers: the item function sets those of `run_step` and the item again
-    selection, write = DETECTOR_SELECTION[], WRITE_PARS[]
+    selection, write, error_plots = DETECTOR_SELECTION[], WRITE_PARS[], ERROR_PLOTS[]
     if !isnothing(selection) && all(itr -> hasproperty(itr, :detector), iterator)
         item_detectors = Set(string(itr.detector) for itr in iterator)
         unknown = setdiff(selection, item_detectors)
@@ -164,7 +164,8 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
         # `run_step` with temporary outputs: detectors that are not selected are not run
         iterator = filter(itr -> !hasproperty(itr, :detector) || string(itr.detector) in selection, vec(iterator))
     end
-    run_item(itr) = with(() -> f(itr), DETECTOR_SELECTION => selection, WRITE_PARS => write, CURRENT_ITEM => itr)
+    run_item(itr) = with(() -> f(itr), DETECTOR_SELECTION => selection, WRITE_PARS => write, ERROR_PLOTS => error_plots,
+        CURRENT_ITEM => itr)
     stop = PROCESSING_STOP[]
     pool = isnothing(stop) ? ppt_worker_pool() : StoppablePool(ppt_worker_pool(), stop)
     step = PROGRESS_STEP[]

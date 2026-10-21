@@ -2,6 +2,7 @@
 
 using Juleana
 using Test
+using Logging: NullLogger, with_logger
 using Distributed: addprocs, myid, rmprocs, @everywhere
 using LegendDataManagement: LegendDataManagement, DataPeriod, DataRun, FileKey, LegendData, lreport
 using LegendDataManagement.LDMUtils: create_logtbl
@@ -380,7 +381,9 @@ const REPORT = """
             parallel(items, Row) do itr
                 det = itr.detector
                 values = [1.0, 2.0]
-                fitted = Juleana.@process_step "fit $det" begin
+                plot_dir = joinpath(l200.tier[:jlplt], "rplt", "cal", string(period), string(run), "proc")
+                fitted = Juleana.@process_step "fit $det" on_error = () -> Juleana.CairoMakie.save(
+                        joinpath(mkpath(plot_dir), "l200-$period-$run-cal-$det-error_fit.png"), Juleana.Makie.Figure(size = (40, 30))) begin
                     det === :V1 ? sum(values) : error("no peaks in $det")
                 end
                 (processed = true, log = Row((det, :on, 1, "")), fitted, task = current_task())
@@ -406,6 +409,16 @@ const REPORT = """
         @test isempty(out.failures) && isempty(Juleana.failures())
         @test [r.log.Error for r in last.(out.results)] == ["", "fit V2: ErrorException(\"no peaks in V2\")", "fit V3: ErrorException(\"no peaks in V3\")"]
         @test_throws "no failure was captured" Juleana.failure()
+        # error plots: off in the config, on with the keyword; linked in the report, not embedded
+        error_plot = joinpath(output_dir, "jlplt", "rplt", "cal", "p03", "r001", "proc", "l200-p03-r001-cal-V2-error_fit.png")
+        @test !isfile(error_plot)
+        out = with_logger(NullLogger()) do
+            failing_step(; detectors = [:V2], error_plots = true)
+        end
+        @test isfile(error_plot)
+        report = markdown(out)
+        @test occursin("### l200-p03-r001-cal-V2-error_fit", report) && !occursin("<img", report)
+        @test occursin("[l200-p03-r001-cal-V2-error_fit.png](../jlplt/rplt/cal/p03/r001/proc/l200-p03-r001-cal-V2-error_fit.png)", report)
 
         # the selection reaches the workers
         original_pool = ppt_worker_pool()

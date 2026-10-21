@@ -54,6 +54,12 @@ rerun_context(fail) = @process_step "context" begin
     (Juleana.WRITE_PARS[], Juleana.CURRENT_ITEM[])
 end
 
+const HOOK_CALLS = Ref(0)
+hooked(fail_hook) = @process_step "hooked" on_error = () -> (HOOK_CALLS[] += 1; fail_hook && error("no plot")) error("step")
+hooked_outer() = @process_step "outer" on_error = () -> (HOOK_CALLS[] += 100) begin
+    @process_step "inner" error("step")
+end
+
 # The single failure that `f()` captures, also as the failures of the last `run_step` call
 function capture_failure(f, item = nothing)
     capture = (; step = :proc, args = (), failures = Juleana.Failure[], lock = ReentrantLock())
@@ -228,6 +234,29 @@ end
         @test Juleana.block_exit(:(g(x) = return x)) === nothing
         @test Juleana.block_exit(:(map(x -> return x, 1:2))) === nothing
         @test Juleana.block_exit(:(function g(); return 1; end)) === nothing
+    end
+
+    @testset "on_error" begin
+        # off by default
+        @test_throws ProcessStepError with_logger(() -> hooked(false), NullLogger())
+        @test HOOK_CALLS[] == 0
+        err = with(Juleana.ERROR_PLOTS => true) do
+            @test_logs (:error, "hooked failed: ErrorException(\"step\")") try hooked(false) catch e; e end
+        end
+        @test HOOK_CALLS[] == 1 && err.exception == ErrorException("step")
+        # a failing hook only warns, and the error of the step is thrown unchanged
+        err = with(Juleana.ERROR_PLOTS => true) do
+            @test_logs (:error, "hooked failed: ErrorException(\"step\")") (:warn, "the error plot of hooked failed: ErrorException(\"no plot\")") try
+                hooked(true)
+            catch e
+                e
+            end
+        end
+        @test HOOK_CALLS[] == 2 && err isa ProcessStepError && err.exception == ErrorException("step")
+        # only the innermost failing step runs its hook
+        with(() -> with_logger(() -> try hooked_outer() catch end, NullLogger()), Juleana.ERROR_PLOTS => true)
+        @test HOOK_CALLS[] == 2
+        @test_throws "@process_step: unknown option `plot = 1`, expected `on_error = hook`" macroexpand(@__MODULE__, :(@process_step "x" plot = 1 nothing))
     end
 
     @testset "log location" begin

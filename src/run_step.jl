@@ -113,7 +113,8 @@ end
 """
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
         output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), debug::Bool = false, processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), debug::Bool = false, error_plots = nothing,
+        processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
 calling Julia process, for example in the REPL. A partition-level processor takes no
@@ -152,6 +153,10 @@ the plots, reports and data files go to a temporary directory.
   `timeout`, and capture each failed [`@process_step`](@ref) as a [`Failure`](@ref) with
   the variables of the processor at that step; see [`Juleana.failure`](@ref). A summary of
   the failures is printed at the end.
+- `error_plots`: whether a failed [`@process_step`](@ref) runs its `on_error` hook, which
+  saves a debug plot; `nothing` (the default) takes the `error_plots` setting of the
+  processor in `config`.
+  In the report, these plots, whose names start with `error_`, are linked, not embedded.
 - `processors`: the processors by name, [`Juleana.PROCESSORS`](@ref) by default.
 - `kwargs`: keyword arguments of the processor, e.g. `timeout = 0`. The processor gets the
   keyword arguments of `config`, then `only_first_period = false` for a partition-level
@@ -195,7 +200,8 @@ f = Juleana.failure()
 """
 function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp,
         output_dir = nothing, config = default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), debug::Bool = false, processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), debug::Bool = false, error_plots::Union{Nothing,Bool} = nothing,
+        processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
     haskey(processors, step) || throw(ArgumentError("run_step: unregistered processor `$step`"))
     outputs in (:temp, :production) ||
         throw(ArgumentError("run_step: `outputs` is $(repr(outputs)), expected :temp or :production"))
@@ -225,7 +231,7 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     capture = debug ? (; step, args, failures, lock = ReentrantLock()) : nothing
     started = time()
     with(DETECTOR_SELECTION => selection, WRITE_PARS => outputs === :production, STEP_RECORD => record,
-            DEBUG_CAPTURE => capture) do
+            DEBUG_CAPTURE => capture, ERROR_PLOTS => something(error_plots, spec.error_plots)) do
         processors[step](cfg, step_l200, args...; merge(NamedTuple(spec.kwargs), defaults, NamedTuple(kwargs))...)
     end
     plot_roots = if spec.level === :run
@@ -322,8 +328,11 @@ function step_report(step, args, level, outputs, dir, selection, reports, plot_r
         isempty(det_plots) && continue
         lreport!(report, "## $det")
         for file in det_plots
-            lreport!(report, "### $(splitext(basename(file))[1])")
-            lreport!(report, ReportPlot(file))
+            name = splitext(basename(file))[1]
+            lreport!(report, "### $name")
+            # debug plots of failed steps are linked, so that many failures do not fill the report
+            lreport!(report, startswith(split(name, '-')[end], "error_") ?
+                "[$(basename(file))]($(relpath(file, joinpath(dir, "reports"))))" : ReportPlot(file))
         end
     end
     return report

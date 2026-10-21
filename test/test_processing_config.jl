@@ -101,6 +101,9 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "`config.log_level` must be one of" ProcessingConfig(edited(d -> d["config"]["log_level"] = "verbose"))
         @test_throws "missing key `processing.only_runs`" ProcessingConfig(edited(d -> delete!(d["processing"], "only_runs")))
         @test_throws "unknown key `processors.process_dsp_cal.n_workers`" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["n_workers"] = "all"))
+        @test !shipped.processors[:process_dsp_cal].error_plots
+        @test ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["error_plots"] = true)).processors[:process_dsp_cal].error_plots
+        @test_throws "`processors.process_dsp_cal.error_plots` must be a Bool" ProcessingConfig(edited(d -> d["processors"]["process_dsp_cal"]["error_plots"] = "yes"))
         @test_throws "unknown key `config.remote_workers`" ProcessingConfig(edited(d -> d["config"]["remote_workers"] = []))
         @test_throws "unknown key `extra`" ProcessingConfig(edited(d -> d["extra"] = 1))
         # the idle timeout is optional

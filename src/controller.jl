@@ -425,7 +425,7 @@ end
 function with_overrides(specs::AbstractDict{Symbol,ProcessorSpec}, overrides::AbstractDict)
     return Dict{Symbol,ProcessorSpec}(name => !haskey(overrides, name) ? spec :
         ProcessorSpec(spec.name, spec.level, spec.enabled, spec.category, spec.rank,
-            spec.dependencies, merge(spec.kwargs, overrides[name])) for (name, spec) in specs)
+            spec.dependencies, merge(spec.kwargs, overrides[name]), spec.error_plots) for (name, spec) in specs)
 end
 
 """
@@ -596,7 +596,7 @@ function apply!(ctrl::DataflowController, cmd::SetKwarg)
     spec = processor_spec(ctrl.session.config, cmd.step)
     overrides = merge(get(ctrl.kwarg_overrides, cmd.step, Dict{Symbol,Any}()), Dict{Symbol,Any}(cmd.key => cmd.value))
     candidate = ProcessorSpec(spec.name, spec.level, spec.enabled, spec.category, spec.rank,
-        spec.dependencies, merge(spec.kwargs, overrides))
+        spec.dependencies, merge(spec.kwargs, overrides), spec.error_plots)
     problem = processor_kwargs_problem(candidate, ctrl.processors)
     isnothing(problem) || throw(ArgumentError(problem))
     ctrl.kwarg_overrides[cmd.step] = overrides

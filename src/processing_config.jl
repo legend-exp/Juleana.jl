@@ -16,11 +16,14 @@ Fields:
   lower ranks start first.
 - `dependencies::Vector{Symbol}`: processors of either level that must finish first.
 - `kwargs::Dict{Symbol,Any}`: keyword arguments passed to the processor function.
+- `error_plots::Bool`: whether a failed [`@process_step`](@ref) of the processor runs its
+  `on_error` hook, which saves a debug plot; key `error_plots` of the processor entry,
+  optional, `false` by default.
 
 The positional constructor takes the fields in the order listed above,
-`ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs)`;
+`ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots)`;
 `ProcessorSpec(; name, level, category, rank, enabled=true, dependencies=Symbol[],
-kwargs=Dict{Symbol,Any}())` builds a spec from keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
+kwargs=Dict{Symbol,Any}(), error_plots=false)` builds a spec from keywords. Every constructor throws an `ArgumentError` when `level` is not `:run` or
 `:partition`, `category` is not `:cal` or `:phy`, or the processor depends on itself.
 """
 struct ProcessorSpec
@@ -31,9 +34,10 @@ struct ProcessorSpec
     rank::Int
     dependencies::Vector{Symbol}
     kwargs::Dict{Symbol,Any}
+    error_plots::Bool
 
-    function ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs)
-        spec = new(name, level, enabled, category, rank, dependencies, kwargs)
+    function ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots)
+        spec = new(name, level, enabled, category, rank, dependencies, kwargs, error_plots)
         spec.level in (:run, :partition) ||
             throw(ArgumentError("processing_config: processor `$(spec.name)` has level $(repr(spec.level)), expected :run or :partition"))
         path = "$(spec.level === :run ? "processors" : "p_processors").$(spec.name)."
@@ -45,8 +49,8 @@ struct ProcessorSpec
     end
 end
 
-ProcessorSpec(; name, level, category, rank, enabled = true, dependencies = Symbol[], kwargs = Dict{Symbol,Any}()) =
-    ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs)
+ProcessorSpec(; name, level, category, rank, enabled = true, dependencies = Symbol[], kwargs = Dict{Symbol,Any}(),
+    error_plots = false) = ProcessorSpec(name, level, enabled, category, rank, dependencies, kwargs, error_plots)
 
 """
     struct ProcessingConfig
@@ -263,7 +267,7 @@ function rank_order_dependencies(specs::AbstractDict{Symbol,ProcessorSpec})
     for (k, name) in pairs(order)
         s = specs[name]
         deps = k == firstindex(order) || order[k-1] in s.dependencies ? copy(s.dependencies) : vcat(s.dependencies, order[k-1])
-        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps, s.kwargs)
+        out[name] = ProcessorSpec(s.name, s.level, s.enabled, s.category, s.rank, deps, s.kwargs, s.error_plots)
     end
     return out
 end
@@ -274,7 +278,7 @@ function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, r
         path = "$section.$name."
         entry isa AbstractDict ||
             throw(ArgumentError("processing_config: key `$section.$name` must be a table, got $(repr(entry))"))
-        _check_keys(entry, (:enabled, :category, :rank, :kwargs, :dependencies), path)
+        _check_keys(entry, (:enabled, :category, :rank, :kwargs, :dependencies), path; optional = (:error_plots,))
         category = _typed(entry, :category, AbstractString, path)
         kwargs = Dict{Symbol,Any}()
         for (k, v) in _typed(entry, :kwargs, AbstractDict, path)
@@ -284,7 +288,8 @@ function _processor_specs(table::AbstractDict, level::Symbol, section::Symbol, r
         reprocess && (kwargs[:reprocess] = true)
         specs[name] = ProcessorSpec(
             name, level, _typed(entry, :enabled, Bool, path), Symbol(category),
-            _typed(entry, :rank, Int, path), Symbol.(_strings(entry, :dependencies, path)), kwargs
+            _typed(entry, :rank, Int, path), Symbol.(_strings(entry, :dependencies, path)), kwargs,
+            haskey(entry, :error_plots) && _typed(entry, :error_plots, Bool, path)
         )
     end
     return specs
