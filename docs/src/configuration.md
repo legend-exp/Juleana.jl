@@ -12,7 +12,7 @@ exist, Juleana first copies the config shipped with Juleana there; a `processing
 current settings to that file and keeps the previous file as `processing_config.yaml.bak`.
 See [Running the dataflow](running.md). The
 file is loaded into a [`ProcessingConfig`](@ref); all keys of the `config` and
-`processing` sections are required except `idle_timeout_minutes` and `processor_log_level`, and a missing or
+`processing` sections are required except `idle_timeout_minutes`, `processor_log_level`, `processor_plot_level` and `plot_formats`, and a missing or
 unknown key stops the dataflow with an error that names the key.
 
 ## `config`
@@ -47,7 +47,17 @@ The run mode, the worker settings, environment variables and logging:
    row of the Setup page replaces both. The level in effect is the one of the Setup page,
    else the command line, else `processor_log_level`, else the `log_level` of each
    processor entry.
-7. **`idle_timeout_minutes`** (optional, default `20`): when no processing has run for
+7. **`processor_plot_level`** (optional): `"info"` or `"debug"`. Without it, each processor
+   saves plots at the `plot_level` of its entry. With it, it replaces `plot_level` for all
+   processors; see `plot_level` of the processor entries below. The command line option
+   `--processor-plot-level` replaces the value of the config, and the "Processor plot level"
+   row of the Setup page replaces both.
+8. **`plot_formats`** (optional, default `["png"]`): a list of the formats in which plots are
+   saved, `"png"` and `"jls"`, at least one, each at most once. With `"jls"`, the Makie
+   figure is also saved with `Serialization` next to the PNG, under the same name with
+   the extension `.jls`. The file lets you open the figure again later, but only a Julia
+   session with the same package versions can read it.
+9. **`idle_timeout_minutes`** (optional, default `20`): when no processing has run for
    this many minutes, the worker allocations started from the terminal user interface
    are cancelled, so that idle workers do not hold a machine or a SLURM allocation. The
    time counts from the end of the last processing run, the start of the newest
@@ -96,6 +106,7 @@ process_dsp_cal:
   category: cal
   rank: 5
   log_level: info
+  plot_level: info
   kwargs:
     reprocess: true
     max_wvfs: 1000
@@ -131,6 +142,9 @@ All fields are required:
    RadiationSpectra, SolidStateDetectors and their extensions are written as well while
    the processor runs. `config.processor_log_level`, when set, replaces this value for
    all processors.
+7. **`plot_level`**: `"info"` or `"debug"`. With `"info"`, the processor saves its normal
+   plots; with `"debug"`, it also saves its debug plots. `config.processor_plot_level`,
+   when set, replaces this value for all processors.
 
 One field is optional:
 

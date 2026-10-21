@@ -26,6 +26,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Running the dataflow" => "running.md",
+        "Working in the REPL" => "repl.md",
         "Configuration" => "configuration.md",
         "Processors" => [
             "Overview" => "processors.md",
@@ -35,6 +36,7 @@ makedocs(
         ],
         "API" => [
             "Dataflow" => "api.md",
+            "Steps, plots and logging" => "api_debug.md",
             "Terminal interface" => "api_tui.md",
         ],
         "LICENSE" => "LICENSE.md"

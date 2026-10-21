@@ -67,6 +67,7 @@ SelectRuns
 SelectSteps
 SetReprocess
 SetProcessorLogLevel
+SetProcessorPlotLevel
 SetAnalysisRunsOnly
 SetRunmode
 SetRunmodeSettings
@@ -151,16 +152,6 @@ master_status
 detector_status
 truncate_string
 truncate_error
-Juleana.root_exception
-Juleana.@process_step
-Juleana.ProcessStepError
-Juleana.Failure
-Juleana.failure
-Juleana.failures
-Juleana.failure_info
-Juleana.failure_variables
-Juleana.@locals
-Juleana.rerun
 load_qc_evaluator
 Juleana.redo_detector
 Juleana.detector_selected
@@ -168,16 +159,4 @@ Juleana.write_pars
 Juleana.write_validity
 Juleana.make_par_dir
 Juleana.write_report
-```
-
-## Logging
-
-```@docs
-Juleana.processing_logger
-Juleana.ProcessorLevelLogger
-Juleana.DEBUG_LOG_PACKAGES
-Juleana.process_log_file
-Juleana.parse_log_level
-UnderscoreSafeLogger
-Juleana.escape_log_underscores
 ```
