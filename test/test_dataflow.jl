@@ -375,6 +375,38 @@ const REPORT = """
         end
         @test length(calls) == n_calls + 2 && !isfile(pars_file)
 
+        # debug: the items run in the calling task, and the failed steps of all detectors are captured
+        function failing_proc(cfg, l200, period, run; reprocess = false)
+            parallel(items, Row) do itr
+                det = itr.detector
+                values = [1.0, 2.0]
+                fitted = Juleana.@process_step "fit $det" begin
+                    det === :V1 ? sum(values) : error("no peaks in $det")
+                end
+                (processed = true, log = Row((det, :on, 1, "")), fitted, task = current_task())
+            end
+            return nothing
+        end
+        failing_cfg = ProcessingConfig(;
+            processors = Dict(:failing_proc => ProcessorSpec(; name = :failing_proc, level = :run, category = :cal, rank = 1)),
+            p_processors = Dict{Symbol,ProcessorSpec}())
+        failing_step(; kw...) = run_step(:failing_proc, 3, 1; config = failing_cfg, l200, output_dir,
+            processors = Dict{Symbol,Any}(:failing_proc => failing_proc), kw...)
+        out = redirect_stdout(devnull) do
+            @test_logs (:error, "fit V2 failed for V2: ErrorException(\"no peaks in V2\")") (:error, "fit V3 failed for V3: ErrorException(\"no peaks in V3\")") match_mode = :any failing_step(; debug = true)
+        end
+        @test Juleana.failures() === out.failures && Juleana.failure() === first(out.failures)
+        @test [Juleana.failure_info(f).name for f in out.failures] == ["fit V2", "fit V3"]
+        @test Juleana.failure().det == :V2 && Juleana.failure().values == [1.0, 2.0]
+        @test [r.log.Error for r in last.(out.results)] == ["", "fit V2: ErrorException(\"no peaks in V2\")", "fit V3: ErrorException(\"no peaks in V3\")"]
+        @test first(out.results).second.task === current_task()
+        @test occursin(", 2 failures, report in", sprint(show, out))
+        # without debug, nothing is captured and the failures of the last call are gone
+        out = @test_logs (:error, "fit V2 failed for V2: ErrorException(\"no peaks in V2\")") match_mode = :any failing_step()
+        @test isempty(out.failures) && isempty(Juleana.failures())
+        @test [r.log.Error for r in last.(out.results)] == ["", "fit V2: ErrorException(\"no peaks in V2\")", "fit V3: ErrorException(\"no peaks in V3\")"]
+        @test_throws "no failure was captured" Juleana.failure()
+
         # the selection reaches the workers
         original_pool = ppt_worker_pool()
         pool = FlexWorkerPool(withmyid = false, label = "run_step test"; maxoccupancy = 1)

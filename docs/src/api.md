@@ -153,6 +153,12 @@ truncate_error
 Juleana.root_exception
 Juleana.@process_step
 Juleana.ProcessStepError
+Juleana.Failure
+Juleana.failure
+Juleana.failures
+Juleana.failure_info
+Juleana.failure_variables
+Juleana.@locals
 load_qc_evaluator
 Juleana.redo_detector
 Juleana.detector_selected

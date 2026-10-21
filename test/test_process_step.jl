@@ -5,7 +5,19 @@ using Juleana: @process_step, ProcessStepError
 using Test
 using Logging
 using Base.ScopedValues: with
-using LegendDataManagement: DetectorId, FileKey, ProcessStatus
+using LegendDataManagement: DataPeriod, DataRun, DetectorId, FileKey, ProcessStatus
+
+# At top level, so that `Base.@locals` sees no variables of an enclosing scope
+function capture_nested(x)
+    outer = x
+    @process_step "outer" begin
+        mid = 2x
+        @process_step "inner $x" begin
+            inner_new = 3x
+            error("boom")
+        end
+    end
+end
 
 @testset "process_step" begin
     @testset "value and scope" begin
@@ -102,6 +114,40 @@ using LegendDataManagement: DetectorId, FileKey, ProcessStatus
             Juleana.parallel(k -> (@process_step "load" error("missing file")), [fk], FkLog)
         end
         @test only(filter(r -> r.level == Logging.Error, logger.logs)).message == "load failed: ErrorException(\"missing file\")"
+    end
+
+    @testset "capture" begin
+        module_for_locals = Module()
+        failures = Juleana.Failure[]
+        capture = (; step = :proc, args = (DataPeriod(3), DataRun(1)), failures, lock = ReentrantLock())
+        row = (detector = DetectorId(:V00048B), usability = :on)
+        err = with_logger(NullLogger()) do
+            try with(() -> capture_nested(5), Juleana.DEBUG_CAPTURE => capture, Juleana.CURRENT_ITEM => row) catch e; e end
+        end
+        @test err isa ProcessStepError
+        # only the innermost step captures; the variables first assigned in it are not visible
+        f = only(failures)
+        @test propertynames(f) == (:mid, :outer, :x)
+        @test (f.x, f.outer, f.mid) == (5, 5, 10)
+        @test_throws "the failure of \"inner 5\" captured no variable `inner_new`; it captured mid, outer, x" f.inner_new
+        info = Juleana.failure_info(f)
+        @test info.name == "inner 5" && info.step == :proc && info.item === row && info.detector == DetectorId(:V00048B)
+        @test info.exception == ErrorException("boom") && !isempty(info.backtrace)
+        @test info.block isa Expr && info.file == @__FILE__
+        @test Juleana.failure_variables(f) == Dict(:x => 5, :outer => 5, :mid => 10)
+        @test sprint(show, f) == "Failure(\"inner 5\" for V00048B)"
+        @test sprint(show, MIME"text/plain"(), f) == "\"inner 5\" failed for V00048B in proc p03 r001 at $(info.file):$(info.line)\n" *
+            "  error: ErrorException(\"boom\")\n  variables: mid, outer, x"
+        @test Juleana.define_locals(module_for_locals, f) == [:mid, :outer, :x]
+        @test module_for_locals.mid == 10 && module_for_locals.x == 5
+        @test occursin("2 failed `@process_step` captured", sprint(Juleana.print_failures, [f, f]))
+        @test sprint(Juleana.print_failures, Juleana.Failure[]) == "run_step: no failed `@process_step` was captured\n"
+
+        # without debug mode nothing is captured
+        with_logger(NullLogger()) do
+            try capture_nested(1) catch end
+        end
+        @test length(failures) == 1
     end
 
     @testset "log location" begin

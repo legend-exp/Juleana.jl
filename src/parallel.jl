@@ -127,6 +127,9 @@ selected are not run and are missing from the result. For items with a `detector
 `parallel` throws an `ArgumentError` before any work starts if a chosen detector is not
 among them.
 
+Inside [`run_step`](@ref) with `debug = true`, the items run one after the other in the
+calling task, without workers and without `timeout`.
+
 Inside [`run_processing`](@ref), a stop of the processing run takes effect here: items that
 have not been handed to a worker are not run, items already running finish, and `parallel`
 then throws [`ProcessingStopped`](@ref) instead of returning. When the run is stopped without
@@ -172,9 +175,27 @@ function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeou
     failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_error(e)))
     # one progress id per item, with the axes of `iterator`
     ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
+    label(itr) = string(hasproperty(itr, :detector) ? itr.detector : itr)
+    if !isnothing(DEBUG_CAPTURE[])
+        result = map(iterator, ids) do itr, id
+            !isnothing(stop) && stop[] && throw(ProcessingStopped())
+            isnothing(step) || item_started!(step..., id, myid(), label(itr))
+            item_result, outcome = try
+                itr => run_item(itr), :done
+            catch e
+                e isa InterruptException && rethrow()
+                failure_row(itr, e), :failed
+            end
+            isnothing(step) || item_finished!(step..., id, outcome)
+            item_result
+        end
+        record = STEP_RECORD[]
+        isnothing(record) || append!(record.results, vec(result))
+        return result
+    end
     tasks = broadcast(iterator, ids) do itr, id
         Threads.@spawn begin
-            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker, string(hasproperty(itr, :detector) ? itr.detector : itr))
+            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker, label(itr))
             result, outcome = try
                 # Past `maxtime`, onworker terminates the worker (never the main process) and
                 # counts the timeout as a failed try; the last failure lands in the catch below.

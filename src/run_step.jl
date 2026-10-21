@@ -113,7 +113,7 @@ end
 """
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
         output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), debug::Bool = false, processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
 calling Julia process, for example in the REPL. A partition-level processor takes no
@@ -148,6 +148,10 @@ the plots, reports and data files go to a temporary directory.
   `env_variables` of `config` are set.
 - `show_report`: display the report at the end with [`display_report`](@ref); the default
   in an interactive session.
+- `debug`: run the items one after the other in the calling process, without workers and
+  `timeout`, and capture each failed [`@process_step`](@ref) as a [`Failure`](@ref) with
+  the variables of the processor at that step; see [`Juleana.failure`](@ref). A summary of
+  the failures is printed at the end.
 - `processors`: the processors by name, [`Juleana.PROCESSORS`](@ref) by default.
 - `kwargs`: keyword arguments of the processor, e.g. `timeout = 0`. The processor gets the
   keyword arguments of `config`, then `only_first_period = false` for a partition-level
@@ -169,8 +173,8 @@ ParallelProcessingTools.runworkers(ParallelProcessingTools.OnLocalhost(n = 4))
 `ParallelProcessingTools.worker_resources()`.
 
 # Returns
-Return a [`StepOutput`](@ref) with the report, the reports of the processor and the
-results of its items.
+Return a [`StepOutput`](@ref) with the report, the reports of the processor, the
+results of its items and the captured failures.
 
 Throws an `ArgumentError` if `step` is not registered or not in `config`, if `run` is given
 for a partition-level processor or missing for a run-level one, if `detectors` is given for
@@ -184,11 +188,14 @@ step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
 # partition level, no run
 step = run_step(:p_process_energy_cal, 3; detectors = [:V01234A])
 Juleana.display_report(step.report)
+# capture the failed steps of a detector
+step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A], debug = true)
+f = Juleana.failure()
 ```
 """
 function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp,
         output_dir = nothing, config = default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), debug::Bool = false, processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
     haskey(processors, step) || throw(ArgumentError("run_step: unregistered processor `$step`"))
     outputs in (:temp, :production) ||
         throw(ArgumentError("run_step: `outputs` is $(repr(outputs)), expected :temp or :production"))
@@ -214,8 +221,11 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
         isnothing(detectors) ? (; reprocess = true) : (;))
     selection = isnothing(detectors) ? nothing : Set(string.(detectors))
     record = (reports = Any[], results = Any[])
+    failures = LAST_FAILURES[] = Failure[]
+    capture = debug ? (; step, args, failures, lock = ReentrantLock()) : nothing
     started = time()
-    with(DETECTOR_SELECTION => selection, WRITE_PARS => outputs === :production, STEP_RECORD => record) do
+    with(DETECTOR_SELECTION => selection, WRITE_PARS => outputs === :production, STEP_RECORD => record,
+            DEBUG_CAPTURE => capture) do
         processors[step](cfg, step_l200, args...; merge(NamedTuple(spec.kwargs), defaults, NamedTuple(kwargs))...)
     end
     plot_roots = if spec.level === :run
@@ -230,7 +240,21 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     @info "run_step: report appended to $report_file"
     # outside of the logger, which shows messages as text only
     show_report && display_report(report)
-    return StepOutput(step, args, report, report_file, record.reports, dir, record.results)
+    debug && print_failures(stdout, failures)
+    return StepOutput(step, args, report, report_file, record.reports, dir, record.results, failures)
+end
+
+function print_failures(io::IO, failures)
+    if isempty(failures)
+        println(io, "run_step: no failed `@process_step` was captured")
+        return nothing
+    end
+    println(io, "run_step: $(length(failures)) failed `@process_step` captured, see `Juleana.failure()` and `Juleana.failures()`:")
+    for (i, f) in enumerate(failures)
+        print(io, i, ". ")
+        show(io, MIME"text/plain"(), f)
+        println(io)
+    end
 end
 
 """
@@ -243,7 +267,8 @@ The output of [`run_step`](@ref), with the fields
 - `report_file`: the path of the report file the report was appended to,
 - `reports`: the reports the processor wrote, complete with all detectors,
 - `output_dir`: the output directory,
-- `results`: the `item => result` pairs of all `parallel` calls of the processor.
+- `results`: the `item => result` pairs of all `parallel` calls of the processor,
+- `failures`: the [`Failure`](@ref)s captured with `debug = true`.
 """
 struct StepOutput
     step::Symbol
@@ -253,10 +278,12 @@ struct StepOutput
     reports::Vector{Any}
     output_dir::String
     results::Vector{Any}
+    failures::Vector{Failure}
 end
 
 Base.show(io::IO, out::StepOutput) = print(io, "StepOutput(", out.step, " ", join(string.(out.args), " "), ": ",
-    length(out.results), " results, report in ", out.report_file, ")")
+    length(out.results), " results, ", isempty(out.failures) ? "" : "$(length(out.failures)) failures, ",
+    "report in ", out.report_file, ")")
 
 # The temporary output directory of `run_step` in this Julia session, created on first use.
 const SESSION_OUTPUT_DIR = Ref("")

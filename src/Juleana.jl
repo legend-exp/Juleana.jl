@@ -181,7 +181,7 @@ export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession, 
     ResetKwargs, ResetDependencyGraph, StartProcessing, StopProcessing, WriteConfig, AddWorkers,
     CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction, SelectProduction, SelectDataset
 
-public effective_config, root_exception, @process_step, ProcessStepError, escape_log_underscores, processing_logger, process_log_file, parse_log_level, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
+public effective_config, root_exception, @process_step, ProcessStepError, Failure, failure, failures, failure_info, failure_variables, @locals, escape_log_underscores, processing_logger, process_log_file, parse_log_level, PROCESSORS, register_processor!, display_name, RENAMED_PROCESSORS, init_process,
     main, setup_session, run_no_tui, run_tui, parse_commandline,
     report_path, read_report, report_index, failure_summary, report_overview, dataset_summary, period_summary,
     history_path, append_history, read_history, history_grid,
