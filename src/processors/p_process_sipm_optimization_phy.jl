@@ -210,8 +210,8 @@ function p_process_sipm_optimization_phy(processing_config, l200::LegendData, pe
                     
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for detector $det ($ch)"
                     
-                    p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey_det, det, "Baseline distribution"; additional_type=string(thres)))
-                    savelfig(LegendMakie.lsavefig, p, l200, filekey_det, det, Symbol("trigger_threshold_$(thres)"))
+                    p = LegendMakie.lplot(report_thres, title = get_plottitle(filekey_det, part, det, "Baseline distribution"; additional_type=string(thres)))
+                    savelfig(LegendMakie.lsavefig, p, l200, part, filekey_det, det, Symbol("trigger_threshold_$(thres)"))
 
                     result_trig = merge(result_trig, NamedTuple{(thres, )}([result_thres]))
                 end
