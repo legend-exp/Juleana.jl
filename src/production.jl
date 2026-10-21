@@ -123,7 +123,7 @@ function run_logged(cmd::Cmd, log)
         log(line)
     end
     wait(process)
-    success(process) || throw(ErrorException("$cmd failed with exit code $(process.exitcode)"))
+    success(process) || throw(ErrorException("command failed with exit code $(process.exitcode): $cmd"))
     return nothing
 end
 
