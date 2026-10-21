@@ -409,6 +409,21 @@ const REPORT = """
         @test isempty(out.failures) && isempty(Juleana.failures())
         @test [r.log.Error for r in last.(out.results)] == ["", "fit V2: ErrorException(\"no peaks in V2\")", "fit V3: ErrorException(\"no peaks in V3\")"]
         @test_throws "no failure was captured" Juleana.failure()
+        # stops need Infiltrator, or another stop function
+        @test_throws "run `using Infiltrator` first" failing_step(; pause = :all)
+        @test_throws "run `using Infiltrator` first" failing_step(; debug = :infiltrate)
+        @test_throws "`debug` is :yes, expected false, true or :infiltrate" failing_step(; debug = :yes)
+        @test_throws "`pause` is \"fit V2\", expected :all or a vector of step names" failing_step(; pause = "fit V2")
+        stops = []
+        Juleana.STOP_HOOK[] = (mod, vars, file, line) -> push!(stops, vars)
+        try
+            out = redirect_stdout(devnull) do
+                with_logger(() -> failing_step(; detectors = [:V2], debug = :infiltrate), NullLogger())
+            end
+            @test only(stops)[:det] == :V2 && only(out.failures).det == :V2
+        finally
+            Juleana.STOP_HOOK[] = nothing
+        end
         # error plots: off in the config, on with the keyword; linked in the report, not embedded
         error_plot = joinpath(output_dir, "jlplt", "rplt", "cal", "p03", "r001", "proc", "l200-p03-r001-cal-V2-error_fit.png")
         @test !isfile(error_plot)

@@ -60,9 +60,29 @@ hooked_outer() = @process_step "outer" on_error = () -> (HOOK_CALLS[] += 100) be
     @process_step "inner" error("step")
 end
 
+function paused_steps(x)
+    a = @process_step "first $x" x + 1
+    b = @process_step "second" 2a
+    @process_step "fails" error("boom $b")
+end
+
+# The stops of `f()` with the debug options `options`, as (variables, line)
+function stops_of(f; options...)
+    stops = []
+    Juleana.STOP_HOOK[] = (mod, vars, file, line) -> push!(stops, (; mod, vars, file, line))
+    try
+        with_logger(NullLogger()) do
+            try with(f, Juleana.DEBUG_CAPTURE => Juleana.debug_capture(:proc, (); options...)) catch end
+        end
+    finally
+        Juleana.STOP_HOOK[] = nothing
+    end
+    return stops
+end
+
 # The single failure that `f()` captures, also as the failures of the last `run_step` call
 function capture_failure(f, item = nothing)
-    capture = (; step = :proc, args = (), failures = Juleana.Failure[], lock = ReentrantLock())
+    capture = Juleana.debug_capture(:proc, ())
     with_logger(NullLogger()) do
         try with(f, Juleana.DEBUG_CAPTURE => capture, Juleana.CURRENT_ITEM => item) catch end
     end
@@ -169,8 +189,8 @@ end
 
     @testset "capture" begin
         module_for_locals = Module()
-        failures = Juleana.Failure[]
-        capture = (; step = :proc, args = (DataPeriod(3), DataRun(1)), failures, lock = ReentrantLock())
+        capture = Juleana.debug_capture(:proc, (DataPeriod(3), DataRun(1)))
+        failures = capture.failures
         row = (detector = DetectorId(:V00048B), usability = :on)
         err = with_logger(NullLogger()) do
             try with(() -> capture_nested(5), Juleana.DEBUG_CAPTURE => capture, Juleana.CURRENT_ITEM => row) catch e; e end
@@ -257,6 +277,28 @@ end
         with(() -> with_logger(() -> try hooked_outer() catch end, NullLogger()), Juleana.ERROR_PLOTS => true)
         @test HOOK_CALLS[] == 2
         @test_throws "@process_step: unknown option `plot = 1`, expected `on_error = hook`" macroexpand(@__MODULE__, :(@process_step "x" plot = 1 nothing))
+    end
+
+    @testset "pause and infiltrate" begin
+        stops = stops_of(() -> paused_steps(1); pause = :all)
+        @test [s.vars for s in stops] == [Dict(:x => 1, :step_value => 2), Dict(:x => 1, :a => 2, :step_value => 4)]
+        @test all(s -> s.mod === @__MODULE__() && s.file == @__FILE__, stops)
+        @test stops[2].line == stops[1].line + 1
+        stops = stops_of(() -> paused_steps(1); pause = ["second"])
+        @test only(stops).vars[:step_value] == 4
+        @test isempty(stops_of(() -> paused_steps(1); pause = ["first 2"]))
+        # at the failure, with the variables of the capture
+        stops = stops_of(() -> paused_steps(1); infiltrate = true)
+        @test only(stops).vars == Dict(:x => 1, :a => 2, :b => 4)
+        @test isempty(stops_of(() -> paused_steps(1)))
+        # a pause logs where it stopped
+        Juleana.STOP_HOOK[] = (args...) -> nothing
+        try
+            capture = Juleana.debug_capture(:proc, (); pause = ["second"])
+            @test (@test_logs (:info, "Paused after second; its value is `step_value`") with(() -> (@process_step "second" 4), Juleana.DEBUG_CAPTURE => capture)) == 4
+        finally
+            Juleana.STOP_HOOK[] = nothing
+        end
     end
 
     @testset "log location" begin

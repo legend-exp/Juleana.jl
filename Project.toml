@@ -47,7 +47,11 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 
+[weakdeps]
+Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
+
 [extensions]
+JuleanaInfiltratorExt = "Infiltrator"
 
 [compat]
 ArgParse = "1"
@@ -60,6 +64,7 @@ Distributed = "1"
 Format = "1"
 Graphs = "1.9"
 HDF5 = "0.17"
+Infiltrator = "1.9"
 IntervalSets = "0.7"
 LaTeXStrings = "1"
 LegendDSP = "0.3.5"

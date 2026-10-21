@@ -113,7 +113,7 @@ end
 """
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
         output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), debug::Bool = false, error_plots = nothing,
+        show_report::Bool = isinteractive(), debug = false, pause = nothing, error_plots = nothing,
         processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
@@ -149,10 +149,17 @@ the plots, reports and data files go to a temporary directory.
   `env_variables` of `config` are set.
 - `show_report`: display the report at the end with [`display_report`](@ref); the default
   in an interactive session.
-- `debug`: run the items one after the other in the calling process, without workers and
-  `timeout`, and capture each failed [`@process_step`](@ref) as a [`Failure`](@ref) with
-  the variables of the processor at that step; see [`Juleana.failure`](@ref). A summary of
-  the failures is printed at the end.
+- `debug`: `true` runs the items one after the other in the calling process, without
+  workers and `timeout`, and captures each failed [`@process_step`](@ref) as a
+  [`Failure`](@ref) with the variables of the processor at that step; see
+  [`Juleana.failure`](@ref). A summary of the failures is printed at the end.
+  `:infiltrate` does the same and also stops at each failed step in an Infiltrator
+  prompt with these variables; leaving the prompt goes on with the error. Needs
+  `using Infiltrator`.
+- `pause`: `:all`, or the names of steps, e.g. `["e_cusp simple calibration"]`, with their
+  interpolations done: stop in an Infiltrator prompt after each of these steps that
+  succeeds, with the variables of the processor and the value of the step as
+  `step_value`. Implies `debug = true` if `debug` is `false`. Needs `using Infiltrator`.
 - `error_plots`: whether a failed [`@process_step`](@ref) runs its `on_error` hook, which
   saves a debug plot; `nothing` (the default) takes the `error_plots` setting of the
   processor in `config`.
@@ -200,9 +207,15 @@ f = Juleana.failure()
 """
 function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp,
         output_dir = nothing, config = default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), debug::Bool = false, error_plots::Union{Nothing,Bool} = nothing,
-        processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+        show_report::Bool = isinteractive(), debug::Union{Bool,Symbol} = false, pause = nothing,
+        error_plots::Union{Nothing,Bool} = nothing, processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
     haskey(processors, step) || throw(ArgumentError("run_step: unregistered processor `$step`"))
+    debug in (false, true, :infiltrate) ||
+        throw(ArgumentError("run_step: `debug` is $(repr(debug)), expected false, true or :infiltrate"))
+    isnothing(pause) || pause === :all || pause isa AbstractVector{<:AbstractString} ||
+        throw(ArgumentError("run_step: `pause` is $(repr(pause)), expected :all or a vector of step names"))
+    (debug === :infiltrate || !isnothing(pause)) && isnothing(STOP_HOOK[]) &&
+        throw(ArgumentError("run_step: `debug = :infiltrate` and `pause` stop in an Infiltrator prompt; run `using Infiltrator` first"))
     outputs in (:temp, :production) ||
         throw(ArgumentError("run_step: `outputs` is $(repr(outputs)), expected :temp or :production"))
     traits = get(PROCESSOR_TRAITS, step, DEFAULT_TRAITS)
@@ -228,7 +241,8 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     selection = isnothing(detectors) ? nothing : Set(string.(detectors))
     record = (reports = Any[], results = Any[])
     failures = LAST_FAILURES[] = Failure[]
-    capture = debug ? (; step, args, failures, lock = ReentrantLock()) : nothing
+    capture = debug === false && isnothing(pause) ? nothing :
+        merge(debug_capture(step, args; infiltrate = debug === :infiltrate, pause), (; failures))
     started = time()
     with(DETECTOR_SELECTION => selection, WRITE_PARS => outputs === :production, STEP_RECORD => record,
             DEBUG_CAPTURE => capture, ERROR_PLOTS => something(error_plots, spec.error_plots)) do
@@ -246,7 +260,7 @@ function run_step(step::Symbol, period, run = nothing; detectors = nothing, outp
     @info "run_step: report appended to $report_file"
     # outside of the logger, which shows messages as text only
     show_report && display_report(report)
-    debug && print_failures(stdout, failures)
+    isnothing(capture) || print_failures(stdout, failures)
     return StepOutput(step, args, report, report_file, record.reports, dir, record.results, failures)
 end
 
@@ -274,7 +288,7 @@ The output of [`run_step`](@ref), with the fields
 - `reports`: the reports the processor wrote, complete with all detectors,
 - `output_dir`: the output directory,
 - `results`: the `item => result` pairs of all `parallel` calls of the processor,
-- `failures`: the [`Failure`](@ref)s captured with `debug = true`.
+- `failures`: the [`Failure`](@ref)s captured with `debug` or `pause`.
 """
 struct StepOutput
     step::Symbol
