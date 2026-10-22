@@ -21,7 +21,7 @@ fail the `is_valid_dsp` flag.
 # Outputs
 - `jlqcs` tier file for each detector, with the QC flags and the pulser flag
 - `l200.par.rpars.qcs[period, Symbol("<run>-phy")]` (flag definition, survival fractions, event counts) with its validity (category `phy`)
-- plots `:qc_survival_fractions` and `:qc_survival_fractions_forced_trigger` for each detector, and `:qc_survival_fractions` over all detectors; `:qc_survival_fractions_forced_trigger` and the plot over all detectors are saved only at the debug plot level
+- plots `:qc_survival_fractions` and `:qc_survival_fractions_forced_trigger` for each detector; `:qc_survival_fractions_forced_trigger` is saved only at the debug plot level
 - run report `:qcs_phy`, with one row per detector
 
 # Keywords
@@ -223,22 +223,24 @@ function process_qcs_phy(
     write_validity(l200.par.rpars.qcs, filekey, "$(period)/$(pars_file).yaml"; category = :phy)
     @info "Saved QC-survival pars to disk"
 
-    # plot the final survival fractions for all detectors from the parameter database
-    fig = LegendMakie.lplot(
-        chinfo, pars_db, [:survival_fractions, :pulser, :is_single_pulse];
-        figsize = (max(1600, 18 * length(chinfo)), 600),
-        ylabel = "Survival fraction (%)", color = LegendMakie.AchatBlue,
-        label = "Pulser", detector_status_colors = true, watermark = false)
-    ax = Makie.current_axis()
-    LegendMakie.parameterplot!(
-        ax, chinfo, pars_db, [:survival_fractions, :forced_trigger, :is_empty_trace];
-        ylabel = "Survival fraction (%)", color = LegendMakie.BEGeOrange,
-        label = "Forced trigger empty trace", detector_status_colors = true)
-    ax.title = get_plottitle(filekey, :all, "QC Survival Fractions")
-    Makie.axislegend(ax, position = :lb, orientation = :horizontal,
-        framevisible = true, framecolor = :lightgray)
-    LegendMakie.add_watermarks!(final = true)
-    @debug_plot save_plot(fig, l200, filekey, :all, :qc_survival_fractions; cleanup = false)
+    # Disabled until legend-exp/LegendMakie.jl#76 is fixed: LegendMakie's lplot and
+    # parameterplot use Makie's global current axis, which steps running at the same time overwrite.
+    # # plot the final survival fractions for all detectors from the parameter database
+    # fig = LegendMakie.lplot(
+    #     chinfo, pars_db, [:survival_fractions, :pulser, :is_single_pulse];
+    #     figsize = (max(1600, 18 * length(chinfo)), 600),
+    #     ylabel = "Survival fraction (%)", color = LegendMakie.AchatBlue,
+    #     label = "Pulser", detector_status_colors = true, watermark = false)
+    # ax = Makie.current_axis()
+    # LegendMakie.parameterplot!(
+    #     ax, chinfo, pars_db, [:survival_fractions, :forced_trigger, :is_empty_trace];
+    #     ylabel = "Survival fraction (%)", color = LegendMakie.BEGeOrange,
+    #     label = "Forced trigger empty trace", detector_status_colors = true)
+    # ax.title = get_plottitle(filekey, :all, "QC Survival Fractions")
+    # Makie.axislegend(ax, position = :lb, orientation = :horizontal,
+    #     framevisible = true, framecolor = :lightgray)
+    # LegendMakie.add_watermarks!(final = true)
+    # @debug_plot save_plot(fig, l200, filekey, :all, :qc_survival_fractions; cleanup = false)
 
     report = lreport()
     lreport!(report, "# Main Log")
@@ -248,8 +250,8 @@ function process_qcs_phy(
     lreport!(report, qcs_phy_log_text)
     lreport!(report, "# Metadata")
     lreport!(report, create_metadatatbl(filekey))
-    lreport!(report, "# Detector overview")
-    lreport!(report, fig)
+    # lreport!(report, "# Detector overview")
+    # lreport!(report, fig)
     lreport!(report, "\n# Results")
     lreport!(report, create_logtbl(result_qc))
 
@@ -258,7 +260,7 @@ function process_qcs_phy(
     @info "Write log report"
     write_report(report_filename, report)
     @info report
-    Base.empty!(fig)
+    # Base.empty!(fig)
 
     # flush stdout
     flush(stdout)
