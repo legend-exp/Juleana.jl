@@ -69,9 +69,9 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
             energy_type, threshold = split(evt_config_pd.aux[det].cal.aux_trig, '>'; limit=2)
             energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
             # Read only the plotted columns of the run; e_max and t_max exist only for some DSP functions.
+            # jlaux groups are LH5 structs, for which a single-column read returns the bare column.
             plot_tmax = issubset((:e_max, :t_max), propertynames(read_ldata(l200, DataTier(:jlaux), first(filekeys), det)))
-            dsp_data = read_ldata(Tuple(unique([energy_type; plot_tmax ? [:e_max, :t_max] : Symbol[]])), l200, DataTier(:jlaux), filekeys, det)
-            energy = ustrip.(getproperty(dsp_data, energy_type))
+            energy = ustrip.(read_ldata(energy_type, l200, DataTier(:jlaux), filekeys, det))
             n_evts = length(energy)
             filter!(x -> isfinite(x) && x > 0, energy)
             if !isempty(energy)
@@ -92,8 +92,8 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
             # e_max versus t_max with logarithmic energy bins and count colors.
             if plot_tmax
                 @info "Generate auxiliary DSP energy versus maximum-time plot for $det"
-                t_max = ustrip.(u"µs", dsp_data.t_max)
-                e_max = ustrip.(dsp_data.e_max)
+                t_max = ustrip.(u"µs", read_ldata(:t_max, l200, DataTier(:jlaux), filekeys, det))
+                e_max = ustrip.(read_ldata(:e_max, l200, DataTier(:jlaux), filekeys, det))
                 valid = isfinite.(t_max) .& isfinite.(e_max) .& (e_max .> 0)
                 t_max, e_max = t_max[valid], e_max[valid]
                 log_min = floor(log10(minimum(e_max)))
