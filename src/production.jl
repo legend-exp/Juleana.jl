@@ -52,7 +52,7 @@ What [`Juleana.create_production`](@ref) creates: the data production `name` in 
 - `set_default`: whether to set `LEGEND_DATA_CONFIG` to the new production in the startup
   file of the shell `shell` (`bash`: `.bashrc`, `zsh`: `.zshrc`) in `home`.
 - `copy_software`: whether to copy the software of this process into the production (see
-  [`Juleana.snapshot_software`](@ref)).
+  [`Juleana.record_software`](@ref)).
 """
 Base.@kwdef struct ProductionSpec
     name::String
@@ -179,8 +179,8 @@ Create the data production `spec` describes and return the path of its data conf
 2. creates the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
 3. writes `config.json` (see [`Juleana.data_config_text`](@ref)),
 4. copies the parameter folders into `generated/jlpar`,
-5. copies the software of this process into `software` (see
-   [`Juleana.snapshot_software`](@ref)),
+5. copies the software of this process into a subfolder of `software` (see
+   [`Juleana.record_software`](@ref)),
 6. sets `LEGEND_DATA_CONFIG` in the shell startup file: replaces the lines that export it,
    or appends one.
 
@@ -231,7 +231,7 @@ function create_production(spec::ProductionSpec; log = line -> @info(line))
         log("Copied $pars to $dest")
     end
     if spec.copy_software
-        snapshot_software(joinpath(path, "software"); log)
+        record_software(path; log)
     end
     if spec.set_default
         rc = shell_rc_file(spec.shell, spec.home)
@@ -316,9 +316,14 @@ with `Pkg.Apps.develop(path = "<dest>/Juleana.jl")`:
   `dest/<name>`, likewise;
 - `manifest` to `dest/Juleana.jl/Manifest.toml`, with the Juleana entry taken from `.`
   and the copied packages from `../<name>`, so that every package keeps its version;
-- `dest/PROVENANCE.md`: the date, user and host, the Julia version, and for each copied
-  package its source folder and, for a git checkout, its commit and whether it had
-  uncommitted changes, which the copy includes.
+- each copied package folder is a git repository with one commit of all its files,
+  including `Manifest.toml`, so that `Pkg.add(path = ...)` accepts it. The commit has a
+  fixed author and does not depend on the git configuration of the user;
+- `dest/SNAPSHOT.toml`: the date, user, host and Julia version, for each package its
+  `source`, its `commit` and whether it was `modified` (for a git checkout) and the `tree`
+  of the commit of the copy, and a `fingerprint` of the Julia version and the trees. Equal
+  software has equal fingerprints;
+- `dest/PROVENANCE.md`: the same for reading, and the steps to run the copy.
 
 Returns `dest`. Throws if `dest` exists.
 """
@@ -336,14 +341,17 @@ function snapshot_software(
         push!(copies, name =>
             (isabspath(path) ? path : normpath(joinpath(dirname(manifest), path))))
     end
+    created = Dates.format(now(UTC), HISTORY_TIME_FORMAT)
+    user, host = get(ENV, "USER", "unknown"), gethostname()
     lines = ["# Software of this production", "",
-        "Copied $(Dates.format(now(UTC), HISTORY_TIME_FORMAT)) UTC by $(get(ENV, "USER", "unknown"))@$(gethostname()) " *
-        "with Julia $VERSION. Install it with `Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")`.", "",
+        "Copied $created UTC by $user@$host with Julia $VERSION.", "",
         "| Package | Source | Commit | Uncommitted changes |", "|---|---|---|---|"]
+    states = Dict{String, Any}()
     for (name, path) in copies
         target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
         copy_package_tree(path, target)
         state = git_state(path)
+        states[name] = state
         push!(lines,
             "| $name | $path | $(isnothing(state) ? "–" : state.commit) | $(isnothing(state) ? "–" : state.modified ? "yes" : "no") |")
         log("Copied $name from $path to $target")
@@ -359,21 +367,106 @@ function snapshot_software(
         end
     end
     open(io -> TOML.print(io, data; sorted = true), joinpath(dest, "Juleana.jl", "Manifest.toml"), "w")
+    packages = Dict{String, Any}()
+    for (name, path) in copies
+        target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
+        state = states[name]
+        message = "Snapshot of $path" * (isnothing(state) ? " (not a git checkout)" :
+                   " at $(state.commit)" *
+                   (state.modified ? " with uncommitted changes" : ""))
+        # `Manifest.toml` is ignored by the `.gitignore` of a package
+        run_logged(`git -C $target init -q -b main`, log)
+        run_logged(`git -C $target add -A --force`, log)
+        run_logged(
+            `git -C $target -c user.name=Juleana -c user.email=juleana@localhost -c commit.gpgsign=false commit -q -m $message`,
+            log)
+        tree = strip(read(`git -C $target rev-parse $("HEAD^{tree}")`, String))
+        packages[name] = Dict{String, Any}("source" => path, "tree" => tree)
+        isnothing(state) || merge!(packages[name],
+            Dict{String, Any}("commit" => state.commit, "modified" => state.modified))
+    end
+    trees = join(("$name=$(packages[name]["tree"])\n"
+    for name in sort!(collect(keys(packages)))))
+    fingerprint = strip(read(
+        pipeline(`git hash-object --stdin`; stdin = IOBuffer("julia=$VERSION\n" * trees)), String))
+    open(joinpath(dest, "SNAPSHOT.toml"), "w") do io
+        TOML.print(io,
+            Dict{String, Any}("created" => created, "user" => user, "host" => host,
+                "julia" => string(VERSION), "fingerprint" => fingerprint, "packages" =>
+                    packages);
+            sorted = true)
+    end
+    append!(lines,
+        ["", "## Reproducing", "",
+            "In this folder, install the packages from the manifest and run Juleana from the copy:",
+            "", "```", "cd <this folder>/Juleana.jl",
+            "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
+            "export LEGEND_DATA_CONFIG=<production>/config.json",
+            "julia --project=. -m Juleana --no-tui ...", "```", "",
+            "Every package folder is a git repository with one commit. `Pkg.develop(path = \"<this folder>/Juleana.jl\")` " *
+            "and `Pkg.add(path = \"<this folder>/Juleana.jl\")` install the copy as well; `add` installs the committed tree. " *
+            "`Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")` replaces the globally installed `juleana` app.",
+            "", "`SNAPSHOT.toml` holds the same information in machine-readable form."])
     write(joinpath(dest, "PROVENANCE.md"), join(lines, "\n") * "\n")
     log("Wrote $(joinpath(dest, "PROVENANCE.md"))")
     return dest
 end
 
 """
-    Juleana.software_version()
+    Juleana.record_software(root::AbstractString; manifest = Juleana.running_manifest(),
+        source = pkgdir(Juleana), log = line -> @info(line))
+
+Make sure the folder `root/software` holds a snapshot of the software of this process
+and return the name of its subfolder. Takes a new snapshot with
+[`Juleana.snapshot_software`](@ref) and compares its `fingerprint` with that of every
+subfolder that has a `SNAPSHOT.toml`; other subfolders are ignored. For equal software it
+removes the new snapshot and returns the existing subfolder. Otherwise the new snapshot
+becomes the subfolder `<yyyy-mm-ddTHHMMSSZ>-<short Juleana commit>`, with `-modified`
+appended if Juleana had uncommitted changes, and `nogit` instead of the commit if it is not
+a git checkout. Throws if a step fails.
+"""
+function record_software(
+        root::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana),
+        log = line -> @info(line))
+    software = mkpath(joinpath(root, "software"))
+    fresh = joinpath(software, ".new-" * string(uuid4()))
+    try
+        snapshot_software(fresh; manifest, source, log)
+    catch
+        rm(fresh; recursive = true, force = true)
+        rethrow()
+    end
+    snapshot = TOML.parsefile(joinpath(fresh, "SNAPSHOT.toml"))
+    for sub in readdir(software)
+        startswith(sub, ".new-") && continue
+        file = joinpath(software, sub, "SNAPSHOT.toml")
+        isfile(file) && TOML.parsefile(file)["fingerprint"] == snapshot["fingerprint"] ||
+            continue
+        rm(fresh; recursive = true)
+        log("The software is already recorded in $(joinpath(software, sub))")
+        return sub
+    end
+    juleana = snapshot["packages"]["Juleana"]
+    name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") * "Z-" *
+           (haskey(juleana, "commit") ? first(juleana["commit"], 7) : "nogit") *
+           (get(juleana, "modified", false) ? "-modified" : "")
+    mv(fresh, joinpath(software, name))
+    log("Recorded the software in $(joinpath(software, name))")
+    return name
+end
+
+"""
+    Juleana.software_version(snapshot = nothing)
 
 Return a one-line description of the software of this process for the processing
 history: the Juleana version, and for a git checkout its short commit and `modified` if it
-has uncommitted changes, and the Julia version.
+has uncommitted changes, the Julia version, and with `snapshot`, the name of a subfolder of
+`software` (see [`Juleana.record_software`](@ref)), `snapshot software/<snapshot>`.
 """
-function software_version()
+function software_version(snapshot = nothing)
     state = git_state(pkgdir(Juleana))
     checkout = isnothing(state) ? "" :
                " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
-    return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION"
+    return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION" *
+           (isnothing(snapshot) ? "" : ", snapshot software/$snapshot")
 end

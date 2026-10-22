@@ -35,7 +35,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
         code = with_logger(logger) do
             Juleana.run_no_tui(args;
                 processors = Dict{Symbol, Any}(:process_energy_calibration_cal => step),
-                loader, interval = 0.05)
+                loader, interval = 0.05, record_software = false)
         end
         return code,
         [string(r.message) for r in logger.logs if r.message isa AbstractString]
@@ -81,7 +81,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
             started[] = 0
             ctrl = DataflowController(loader(args);
                 processors = Dict{Symbol, Any}(:process_energy_calibration_cal =>
-                    slow_step))
+                    slow_step), record_software = false)
             dispatch!(ctrl, SelectRuns([6]))
             dispatch!(ctrl, StartProcessing())
             @test timedwait(() -> started[] >= 1, 60) === :ok

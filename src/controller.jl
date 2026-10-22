@@ -364,7 +364,10 @@ Constructors:
   `:ready` with an existing session.
 
 `processors` maps processor names to their functions. Both constructors take the keyword
-`workers`, the [`Juleana.WorkerManager`](@ref) of the worker allocations.
+`workers`, the [`Juleana.WorkerManager`](@ref) of the worker allocations, and
+`record_software`: whether each processing run first records the software of this process
+in the `software` folder of the production (see [`Juleana.record_software`](@ref)) and
+fails if that fails.
 """
 mutable struct DataflowController
     const args::Dict{String, Any}
@@ -375,8 +378,11 @@ mutable struct DataflowController
     const abandon::Threads.Atomic{Bool}
     const progress::ProgressStore
     const workers::WorkerManager
+    const record_software::Bool
     # lines of the last production creation
     const production_lines::Vector{String}
+    # subfolder of `software` recorded for the current or last processing run
+    software_snapshot::Union{Nothing, String}
     state::Symbol
     session::Union{Nothing, DataflowSession}
     # selected periods, including those without runs to process
@@ -402,10 +408,10 @@ end
 function DataflowController(
         args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console),
-        workers::WorkerManager = WorkerManager())
+        workers::WorkerManager = WorkerManager(), record_software::Bool = true)
     return DataflowController(Dict{String, Any}(args), processors, loader, ReentrantLock(),
         Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers,
-        String[], :idle, nothing, DataPeriod[], DataPeriod[],
+        record_software, String[], nothing, :idle, nothing, DataPeriod[], DataPeriod[],
         Dict{DataPeriod, Vector{DataRun}}(), nothing, nothing, nothing, nothing, nothing,
         Dict{Symbol, Any}(), true, Dict{Symbol, Dict{Symbol, Any}}(),
         nothing, nothing, nothing, nothing, nothing)
@@ -413,8 +419,9 @@ end
 
 function DataflowController(
         session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS,
-        workers::WorkerManager = WorkerManager())
-    ctrl = DataflowController(session.args; processors, loader = nothing, workers)
+        workers::WorkerManager = WorkerManager(), record_software::Bool = true)
+    ctrl = DataflowController(
+        session.args; processors, loader = nothing, workers, record_software)
     install_session!(ctrl, session)
     return ctrl
 end
@@ -722,6 +729,7 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     # no progress of the last run is shown until `run_processing` registers the new steps
     reset_progress!(ctrl.progress, ProgressKey[])
     ctrl.state, ctrl.outcome, ctrl.last_error = :running, nothing, nothing
+    ctrl.software_snapshot = nothing
     ctrl.started, ctrl.finished = now(UTC), nothing
     (; l200, periods, run_status, partition_status) = session
     check_dependencies, reprocess, processor_log_level,
@@ -729,6 +737,10 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     ctrl.reprocess, ctrl.processor_log_level, ctrl.processor_plot_level
     ctrl.task = Threads.@spawn begin
         outcome, err = try
+            if ctrl.record_software
+                ctrl.software_snapshot = record_software(
+                    dirname(abspath(last(data_config_files()))))
+            end
             run_processing(
                 cfg, l200, periods, steps, p_steps, run_status, partition_status;
                 processors = ctrl.processors, check_dependencies, reprocess, processor_log_level, processor_plot_level,
@@ -762,7 +774,8 @@ function write_history(ctrl::DataflowController, cfg::ProcessingConfig,
         end
         path = append_history(history_path(l200),
             (; ctrl.started, finished, user = get(ENV, "USER", "unknown"),
-                host = gethostname(), outcome, cfg.log_path, software = software_version(), steps))
+                host = gethostname(), outcome, cfg.log_path,
+                software = software_version(ctrl.software_snapshot), steps))
         @info "Added the processing run to the history in $path"
     catch e
         @error "Writing the processing history failed" exception = (e, catch_backtrace())

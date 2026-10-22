@@ -117,6 +117,7 @@ Juleana.create_production
 Juleana.data_config_text
 Juleana.running_manifest
 Juleana.snapshot_software
+Juleana.record_software
 Juleana.software_version
 Juleana.production_log
 ```

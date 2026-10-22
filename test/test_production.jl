@@ -197,6 +197,7 @@ end
             mkpath(joinpath(juleana, "src"))
             write(joinpath(juleana, "src", "Juleana.jl"), "module Juleana end")
             write(joinpath(juleana, "Manifest.toml"), "not copied")
+            write(joinpath(juleana, ".gitignore"), "Manifest.toml\n")
             foo = test_repo(joinpath(root, "pkgs", "Foo"), "Project.toml")
             env = mkpath(joinpath(root, "env"))
             manifest = joinpath(env, "Manifest.toml")
@@ -225,8 +226,6 @@ end
                   dest
             @test isfile(joinpath(dest, "Juleana.jl", "src", "Juleana.jl")) &&
                   isfile(joinpath(dest, "Foo", "Project.toml"))
-            @test !ispath(joinpath(dest, "Juleana.jl", ".git")) &&
-                  !ispath(joinpath(dest, "Foo", ".git"))
             copied = TOML.parsefile(joinpath(dest, "Juleana.jl", "Manifest.toml"))
             @test copied["deps"]["Juleana"][1]["path"] == "." &&
                   !haskey(copied["deps"]["Juleana"][1], "git-tree-sha1")
@@ -242,6 +241,61 @@ end
                 provenance)
             @test occursin("Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")", provenance)
             @test_throws "$dest exists" Juleana.snapshot_software(dest; manifest, source = juleana)
+            @test occursin("## Reproducing", provenance) &&
+                  occursin("julia --project=. -m Juleana --no-tui", provenance)
+            # every package copy is a git repository with one commit that includes the manifest
+            for (name, folder) in ("Juleana" => "Juleana.jl", "Foo" => "Foo")
+                repo = joinpath(dest, folder)
+                @test readlines(`git -C $repo rev-list --count HEAD`) == ["1"]
+                files = [relpath(joinpath(r, f), repo)
+                         for (r, _, fs) in walkdir(repo)
+                         if !occursin(".git", relpath(r, repo)) for f in fs]
+                @test Set(readlines(`git -C $repo ls-files`)) == Set(files)
+                @test isempty(readlines(`git -C $repo status --porcelain`))
+            end
+            @test "Manifest.toml" in
+                  readlines(`git -C $(joinpath(dest, "Juleana.jl")) ls-tree --name-only HEAD`)
+            snapshot = TOML.parsefile(joinpath(dest, "SNAPSHOT.toml"))
+            @test snapshot["julia"] == string(VERSION) &&
+                  snapshot["host"] == gethostname() &&
+                  occursin(r"^\d{4}-", snapshot["created"])
+            @test snapshot["packages"]["Juleana"]["commit"] == commit &&
+                  snapshot["packages"]["Juleana"]["modified"] === true &&
+                  snapshot["packages"]["Foo"]["modified"] === false &&
+                  snapshot["packages"]["Foo"]["source"] == foo
+            for (name, folder) in ("Juleana" => "Juleana.jl", "Foo" => "Foo")
+                @test snapshot["packages"][name]["tree"] ==
+                      strip(read(`git -C $(joinpath(dest, folder)) rev-parse $("HEAD^{tree}")`, String))
+            end
+            @test length(snapshot["fingerprint"]) == 40
+
+            @testset "record_software" begin
+                production = mkpath(joinpath(root, "recorded"))
+                # an old flat layout is ignored
+                mkpath(joinpath(production, "software", "Juleana.jl"))
+                first_name = Juleana.record_software(
+                    production; manifest, source = juleana,
+                    log = _ -> nothing)
+                @test occursin(r"^\d{4}-\d{2}-\d{2}T\d{6}Z-", first_name) &&
+                      endswith(first_name, "-$(first(commit, 7))-modified")
+                @test isfile(joinpath(production, "software", first_name, "SNAPSHOT.toml"))
+                @test Juleana.record_software(production; manifest, source = juleana,
+                    log = _ -> nothing) == first_name
+                @test sort(readdir(joinpath(production, "software"))) ==
+                      sort(["Juleana.jl", first_name])
+                write(joinpath(juleana, "src", "Juleana.jl"), "module Juleana x = 1 end")
+                # snapshot names have a resolution of one second
+                sleep(1.1)
+                second_name = Juleana.record_software(
+                    production; manifest, source = juleana,
+                    log = _ -> nothing)
+                @test second_name != first_name && endswith(second_name, "-modified")
+                @test length(readdir(joinpath(production, "software"))) == 3
+                @test_throws "none.toml\": No such file" Juleana.record_software(
+                    production; manifest = joinpath(root, "none.toml"),
+                    source = juleana, log = _ -> nothing)
+                @test !any(startswith(".new-"), readdir(joinpath(production, "software")))
+            end
             # the environment of this process
             @test haskey(TOML.parsefile(Juleana.running_manifest())["deps"], "Juleana")
             @test startswith(Juleana.software_version(), "Juleana $(pkgversion(Juleana))") &&

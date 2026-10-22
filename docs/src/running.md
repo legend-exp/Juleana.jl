@@ -260,15 +260,42 @@ The production folder `<parent>/<name>` then holds
 - the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
 - `config.json`, the data config with one `tier/<label>` entry per extra tier path,
 - the copied parameters in `generated/jlpar`,
-- `software`, a copy of the Juleana checkout and of the other developed packages of the
-  running environment with a manifest that refers to the copies, and `PROVENANCE.md` with
-  the source folder, commit and uncommitted changes of each package (see
-  [`Juleana.snapshot_software`](@ref)), and
+- `software`, with one subfolder per recorded state of the software: a copy of the Juleana
+  checkout and of the other developed packages of the running environment, each a git
+  repository with one commit, a manifest that refers to the copies, `SNAPSHOT.toml` and
+  `PROVENANCE.md` with the source folder, commit and uncommitted changes of each package
+  (see [`Juleana.record_software`](@ref) and [`Juleana.snapshot_software`](@ref)), and
 - optionally the line `export LEGEND_DATA_CONFIG=<production>/config.json` in the shell
   startup file, replacing earlier lines that export the variable.
 
 The form shows the log of the creation. Afterwards this process uses the new production:
 it cancels its worker allocations, sets `LEGEND_DATA_CONFIG` and loads a session from it.
+
+## Reproducing a production
+
+Every processing run first records the software of the process in the `software` folder
+of the production (the folder that holds the data config), see
+[`Juleana.record_software`](@ref). A new snapshot is kept if its `fingerprint` in
+`SNAPSHOT.toml`, computed from the Julia version and the git trees of all copied packages,
+differs from that of every existing snapshot; otherwise the existing snapshot is reused.
+The run fails if the recording fails. The subfolder is named
+`<date>-<Juleana commit>`, with `-modified` if Juleana had uncommitted changes. The
+processing history names it in the software line of the run, for example
+`Software: Juleana 0.2.0 (bab9df2), Julia 1.12.7, snapshot software/2026-10-22T100704Z-bab9df2`.
+
+To run the software of a run again, use that snapshot:
+
+```sh
+cd <production>/software/<snapshot>/Juleana.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+export LEGEND_DATA_CONFIG=<production>/config.json
+julia --project=. -m Juleana --no-tui ...
+```
+
+`Pkg.develop(path = "<snapshot>/Juleana.jl")` and `Pkg.add(path = "<snapshot>/Juleana.jl")`
+install the snapshot into another environment; `add` installs the committed tree.
+`Pkg.Apps.develop(path = "<snapshot>/Juleana.jl")` replaces the globally installed
+`juleana` app.
 
 ## Updating
 
