@@ -148,7 +148,7 @@ function p_process_lq_calibration_cut_cal(
             @info "Only first period in partition $part for $period in $det ($ch)"
             for lq_type in lq_types
                 log_info = log_nt_cal((
-                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    det, detector_status(chinfo_det.usability), part, process_skipped,
                     lq_type, fill("-", 2)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[lq_type] = log_info
@@ -156,7 +156,7 @@ function p_process_lq_calibration_cut_cal(
             end
             for lq_classifier in lq_classifiers
                 log_info = log_nt_cut((
-                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    det, detector_status(chinfo_det.usability), part, process_skipped,
                     lq_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[lq_classifier] = log_info

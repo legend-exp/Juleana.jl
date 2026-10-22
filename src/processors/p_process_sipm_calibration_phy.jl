@@ -122,7 +122,7 @@ function p_process_sipm_calibration_phy(
             @info "Only first period in partition $part for $period in $det ($ch)"
             for e_type in energy_types
                 log_info = log_nt((
-                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    det, detector_status(chinfo_det.usability), part, process_skipped,
                     e_type, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[e_type] = log_info

@@ -80,7 +80,7 @@ function p_process_stability_plots_phy(
         if only_first_period && period != first(partinfo_det.period)
             @info "Skip $det in partition $part for period $period, as it starts in period $(first(partinfo_det.period))"
             log_det = log_nt((
-                det, detector_status(chinfo_det.usability), part, ProcessStatus(0),
+                det, detector_status(chinfo_det.usability), part, process_skipped,
                 :all, "Skipped, starts in period $(first(partinfo_det.period))"))
             return (processed = Dict(:all => false),
                 log = Dict(:all => log_det), skipped = true)

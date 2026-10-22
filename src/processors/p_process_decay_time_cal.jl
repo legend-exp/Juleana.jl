@@ -93,7 +93,7 @@ function p_process_decay_time_cal(processing_config, l200::LegendData, period::D
         if only_first_period && period != first(partinfo_det.period)
             @info "Only first period in partition $part for $period in $det ($ch)"
             log_det = log_nt((
-                det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                det, detector_status(chinfo_det.usability), part, process_skipped,
                 fill("-", 2)..., "Only first periods --> skipped."))
             return (
                 processed = false, log = log_det, validity = validity_det, skipped = true)

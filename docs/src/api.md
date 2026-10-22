@@ -151,6 +151,7 @@ Juleana.RENAMED_PROCESSORS
 parallel
 failure_log
 master_status
+process_skipped
 detector_status
 truncate_string
 truncate_error

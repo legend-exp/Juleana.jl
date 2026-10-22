@@ -11,6 +11,15 @@ function detector_status(usability::Symbol)
 end
 
 """
+    process_skipped
+
+Report status of an item that a partition step leaves to the same step of the period in
+which the partition starts (`only_first_period`): `Skipped` as an HTML `<span>` string for
+Markdown reports, in gray. [`master_status`](@ref) counts it as a success.
+"""
+const process_skipped = """<span style="color:gray">Skipped</span>"""
+
+"""
     master_status(results...)
 
 Combine the report rows of a processor into one status: `process_succeeded`,
@@ -24,6 +33,7 @@ detector usability is read from `itr.usability`; otherwise the row counts as `:o
 | Row status | `:on` | `:ac` | `:off` |
 |:-----------|:------|:------|:-------|
 | success    | –     | –     | –      |
+| skipped    | –     | –     | –      |
 | warning    | fail  | warn  | –      |
 | failure    | fail  | fail  | warn   |
 
@@ -40,7 +50,7 @@ function master_status(results...)
             for log in logs
                 has_entries = true
                 usability = haskey(log, :usability) ? itr.usability : :on
-                if log.Status == process_succeeded ||
+                if log.Status == process_succeeded || log.Status == process_skipped ||
                    (usability == :off && log.Status == process_warning)
                     continue
                 elseif (usability == :ac && log.Status == process_warning) ||

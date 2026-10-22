@@ -119,7 +119,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
             @info "Only first period in partition $part for $period in $det ($ch)"
             for aoe_classifier in aoe_classifiers
                 log_info = log_nt((
-                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    det, detector_status(chinfo_det.usability), part, process_skipped,
                     aoe_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[aoe_classifier] = log_info

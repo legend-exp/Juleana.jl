@@ -118,7 +118,7 @@ function p_process_psd_efficiencies_cal(
             @info "Only first period in partition $part for $period in $det ($ch)"
             for psd_classifier in psd_classifiers
                 log_info = log_nt_cut((
-                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    det, detector_status(chinfo_det.usability), part, process_skipped,
                     psd_classifier, fill("-", 3)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[psd_classifier] = log_info

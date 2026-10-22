@@ -114,6 +114,8 @@ outcome are recorded for the current step; otherwise a progress bar labeled
 `NamedTuple` with at least the fields `processed::Bool` and `log`, a row of type `log_nt`
 (or a `Dict` of such rows), so that successful and failed items have the same shape for
 [`master_status`](@ref) and the report.
+An item whose result has `skipped = true`, which partition steps return for a detector
+left to the step of an earlier period, counts as not run in the progress.
 
 An item whose `f` throws, or exceeds `timeout` seconds when `timeout > 0`, does not abort
 the batch: its pair is `itr => (processed = false, log = failure_log(log_nt, itr, msg))`.
@@ -190,12 +192,15 @@ function parallel(
     # one progress id per item, with the axes of `iterator`
     ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
     label(itr) = string(hasproperty(itr, :detector) ? itr.detector : itr)
+    item_outcome(res) = res isa NamedTuple && get(res, :skipped, false) === true ? :notrun :
+                        :done
     if !isnothing(DEBUG_CAPTURE[])
         result = map(iterator, ids) do itr, id
             !isnothing(stop) && stop[] && throw(ProcessingStopped())
             isnothing(step) || item_started!(step..., id, myid(), label(itr))
             item_result, outcome = try
-                itr => run_item(itr), :done
+                res = run_item(itr)
+                itr => res, item_outcome(res)
             catch e
                 e isa InterruptException && rethrow()
                 failure_row(itr, e), :failed
@@ -217,7 +222,8 @@ function parallel(
                 with(ITEM_STARTED => started) do
                     onworker(; pool, tries = retry ? 3 : 1, label = "$itr", maxtime = timeout) do
                         try
-                            return itr => run_item(itr), :done
+                            res = run_item(itr)
+                            return itr => res, item_outcome(res)
                         catch e
                             # Caught here so that `retry` only covers worker loss and timeouts, not errors in `f`.
                             @debug "Write Error log for $(itr): $e"

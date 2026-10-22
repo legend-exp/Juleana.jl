@@ -141,6 +141,8 @@ end
         @test master_status([det(:off) => row(process_failed)]) == process_warning
         @test master_status([det(:on) => row(process_warning)]) == process_failed
         @test master_status([det(:ac) => row(process_failed)]) == process_failed
+        @test master_status([det(:on) => row(Juleana.process_skipped),
+            det(:ac) => row(process_succeeded)]) == process_succeeded
         @test master_status(nothing, [det(:on) => row(process_succeeded)]) ==
               process_succeeded
         @test master_status(Pair[]) == process_failed
@@ -211,6 +213,20 @@ end
             end
         end
         @test labels == ["V00048B", string(fk)]
+
+        # an item left to the step of an earlier period counts as not run
+        store, key = Juleana.ProgressStore(), (DataPeriod(3), nothing, :skip_test)
+        Juleana.reset_progress!(store, [key])
+        with(Juleana.PROGRESS_STEP => (store, key)) do
+            parallel([row, merge(row, (detector = DetectorId(:V00048A),))], DetLog) do r
+                skipped = r.detector == DetectorId(:V00048A)
+                status = skipped ? Juleana.process_skipped : ProcessStatus(1)
+                (processed = !skipped, skipped,
+                    log = DetLog((r.detector, r.usability, status, "-", "")))
+            end
+        end
+        e = only(Juleana.progress(store).steps)
+        @test (e.done, e.failed, e.notrun) == (1, 0, 1)
 
         # Without workers the item runs on the main process, which onworker does not terminate.
         slow = parallel(k -> (sleep(5); (processed = true,)), [fk], FkLog; timeout = 0.2)

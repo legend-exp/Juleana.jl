@@ -131,7 +131,7 @@ function p_process_aoe_optimization_cal(
             @info "Only first period in partition $part for $period in $det ($ch)"
             for filter_type in aoe_filter
                 log_info = log_nt((
-                    det, detector_status(chinfo_det.usability), part, ProcessStatus(1),
+                    det, detector_status(chinfo_det.usability), part, process_skipped,
                     filter_type, fill("-", 4)..., "Only first periods --> skipped."))
                 # add results to dict
                 log_info_dict[filter_type] = log_info
