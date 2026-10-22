@@ -319,8 +319,27 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, 'q', '2')
         @test !m.quit && m.page == 1
 
-        # rows in alphabetical order: channels, max_wvfs (both accepted, not set)
-        press!(m, :down, :enter)
+        # the first rows are the log and the plot level; Enter sets the next level
+        energy() = only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors))
+        @test occursin("  log level = info", join(row_text(render_setup_page(m), r)
+        for r in 1:30))
+        press!(m, :enter, :down, :enter)
+        @test setup_refreshed!(m)
+        @test energy().log_level == Logging.Debug && energy().plot_level === :debug &&
+              energy().overridden == [:log_level, :plot_level]
+        text = join(row_text(render_setup_page(m), r) for r in 1:30)
+        @test occursin("* log level = debug   (config: info)", text) &&
+              occursin("* plot level = debug   (config: info)", text)
+        # `u` resets the level under the cursor
+        press!(m, 'u')
+        @test setup_refreshed!(m)
+        @test energy().plot_level === :info && energy().overridden == [:log_level]
+        press!(m, :up, 'u')
+        @test setup_refreshed!(m)
+        @test isempty(energy().overridden)
+
+        # then the kwargs in alphabetical order: channels, max_wvfs (both accepted, not set)
+        press!(m, :down, :down, :down, :enter)
         @test m.setup.editor.text == ""
         press!(m, '5', 'x', :backspace, :enter)
         @test setup_refreshed!(m)
@@ -380,7 +399,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             @test !ispath(written)
 
             # the config folder of the data production is created and the session config file becomes the written one
-            press!(m, :tab, 'e', :down, :enter, '7', :enter, :escape, 'w', 'y')
+            # the editor rows: log level, plot level, channels, max_wvfs
+            press!(m, :tab, 'e', :down, :down, :down, :enter, '7', :enter, :escape, 'w', 'y')
             @test setup_refreshed!(m)
             @test isnothing(m.command_error)
             @test ProcessingConfig(written).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] ==

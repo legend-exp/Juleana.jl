@@ -40,7 +40,9 @@
         processor(name, level, category, rank, deps; enabled = true,
             kwargs = Dict{Symbol, Any}()) = (; name, level, category, rank, enabled,
             selected = enabled, dependencies = deps, kwargs,
-            config_kwargs = copy(kwargs), accepted = [:max_wvfs, :channels], overridden = Symbol[])
+            config_kwargs = copy(kwargs), accepted = [:max_wvfs, :channels], overridden = Symbol[],
+            log_level = Logging.Info, plot_level = :info, config_log_level = Logging.Info,
+            config_plot_level = :info)
         processors = [
             processor(:process_dsp_cal, :run, :cal, 1, Symbol[]),
             processor(:process_energy_calibration_cal, :run, :cal, 2,
@@ -198,8 +200,10 @@
         # Setup: filter, kwargs editor, write confirmation, options pane
         m.page = 1
         press('/', 'a', 'b', :backspace, :enter, '/', 'x', :escape, :tab,
-            :down, 'e', :down, :enter, '1', :backspace, :escape, :escape,
+            :down, 'e', :down, :down, :down, :enter, '1', :backspace, :escape, :escape,
             :tab, 'w', 'n', :tab, :down, :up, :tab)
+        # Enter on a level row of the editor sends a command
+        kwargs_key!(KwargsEditor(:process_dsp_cal), Tachikoma.KeyEvent(:enter), snap, drop)
         setup_key!(m.setup, Tachikoma.KeyEvent(' '), snap, drop)
         setup_key!(m.setup, Tachikoma.KeyEvent(:enter), snap, drop)
         for k in ('c', 'p', 'd', 's', 'x', 'X', 'r', 'g', 'W')

@@ -93,12 +93,24 @@ function editor_processor(editor::KwargsEditor, snap)
     return isnothing(i) ? nothing : snap.processors[i]
 end
 
-# Rows of the editor in alphabetical order, so that setting a kwarg does not move it: the
-# kwargs set in the config or the session and the accepted ones, with whether each is set.
+# The levels of a processor that the editor shows above its kwargs, in the order Enter steps
+# through them.
+const EDITOR_LEVELS = (
+    log_level = (Logging.Info, Logging.Debug, Logging.Warn, Logging.Error),
+    plot_level = (:info, :debug))
+
+# Rows of the editor: the log and the plot level, then the kwargs in alphabetical order, so
+# that setting a kwarg does not move it: the kwargs set in the config or the session and the
+# accepted ones, with whether each is set.
 function editor_rows(proc)
-    [(key, haskey(proc.kwargs, key))
-     for key in sort!(collect(union(keys(proc.kwargs), something(proc.accepted, Symbol[]))))]
+    vcat([(key, true) for key in keys(EDITOR_LEVELS)],
+        [(key, haskey(proc.kwargs, key))
+         for key in sort!(collect(union(keys(proc.kwargs), something(proc.accepted, Symbol[]))))])
 end
+
+# Text of the log or plot level `value`.
+format_level(value::LogLevel) = only(name for (name, level) in LOG_LEVELS if level == value)
+format_level(value::Symbol) = string(value)
 
 """
     Juleana.kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
@@ -106,8 +118,9 @@ end
 Handle the key `evt` in the kwargs editor and return `:close` when the editor closes,
 `true` otherwise; the editor uses every key. Up and Down move, Enter starts editing the
 value under the cursor and, while editing, sends it as [`SetKwarg`](@ref) once it parses
-(see [`Juleana.parse_kwarg_value`](@ref)); Escape stops editing or closes the editor;
-`u` resets the kwarg under the cursor and `U` all kwargs of the processor with
+(see [`Juleana.parse_kwarg_value`](@ref)); on the log or plot level row, Enter sets the next
+level with [`SetStepLevel`](@ref). Escape stops editing or closes the editor; `u` resets the
+kwarg or level under the cursor and `U` all kwargs and levels of the processor with
 [`ResetKwargs`](@ref).
 """
 function kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
@@ -140,10 +153,15 @@ function kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
         return :close
     elseif key in (:up, :down)
         editor.cursor = clamp(editor.cursor + (key == :up ? -1 : 1), 1, max(1, length(rows)))
-    elseif key == :enter && !isempty(rows)
+    elseif key == :enter && haskey(EDITOR_LEVELS, first(rows[editor.cursor]))
+        name = first(rows[editor.cursor])
+        cycle = EDITOR_LEVELS[name]
+        current = findfirst(==(getproperty(proc, name)), cycle)
+        send(SetStepLevel(editor.step, name, cycle[mod1(something(current, 0) + 1, length(cycle))]))
+    elseif key == :enter
         name = first(rows[editor.cursor])
         editor.text = haskey(proc.kwargs, name) ? format_kwarg(proc.kwargs[name]) : ""
-    elseif key == :char && char == 'u' && !isempty(rows)
+    elseif key == :char && char == 'u'
         send(ResetKwargs(editor.step, first(rows[editor.cursor])))
     elseif key == :char && char == 'U'
         send(ResetKwargs(editor.step))
@@ -154,10 +172,10 @@ end
 """
     Juleana.render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
-Draw the kwargs editor as a box in the middle of `area`: one row per kwarg in
-alphabetical order with its value, `*` and the config value for a changed kwarg, and
-dimmed the accepted kwargs that are not set; the text being typed and the last error
-below.
+Draw the kwargs editor as a box in the middle of `area`: a row for the log and the plot level
+of the processor, then one row per kwarg in alphabetical order with its value, `*` and the
+config value for a changed level or kwarg, and dimmed the accepted kwargs that are not set;
+the text being typed and the last error below.
 """
 function render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     proc = editor_processor(editor, snap)
@@ -167,7 +185,14 @@ function render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Ta
     highlight, error_style = Tachikoma.tstyle(:accent, bold = true),
     Tachikoma.tstyle(:error, bold = true)
     for (i, (name, isset)) in enumerate(editor_rows(proc))
-        line = if isset
+        line = if haskey(EDITOR_LEVELS, name)
+            changed = name in proc.overridden
+            label = replace(string(name), "_" => " ")
+            "$(changed ? "*" : " ") $label = $(format_level(getproperty(proc, name)))" *
+            (changed ?
+             "   (config: $(format_level(getproperty(proc, Symbol("config_", name)))))" :
+             "")
+        elseif isset
             changed = name in proc.overridden
             "$(changed ? "*" : " ") $name = $(format_kwarg(proc.kwargs[name]))" *
             (changed ?
@@ -179,11 +204,12 @@ function render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Ta
         end
         push!(lines, (line, i == editor.cursor ? highlight : isset ? text : dim))
     end
-    isempty(lines) && push!(lines, ("This processor takes no settings.", dim))
+    length(lines) == length(EDITOR_LEVELS) &&
+        push!(lines, ("  This processor takes no kwargs.", dim))
     push!(lines, ("", text))
     isnothing(editor.text) || push!(lines, ("new value: " * editor.text * "▏", highlight))
     isnothing(editor.error) || push!(lines, (editor.error, error_style))
-    push!(lines, ("Enter: edit/set   u/U: reset one/all   Esc: back", dim))
+    push!(lines, ("Enter: edit/set, next level   u/U: reset one/all   Esc: back", dim))
 
     width = min(area.width, max(50, maximum(l -> textwidth(first(l)), lines) + 4))
     height = min(area.height, length(lines) + 2)

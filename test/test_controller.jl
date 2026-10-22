@@ -471,6 +471,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "WriteConfig" begin
         ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
+        dispatch!(ctrl, SetStepLevel(:process_energy_calibration_cal, :log_level, "debug"))
+        dispatch!(ctrl, SetStepLevel(:p_process_aoe_cut_cal, :plot_level, :debug))
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, SetAnalysisRunsOnly(true))
         other_runmode = cfg.runmode === :local ? :slurm : :local
@@ -495,6 +497,11 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test props.config == original.config
         written_cfg = ProcessingConfig(written)
         @test written_cfg.processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 5
+        @test props.processors.process_energy_calibration_cal.log_level == "debug" &&
+              props.p_processors.p_process_aoe_cut_cal.plot_level == "debug"
+        @test written_cfg.processors[:process_energy_calibration_cal].log_level ==
+              Logging.Debug &&
+              written_cfg.p_processors[:p_process_aoe_cut_cal].plot_level === :debug
         @test run_steps(written_cfg) == [:process_energy_calibration_cal] &&
               isempty(partition_steps(written_cfg))
         # the file is YAML, not JSON, and reads back to the same config
@@ -699,6 +706,26 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # resetting a key that is not overridden changes nothing
         dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal, :max_wvfs))
         @test_throws "ResetKwargs: a key needs a processor" ResetKwargs(nothing, :max_wvfs)
+
+        # level overrides change the levels of the processor in the effective config
+        @test energy().log_level == Logging.Info && energy().plot_level === :info
+        dispatch!(ctrl, SetStepLevel(:process_energy_calibration_cal, :log_level, "debug"))
+        dispatch!(ctrl, SetStepLevel(:process_energy_calibration_cal, :plot_level, :debug))
+        @test energy().log_level == Logging.Debug && energy().plot_level === :debug &&
+              energy().config_log_level == Logging.Info &&
+              energy().config_plot_level === :info
+        @test energy().overridden == [:log_level, :plot_level]
+        spec = Juleana.effective_config(ctrl).processors[:process_energy_calibration_cal]
+        @test spec.log_level == Logging.Debug && spec.plot_level === :debug
+        dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal, :log_level))
+        @test energy().log_level == Logging.Info && energy().overridden == [:plot_level]
+        dispatch!(ctrl, ResetKwargs())
+        @test isempty(energy().overridden) && isempty(ctrl.level_overrides)
+        @test_throws "the log level must be" SetStepLevel(
+            :process_energy_calibration_cal, :log_level, "verbose")
+        @test_throws "the plot level must be" SetStepLevel(:process_energy_calibration_cal, :plot_level, :all)
+        @test_throws "the key must be" SetStepLevel(:process_energy_calibration_cal, :max_wvfs, 1)
+        @test_throws "unknown processor" dispatch!(ctrl, SetStepLevel(:nope, :log_level, "debug"))
     end
     @testset "report_index and report_overview" begin
         ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
