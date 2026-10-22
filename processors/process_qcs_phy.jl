@@ -45,8 +45,9 @@ function process_qcs_phy(processing_config::PropDict, l200::LegendData, period::
         n_processed = 0
         failed_detectors = DetectorId[]
         # Aligned auxiliary trigger flags are shared by all detectors in a filekey.
-        is_pulser = read_ldata(:aux_trig, l200, :jlaux, fk, det_puls).aux_trig
-        is_forced = read_ldata(:aux_trig, l200, :jlaux, fk, det_forced).aux_trig .& .!is_pulser
+        # jlaux groups are LH5 structs, for which a single-column read returns the bare column.
+        is_pulser = read_ldata(:aux_trig, l200, DataTier(:jlaux), fk, det_puls)
+        is_forced = read_ldata(:aux_trig, l200, DataTier(:jlaux), fk, det_forced) .& .!is_pulser
         write_files(qcsfilename, use_cache=true, mode=CreateOrModify()) do outfilename
             if reprocess && isfile(outfilename)
                 rm(outfilename; force=true)
