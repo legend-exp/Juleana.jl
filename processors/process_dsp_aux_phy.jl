@@ -61,10 +61,9 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
     start_time = now()
     result_filekeys = parallel(filekeys, filekey_dsp_aux, log_fk_nt, wpool; timeout=timeout, retry=false, process_name="$(ifelse(startswith(string(nameof(var"#self#")), "p_"), "$period", "$period-$run"))-$(nameof(var"#self#"))")
 
-    result_dsp_aux = map(chinfo_aux) do chinfo_det
+    # Run-level plots need all filekeys, so they follow the filekey stage, one detector per worker.
+    function det_plot_dsp_aux(chinfo_det::NamedTuple)
         det = chinfo_det.detector
-        # Release the previous detector's run-level data before reading the next one on the main process.
-        GC.gc()
         try
             energy_type, threshold = split(evt_config_pd.aux[det].cal.aux_trig, '>'; limit=2)
             energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
@@ -113,14 +112,15 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy_tmax)
             end
 
-            chinfo_det => (result=(n_evts=n_evts,), processed=true,
+            (result=(n_evts=n_evts,), processed=true,
                 log=log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$n_evts", "")))
         catch e
             @error "Error plotting auxiliary DSP for detector $det: $(truncate_error(e))"
-            chinfo_det => (processed=false,
+            (processed=false,
                 log=log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "-", truncate_error(e))))
         end
     end
+    result_dsp_aux = parallel(chinfo_aux, det_plot_dsp_aux, log_nt, wpool; timeout=timeout, retry=false, process_name="$period-$run-dsp_aux-plots")
 
     @info "Finished auxiliary detector DSP"
 
