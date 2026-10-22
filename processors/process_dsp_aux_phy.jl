@@ -63,10 +63,14 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
 
     result_dsp_aux = map(chinfo_aux) do chinfo_det
         det = chinfo_det.detector
+        # Release the previous detector's run-level data before reading the next one on the main process.
+        GC.gc()
         try
             energy_type, threshold = split(evt_config_pd.aux[det].cal.aux_trig, '>'; limit=2)
             energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
-            dsp_data = read_ldata(l200, DataTier(:jlaux), filekeys, det)
+            # Read only the plotted columns of the run; e_max and t_max exist only for some DSP functions.
+            plot_tmax = issubset((:e_max, :t_max), propertynames(read_ldata(l200, DataTier(:jlaux), first(filekeys), det)))
+            dsp_data = read_ldata(Tuple(unique([energy_type; plot_tmax ? [:e_max, :t_max] : Symbol[]])), l200, DataTier(:jlaux), filekeys, det)
             energy = ustrip.(getproperty(dsp_data, energy_type))
             n_evts = length(energy)
             filter!(x -> isfinite(x) && x > 0, energy)
@@ -86,18 +90,18 @@ function process_dsp_aux_phy(processing_config::PropDict, l200::LegendData, peri
                 savelfig(LegendMakie.lsavefig, p, l200, filekey, det, :dsp_aux_energy)
             end
             # e_max versus t_max with logarithmic energy bins and count colors.
-            if hasproperty(dsp_data, :e_max) && hasproperty(dsp_data, :t_max)
+            if plot_tmax
                 @info "Generate auxiliary DSP energy versus maximum-time plot for $det"
                 t_max = ustrip.(u"µs", dsp_data.t_max)
                 e_max = ustrip.(dsp_data.e_max)
                 valid = isfinite.(t_max) .& isfinite.(e_max) .& (e_max .> 0)
-                log_min = floor(log10(minimum(e_max[valid])))
-                log_max = max(log_min + 1, ceil(log10(maximum(e_max[valid]))))
+                t_max, e_max = t_max[valid], e_max[valid]
+                log_min = floor(log10(minimum(e_max)))
+                log_max = max(log_min + 1, ceil(log10(maximum(e_max))))
                 energy_bins = 10.0 .^ range(log_min, log_max; length=201)
                 energy_bins[end] = nextfloat(last(energy_bins))
-                time_bins = first(StatsBase.fit(StatsBase.Histogram, t_max[valid]; nbins=200).edges)
-                p = LegendMakie.lhist(t_max[valid], e_max[valid];
-                    bins = (time_bins, energy_bins),
+                time_bins = StatsBase.histrange(t_max, 200)
+                p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (t_max, e_max), (time_bins, energy_bins));
                     figsize = (800, 500),
                     title = get_plottitle(filekey, det, "e_max vs. t_max"),
                     xlabel = "t_max (µs)",
