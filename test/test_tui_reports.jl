@@ -439,7 +439,7 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
     @testset "reading a report file" begin
         # an `:open` request does not use the controller
         ctrl = DataflowController(Dict{String, Any}("config" => nothing);
-            loader = nothing, record_software = false)
+            loader = nothing, record_software = false, record_metadata = false)
         path = joinpath(mktempdir(), "report.md")
         write(path, "# Main Log\n\nbody")
         answer = Juleana.read_reports(ctrl, (; kind = :open, path))
@@ -526,7 +526,8 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
             return tb
         end
 
-        m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+        m = Juleana.JuleanaTUI(DataflowController(
+            new_session(); processors, record_software = false, record_metadata = false))
         page = m.reports_page
         # a processing run whose steps the page lists with `a`
         dispatch!(m.ctrl, StartProcessing())
@@ -613,7 +614,8 @@ press(page, key) = Juleana.reports_key!(page, KeyEvent(key))
 
         # no session loaded yet: the message of the failed read
         idle = Juleana.JuleanaTUI(DataflowController(
-            args; processors, loader = _ -> new_session(), record_software = false))
+            args; processors, loader = _ -> new_session(),
+            record_software = false, record_metadata = false))
         Tachikoma.update!(idle, KeyEvent('6'))
         @test settle!(() -> !idle.reports_page.reading, idle)
         @test find_text(render_model(idle), "report_overview: no session") !== nothing

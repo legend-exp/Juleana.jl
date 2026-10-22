@@ -41,7 +41,7 @@ end
 
 """
     run_no_tui(parsed_args::AbstractDict; processors = PROCESSORS, loader = setup_session,
-        interval = 1, record_software = true)
+        interval = 1, record_software = true, record_metadata = true)
 
 Run all enabled processors of the session described by the parsed command line options
 `parsed_args` without the terminal user interface and return the process exit code.
@@ -52,8 +52,9 @@ also starts the workers and the log files), start processing through a
 updated every `interval` seconds, until the run ends. The first Ctrl-C stops the run
 after the running items, a second one stops it without waiting for them (see
 [`StopProcessing`](@ref)). Finally log a summary with the outcome, the duration, the
-number of steps per state and the failed and cancelled steps. With `record_software`, the
-run first records the software in the production (see [`DataflowController`](@ref)).
+number of steps per state and the failed and cancelled steps. With `record_software` and
+`record_metadata`, the run first records the software and the metadata in the production
+(see [`DataflowController`](@ref)).
 
 The exit code is `0` when the run finished, `1` when it failed or the session could not
 be set up, and `2` when it was stopped.
@@ -61,8 +62,9 @@ be set up, and `2` when it was stopped.
 function run_no_tui(
         parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
         loader = setup_session, interval::Real = 1,
-        record_software::Bool = true)
-    ctrl = DataflowController(parsed_args; processors, loader, record_software)
+        record_software::Bool = true, record_metadata::Bool = true)
+    ctrl = DataflowController(
+        parsed_args; processors, loader, record_software, record_metadata)
     dispatch!(ctrl, LoadSession())
     wait(ctrl)
     snap = snapshot(ctrl)

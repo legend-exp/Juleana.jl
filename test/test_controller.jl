@@ -56,7 +56,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "state and snapshot" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         snap = snapshot(ctrl)
         @test snap.state === :ready
         @test isnothing(snap.outcome) && isnothing(snap.last_error)
@@ -77,7 +77,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "rejected commands" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         @test_throws "StopProcessing is not possible while the controller is :ready" dispatch!(
             ctrl, StopProcessing())
         @test_throws "LoadSession is not possible while the controller is :ready" dispatch!(ctrl, LoadSession())
@@ -98,7 +98,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test all(p -> isempty(p.overridden), snap.processors)
 
         idle = DataflowController(Dict{String, Any}("config" => shipped_config);
-            processors, record_software = false)
+            processors, record_software = false, record_metadata = false)
         @test snapshot(idle).state === :idle
         @test isempty(snapshot(idle).processors)
         @test_throws "StartProcessing is not possible while the controller is :idle" dispatch!(
@@ -107,7 +107,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
 
     @testset "select, override and process" begin
         empty!(calls)
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         dispatch!(ctrl, SelectPeriods(["p02"]))
         dispatch!(ctrl, SelectRuns([6]))
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], [:p_process_aoe_cut_cal]))
@@ -136,7 +136,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # the snapshot has the same type in every state, with and without a session
         @test snap isa Juleana.ControllerSnapshot
         @test snapshot(DataflowController(Dict{String, Any}("config" => nothing);
-            loader = nothing, record_software = false)) isa
+            loader = nothing, record_software = false, record_metadata = false)) isa
               Juleana.ControllerSnapshot
         @test sort(map(c -> c[1:3], calls); by = string) ==
               sort(
@@ -172,7 +172,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "software record" begin
         production = mkpath(joinpath(root, "recorded-production"))
         function run_recorded()
-            ctrl = DataflowController(new_session(); processors)
+            ctrl = DataflowController(new_session(); processors, record_metadata = false)
             dispatch!(ctrl, SelectPeriods(["p02"]))
             dispatch!(ctrl, SelectRuns([6]))
             dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
@@ -208,9 +208,46 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test entry.outcome === :failed && entry.software == Juleana.software_version()
     end
 
+    @testset "metadata record" begin
+        # a production whose metadata is a git checkout of the test metadata
+        production = mkpath(joinpath(root, "metadata-production"))
+        metadata = joinpath(production, "legend-metadata")
+        cp(TEST_METADATA, metadata)
+        git(args...) = run(pipeline(
+            `git -C $metadata -c user.name=Test -c user.email=test@example.org $args`;
+            stdout = devnull))
+        git("init", "-q", "-b", "main")
+        git("add", "-A")
+        git("commit", "-q", "-m", "test metadata")
+        config = joinpath(production, "config.json")
+        write(config, replace(read(data_config, String), TEST_METADATA => metadata))
+        metadata_l200 = legend_test_data(config)
+        periods, run_status, partition_status = Juleana.setup_dependency_graph(
+            metadata_l200, cfg, [p2], nothing, run_steps(cfg), partition_steps(cfg))
+        session = DataflowSession(;
+            args = Dict{String, Any}("config" => shipped_config), l200 = metadata_l200,
+            config = cfg, periods, run_steps = run_steps(cfg),
+            partition_steps = partition_steps(cfg), run_status, partition_status)
+        ctrl = DataflowController(session; processors, record_software = false)
+        withenv("LEGEND_DATA_CONFIG" => config) do
+            dispatch!(ctrl, SelectRuns([6]))
+            dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
+            dispatch!(ctrl, StartProcessing())
+            wait(ctrl)
+        end
+        recorded = only(readdir(joinpath(production, "metadata-records")))
+        @test snapshot(ctrl).outcome === :finished && ctrl.metadata_record == recorded &&
+              isnothing(ctrl.software_snapshot)
+        folder = joinpath(production, "metadata-records", recorded)
+        @test sort(readdir(joinpath(folder, "config"))) ==
+              ["1-config.json", "2-processing_config.yaml"]
+        entry = last(Juleana.read_history(Juleana.history_path(metadata_l200)))
+        @test entry.metadata == "metadata-records/$recorded"
+    end
+
     @testset "per-period runs" begin
         empty!(calls)
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         @test snapshot(ctrl).available_runs[p3] == DataRun.(0:5)
         dispatch!(ctrl, SelectRuns(Dict(2 => [7], "p03" => nothing)))
         snap = snapshot(ctrl)
@@ -253,7 +290,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "analysis runs only" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         @test snapshot(ctrl).analysis_runs_only == cfg.analysis_runs_only
         dispatch!(ctrl, SetAnalysisRunsOnly(!cfg.analysis_runs_only))
         @test snapshot(ctrl).analysis_runs_only == !cfg.analysis_runs_only
@@ -263,7 +300,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "run mode" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         other = cfg.runmode === :local ? :slurm : :local
         @test_throws "runmode must be :local or :slurm" SetRunmode(:cluster)
         @test snapshot(ctrl).runmode === cfg.runmode
@@ -275,14 +312,15 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # the session config is unchanged
         @test ctrl.session.config.runmode === cfg.runmode
         @test_throws "SetRunmode is not possible while the controller is :idle" dispatch!(
-            DataflowController(Dict{String, Any}(); processors, record_software = false), SetRunmode(other))
+            DataflowController(Dict{String, Any}(); processors,
+                record_software = false, record_metadata = false), SetRunmode(other))
     end
 
     @testset "failed run" begin
         failing(cfg, l200, period, run; reprocess = false) = error("stub failure")
         ctrl = DataflowController(new_session();
             processors = merge(processors, Dict{Symbol, Any}(:process_energy_calibration_cal =>
-                failing)), record_software = false)
+                failing)), record_software = false, record_metadata = false)
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, StartProcessing())
         wait(ctrl)
@@ -308,7 +346,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         end
         ctrl = DataflowController(new_session();
             processors = merge(processors, Dict{Symbol, Any}(:process_energy_calibration_cal =>
-                slow_step)), record_software = false)
+                slow_step)), record_software = false, record_metadata = false)
         dispatch!(ctrl, SelectPeriods([2]))
         dispatch!(ctrl, SelectRuns([6]))
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
@@ -356,7 +394,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             end
             ctrl = DataflowController(new_session();
                 processors = merge(processors,
-                    Dict{Symbol, Any}(:process_energy_calibration_cal => slow_item_step)), record_software = false)
+                    Dict{Symbol, Any}(:process_energy_calibration_cal => slow_item_step)), record_software = false, record_metadata = false)
             dispatch!(ctrl, SelectPeriods([2]))
             dispatch!(ctrl, SelectRuns([6]))
             dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
@@ -392,14 +430,15 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "load and reload" begin
         session = new_session()
         ctrl = DataflowController(Dict{String, Any}("config" => shipped_config);
-            processors, loader = args -> session, record_software = false)
+            processors, loader = args -> session, record_software = false, record_metadata = false)
         dispatch!(ctrl, LoadSession())
         wait(ctrl)
         @test snapshot(ctrl).state === :ready
         @test ctrl.session === session
 
         broken = DataflowController(Dict{String, Any}("config" => shipped_config);
-            processors, loader = args -> error("no data"), record_software = false)
+            processors, loader = args -> error("no data"),
+            record_software = false, record_metadata = false)
         dispatch!(broken, LoadSession())
         wait(broken)
         snap = snapshot(broken)
@@ -416,7 +455,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         session = DataflowSession(;
             args, session.l200, session.config, session.periods, session.run_steps,
             session.partition_steps, session.run_status, session.partition_status)
-        ctrl = DataflowController(session; processors, record_software = false)
+        ctrl = DataflowController(session; processors, record_software = false, record_metadata = false)
         dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
         withenv("LEGEND_DATA_CONFIG" => nothing) do
             dispatch!(ctrl, ReloadConfig())
@@ -430,7 +469,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "WriteConfig" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         dispatch!(ctrl, SetKwarg(:process_energy_calibration_cal, :max_wvfs, 5))
         dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
         dispatch!(ctrl, SetAnalysisRunsOnly(true))
@@ -501,7 +540,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "worker commands" begin
         production = mktempdir()
         withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
-            ctrl = DataflowController(new_session(); processors, record_software = false)
+            ctrl = DataflowController(
+                new_session(); processors, record_software = false, record_metadata = false)
             @test isempty(snapshot(ctrl).allocations)
             dispatch!(ctrl, EditStartScript("echo started; sleep 60"))
             @test read(joinpath(production, "config", "startjlworkers.sh"), String) ==
@@ -530,7 +570,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             # idle allocations are cancelled
             short = DataflowController(
                 new_session(ProcessingConfig(; cfg.processors, cfg.p_processors, idle_timeout_minutes = 0.002));
-                processors, record_software = false)
+                processors, record_software = false, record_metadata = false)
             dispatch!(short, EditStartScript("sleep 60"))
             dispatch!(short, AddWorkers())
             @test !Juleana.check_idle!(short)
@@ -542,7 +582,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             @test occursin("elastic_worker", Juleana.start_script!(ctrl.workers).text)
 
             idle = DataflowController(Dict{String, Any}("config" => shipped_config);
-                processors, loader = _ -> new_session(), record_software = false)
+                processors, loader = _ -> new_session(),
+                record_software = false, record_metadata = false)
             @test_throws ArgumentError dispatch!(idle, AddWorkers())
             @test_throws ArgumentError dispatch!(idle, EditStartScript("x"))
         end
@@ -563,7 +604,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             ctrl = DataflowController(
                 Dict{String, Any}("config" => shipped_config, "log_path" => "old");
                 processors,
-                loader = args -> (loaded[] = copy(args); new_session()), record_software = false)
+                loader = args -> (loaded[] = copy(args); new_session()), record_software = false, record_metadata = false)
             dispatch!(ctrl, LoadSession())
             wait(ctrl)
             dispatch!(ctrl, EditStartScript("sleep 60"))
@@ -593,7 +634,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             @test ENV["LEGEND_DATA_CONFIG"] == config
             # without a processing config no session can be loaded
             nothing_ctrl = DataflowController(Dict{String, Any}("config" => nothing);
-                processors, loader = _ -> new_session(), record_software = false)
+                processors, loader = _ -> new_session(),
+                record_software = false, record_metadata = false)
             @test_throws "no processing config" dispatch!(nothing_ctrl, LoadSession())
         end
     end
@@ -609,7 +651,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             ctrl = DataflowController(
                 Dict{String, Any}("config" => shipped_config, "log_path" => "old", "dataset" => "default");
                 processors,
-                loader = args -> (loaded[] = copy(args); new_session()), record_software = false)
+                loader = args -> (loaded[] = copy(args); new_session()), record_software = false, record_metadata = false)
             @test snapshot(ctrl).dataset == "default"
             dispatch!(ctrl, SelectDataset(:valid))
             wait(ctrl)
@@ -630,13 +672,14 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             bad = DataflowController(
                 Dict{String, Any}("config" => shipped_config, "dataset" => "default");
                 processors,
-                loader = _ -> error("dataset nope is not in the run lists"), record_software = false)
+                loader = _ -> error("dataset nope is not in the run lists"), record_software = false, record_metadata = false)
             dispatch!(bad, SelectDataset(:nope))
             wait(bad)
             @test snapshot(bad).state === :idle &&
                   occursin("dataset nope", snapshot(bad).last_error)
             # not while processing
-            running = DataflowController(new_session(); processors, record_software = false)
+            running = DataflowController(
+                new_session(); processors, record_software = false, record_metadata = false)
             running.state = :running
             @test_throws "SelectDataset is not possible" dispatch!(running, SelectDataset(:valid))
             @test_throws "SelectProduction is not possible" dispatch!(running, SelectProduction(parent))
@@ -644,7 +687,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     end
 
     @testset "kwarg resets and snapshot kwargs" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         energy() = only(filter(p -> p.name === :process_energy_calibration_cal, snapshot(ctrl).processors))
         @test energy().accepted == [:max_wvfs]
         @test isempty(energy().config_kwargs)
@@ -658,7 +701,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test_throws "ResetKwargs: a key needs a processor" ResetKwargs(nothing, :max_wvfs)
     end
     @testset "report_index and report_overview" begin
-        ctrl = DataflowController(new_session(); processors, record_software = false)
+        ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         jlrep = l200.tier[:jlrep]
         failed = Juleana.report_path(
             l200, :process_energy_calibration_cal, :run, p2, DataRun(6), :cal)
@@ -702,7 +745,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test haskey(grid.rows[1].cells, (p2, DataRun(6)))
 
         idle = DataflowController(Dict{String, Any}("config" => shipped_config);
-            processors, loader = _ -> new_session(), record_software = false)
+            processors, loader = _ -> new_session(), record_software = false, record_metadata = false)
         @test_throws "report_index: no session is loaded" Juleana.report_index(idle)
         @test_throws "report_overview: no session is loaded" Juleana.report_overview(idle)
         @test_throws "history_grid: no session is loaded" Juleana.history_grid(idle)

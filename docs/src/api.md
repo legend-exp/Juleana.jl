@@ -120,6 +120,7 @@ Juleana.running_manifest
 Juleana.snapshot_software
 Juleana.record_software
 Juleana.software_version
+Juleana.record_metadata
 Juleana.production_log
 ```
 

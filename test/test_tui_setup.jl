@@ -71,7 +71,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     processors = Dict{Symbol, Any}(
         :process_energy_calibration_cal => energy_stub, :process_dsp_cal => run_stub,
         :p_process_aoe_cut_cal => part_stub)
-    new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(session; processors))
+    new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(
+        session; processors, record_software = false, record_metadata = false))
 
     @testset "checklists follow the controller" begin
         m = new_tui()
@@ -278,7 +279,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     @testset "selected runs that are not on disk" begin
         session = new_session()
         session.runs = Dict(p2 => [r6, DataRun(9)])
-        m = Juleana.JuleanaTUI(DataflowController(session; processors))
+        m = Juleana.JuleanaTUI(DataflowController(
+            session; processors, record_software = false, record_metadata = false))
         @test setup_refreshed!(m)
         @test Juleana.checked(m.setup.periods) == [(p2, r6); all_runs[9:end]]
     end

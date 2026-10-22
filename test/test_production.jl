@@ -301,5 +301,81 @@ end
             @test startswith(Juleana.software_version(), "Juleana $(pkgversion(Juleana))") &&
                   endswith(Juleana.software_version(), "Julia $VERSION")
         end
+
+        @testset "metadata record" begin
+            overrides = test_repo(joinpath(root, "rec-overrides"), "pz.yaml")
+            meta = test_repo(joinpath(root, "rec-metadata"), "README.md")
+            git(meta, "submodule", "add", overrides, "jldataprod/overrides")
+            git(meta, "commit", "-m", "overrides")
+            commit = strip(read(`git -C $meta rev-parse HEAD`, String))
+            # a config file named `name` with its name as content
+            config_file(name) = (path = joinpath(root, name); write(path, name); path)
+            configs = [config_file("config.json"), config_file("processing.yaml")]
+            production = mkpath(joinpath(root, "rec-production"))
+            records = joinpath(production, "metadata-records")
+            quiet = _ -> nothing
+
+            clean = Juleana.record_metadata(production, meta; configs, log = quiet)
+            @test occursin(r"^\d{4}-\d{2}-\d{2}T\d{6}Z-", clean) &&
+                  endswith(clean, "-$(first(commit, 7))")
+            toml = TOML.parsefile(joinpath(records, clean, "METADATA.toml"))
+            @test sort(collect(keys(toml["repos"]))) == [".", "jldataprod/overrides"]
+            @test toml["repos"]["."]["commit"] == commit &&
+                  !toml["repos"]["."]["modified"] &&
+                  toml["repos"]["."]["branch"] == "main"
+            @test [c["file"] for c in toml["configs"]] ==
+                  ["1-config.json", "2-processing.yaml"]
+            @test read(joinpath(records, clean, "config", "2-processing.yaml"), String) ==
+                  "processing.yaml"
+            @test isfile(joinpath(records, clean, "PROVENANCE.md"))
+            # the same metadata and configs reuse the record
+            @test Juleana.record_metadata(production, meta; configs, log = quiet) == clean
+            @test readdir(records) == [clean]
+
+            # uncommitted changes in the submodule, a small and a large untracked file
+            sub = joinpath(meta, "jldataprod", "overrides")
+            write(joinpath(sub, "pz.yaml"), "pz.yaml changed")
+            write(joinpath(meta, "notes.txt"), "notes")
+            write(joinpath(meta, "large.bin"), zeros(UInt8, Juleana.METADATA_COPY_LIMIT +
+                                                            1))
+            status_before = read(`git --no-optional-locks -C $meta status --porcelain`, String)
+            index_mtime = mtime(joinpath(meta, ".git", "index"))
+            sleep(1.1)  # record names have a resolution of one second
+            changed = Juleana.record_metadata(production, meta; configs, log = quiet)
+            @test changed != clean && endswith(changed, "-$(first(commit, 7))-modified")
+            # the metadata is only read
+            @test read(`git --no-optional-locks -C $meta status --porcelain`, String) == status_before &&
+                  mtime(joinpath(meta, ".git", "index")) == index_mtime
+            toml = TOML.parsefile(joinpath(records, changed, "METADATA.toml"))
+            repo, subrepo = toml["repos"]["."], toml["repos"]["jldataprod/overrides"]
+            @test repo["modified"] && !haskey(repo, "patch") && subrepo["modified"] &&
+                  subrepo["patch"] == "patches/jldataprod/overrides.patch"
+            untracked = Dict(u["path"] => u for u in repo["untracked"])
+            @test untracked["notes.txt"]["copied"] && !untracked["large.bin"]["copied"] &&
+                  untracked["large.bin"]["size"] == Juleana.METADATA_COPY_LIMIT + 1
+            @test !isfile(joinpath(records, changed, "untracked", "root", "large.bin"))
+            @test occursin("`./large.bin`", read(joinpath(records, changed, "PROVENANCE.md"), String))
+
+            # the restore steps of PROVENANCE.md give the same files
+            restored = joinpath(root, "restored")
+            git(root, "clone", "--recursive", meta, restored)
+            git(restored, "checkout", toml["repos"]["."]["commit"])
+            git(joinpath(restored, "jldataprod", "overrides"), "apply",
+                joinpath(records, changed, subrepo["patch"]))
+            cp(joinpath(records, changed, "untracked", "root", "notes.txt"),
+                joinpath(restored, "notes.txt"))
+            @test read(joinpath(restored, "jldataprod", "overrides", "pz.yaml"), String) ==
+                  "pz.yaml changed"
+            @test read(joinpath(restored, "notes.txt"), String) == "notes"
+
+            # a changed config file gives a new record
+            write(configs[2], "processing.yaml changed")
+            sleep(1.1)
+            @test Juleana.record_metadata(production, meta; configs, log = quiet) ∉
+                  (clean, changed)
+            @test !any(startswith(".new-"), readdir(records))
+            @test_throws "is not a git checkout" Juleana.record_metadata(
+                production, joinpath(root, "rec-production"); log = quiet)
+        end
     end
 end

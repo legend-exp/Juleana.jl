@@ -65,7 +65,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
 
         @testset "render before the first read" begin
             m = Juleana.JuleanaTUI(DataflowController(
-                args; processors, loader = new_session, record_software = false))
+                args; processors, loader = new_session,
+                record_software = false, record_metadata = false))
             @test m.page == 1 && !Tachikoma.should_quit(m)
             tb = render_tui(m)
             for name in Juleana.TUI_PAGES
@@ -79,7 +80,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "frame, tabs, status and key rows" begin
-            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors,
+                record_software = false, record_metadata = false))
             tb = render_tui(m, 120, 32)
             @test find_text(tb, "JuLeAna").y == 1 && find_text(tb, "LEGEND-200").y == 1
             # the letters of the title have the colors of the logo; the frame's corner and edge precede them
@@ -107,7 +109,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "spinner" begin
-            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors,
+                record_software = false, record_metadata = false))
             @test refreshed!(m)
             spinner = join(Tachikoma.SPINNER_BRAILLE)
             has_spinner(m) = any(c -> c in spinner, screen_text(render_tui(m, 120, 32)))
@@ -158,7 +161,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "page switching" begin
-            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors,
+                record_software = false, record_metadata = false))
             Tachikoma.update!(m, KeyEvent('6'))
             @test m.page == 6
             Tachikoma.update!(m, KeyEvent('8'))
@@ -212,7 +216,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "Workers page" begin
-            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors,
+                record_software = false, record_metadata = false))
             page = m.workers_page
             @test refreshed!(m)
             # the page reads the overview in the background when it opens
@@ -270,7 +275,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 loaded[] = true
                 return new_session(parsed_args)
             end
-            ctrl = DataflowController(args; processors, loader = slow_loader, record_software = false)
+            ctrl = DataflowController(args; processors, loader = slow_loader,
+                record_software = false, record_metadata = false)
             # without the startup screen, which covers the status panel
             m = Juleana.JuleanaTUI(ctrl; splash_seconds = 0.0)
             t0 = time()
@@ -292,7 +298,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         @testset "a failed load stays visible" begin
             m = Juleana.JuleanaTUI(
                 DataflowController(args; processors, loader = _ -> error("no data config"),
-                    record_software = false);
+                    record_software = false, record_metadata = false);
                 splash_seconds = 0.0)
             with_logger(Logging.NullLogger()) do
                 Juleana.start!(m)
@@ -306,7 +312,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "commands and their errors" begin
-            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors,
+                record_software = false, record_metadata = false))
             Juleana.send_command!(m, StopProcessing())
             @test settle!(() -> !isnothing(m.command_error), m)
             @test occursin("StopProcessing is not possible while the controller is :ready", m.command_error)
@@ -325,7 +332,8 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
 
         @testset "quit" begin
             for key in (KeyEvent('q'), KeyEvent(:ctrl, 'c'), KeyEvent(:ctrl_c))
-                m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false))
+                m = Juleana.JuleanaTUI(DataflowController(new_session(); processors,
+                    record_software = false, record_metadata = false))
                 @test refreshed!(m)
                 Tachikoma.update!(m, key)
                 @test Tachikoma.should_quit(m) && isnothing(m.dialog)
@@ -342,7 +350,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             end
             ctrl = DataflowController(new_session();
                 processors = Dict{Symbol, Any}(:process_energy_calibration_cal =>
-                    slow_step), record_software = false)
+                    slow_step), record_software = false, record_metadata = false)
             dispatch!(ctrl, SelectRuns([6]))
             m = Juleana.JuleanaTUI(ctrl)
             dispatch!(ctrl, StartProcessing())
@@ -412,7 +420,9 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test buf.alert.level == Logging.Error && buf.alert.text == "fit failed"
             @test_throws "capacity must be positive" Juleana.MessageBuffer(0)
 
-            m = Juleana.JuleanaTUI(DataflowController(new_session(); processors, record_software = false), buf)
+            m = Juleana.JuleanaTUI(
+                DataflowController(new_session(); processors, record_software = false, record_metadata = false),
+                buf)
             @test find_text(render_tui(m), "fit failed") !== nothing
             # each output line is a record; only lines with `Warning:` or `Error:` leave `Info`
             Juleana.append_output!(buf, :stderr, "plain\n┌ Warning: careful\n")

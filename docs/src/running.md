@@ -297,6 +297,18 @@ install the snapshot into another environment; `add` installs the committed tree
 `Pkg.Apps.develop(path = "<snapshot>/Juleana.jl")` replaces the globally installed
 `juleana` app.
 
+Every run also records the metadata in the `metadata-records` folder of the production, see
+[`Juleana.record_metadata`](@ref): the commit of `legend-metadata` and of each of its
+submodules, the uncommitted changes of each as a patch, its untracked files (copied up to
+1 MB, larger ones by their git hash only) and copies of the data config files and the
+processing config. The metadata is only read with git. As for the software, a record with
+the same `fingerprint` in `METADATA.toml` is reused, the run fails if the recording fails,
+and the subfolder is named `<date>-<metadata commit>`, with `-modified` if anything was not
+committed or a submodule was not at the commit the metadata records. The history names it in
+the line `Metadata: metadata-records/<record>` of the run. The `PROVENANCE.md` of a record
+lists the commands that restore the metadata: clone it, check out the recorded commits,
+apply the patches and copy the untracked files back.
+
 ## Updating
 
 Update Juleana and the LEGEND packages in the environment of the app with

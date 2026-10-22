@@ -226,6 +226,7 @@ public effective_config, save_plot, @debug_plot, @debug_progress, root_exception
        mark_activity!, idle_deadline, check_idle!, workers_overview,
        ProductionSpec, check_production, create_production, data_config_text,
        running_manifest, snapshot_software, record_software, software_version,
+       record_metadata,
        production_log,
        ProductionForm, production_fields, production_spec, complete_path, production_key!,
        production_answer!, production_sync!, render_production, @using_packages, ReportPlot,

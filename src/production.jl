@@ -470,3 +470,223 @@ function software_version(snapshot = nothing)
     return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION" *
            (isnothing(snapshot) ? "" : ", snapshot software/$snapshot")
 end
+
+# Untracked files of the metadata up to this size are copied into its record; larger ones
+# are recorded by their hash only.
+const METADATA_COPY_LIMIT = 1_000_000
+
+# Output of git in the checkout `dir`. Optional locks are off, so that reading the state of a
+# checkout does not refresh its index.
+git_read(dir, args...) = read(`git --no-optional-locks -C $dir $args`, String)
+
+# Hash git gives the contents of the file `path` or of `io` as a blob; nothing is written.
+function git_hash(path::AbstractString)
+    String(strip(read(`git hash-object --no-filters -- $path`, String)))
+end
+function git_hash(io::IO)
+    String(strip(read(pipeline(`git hash-object --stdin`; stdin = io), String)))
+end
+
+# Path of the file of the repository `repo` (`"."` for the metadata itself) in a folder of a
+# metadata record.
+record_subpath(repo) = repo == "." ? "root" : repo
+
+# The state of the metadata checkout `metadata` and its submodules: for each repository
+# (`"."` and the submodule paths) its `commit`, `branch`, `remote`, `diff` against the commit
+# (without submodule changes) and untracked files, and for a submodule whether it is `moved`
+# from the commit its superproject records; an uninitialized submodule has only that
+# recorded `commit`.
+function metadata_state(metadata)
+    isdir(joinpath(metadata, ".git")) || isfile(joinpath(metadata, ".git")) ||
+        throw(ArgumentError("record_metadata: the metadata $metadata is not a git checkout"))
+    repos = Dict{String, Any}("." => Dict{String, Any}())
+    status = git_read(metadata, "submodule", "status", "--recursive")
+    for line in eachline(IOBuffer(status))
+        m = match(r"^([ +\-U])([0-9a-f]+) (\S+)", line)
+        isnothing(m) &&
+            throw(ErrorException("record_metadata: unexpected `git submodule status` line $(repr(line))"))
+        repos[String(m[3])] = m[1] == "-" ?
+                              Dict{String, Any}("commit" => String(m[2]), "initialized" =>
+            false) :
+                              Dict{String, Any}("moved" => m[1] != " ")
+    end
+    for (repo, state) in repos
+        get(state, "initialized", true) || continue
+        dir = joinpath(metadata, repo)
+        state["commit"] = String(strip(git_read(dir, "rev-parse", "HEAD")))
+        branch = String(strip(git_read(dir, "rev-parse", "--abbrev-ref", "HEAD")))
+        branch == "HEAD" || (state["branch"] = branch)
+        remote = String(strip(read(
+            ignorestatus(`git -C $dir config --get remote.origin.url`), String)))
+        isempty(remote) || (state["remote"] = remote)
+        state["diff"] = git_read(dir, "diff", "--binary", "--ignore-submodules=all", "HEAD")
+        state["untracked"] = [Dict{String, Any}(
+                                  "path" => String(f), "hash" => git_hash(joinpath(dir, f)),
+                                  "size" => filesize(joinpath(dir, f)))
+                              for f in split(
+            git_read(dir, "ls-files", "-z", "--others", "--exclude-standard"),
+            '\0'; keepempty = false)]
+    end
+    return repos
+end
+
+"""
+    Juleana.record_metadata(root::AbstractString, metadata::AbstractString;
+        configs = String[], log = line -> @info(line))
+
+Make sure the folder `root/metadata-records` holds a record of the metadata checkout
+`metadata` and its submodules as they are now, together with the config files `configs`,
+and return the name of its subfolder. Reads the metadata with git only and does not change
+it. Throws an `ArgumentError` if `metadata` is not a git checkout.
+
+A record holds:
+
+- `METADATA.toml`: the date, user and host; for every repository (`"."` for `metadata`,
+  else the path of the submodule) its `commit`, `branch` (unless detached), `remote`,
+  whether it is `modified`, for a submodule whether it is `moved` from the commit its
+  superproject records, its `patch` and its untracked files with their `path`, `hash`,
+  `size` and whether they were `copied`; for every config file its `source`, `file` and
+  `hash`; and a `fingerprint` of all of it. Equal metadata and configs have equal
+  fingerprints;
+- `patches/`: for every repository with uncommitted changes the `git diff --binary` of its
+  files against its commit;
+- `untracked/`: the untracked files that git does not ignore, up to
+  $(METADATA_COPY_LIMIT ÷ 1_000_000) MB each;
+- `config/`: copies of `configs`;
+- `PROVENANCE.md`: the same for reading, and the steps to restore the metadata.
+
+For a fingerprint that a subfolder already has, nothing is written and that subfolder is
+returned. Otherwise the record becomes the subfolder `<yyyy-mm-ddTHHMMSSZ>-<short commit of
+metadata>`, with `-modified` appended if a repository has uncommitted changes or untracked
+files, or a submodule is not at the commit its superproject records.
+"""
+function record_metadata(root::AbstractString, metadata::AbstractString;
+        configs = String[], log = line -> @info(line))
+    repos = metadata_state(metadata)
+    for s in values(repos)
+        s["modified"] = get(s, "moved", false) || !isempty(get(s, "diff", "")) ||
+                        !isempty(get(s, "untracked", []))
+    end
+    config_entries = [Dict{String, Any}("source" => abspath(c),
+                          "file" => "$i-$(basename(c))", "hash" => git_hash(c))
+                      for (i, c) in pairs(configs)]
+    io = IOBuffer()
+    for repo in sort!(collect(keys(repos)))
+        s = repos[repo]
+        println(io, "repo=", repo, " commit=", s["commit"], " diff=",
+            git_hash(IOBuffer(get(s, "diff", ""))))
+        for u in get(s, "untracked", [])
+            println(io, "untracked=", repo, "/", u["path"], " ", u["hash"])
+        end
+    end
+    for c in config_entries
+        println(io, "config=", c["file"], " ", c["hash"])
+    end
+    fingerprint = git_hash(seekstart(io))
+    records = mkpath(joinpath(root, "metadata-records"))
+    for sub in readdir(records)
+        file = joinpath(records, sub, "METADATA.toml")
+        isfile(file) && TOML.parsefile(file)["fingerprint"] == fingerprint || continue
+        log("The metadata is already recorded in $(joinpath(records, sub))")
+        return sub
+    end
+    fresh = joinpath(records, ".new-" * string(uuid4()))
+    created = Dates.format(now(UTC), HISTORY_TIME_FORMAT)
+    user, host = get(ENV, "USER", "unknown"), gethostname()
+    entries = Dict{String, Any}()
+    try
+        for (repo, s) in repos
+            entry = Dict{String, Any}(k => s[k]
+            for k in ("commit", "branch", "remote", "initialized", "moved", "modified")
+            if haskey(s, k))
+            if get(s, "initialized", true)
+                if !isempty(s["diff"])
+                    entry["patch"] = "patches/$(record_subpath(repo)).patch"
+                    patch = joinpath(fresh, entry["patch"])
+                    mkpath(dirname(patch))
+                    write(patch, s["diff"])
+                end
+                for u in s["untracked"]
+                    u["copied"] = u["size"] <= METADATA_COPY_LIMIT
+                    u["copied"] || continue
+                    dest = joinpath(fresh, "untracked", record_subpath(repo), u["path"])
+                    mkpath(dirname(dest))
+                    cp(joinpath(metadata, repo, u["path"]), dest)
+                end
+                entry["untracked"] = s["untracked"]
+            end
+            entries[repo] = entry
+        end
+        for (c, entry) in zip(configs, config_entries)
+            cp(c, joinpath(mkpath(joinpath(fresh, "config")), entry["file"]))
+        end
+        open(joinpath(fresh, "METADATA.toml"), "w") do io
+            TOML.print(io,
+                Dict{String, Any}("created" => created, "user" => user, "host" => host,
+                    "metadata" => abspath(metadata), "fingerprint" => fingerprint,
+                    "repos" => entries, "configs" => config_entries);
+                sorted = true)
+        end
+        write(joinpath(fresh, "PROVENANCE.md"),
+            metadata_provenance(metadata, entries, config_entries, created, user, host))
+    catch
+        rm(fresh; recursive = true, force = true)
+        rethrow()
+    end
+    name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") * "Z-" *
+           first(repos["."]["commit"], 7) *
+           (any(s -> get(s, "modified", false), values(repos)) ? "-modified" : "")
+    mv(fresh, joinpath(records, name))
+    log("Recorded the metadata in $(joinpath(records, name))")
+    return name
+end
+
+# Text of the `PROVENANCE.md` of a metadata record.
+function metadata_provenance(metadata, entries, configs, created, user, host)
+    lines = ["# Metadata of this production", "",
+        "Recorded $created UTC by $user@$host from `$(abspath(metadata))`.", "",
+        "| Repository | Commit | Branch | Uncommitted changes |", "|---|---|---|---|"]
+    repos = sort!(collect(keys(entries)))
+    for repo in repos
+        e = entries[repo]
+        changes = !get(e, "initialized", true) ? "not checked out" :
+                  e["modified"] ? "yes" : "no"
+        push!(lines,
+            "| $repo | $(e["commit"]) | $(get(e, "branch", "–")) | $changes |")
+    end
+    large = [(repo, u) for repo in repos
+             for u in get(entries[repo], "untracked", [])
+             if !u["copied"]]
+    if !isempty(large)
+        append!(lines,
+            ["",
+                "Untracked files larger than $(METADATA_COPY_LIMIT ÷ 1_000_000) MB, recorded by their git hash only:",
+                ""])
+        append!(lines, ["- `$repo/$(u["path"])` ($(u["size"]) bytes, $(u["hash"]))"
+                        for (repo, u) in large])
+    end
+    if !isempty(configs)
+        append!(lines, ["", "Config files, copied to `config/`:", ""])
+        append!(lines, ["- `$(c["source"])` as `$(c["file"])`" for c in configs])
+    end
+    root = entries["."]
+    append!(lines,
+        ["", "## Restoring", "",
+            "Clone the metadata, check out the recorded commits and apply the uncommitted changes " *
+            "(`<record>` is this folder):", "", "```",
+            "git clone $(get(root, "remote", "<remote>")) legend-metadata", "cd legend-metadata",
+            "git checkout $(root["commit"])", "git submodule update --init --recursive"])
+    for repo in repos
+        get(entries[repo], "moved", false) &&
+            push!(lines, "git -C $repo checkout $(entries[repo]["commit"])")
+    end
+    for repo in repos
+        e = entries[repo]
+        haskey(e, "patch") && push!(lines, "git -C $repo apply <record>/$(e["patch"])")
+        any(u -> u["copied"], get(e, "untracked", [])) &&
+            push!(lines, "cp -R <record>/untracked/$(record_subpath(repo))/. $repo/")
+    end
+    append!(lines, [
+        "```", "", "`METADATA.toml` holds the same information in machine-readable form."])
+    return join(lines, "\n") * "\n"
+end

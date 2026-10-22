@@ -14,6 +14,7 @@ using Test
         finished = DateTime(2026, 10, 15, 13, 1, 5), user = "someone",
         host = "node1", outcome = :stopped, log_path = "/data/jllog/20261015T115958Z",
         software = "Juleana 0.2.0 (abc1234, modified), Julia 1.12.7",
+        metadata = "metadata-records/2026-10-15T120000Z-def5678",
         steps = [
             step(
                 :process_dsp_cal, :run, DataRun(6), :done, DateTime(2026, 10, 15, 12, 0, 2),
@@ -23,6 +24,7 @@ using Test
     second_run = (; started = DateTime(2026, 10, 16, 8, 0, 0),
         finished = DateTime(2026, 10, 16, 8, 30, 0), user = "someone",
         host = "node1", outcome = :failed, log_path = "/data/jllog/20261016T080000Z", software = nothing,
+        metadata = nothing,
         steps = [step(
             :process_dsp_cal, :run, DataRun(7), :failed, DateTime(2026, 10, 16, 8, 0, 0),
             DateTime(2026, 10, 16, 8, 30, 0), (3, 1, 2))])
@@ -35,7 +37,8 @@ using Test
     @test startswith(text, "# Processing history\n\n## 2026-10-15 12:00:02 UTC, someone@node1: stopped\n")
     @test count("# Processing history", text) == 1
     @test occursin(
-        "Log folder: /data/jllog/20261015T115958Z  \nSoftware: Juleana 0.2.0 (abc1234, modified), Julia 1.12.7\n",
+        "Log folder: /data/jllog/20261015T115958Z  \nSoftware: Juleana 0.2.0 (abc1234, modified), Julia 1.12.7  \n" *
+        "Metadata: metadata-records/2026-10-15T120000Z-def5678\n",
         text)
     @test occursin("Log folder: /data/jllog/20261016T080000Z\n\n", text)
     @test occursin(
@@ -48,7 +51,7 @@ using Test
     # a line that does not follow the format names the file and the line
     bad = joinpath(mktempdir(), "history.md")
     write(bad, replace(text, "| 12/0/0 |" => "| 12/0 |"))
-    @test_throws "line 11 of $bad does not follow the history format" Juleana.read_history(bad)
+    @test_throws "line 12 of $bad does not follow the history format" Juleana.read_history(bad)
     write(bad, "some text\n")
     @test_throws "line 1 of $bad" Juleana.read_history(bad)
 end
