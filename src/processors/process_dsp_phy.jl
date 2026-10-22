@@ -9,11 +9,13 @@ For every raw `phy` file of the run, the channel groups are processed in this or
 detectors listed under `additional_detectors` in the DSP configuration, the PMTs, the SiPMs
 (with their per-detector thresholds), and the HPGe detectors (with their pole-zero decay time
 and energy and A/E filter optimization parameters). A SiPM or HPGe detector is skipped and
-reported as failed if its parameters are missing (for HPGe detectors also a parameter listed
-in `required_fltopt`, or `required_aoeopt` for usable detectors with a valid or present low
-A/E status), or if its DSP throws an error. With `use_partition_pars=true`, an HPGe detector
-that is not `:on` and whose run is in no `cal` partition takes its parameters from the partition
-with the closest run.
+reported as failed if its parameters are missing, or if its DSP throws an error. An HPGe
+detector is also skipped if its DSP configuration has no `required_fltopt_selection` or
+`required_aoeopt_selection`, or if a parameter listed in `required_fltopt` (or
+`required_aoeopt`) is missing for a detector whose channel info row satisfies
+`required_fltopt_selection` (or `required_aoeopt_selection`). The selections are strings of
+`LegendDataManagement.ljl_propfunc` expressions, e.g.
+`"usability == :on && (low_aoe_status == :valid || low_aoe_status == :present)"`.
 
 # Inputs
 - `raw` tier of the `phy` filekeys of the run listed in the runinfo, except the filekeys marked unprocessable
@@ -70,48 +72,6 @@ function process_dsp_phy(
     pars_fltoptimization = get_values(merge(
         l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
-
-    @debug "Check if all HPGe detectors have optimization parameters"
-    for chinfo_det in chinfo
-        ch = chinfo_det.channel
-        det = chinfo_det.detector
-        # for detectors not `:on`, use the pars of the partition with the closest run when the run is in no partition
-        if use_partition_pars && !haskey(pars_tau, det) &&
-           !haskey(pars_fltoptimization, det) && chinfo_det.usability != :on &&
-           isempty(partitioninfo(l200, det, :cal, period, run))
-            @warn "Detector $det ($ch) doesn't have pars and optimization parameters since $period/$run is not in any `DataPartition` for detector"
-            parts = partitioninfo(l200, det, :cal, period)
-            if isempty(parts)
-                @warn "Detector $det ($ch) is in no cal partition of $period, skip detector $ch"
-                continue
-            end
-            closest_runs_distance = Real[]
-            for p in parts
-                pinfo = filter(row -> row.period == period, partitioninfo(l200, det, p))
-                closest_run = pinfo.run[argmin([abs(r.no - run.no) for r in pinfo.run])]
-                push!(closest_runs_distance, abs(closest_run.no - run.no))
-            end
-            part = parts[argmin(closest_runs_distance)]
-            try
-                merge!(pars_tau, get_values(l200.par.ppars.pz[det, part]))
-            catch e
-                @warn "No decay time for detector $det, skip detector $ch"
-                continue
-            end
-            try
-                merge!(pars_fltoptimization, get_values(l200.par.ppars.fltopt[det, part]))
-            catch e
-                @warn "No flt optimization parameters for detector $det, skip detector $ch"
-                continue
-            end
-            try
-                merge!(pars_fltoptimization, get_values(l200.par.ppars.aoeopt[det, part]))
-            catch e
-                @warn "No aoe flt optimization parameters for detector $det, skip detector $ch"
-                continue
-            end
-        end
-    end
 
     make_par_dir(data_path(l200.par[pars_type, :sipmopt]))
     pars_sipm = get_values(l200.par[pars_type, :sipmopt](filekey))
@@ -338,20 +298,25 @@ function process_dsp_phy(
                             continue
                         end
 
-                        # check if detector has all required flt opt pars
-                        if !all(haskey.(Ref(pars_fltoptimization[det]),
-                            Symbol.(dsp_config_pd_det.required_fltopt)))
-                            @warn "Not all required energy filter optimization parameters for detector $det, skip detector $ch"
-                            push!(failed_detectors, det)
-                            continue
+                        # check if detector has all required optimization pars of the filters its selections require
+                        missing_pars=false
+                        for (selection, required, label) in (
+                            (:required_fltopt_selection, :required_fltopt, "energy filter"),
+                            (:required_aoeopt_selection, :required_aoeopt, "A/E"))
+                            if !haskey(dsp_config_pd_det, selection)
+                                @warn "No `$selection` in the DSP config for detector $det, skip detector $ch"
+                                missing_pars=true
+                                break
+                            end
+                            ljl_propfunc(dsp_config_pd_det[selection])(chinfo_det)||continue
+                            if !all(haskey.(Ref(pars_fltoptimization[det]),
+                                Symbol.(dsp_config_pd_det[required])))
+                                @warn "Not all required $label optimization parameters for detector $det, skip detector $ch"
+                                missing_pars=true
+                                break
+                            end
                         end
-
-                        # check if detector has all required aoe opt pars
-                        if chinfo_det.usability==:on&&chinfo_det.low_aoe_status in
-                                                      [:valid, :present]&&!all(haskey.(
-                            Ref(pars_fltoptimization[det]),
-                            Symbol.(dsp_config_pd_det.required_aoeopt)))
-                            @warn "Not all required A/E optimization parameters for detector $det, skip detector $ch"
+                        if missing_pars
                             push!(failed_detectors, det)
                             continue
                         end
