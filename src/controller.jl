@@ -284,7 +284,7 @@ struct CancelAll <: ControllerCommand end
 Create the data production `spec` describes with [`Juleana.create_production`](@ref) in the
 background and switch the session to it: cancel all worker allocations (their workers use
 the data of the previous production), set `LEGEND_DATA_CONFIG` of this process to the new
-`config.json`, and load a session with the [`Juleana.install_default_config`](@ref) file of the new
+`config.yaml`, and load a session with the [`Juleana.install_default_config`](@ref) file of the new
 production and a new log folder. The lines of the creation are kept for
 [`production_log`](@ref Juleana.production_log). Possible while no session is loaded or
 no processing runs; the controller is `:loading` meanwhile and returns to its previous

@@ -258,14 +258,14 @@ The production folder `<parent>/<name>` then holds
 
 - `legend-metadata`, a recursive clone of the metadata with the chosen branches checked out,
 - the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
-- `config.json`, the data config with one `tier/<label>` entry per extra tier path,
+- `config.yaml`, the data config with one `tier/<label>` entry per extra tier path,
 - the copied parameters in `generated/jlpar`,
 - `software`, with one subfolder per recorded state of the software: a copy of the Juleana
   checkout and of the other developed packages of the running environment, each a git
   repository with one commit, a manifest that refers to the copies, `SNAPSHOT.toml` and
   `PROVENANCE.md` with the source folder, commit and uncommitted changes of each package
   (see [`Juleana.record_software`](@ref) and [`Juleana.snapshot_software`](@ref)), and
-- optionally the line `export LEGEND_DATA_CONFIG=<production>/config.json` in the shell
+- optionally the line `export LEGEND_DATA_CONFIG=<production>/config.yaml` in the shell
   startup file, replacing earlier lines that export the variable.
 
 The form shows the log of the creation. Afterwards this process uses the new production:
@@ -288,7 +288,7 @@ To run the software of a run again, use that snapshot:
 ```sh
 cd <production>/software/<snapshot>/Juleana.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
-export LEGEND_DATA_CONFIG=<production>/config.json
+export LEGEND_DATA_CONFIG=<production>/config.yaml
 julia --project=. -m Juleana --no-tui ...
 ```
 

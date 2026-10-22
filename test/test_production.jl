@@ -92,7 +92,7 @@ end
                     copy_software = false);
                 log = line -> push!(lines, line))
             path = joinpath(parent, "prod")
-            @test config == joinpath(path, "config.json")
+            @test config == joinpath(path, "config.yaml")
             meta = joinpath(path, "legend-metadata")
             # the branches: dev in the metadata and the hardware, jl-dev in the jldataprod config,
             # the simprod config as cloned
@@ -107,11 +107,16 @@ end
                 joinpath(
                     path, "generated", "jlpar", "rpars", "ecal", "p03", "r000.json"), String) ==
                   "{}"
-            # the data config is valid JSON with the extra tiers after `tier`
+            # the data config is YAML with the extra tiers after `tier`
             text = read(config, String)
             @test occursin(
-                "\"tier\": \"\$_/generated/tier/\",\n                \"tier/raw\": \"\$_/../rawdata\",\n                \"tier/ext\": \"$outside\",\n",
+                "      tier: '\$_/generated/tier/'\n      tier/raw: '\$_/../rawdata'\n      tier/ext: '$outside'\n",
                 text)
+            # quotes and colons in a path stay part of it
+            odd = joinpath(root, "odd.yaml")
+            write(odd, Juleana.data_config_text(["odd" => "/a/it's: #1"], parent))
+            @test Juleana.readlprops(odd).setups.l200.paths[Symbol("tier/odd")] ==
+                  "/a/it's: #1"
             paths = Juleana.readlprops(config).setups.l200.paths
             @test paths[Symbol("tier/jllog")] ==
                   joinpath(path, "generated", "jllog") * "/" &&

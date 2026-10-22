@@ -613,7 +613,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
                 name = "prod", parent, metadata_url = metadata, copy_software = false)
             dispatch!(ctrl, CreateProduction(spec))
             wait(ctrl)
-            config = joinpath(parent, "prod", "config.json")
+            config = joinpath(parent, "prod", "config.yaml")
             @test snapshot(ctrl).state === :ready && isnothing(snapshot(ctrl).last_error)
             @test ENV["LEGEND_DATA_CONFIG"] == config
             # the new production has no config folder yet, so the shipped config is loaded with a new log folder

@@ -46,7 +46,7 @@ What [`Juleana.create_production`](@ref) creates: the data production `name` in 
 - `dataprod_branch`: branch to check out in the metadata repository and all other
   submodules except `simprod/config*`, `nothing` to keep the cloned ones.
 - `tier_paths`: `label => path` pairs of tiers kept in other folders, written to
-  `config.json` as `tier/<label>`; each path must be an existing folder.
+  `config.yaml` as `tier/<label>`; each path must be an existing folder.
 - `pars`: folders of parameters to copy into `generated/jlpar`; each path must contain a
   `/rpars` or `/ppars` component, and the part from there on is kept below `jlpar`.
 - `set_default`: whether to set `LEGEND_DATA_CONFIG` to the new production in the startup
@@ -138,31 +138,29 @@ end
 """
     Juleana.data_config_text(tier_paths, parent)
 
-Return the text of the `config.json` of a new production: the paths of the `l200` setup
+Return the text of the `config.yaml` of a new production: the paths of the `l200` setup
 relative to the folder of the file (`\$_`), and after the `tier` path one `tier/<label>`
 entry per pair of `tier_paths`. A path below `parent`, the folder that holds the
-production, is written relative to it as `\$_/..`.
+production, is written relative to it as `\$_/..`. The paths are single-quoted YAML strings.
 """
 function data_config_text(tier_paths, parent)
-    tiers = join(("                \"tier/$label\": \"$(startswith(path, rstrip(parent, '/') * "/") ? "\$_/.." * path[length(rstrip(parent, '/'))+1:end] : path)\",\n"
+    quoted(path) = "'" * replace(path, "'" => "''") * "'"
+    prefix = rstrip(parent, '/') * "/"
+    tiers = join(("      tier/$label: $(quoted(startswith(path, prefix) ?
+                                             "\$_/../" * path[(length(prefix) + 1):end] : path))\n"
     for (label, path) in tier_paths))
     return """
-        {
-            "setups": {
-                "l200": {
-                    "paths": {
-                        "metadata": "\$_/legend-metadata/",
+        setups:
+          l200:
+            paths:
+              metadata: '\$_/legend-metadata/'
 
-                        "tier": "\$_/generated/tier/",
-        $(tiers)                "tier/jllog": "\$_/generated/jllog/",
-                        "tier/jlrep": "\$_/generated/jlreport/",
-                        "tier/jlplt": "\$_/generated/jlplt/",
+              tier: '\$_/generated/tier/'
+        $(tiers)      tier/jllog: '\$_/generated/jllog/'
+              tier/jlrep: '\$_/generated/jlreport/'
+              tier/jlplt: '\$_/generated/jlplt/'
 
-                        "par": "\$_/generated/jlpar/"
-                    }
-                }
-            }
-        }
+              par: '\$_/generated/jlpar/'
         """
 end
 
@@ -170,14 +168,14 @@ end
     Juleana.create_production(spec::ProductionSpec; log = line -> @info(line))
 
 Create the data production `spec` describes and return the path of its data config file
-`config.json`, which `LEGEND_DATA_CONFIG` names to use it. Checks `spec` first with
+`config.yaml`, which `LEGEND_DATA_CONFIG` names to use it. Checks `spec` first with
 [`Juleana.check_production`](@ref), then
 
 1. creates the production folder and clones the metadata with its submodules into
    `legend-metadata`; with `metadata_ref` it checks out that branch or tag and updates all
    submodules to the commits it records, then it checks out the other branches of `spec`,
 2. creates the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
-3. writes `config.json` (see [`Juleana.data_config_text`](@ref)),
+3. writes `config.yaml` (see [`Juleana.data_config_text`](@ref)),
 4. copies the parameter folders into `generated/jlpar`,
 5. copies the software of this process into a subfolder of `software` (see
    [`Juleana.record_software`](@ref)),
@@ -220,7 +218,7 @@ function create_production(spec::ProductionSpec; log = line -> @info(line))
     end
     foreach(d -> mkpath(joinpath(path, "generated", d)), GENERATED_DIRS)
     log("Created the folders in $(joinpath(path, "generated"))")
-    config = joinpath(path, "config.json")
+    config = joinpath(path, "config.yaml")
     write(config, data_config_text(spec.tier_paths, spec.parent))
     log("Wrote $config")
     for pars in spec.pars
@@ -401,7 +399,7 @@ function snapshot_software(
             "In this folder, install the packages from the manifest and run Juleana from the copy:",
             "", "```", "cd <this folder>/Juleana.jl",
             "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
-            "export LEGEND_DATA_CONFIG=<production>/config.json",
+            "export LEGEND_DATA_CONFIG=<data config of the production>",
             "julia --project=. -m Juleana --no-tui ...", "```", "",
             "Every package folder is a git repository with one commit. `Pkg.develop(path = \"<this folder>/Juleana.jl\")` " *
             "and `Pkg.add(path = \"<this folder>/Juleana.jl\")` install the copy as well; `add` installs the committed tree. " *
