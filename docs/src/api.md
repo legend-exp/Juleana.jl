@@ -12,6 +12,7 @@ Juleana.setup_session
 Juleana.run_no_tui
 Juleana.run_tui
 Juleana.parse_commandline
+Juleana.mirror_override_folders
 Juleana.data_config_files
 Juleana.with_production_config
 Juleana.production_config_dir

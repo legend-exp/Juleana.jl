@@ -246,6 +246,38 @@ function parse_period_runs(period_args, run_args)
 end
 
 """
+    Juleana.mirror_override_folders(l200::LegendData)
+    Juleana.mirror_override_folders(overrides::AbstractString, base::AbstractString)
+
+Create every folder below `overrides` that is missing below `base`, at the same relative
+path, and return the created folders. For `l200`, this is done for the parameter overrides
+`<metadata>/jldataprod/overrides/par` and `base = data_path(l200, "par")`, and likewise for
+`jlpar`; a missing override folder is skipped.
+
+LegendDataManagement opens a parameter folder that exists only in the overrides as a
+folder of the overrides, so a processor would write its parameters into the metadata.
+With the folder in `base`, it opens that one and applies the overrides on top.
+"""
+function mirror_override_folders(l200::LegendData)
+    created = String[]
+    for db in ("par", "jlpar")
+        overrides = joinpath(data_path(l200, "metadata"), "jldataprod", "overrides", db)
+        isdir(overrides) &&
+            append!(created, mirror_override_folders(overrides, data_path(l200, db)))
+    end
+    return created
+end
+
+function mirror_override_folders(overrides::AbstractString, base::AbstractString)
+    created = String[]
+    for (root, _, _) in walkdir(overrides)
+        folder = normpath(joinpath(base, relpath(root, overrides)))
+        isdir(folder) || push!(created, mkpath(folder))
+    end
+    return created
+end
+
+"""
     setup_processing(parsed_args::AbstractDict)
 
 Build the processing setup from the output of [`parse_commandline`](@ref) and return
@@ -253,7 +285,8 @@ Build the processing setup from the output of [`parse_commandline`](@ref) and re
 
 Reads the config file, applies the command line overrides, sets `ENV` from the
 config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)` for the `--dataset`,
-and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
+creates the parameter folders of its override folders (see
+[`Juleana.mirror_override_folders`](@ref)), and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
 named by the current UTC time (`yyyy-mm-ddTHH:MM:SSZ`). `periods` are the selected periods that are in the
 dataset, or all periods of the dataset when the config selects all.
 """
@@ -289,6 +322,9 @@ function setup_processing(parsed_args::AbstractDict)
     l200 = LegendData(:l200; dataset)
     dataset == :default || haskey(l200.metadata.datasets.runlists, dataset) ||
         throw(ArgumentError("dataset $dataset is not in the metadata datasets/runlists"))
+    for folder in mirror_override_folders(l200)
+        @info "Created the parameter folder $folder of an override folder"
+    end
 
     log_path = mkpath(isempty(parsed_args["log_path"]) ?
                       joinpath(l200.tier[:jllog], utc_timestamp()) :

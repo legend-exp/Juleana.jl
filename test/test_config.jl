@@ -163,6 +163,21 @@ end
             l200, fk))
     end
 
+    @testset "mirror_override_folders" begin
+        dir = mktempdir()
+        overrides = mkpath(joinpath(dir, "overrides", "ppars", "pz", "V01"))
+        write(joinpath(overrides, "fixed_tau.yaml"), "tau: 1")
+        mkpath(joinpath(dir, "overrides", "rpars", "ml"))
+        base = mkpath(joinpath(dir, "par", "ppars"))
+        @test sort(Juleana.mirror_override_folders(joinpath(dir, "overrides"), joinpath(dir, "par"))) ==
+              sort(joinpath.(dir, "par", ["ppars/pz", "ppars/pz/V01", "rpars", "rpars/ml"]))
+        @test isdir(joinpath(base, "pz", "V01")) &&
+              isempty(readdir(joinpath(base, "pz", "V01")))
+        @test isempty(Juleana.mirror_override_folders(joinpath(dir, "overrides"), joinpath(dir, "par")))
+        # the metadata of LegendTestData has no parameter overrides
+        @test isempty(Juleana.mirror_override_folders(l200))
+    end
+
     @testset "setup_processing" begin
         props = readlprops(joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         props.config.env_variables = Dict("LEGEND_DATA_CONFIG" => data_config)
