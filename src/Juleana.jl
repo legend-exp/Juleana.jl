@@ -26,7 +26,6 @@ import CommonMark
 using Dates: Dates, DateTime, Millisecond, Second, UTC, canonicalize, now, @dateformat_str
 using Format: Format, format
 import Graphs
-using HDF5: h5open
 using IntervalSets: IntervalSets, (..), leftendpoint, rightendpoint
 using LaTeXStrings: LaTeXStrings, @L_str
 using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, DataRun,
@@ -43,7 +42,7 @@ using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, Data
                             writelreport
 using LegendDataManagement.LDMUtils: LDMUtils, create_logtbl, create_metadatatbl,
                                      create_pars,
-                                     create_validity, get_mltrainfilename,
+                                     create_validity,
                                      get_partition_channelinfo,
                                      get_partitionvalidity, get_plottitle,
                                      get_preportfilename, get_rreportfilename,
@@ -51,8 +50,7 @@ using LegendDataManagement.LDMUtils: LDMUtils, create_logtbl, create_metadatatbl
 using LegendDataTypes: LegendDataTypes, decode_data, fast_flatten
 using LegendDSP: LegendDSP, DSPConfig, dsp_decay_times, dsp_icpc_compressed, dsp_pmts,
                  dsp_qc_flt_optimization_compressed, dsp_qdrift_flt_optimization,
-                 dsp_sipm_compressed,
-                 get_qc_ml_func
+                 dsp_sipm_compressed
 using LegendEventAnalysis: LegendEventAnalysis, TimeEvolution, calibrate_all,
                            calibrate_ged_detector_data, flag_coincidences, rate, relative,
                            smooth

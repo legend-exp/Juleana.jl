@@ -159,7 +159,7 @@ end
 
     @testset "load_qc_evaluator" begin
         fk = start_filekey(l200, (p2, DataRun(6), :cal))
-        @test ismissing(@test_logs (:info, r"ML training file not found") match_mode = :any load_qc_evaluator(
+        @test ismissing(@test_logs (:info, r"The ML quality cut is disabled") match_mode = :any load_qc_evaluator(
             l200, fk))
     end
 
