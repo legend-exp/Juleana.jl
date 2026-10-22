@@ -88,7 +88,7 @@ using ParallelProcessingTools: ParallelProcessingTools, @always_everywhere,
 import Printf
 using PrecompileTools: @compile_workload, @setup_workload
 using ProgressLogging: ProgressLogging
-using ProgressMeter: ProgressMeter, @showprogress, Progress, next!, update!
+using ProgressMeter: ProgressMeter, Progress, next!, update!
 using PropDicts: PropDicts, PropDict
 using PropertyFunctions: PropertyFunctions, @pf, filterby
 using StatsBase: StatsBase, Histogram, fit, mean, median, quantile, sample, std
@@ -211,7 +211,8 @@ export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession,
        CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction,
        SelectProduction, SelectDataset
 
-public effective_config, save_plot, @debug_plot, root_exception, @process_step,
+public effective_config, save_plot, @debug_plot, @debug_progress, root_exception,
+       @process_step,
        ProcessStepError, Failure, failure, failures, failure_info, failure_variables,
        @locals, rerun, escape_log_underscores, processing_logger, ProcessorLevelLogger,
        DEBUG_LOG_PACKAGES, process_log_file, parse_log_level, PROCESSORS,

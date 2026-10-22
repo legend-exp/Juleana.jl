@@ -148,15 +148,16 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         tb = render_workers_page(page, snap, busy)
         text = workers_screen(tb)
         @test occursin("Workers", text) && occursin("cslg4", text) &&
-              occursin("busy dsp p02-r006", text) && occursin("idle", text)
+              occursin("busy dsp p02-r006  item  00:12:04", text) &&
+              occursin("idle", text)
         hit = find_text(tb, "busy dsp")
         @test style_at(tb, hit.x, hit.y).fg == Tachikoma.tstyle(:accent).fg
         # the host of a new worker is not known yet
         @test occursin("3 …", text)
         abandoned = [Juleana.BusyItem((
             3, "item", DataPeriod(2), nothing, :p_process_energy_cal, t0, true))]
-        @test occursin("busy energy p02 (abandoned)",
-            workers_screen(render_workers_page(page, snap, abandoned)))
+        @test occursin("busy energy p02  item  00:12:04 (abandoned)",
+            workers_screen(render_workers_page(page, snap, abandoned; width = 160)))
         # the lines relayed from the selected worker, without the prefix
         buf = Juleana.MessageBuffer()
         Juleana.append_output!(buf,
@@ -180,6 +181,16 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
               !occursin("hello", text)
         press!(page, KeyEvent(:tab))
         @test page.focus == 1
+        # of the progress lines, only the newest one of each description is shown
+        buf = Juleana.MessageBuffer()
+        Juleana.append_output!(buf, :stdout,
+            "      From worker 3:\t[ Progress: Filekey: a 1/2\n" *
+            "      From worker 3:\tbetween\n" *
+            "      From worker 3:\t[ Progress: Filekey: b 1/1\n" *
+            "      From worker 3:\t[ Progress: Filekey: a 2/2\n")
+        lines = first.(Juleana.workers_output_lines(Juleana.message_entries(buf), 3))
+        @test lines ==
+              ["between", "[ Progress: Filekey: b 1/1", "[ Progress: Filekey: a 2/2"]
     end
 
     @testset "scrolling the output" begin

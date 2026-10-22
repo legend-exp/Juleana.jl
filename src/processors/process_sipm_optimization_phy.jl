@@ -154,7 +154,7 @@ function process_sipm_optimization_phy(
             data_det[findall(.!is_pulser)].waveform_bit_drop[:]
         end
 
-        @showprogress desc="Computing $det ..." for filter_type in e_filter
+        @debug_progress "Computing $det ..." for filter_type in e_filter
             if haskey(processed_dict, filter_type)
                 continue
             end

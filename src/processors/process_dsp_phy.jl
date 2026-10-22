@@ -210,8 +210,7 @@ function process_dsp_phy(
                     end
 
                     # loop over detectors
-                    @showprogress desc="Filekey PMTS: $fk" output=stdout enabled=(stdout isa
-                                                                                  Base.TTY) for chinfo_det in chinfo_pmts
+                    @debug_progress "Filekey PMTS: $fk" for chinfo_det in chinfo_pmts
                         ch=chinfo_det.channel
                         det=chinfo_det.detector
 
@@ -261,7 +260,7 @@ function process_dsp_phy(
                     end
 
                     # loop over detectors
-                    @showprogress desc="Filekey SiPM: $fk" output=stdout for chinfo_det in chinfo_sipm
+                    @debug_progress "Filekey SiPM: $fk" for chinfo_det in chinfo_sipm
                         ch=chinfo_det.channel
                         det=chinfo_det.detector
 
@@ -310,7 +309,7 @@ function process_dsp_phy(
                     end
 
                     # loop over detectors
-                    @showprogress desc="Filekey HPGe: $fk" output=stdout for chinfo_det in chinfo
+                    @debug_progress "Filekey HPGe: $fk" for chinfo_det in chinfo
                         ch=chinfo_det.channel
                         det=chinfo_det.detector
 

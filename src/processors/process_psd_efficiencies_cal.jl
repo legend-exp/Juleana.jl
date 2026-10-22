@@ -131,7 +131,7 @@ function process_psd_efficiencies_cal(
             getproperty(hit_cal, e_type), hit_cal
         end
 
-        @showprogress desc="Detector: $det" for psd_classifier in psd_classifiers
+        @debug_progress "Detector: $det" for psd_classifier in psd_classifiers
             if haskey(processed_dict, psd_classifier)
                 continue
             end

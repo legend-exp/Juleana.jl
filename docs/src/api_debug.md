@@ -30,6 +30,7 @@ Juleana.@debug_plot
 ```@docs
 Juleana.processing_logger
 Juleana.ProcessorLevelLogger
+Juleana.@debug_progress
 Juleana.DEBUG_LOG_PACKAGES
 Juleana.process_log_file
 Juleana.parse_log_level

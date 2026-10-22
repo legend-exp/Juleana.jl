@@ -158,7 +158,7 @@ function process_filter_optimization_cal(
 
         GC.gc()
 
-        @showprogress desc="Computing $det ..." for filter_type in e_filter
+        @debug_progress "Computing $det ..." for filter_type in e_filter
             if haskey(processed_dict, filter_type)
                 continue
             end

@@ -218,3 +218,36 @@ end
         end
     end
 end
+
+@testset "@debug_progress" begin
+    # the lines of a loop that skips its second item at the processor log level `level`
+    function progress_output(level)
+        seen = Int[]
+        out = mktemp() do path, io
+            redirect_stdout(io) do
+                Juleana.with(Juleana.PROCESSOR_LOG_LEVEL => level) do
+                    Juleana.@debug_progress "Filekey: fk" for x in [1, 2, 3]
+                        x == 2 && continue
+                        push!(seen, x)
+                    end
+                end
+            end
+            close(io)
+            read(path, String)
+        end
+        return seen, out
+    end
+    seen, out = progress_output(Logging.Debug)
+    @test seen == [1, 3]
+    @test out ==
+          "[ Progress: Filekey: fk 1/3\n[ Progress: Filekey: fk 2/3\n" *
+          "[ Progress: Filekey: fk 3/3\n[ Progress: Filekey: fk 3/3\n"
+    @test all(l -> occursin(Juleana.PROGRESS_LINE, l), split(chomp(out), '\n'))
+    for level in (Logging.Info, nothing)
+        seen, out = progress_output(level)
+        @test seen == [1, 3] && isempty(out)
+    end
+    @test_throws "@debug_progress: expected a loop" macroexpand(
+        Juleana, :(Juleana.@debug_progress "x" while true
+        end))
+end

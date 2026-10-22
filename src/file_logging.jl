@@ -25,6 +25,47 @@ end
 # outside of a processor. `parallel` sets it again on the workers.
 const PROCESSOR_LOG_LEVEL = ScopedValue{Union{Nothing, LogLevel}}(nothing)
 
+# A progress line of `@debug_progress`: its description and the count.
+const PROGRESS_LINE = r"^\[ Progress: (.*) \d+/\d+$"
+
+"""
+    @debug_progress desc for x in iterable
+        ...
+    end
+
+Run the loop and, when the log level of the running processor is `debug` (see
+[`ProcessorSpec`](@ref) and [`run_step`](@ref)), print a line `[ Progress: <desc> <i>/<n>` to
+`stdout` at the start of iteration `i` of `n`, and `<desc> <n>/<n>` after the loop. The lines
+are plain output, not log records, so that a worker's lines reach the head process; the
+Workers page of the terminal user interface shows only the newest line of each `desc`. The
+loop body may use `continue`.
+
+# Examples
+```julia
+@debug_progress "Filekey HPGe: \$fk" for chinfo_det in chinfo
+    detector_selected(chinfo_det.detector) || continue
+    ...
+end
+```
+"""
+macro debug_progress(desc, loop)
+    (Meta.isexpr(loop, :for) && Meta.isexpr(loop.args[1], :(=))) ||
+        throw(ArgumentError("@debug_progress: expected a loop `for x in iterable ... end`"))
+    var, iterable = loop.args[1].args
+    return quote
+        local desc, items = $(esc(desc)), $(esc(iterable))
+        local show = something(PROCESSOR_LOG_LEVEL[], Logging.Info) <= Logging.Debug
+        local n, i = length(items), 0
+        for $(esc(var)) in items
+            i += 1
+            show && (println(stdout, "[ Progress: ", desc, " ", i, "/", n); flush(stdout))
+            $(esc(loop.args[2]))
+        end
+        show && (println(stdout, "[ Progress: ", desc, " ", n, "/", n); flush(stdout))
+        nothing
+    end
+end
+
 """
     DEBUG_LOG_PACKAGES
 

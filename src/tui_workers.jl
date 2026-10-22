@@ -362,10 +362,12 @@ function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
     return false
 end
 
-# Text of the item `b` of the busy workers: processor and period or run.
-function workers_busy_text(b)
+# Text of the item `b` of the busy workers at the time `at`: processor, period or run, the
+# item (such as the filekey or detector) and how long it has run.
+function workers_busy_text(b, at)
     display_name(b.step) * " " *
-    (isnothing(b.run) ? string(b.period) : "$(b.period)-$(b.run)")
+    (isnothing(b.run) ? string(b.period) : "$(b.period)-$(b.run)") * "  " * b.item * "  " *
+    format_duration(seconds_between(b.since, at))
 end
 
 # Spans of the row of the allocation `a` at the time `at`.
@@ -385,14 +387,14 @@ function workers_allocation_spans(a, at)
     return spans
 end
 
-# Spans of the row of the worker `w`; `item` is its busy item or `nothing`.
-function workers_worker_spans(w, item)
+# Spans of the row of the worker `w` at the time `at`; `item` is its busy item or `nothing`.
+function workers_worker_spans(w, item, at)
     spans = [(lpad(w.pid, 3) * " ", Tachikoma.tstyle(:text_bright)),
         (rpad(isnothing(w.host) ? "…" : w.host, 12) * " ", Tachikoma.tstyle(:text))]
     if isnothing(item)
         push!(spans, ("idle", Tachikoma.tstyle(:text_dim)))
     else
-        push!(spans, ("busy " * workers_busy_text(item), Tachikoma.tstyle(:accent)))
+        push!(spans, ("busy " * workers_busy_text(item, at), Tachikoma.tstyle(:accent)))
         item.abandoned && push!(spans, (" (abandoned)", Tachikoma.tstyle(:warning)))
     end
     return spans
@@ -439,15 +441,28 @@ function workers_draw_output!(buf, area, title, lines, back, focused)
     return back, inner
 end
 
-# Output lines of the worker `pid` among the message `entries`: the lines relayed with its prefix, without the prefix.
+# Output lines of the worker `pid` among the message `entries`: the lines relayed with its
+# prefix, without the prefix. Of the progress lines of `@debug_progress`, only the newest
+# one of each description is kept.
 function workers_output_lines(entries, pid)
-    lines = Tuple{String, Tachikoma.Style}[]
+    texts = Tuple{String, LogLevel}[]
     for e in entries
         m = match(WORKERS_OUTPUT_LINE, e.text)
         (isnothing(m) || parse(Int, m[1]) != pid) && continue
-        color = e.level >= Logging.Error ? :error :
-                e.level >= Logging.Warn ? :warning : :text
-        push!(lines, (replace(m[2], '\t' => "    "), Tachikoma.tstyle(color)))
+        push!(texts, (m[2], e.level))
+    end
+    progress_desc(text) = (m = match(PROGRESS_LINE, text); isnothing(m) ? nothing : m[1])
+    newest = Dict{String, Int}()
+    for (i, (text, _)) in pairs(texts)
+        desc = progress_desc(text)
+        isnothing(desc) || (newest[desc] = i)
+    end
+    lines = Tuple{String, Tachikoma.Style}[]
+    for (i, (text, level)) in pairs(texts)
+        desc = progress_desc(text)
+        isnothing(desc) || newest[desc] == i || continue
+        color = level >= Logging.Error ? :error : level >= Logging.Warn ? :warning : :text
+        push!(lines, (replace(text, '\t' => "    "), Tachikoma.tstyle(color)))
     end
     return lines
 end
@@ -579,7 +594,7 @@ function render_workers(
         message(inner, "No workers.", :text_dim)
     else
         items = Dict(b.worker => b for b in busy)
-        rows = [workers_worker_spans(w, get(items, w.pid, nothing)) for w in workers]
+        rows = [workers_worker_spans(w, get(items, w.pid, nothing), at) for w in workers]
         page.worker_top = workers_draw_list!(
             buf, inner, rows, workers_index(workers, :pid, page.worker_pid),
             page.worker_top, page.focus == 2)

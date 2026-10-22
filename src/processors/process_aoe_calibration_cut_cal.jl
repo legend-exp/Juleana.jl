@@ -162,7 +162,7 @@ function process_aoe_calibration_cut_cal(
             end
         end
 
-        @showprogress desc="Detector: $det" for aoe_type in aoe_types
+        @debug_progress "Detector: $det" for aoe_type in aoe_types
             if haskey(processed_dict, aoe_type)
                 continue
             end
@@ -382,7 +382,7 @@ function process_aoe_calibration_cut_cal(
 
         pars_db_ch = create_pars(pars_db_ch, result_aoe_det)
 
-        @showprogress desc="Detector: $det" for aoe_classifier in aoe_classifiers
+        @debug_progress "Detector: $det" for aoe_classifier in aoe_classifiers
             if haskey(processed_dict, aoe_classifier)
                 continue
             end

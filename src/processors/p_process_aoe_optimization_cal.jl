@@ -209,7 +209,7 @@ function p_process_aoe_optimization_cal(
             presum_rate
         end
 
-        @showprogress desc="Computing $det ..." for filter_type in aoe_filter
+        @debug_progress "Computing $det ..." for filter_type in aoe_filter
             if haskey(processed_dict, filter_type)
                 continue
             end

@@ -149,8 +149,7 @@ function process_dsp_cal(
                 @info "Start DSP"
                 @timeit dsp_timer "DSP" begin
                     # loop over detectors
-                    @showprogress desc="Filekey: $fk" output=stdout enabled=(stdout isa
-                                                                             Base.TTY) for chinfo_det in chinfo
+                    @debug_progress "Filekey: $fk" for chinfo_det in chinfo
                         ch=chinfo_det.channel
                         det=chinfo_det.detector
 

@@ -225,7 +225,7 @@ function p_process_lq_calibration_cut_cal(
             end
         end
 
-        @showprogress desc="Detector: $det" for lq_type in lq_types
+        @debug_progress "Detector: $det" for lq_type in lq_types
             if haskey(processed_dict, lq_type)
                 continue
             end
@@ -418,7 +418,7 @@ function p_process_lq_calibration_cut_cal(
         pars_db_det = create_pars(pars_db_det, result_lq_cons)
 
         # continue with lq cut
-        @showprogress desc="Detector: $det" for lq_classifier in lq_classifiers
+        @debug_progress "Detector: $det" for lq_classifier in lq_classifiers
             if haskey(processed_dict, lq_classifier)
                 continue
             end

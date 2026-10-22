@@ -172,7 +172,7 @@ function p_process_sipm_calibration_phy(
             end
         end
 
-        @showprogress desc="Detector: $det" for e_type in energy_types
+        @debug_progress "Detector: $det" for e_type in energy_types
             if haskey(processed_dict, e_type)
                 continue
             end

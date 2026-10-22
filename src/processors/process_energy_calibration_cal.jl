@@ -110,7 +110,7 @@ function process_energy_calibration_cal(
         th228_names = Symbol.(energy_config_det.th228_names)
         th228_lines_dict = Dict(th228_names .=> energy_config_det.th228_lines)
 
-        @showprogress desc="Detector: $det" for e_type in energy_types
+        @debug_progress "Detector: $det" for e_type in energy_types
             if haskey(processed_dict, e_type)
                 continue
             end

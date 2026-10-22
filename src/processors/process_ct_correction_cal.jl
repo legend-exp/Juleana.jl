@@ -113,7 +113,7 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
         # get special config for CTC
         ctc_cal_peak = ctc_config_det.peak
 
-        @showprogress desc="Detector: $det" for e_type in energy_types
+        @debug_progress "Detector: $det" for e_type in energy_types
             if haskey(processed_dict, e_type)
                 continue
             end

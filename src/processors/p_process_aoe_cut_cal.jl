@@ -172,7 +172,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
             end
         end
 
-        @showprogress desc="Detector: $det" for aoe_classifier in aoe_classifiers
+        @debug_progress "Detector: $det" for aoe_classifier in aoe_classifiers
             if haskey(processed_dict, aoe_classifier)
                 continue
             end
