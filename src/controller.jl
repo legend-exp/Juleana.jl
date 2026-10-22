@@ -396,9 +396,9 @@ Constructors:
 `processors` maps processor names to their functions. Both constructors take the keyword
 `workers`, the [`Juleana.WorkerManager`](@ref) of the worker allocations, and
 `record_software`: whether each processing run first records the software of this process
-in the `software` folder of the production (see [`Juleana.record_software`](@ref)), and
+in the `setup/software` folder of the production (see [`Juleana.record_software`](@ref)), and
 `record_metadata`: whether it records the metadata and the config files (the data config
-files and the processing config `args["config"]`) in its `metadata-records` folder (see
+files and the processing config `args["config"]`) in its `setup/metadata` folder (see
 [`Juleana.record_metadata`](@ref)). A run fails if a record fails.
 """
 mutable struct DataflowController
@@ -414,7 +414,7 @@ mutable struct DataflowController
     const record_metadata::Bool
     # lines of the last production creation
     const production_lines::Vector{String}
-    # subfolders of `software` and `metadata-records` recorded for the current or last
+    # subfolders of `setup/software` and `setup/metadata` recorded for the current or last
     # processing run
     software_snapshot::Union{Nothing, String}
     metadata_record::Union{Nothing, String}
@@ -841,7 +841,7 @@ function write_history(ctrl::DataflowController, cfg::ProcessingConfig,
                 host = gethostname(), outcome, cfg.log_path,
                 software = software_version(ctrl.software_snapshot),
                 metadata = isnothing(ctrl.metadata_record) ? nothing :
-                           "metadata-records/$(ctrl.metadata_record)", steps))
+                           "setup/metadata/$(ctrl.metadata_record)", steps))
         @info "Added the processing run to the history in $path"
     catch e
         @error "Writing the processing history failed" exception = (e, catch_backtrace())

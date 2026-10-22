@@ -382,7 +382,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         config_file = joinpath(mktempdir(), "processing_config.yaml")
         cp(args["config"], config_file)
         production = mktempdir()
-        written = joinpath(production, "config", "processing_config.yaml")
+        written = joinpath(production, "setup", "config", "processing_config.yaml")
         session = new_session()
         session.args["config"] = config_file
         m = new_tui(session)
@@ -400,7 +400,8 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
             # the config folder of the data production is created and the session config file becomes the written one
             # the editor rows: log level, plot level, channels, max_wvfs
-            press!(m, :tab, 'e', :down, :down, :down, :enter, '7', :enter, :escape, 'w', 'y')
+            press!(
+                m, :tab, 'e', :down, :down, :down, :enter, '7', :enter, :escape, 'w', 'y')
             @test setup_refreshed!(m)
             @test isnothing(m.command_error)
             @test ProcessingConfig(written).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] ==

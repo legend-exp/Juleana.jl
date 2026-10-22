@@ -126,13 +126,34 @@ const REPORT = """
         @test Juleana.parse_commandline(["-c", "x.json", "--no_tui"])["no_tui"]
     end
 
+    @testset "setup folder of the data production" begin
+        production = mktempdir()
+        withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.yaml")) do
+            @test Juleana.production_setup_dir() == joinpath(production, "setup")
+            @test !ispath(joinpath(production, "setup"))
+            mkpath(joinpath(production, "setup", "config"))
+            @test Juleana.production_setup_dir() == joinpath(production, "setup")
+        end
+        for (old, new) in ("config" => "setup/config", "software" => "setup/software",
+            "metadata-records" => "setup/metadata")
+            legacy = mktempdir()
+            mkpath(joinpath(legacy, old))
+            withenv("LEGEND_DATA_CONFIG" => joinpath(legacy, "config.yaml")) do
+                @test_throws ArgumentError Juleana.production_setup_dir()
+                @test_throws "$legacy" Juleana.production_setup_dir()
+                @test_throws "$old/ to $new/" Juleana.production_setup_dir()
+                @test_throws "$old/ to $new/" Juleana.production_config_dir()
+            end
+        end
+    end
+
     @testset "config folder of the data production" begin
         production = mktempdir()
         shipped = joinpath(dirname(@__DIR__), "config", "processing_config.yaml")
         withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
-            @test Juleana.production_config_dir() == joinpath(production, "config")
+            @test Juleana.production_config_dir() == joinpath(production, "setup", "config")
             # without --config: the shipped config is copied into the production
-            installed = joinpath(production, "config", "processing_config.yaml")
+            installed = joinpath(production, "setup", "config", "processing_config.yaml")
             @test Juleana.default_config_file() == installed && !ispath(installed)
             @test_logs (:info, r"Copied the processing config shipped with Juleana") @test Juleana.parse_commandline(String[])["config"] ==
                                                                                            installed
@@ -143,7 +164,7 @@ const REPORT = """
             @test read(installed, String) == "{}"
             # an old processing_config.json is ignored with a warning, the yaml is installed
             rm(installed)
-            legacy = joinpath(production, "config", "processing_config.json")
+            legacy = joinpath(production, "setup", "config", "processing_config.json")
             write(legacy, "{\"config\": {}}")
             @test_logs (:warn, r"Ignoring .*processing_config\.json") (
                 :info, r"Copied the processing config") Juleana.install_default_config()
@@ -154,19 +175,19 @@ const REPORT = """
             fresh = mktempdir()
             withenv("LEGEND_DATA_CONFIG" => joinpath(fresh, "config.json")) do
                 @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
-                @test !ispath(joinpath(fresh, "config"))
+                @test !ispath(joinpath(fresh, "setup"))
             end
             @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
         end
         other = mktempdir()
         withenv("LEGEND_DATA_CONFIG" => "$(joinpath(production, "a.json")):$(joinpath(production, "b.json"))") do
-            @test Juleana.production_config_dir() == joinpath(production, "config")
+            @test Juleana.production_config_dir() == joinpath(production, "setup", "config")
         end
         # a site override before the data config of the production
         site = joinpath(other, "site.yaml")
         withenv("LEGEND_DATA_CONFIG" => "$site:$(joinpath(production, "config.json"))") do
             @test Juleana.data_config_files() == [site, joinpath(production, "config.json")]
-            @test Juleana.production_config_dir() == joinpath(production, "config")
+            @test Juleana.production_config_dir() == joinpath(production, "setup", "config")
             @test Juleana.current_production() ==
                   (basename(production), dirname(production))
             @test Juleana.with_production_config("/elsewhere/config.json") ==

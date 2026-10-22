@@ -147,22 +147,44 @@ function with_production_config(config::AbstractString)
 end
 
 """
+    Juleana.production_setup_dir()
+
+Return the path of the `setup` folder of the data production: the folder `setup` next
+to the data config of the production, the last file of [`Juleana.data_config_files`](@ref),
+in the folder that `\$_` stands for in that file. It holds the subfolders `config`,
+`software` and `metadata` that Juleana manages. The folder need not exist and is not created.
+
+Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set, or if the production folder
+has a top-level `config`, `software` or `metadata-records` folder; their contents belong in
+`setup/config`, `setup/software` and `setup/metadata`.
+"""
+function production_setup_dir()
+    production = dirname(abspath(last(data_config_files())))
+    old = [("config", "setup/config"), ("software", "setup/software"),
+        ("metadata-records", "setup/metadata")]
+    found = filter(m -> isdir(joinpath(production, first(m))), old)
+    isempty(found) || throw(ArgumentError(
+        "The data production $production has folders in the old layout. Move " *
+        join(["$a/ to $b/" for (a, b) in found], ", ") * "."))
+    return joinpath(production, "setup")
+end
+
+"""
     Juleana.production_config_dir()
 
-Return the path of the `config` folder of the data production: the folder `config` next
-to the data config of the production, the last file of [`Juleana.data_config_files`](@ref),
-in the folder that `\$_` stands for in that file. The folder need not exist.
+Return the path of the `config` folder of the data production, the subfolder `config` of
+the [`Juleana.production_setup_dir`](@ref). The folder need not exist.
 
-Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set.
+Throws an `ArgumentError` under the conditions of [`Juleana.production_setup_dir`](@ref).
 """
-production_config_dir() = joinpath(dirname(abspath(last(data_config_files()))), "config")
+production_config_dir() = joinpath(production_setup_dir(), "config")
 
 """
     Juleana.default_config_file()
 
 Return the path of the default processing config file of the data production,
-`processing_config.yaml` in the [`Juleana.production_config_dir`](@ref). The file need
-not exist; see [`Juleana.install_default_config`](@ref).
+`setup/config/processing_config.yaml` (see [`Juleana.production_config_dir`](@ref)). The
+file need not exist; see [`Juleana.install_default_config`](@ref).
 """
 default_config_file() = joinpath(production_config_dir(), "processing_config.yaml")
 

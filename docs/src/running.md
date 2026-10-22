@@ -23,7 +23,7 @@ juleana --threads=16,1 -- -c config/processing_config.yaml
 
 Processing needs access to the LEGEND data and metadata through the `LEGEND_DATA_CONFIG`
 environment variable (see the [overview](index.md)). The data production
-named there also holds the `config` folder described [below](@ref "Config folder of the data production").
+named there also holds the `setup/config` folder described [below](@ref "Config folder of the data production").
 
 `LEGEND_DATA_CONFIG` may name several files separated by colons. The last one is the data
 config of the production; the ones before it are overrides, e.g. of the computing site,
@@ -54,7 +54,7 @@ and exits. The exit code is `0` when processing finished, `1` when it failed and
 it was stopped. The first `Ctrl+C` stops after the running items, the second stops at
 once. Unlike the interface, `--no-tui` starts the configured workers itself: local
 workers always, SLURM workers when `submit_jobs` is set. Without `submit_jobs` it writes
-the SLURM start script `startjlworkers.sh` to the `config` folder of the data production
+the SLURM start script `startjlworkers.sh` to the `setup/config` folder of the data production
 for submission by hand.
 
 The same session is available from any Julia session:
@@ -97,9 +97,13 @@ new directory in the `jllog` tier, named by the current UTC time.
 
 ## Config folder of the data production
 
-The `config` folder of the data production is the folder `config` next to the file named
-by `LEGEND_DATA_CONFIG`. Without `--config`, Juleana reads
-`config/processing_config.yaml` from it. If that file does not exist, Juleana creates the
+Juleana keeps what it manages in the folder `setup` next to the file named by
+`LEGEND_DATA_CONFIG`: the subfolders `config`, `software` and `metadata`. A production with a
+top-level `config`, `software` or `metadata-records` folder is refused with an error that
+names the folders to move to `setup/config`, `setup/software` and `setup/metadata`.
+
+The `config` folder of the data production is `setup/config`. Without `--config`, Juleana
+reads `setup/config/processing_config.yaml` from it. If that file does not exist, Juleana creates the
 folder and copies the `config/processing_config.yaml` shipped with Juleana there first. The folder also holds the worker start script `startjlworkers.sh`.
 
 The "Processor log level" row of the Setup page cycles through "config" (each processor's
@@ -183,7 +187,7 @@ page and the `v` view of the Graph page show the state on disk, also from earlie
 Processing runs on worker processes, which connect to the running `juleana` process.
 The interface starts workers only on request: `a` on the Workers page, or `W` on the
 Setup page, starts a worker allocation by running the start script `startjlworkers.sh`
-in the config folder of the data production. Juleana regenerates the script for every
+in the `setup/config` folder of the data production. Juleana regenerates the script for every
 session from the processing config; it holds the cookie and the address of the running
 process. The Workers page shows and edits the script (`e`, `Ctrl+S` saves); edits apply to
 the session.
@@ -260,7 +264,7 @@ The production folder `<parent>/<name>` then holds
 - the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
 - `config.yaml`, the data config with one `tier/<label>` entry per extra tier path,
 - the copied parameters in `generated/jlpar`,
-- `software`, with one subfolder per recorded state of the software: a copy of the Juleana
+- `setup/software`, with one subfolder per recorded state of the software: a copy of the Juleana
   checkout and of the other developed packages of the running environment, each a git
   repository with one commit, a manifest that refers to the copies, `SNAPSHOT.toml` and
   `PROVENANCE.md` with the source folder, commit and uncommitted changes of each package
@@ -273,7 +277,7 @@ it cancels its worker allocations, sets `LEGEND_DATA_CONFIG` and loads a session
 
 ## Reproducing a production
 
-Every processing run first records the software of the process in the `software` folder
+Every processing run first records the software of the process in the `setup/software` folder
 of the production (the folder that holds the data config), see
 [`Juleana.record_software`](@ref). A new snapshot is kept if its `fingerprint` in
 `SNAPSHOT.toml`, computed from the Julia version and the git trees of all copied packages,
@@ -281,12 +285,12 @@ differs from that of every existing snapshot; otherwise the existing snapshot is
 The run fails if the recording fails. The subfolder is named
 `<date>-<Juleana commit>`, with `-modified` if Juleana had uncommitted changes. The
 processing history names it in the software line of the run, for example
-`Software: Juleana 0.2.0 (bab9df2), Julia 1.12.7, snapshot software/2026-10-22T100704Z-bab9df2`.
+`Software: Juleana 0.2.0 (bab9df2), Julia 1.12.7, snapshot setup/software/2026-10-22T100704Z-bab9df2`.
 
 To run the software of a run again, use that snapshot:
 
 ```sh
-cd <production>/software/<snapshot>/Juleana.jl
+cd <production>/setup/software/<snapshot>/Juleana.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 export LEGEND_DATA_CONFIG=<production>/config.yaml
 julia --project=. -m Juleana --no-tui ...
@@ -297,7 +301,7 @@ install the snapshot into another environment; `add` installs the committed tree
 `Pkg.Apps.develop(path = "<snapshot>/Juleana.jl")` replaces the globally installed
 `juleana` app.
 
-Every run also records the metadata in the `metadata-records` folder of the production, see
+Every run also records the metadata in the `setup/metadata` folder of the production, see
 [`Juleana.record_metadata`](@ref): the commit of `legend-metadata` and of each of its
 submodules, the uncommitted changes of each as a patch, its untracked files (copied up to
 1 MB, larger ones by their git hash only) and copies of the data config files and the
@@ -305,7 +309,7 @@ processing config. The metadata is only read with git. As for the software, a re
 the same `fingerprint` in `METADATA.toml` is reused, the run fails if the recording fails,
 and the subfolder is named `<date>-<metadata commit>`, with `-modified` if anything was not
 committed or a submodule was not at the commit the metadata records. The history names it in
-the line `Metadata: metadata-records/<record>` of the run. The `PROVENANCE.md` of a record
+the line `Metadata: setup/metadata/<record>` of the run. The `PROVENANCE.md` of a record
 lists the commands that restore the metadata: clone it, check out the recorded commits,
 apply the patches and copy the untracked files back.
 

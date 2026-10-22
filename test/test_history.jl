@@ -14,7 +14,7 @@ using Test
         finished = DateTime(2026, 10, 15, 13, 1, 5), user = "someone",
         host = "node1", outcome = :stopped, log_path = "/data/jllog/20261015T115958Z",
         software = "Juleana 0.2.0 (abc1234, modified), Julia 1.12.7",
-        metadata = "metadata-records/2026-10-15T120000Z-def5678",
+        metadata = "setup/metadata/2026-10-15T120000Z-def5678",
         steps = [
             step(
                 :process_dsp_cal, :run, DataRun(6), :done, DateTime(2026, 10, 15, 12, 0, 2),
@@ -38,7 +38,7 @@ using Test
     @test count("# Processing history", text) == 1
     @test occursin(
         "Log folder: /data/jllog/20261015T115958Z  \nSoftware: Juleana 0.2.0 (abc1234, modified), Julia 1.12.7  \n" *
-        "Metadata: metadata-records/2026-10-15T120000Z-def5678\n",
+        "Metadata: setup/metadata/2026-10-15T120000Z-def5678\n",
         text)
     @test occursin("Log folder: /data/jllog/20261016T080000Z\n\n", text)
     @test occursin(

@@ -15,6 +15,7 @@ Juleana.parse_commandline
 Juleana.mirror_override_folders
 Juleana.data_config_files
 Juleana.with_production_config
+Juleana.production_setup_dir
 Juleana.production_config_dir
 Juleana.default_config_file
 Juleana.install_default_config

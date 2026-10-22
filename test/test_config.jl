@@ -244,7 +244,7 @@ end
             ppt_worker_pool!(pool)
         end
         @test occursin("srun --job-name=julia-",
-            read(joinpath(dirname(data_config), "config", "startjlworkers.sh"), String))
+            read(joinpath(dirname(data_config), "setup", "config", "startjlworkers.sh"), String))
         @test isempty(readdir(workdir)) && nprocs() == n
     end
 end

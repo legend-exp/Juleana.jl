@@ -184,18 +184,19 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             "LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
             run_recorded()
         end
-        snapshot_name = only(readdir(joinpath(production, "software")))
+        snapshot_name = only(readdir(joinpath(production, "setup", "software")))
         @test snapshot(ctrl).outcome === :finished &&
               ctrl.software_snapshot == snapshot_name
-        @test isfile(joinpath(production, "software", snapshot_name, "SNAPSHOT.toml"))
+        @test isfile(joinpath(
+            production, "setup", "software", snapshot_name, "SNAPSHOT.toml"))
         @test entry.software == Juleana.software_version(snapshot_name) &&
-              endswith(entry.software, ", snapshot software/$snapshot_name")
+              endswith(entry.software, ", snapshot setup/software/$snapshot_name")
         # a second run with the same software reuses the snapshot
         ctrl, entry = withenv(
             "LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
             run_recorded()
         end
-        @test readdir(joinpath(production, "software")) == [snapshot_name] &&
+        @test readdir(joinpath(production, "setup", "software")) == [snapshot_name] &&
               ctrl.software_snapshot == snapshot_name
         # without a production folder the run fails before processing and says so
         empty!(calls)
@@ -235,14 +236,14 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             dispatch!(ctrl, StartProcessing())
             wait(ctrl)
         end
-        recorded = only(readdir(joinpath(production, "metadata-records")))
+        recorded = only(readdir(joinpath(production, "setup", "metadata")))
         @test snapshot(ctrl).outcome === :finished && ctrl.metadata_record == recorded &&
               isnothing(ctrl.software_snapshot)
-        folder = joinpath(production, "metadata-records", recorded)
+        folder = joinpath(production, "setup", "metadata", recorded)
         @test sort(readdir(joinpath(folder, "config"))) ==
               ["1-config.json", "2-processing_config.yaml"]
         entry = last(Juleana.read_history(Juleana.history_path(metadata_l200)))
-        @test entry.metadata == "metadata-records/$recorded"
+        @test entry.metadata == "setup/metadata/$recorded"
     end
 
     @testset "per-period runs" begin
@@ -483,7 +484,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         withenv(() -> dispatch!(ctrl, WriteConfig(written)),
             "LEGEND_DATA_CONFIG" => joinpath(production, "config.json"))
         # a given path leaves the config folder of the data production alone
-        @test !ispath(joinpath(production, "config"))
+        @test !ispath(joinpath(production, "setup", "config"))
         @test snapshot(ctrl).config_file == written
         @test read(written * ".bak", String) == "previous"
         original, props = readlprops(shipped_config), readlprops(written)
@@ -551,7 +552,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
                 new_session(); processors, record_software = false, record_metadata = false)
             @test isempty(snapshot(ctrl).allocations)
             dispatch!(ctrl, EditStartScript("echo started; sleep 60"))
-            @test read(joinpath(production, "config", "startjlworkers.sh"), String) ==
+            @test read(joinpath(production, "setup", "config", "startjlworkers.sh"), String) ==
                   "echo started; sleep 60"
             dispatch!(ctrl, AddWorkers())
             dispatch!(ctrl, AddWorkers())

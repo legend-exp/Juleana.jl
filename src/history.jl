@@ -69,7 +69,7 @@ return its processing runs in the order they were written, an empty vector if th
 does not exist. Each run is a `NamedTuple` `(; started, finished, user, host, outcome,
 log_path, software, metadata, steps)` with `outcome` a `Symbol`, `software` the description of the
 software (see [`Juleana.software_version`](@ref)) or `nothing` for a section without one,
-`metadata` the record of the metadata (`metadata-records/<name>`, see
+`metadata` the record of the metadata (`setup/metadata/<name>`, see
 [`Juleana.record_metadata`](@ref)) or `nothing` for a section without one, the times as `DateTime` (UTC, to the second)
 or `nothing`,
 and `steps` a vector of `(; process, level, category, period, run, outcome, started,

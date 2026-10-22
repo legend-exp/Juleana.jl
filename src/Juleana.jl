@@ -209,7 +209,8 @@ export DataflowController, dispatch!, snapshot, ControllerCommand, LoadSession,
        CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, CreateProduction,
        SelectProduction, SelectDataset
 
-public effective_config, save_plot, @debug_plot, @debug_progress, root_exception,
+public production_setup_dir, effective_config, save_plot, @debug_plot, @debug_progress,
+       root_exception,
        @process_step,
        ProcessStepError, Failure, failure, failures, failure_info, failure_variables,
        @locals, rerun, escape_log_underscores, processing_logger, ProcessorLevelLogger,

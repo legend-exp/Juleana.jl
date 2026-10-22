@@ -177,7 +177,7 @@ Create the data production `spec` describes and return the path of its data conf
 2. creates the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
 3. writes `config.yaml` (see [`Juleana.data_config_text`](@ref)),
 4. copies the parameter folders into `generated/jlpar`,
-5. copies the software of this process into a subfolder of `software` (see
+5. copies the software of this process into a subfolder of `setup/software` (see
    [`Juleana.record_software`](@ref)),
 6. sets `LEGEND_DATA_CONFIG` in the shell startup file: replaces the lines that export it,
    or appends one.
@@ -414,7 +414,7 @@ end
     Juleana.record_software(root::AbstractString; manifest = Juleana.running_manifest(),
         source = pkgdir(Juleana), log = line -> @info(line))
 
-Make sure the folder `root/software` holds a snapshot of the software of this process
+Make sure the folder `root/setup/software` holds a snapshot of the software of this process
 and return the name of its subfolder. Takes a new snapshot with
 [`Juleana.snapshot_software`](@ref) and compares its `fingerprint` with that of every
 subfolder that has a `SNAPSHOT.toml`; other subfolders are ignored. For equal software it
@@ -426,7 +426,7 @@ a git checkout. Throws if a step fails.
 function record_software(
         root::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana),
         log = line -> @info(line))
-    software = mkpath(joinpath(root, "software"))
+    software = mkpath(joinpath(root, "setup", "software"))
     fresh = joinpath(software, ".new-" * string(uuid4()))
     try
         snapshot_software(fresh; manifest, source, log)
@@ -459,14 +459,14 @@ end
 Return a one-line description of the software of this process for the processing
 history: the Juleana version, and for a git checkout its short commit and `modified` if it
 has uncommitted changes, the Julia version, and with `snapshot`, the name of a subfolder of
-`software` (see [`Juleana.record_software`](@ref)), `snapshot software/<snapshot>`.
+`setup/software` (see [`Juleana.record_software`](@ref)), `snapshot setup/software/<snapshot>`.
 """
 function software_version(snapshot = nothing)
     state = git_state(pkgdir(Juleana))
     checkout = isnothing(state) ? "" :
                " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
     return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION" *
-           (isnothing(snapshot) ? "" : ", snapshot software/$snapshot")
+           (isnothing(snapshot) ? "" : ", snapshot setup/software/$snapshot")
 end
 
 # Untracked files of the metadata up to this size are copied into its record; larger ones
@@ -532,7 +532,7 @@ end
     Juleana.record_metadata(root::AbstractString, metadata::AbstractString;
         configs = String[], log = line -> @info(line))
 
-Make sure the folder `root/metadata-records` holds a record of the metadata checkout
+Make sure the folder `root/setup/metadata` holds a record of the metadata checkout
 `metadata` and its submodules as they are now, together with the config files `configs`,
 and return the name of its subfolder. Reads the metadata with git only and does not change
 it. Throws an `ArgumentError` if `metadata` is not a git checkout.
@@ -581,7 +581,7 @@ function record_metadata(root::AbstractString, metadata::AbstractString;
         println(io, "config=", c["file"], " ", c["hash"])
     end
     fingerprint = git_hash(seekstart(io))
-    records = mkpath(joinpath(root, "metadata-records"))
+    records = mkpath(joinpath(root, "setup", "metadata"))
     for sub in readdir(records)
         file = joinpath(records, sub, "METADATA.toml")
         isfile(file) && TOML.parsefile(file)["fingerprint"] == fingerprint || continue

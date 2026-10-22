@@ -277,16 +277,17 @@ end
             @testset "record_software" begin
                 production = mkpath(joinpath(root, "recorded"))
                 # an old flat layout is ignored
-                mkpath(joinpath(production, "software", "Juleana.jl"))
+                mkpath(joinpath(production, "setup", "software", "Juleana.jl"))
                 first_name = Juleana.record_software(
                     production; manifest, source = juleana,
                     log = _ -> nothing)
                 @test occursin(r"^\d{4}-\d{2}-\d{2}T\d{6}Z-", first_name) &&
                       endswith(first_name, "-$(first(commit, 7))-modified")
-                @test isfile(joinpath(production, "software", first_name, "SNAPSHOT.toml"))
+                @test isfile(joinpath(
+                    production, "setup", "software", first_name, "SNAPSHOT.toml"))
                 @test Juleana.record_software(production; manifest, source = juleana,
                     log = _ -> nothing) == first_name
-                @test sort(readdir(joinpath(production, "software"))) ==
+                @test sort(readdir(joinpath(production, "setup", "software"))) ==
                       sort(["Juleana.jl", first_name])
                 write(joinpath(juleana, "src", "Juleana.jl"), "module Juleana x = 1 end")
                 # snapshot names have a resolution of one second
@@ -295,11 +296,11 @@ end
                     production; manifest, source = juleana,
                     log = _ -> nothing)
                 @test second_name != first_name && endswith(second_name, "-modified")
-                @test length(readdir(joinpath(production, "software"))) == 3
+                @test length(readdir(joinpath(production, "setup", "software"))) == 3
                 @test_throws "none.toml\": No such file" Juleana.record_software(
                     production; manifest = joinpath(root, "none.toml"),
                     source = juleana, log = _ -> nothing)
-                @test !any(startswith(".new-"), readdir(joinpath(production, "software")))
+                @test !any(startswith(".new-"), readdir(joinpath(production, "setup", "software")))
             end
             # the environment of this process
             @test haskey(TOML.parsefile(Juleana.running_manifest())["deps"], "Juleana")
@@ -317,7 +318,7 @@ end
             config_file(name) = (path = joinpath(root, name); write(path, name); path)
             configs = [config_file("config.json"), config_file("processing.yaml")]
             production = mkpath(joinpath(root, "rec-production"))
-            records = joinpath(production, "metadata-records")
+            records = joinpath(production, "setup", "metadata")
             quiet = _ -> nothing
 
             clean = Juleana.record_metadata(production, meta; configs, log = quiet)
@@ -349,7 +350,8 @@ end
             changed = Juleana.record_metadata(production, meta; configs, log = quiet)
             @test changed != clean && endswith(changed, "-$(first(commit, 7))-modified")
             # the metadata is only read
-            @test read(`git --no-optional-locks -C $meta status --porcelain`, String) == status_before &&
+            @test read(`git --no-optional-locks -C $meta status --porcelain`, String) ==
+                  status_before &&
                   mtime(joinpath(meta, ".git", "index")) == index_mtime
             toml = TOML.parsefile(joinpath(records, changed, "METADATA.toml"))
             repo, subrepo = toml["repos"]["."], toml["repos"]["jldataprod/overrides"]

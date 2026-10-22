@@ -20,7 +20,7 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
 
 @testset "worker allocations" begin
     production = mktempdir()
-    script_file = joinpath(production, "config", "startjlworkers.sh")
+    script_file = joinpath(production, "setup", "config", "startjlworkers.sh")
 
     withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
         @testset "local start script and allocations" begin
