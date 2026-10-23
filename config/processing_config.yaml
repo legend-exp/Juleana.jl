@@ -182,11 +182,21 @@ processors:
       timeout: 0
     dependencies: []
 
-  process_evt_phy:
+  process_pmts_calibration_phy:
     enabled: true
     n_workers: all
     category: phy
     rank: 15
+    kwargs:
+      reprocess: false
+      timeout: 0
+    dependencies: []
+
+  process_evt_phy:
+    enabled: true
+    n_workers: all
+    category: phy
+    rank: 16
     kwargs:
       reprocess: false
       timeout: 0
