@@ -15,6 +15,7 @@ JuLeAna.MessageBuffer
 JuLeAna.append_output!
 JuLeAna.message_lines
 JuLeAna.message_entries
+JuLeAna.worker_output
 JuLeAna.Checklist
 JuLeAna.ChecklistItem
 JuLeAna.ChecklistGroup

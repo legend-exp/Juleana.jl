@@ -31,8 +31,12 @@ const ALERT_SECONDS = 10.0
 # One line kept by a `MessageBuffer`.
 const MessageEntry = NamedTuple{(:level, :record, :text),Tuple{LogLevel,Int,String}}
 
+# Number of workers whose output a `MessageBuffer` keeps; beyond it, the worker with the
+# oldest newest line is dropped.
+const MESSAGE_BUFFER_WORKERS = 512
+
 """
-    MessageBuffer(capacity::Integer = 1000)
+    MessageBuffer(capacity::Integer = 1000; worker_capacity::Integer = 200)
 
 Logger that keeps the last `capacity` lines of log messages and of captured terminal
 output as text, for the terminal user interface. Each line has the log level of its
@@ -48,13 +52,23 @@ in its `ProgressStore` (see [`step_messages`](@ref)). The newest warning or erro
 a log record or from an output line containing `Warning:` or `Error:`, is kept as the
 alert of the buffer.
 
-[`JuLeAna.message_lines`](@ref) returns the kept lines as text and
-[`JuLeAna.message_entries`](@ref) with their levels and records.
+Output lines that Distributed relays from a worker (`From worker <pid>:`) are kept apart,
+the last `worker_capacity` lines per worker without the prefix, so that the output of many
+workers does not push out the other lines. Of the progress lines of
+[`@debug_progress`](@ref), only the newest one of each description is kept. Relayed lines
+containing `Warning:` or `Error:` are also kept with the other lines.
+
+[`JuLeAna.message_lines`](@ref) returns the kept lines as text,
+[`JuLeAna.message_entries`](@ref) with their levels and records, and
+[`JuLeAna.worker_output`](@ref) the lines of a worker.
 """
 mutable struct MessageBuffer <: AbstractLogger
     const lock::ReentrantLock
     const entries::Vector{MessageEntry}
     const capacity::Int
+    # relayed output lines of each worker, by process ID
+    const worker_entries::Dict{Int,Vector{MessageEntry}}
+    const worker_capacity::Int
     # unfinished last line of each captured stream
     const partial::Dict{Symbol,String}
     alert::Union{Nothing,NamedTuple{(:level, :text, :time),Tuple{LogLevel,String,Float64}}}
@@ -62,9 +76,11 @@ mutable struct MessageBuffer <: AbstractLogger
     record::Int
 end
 
-function MessageBuffer(capacity::Integer = 1000)
+function MessageBuffer(capacity::Integer = 1000; worker_capacity::Integer = 200)
     capacity > 0 || throw(ArgumentError("MessageBuffer: capacity must be positive, got $capacity"))
-    return MessageBuffer(ReentrantLock(), MessageEntry[], capacity, Dict{Symbol,String}(), nothing, 0)
+    worker_capacity > 0 || throw(ArgumentError("MessageBuffer: worker_capacity must be positive, got $worker_capacity"))
+    return MessageBuffer(ReentrantLock(), MessageEntry[], capacity, Dict{Int,Vector{MessageEntry}}(), worker_capacity,
+                         Dict{Symbol,String}(), nothing, 0)
 end
 
 min_enabled_level(::MessageBuffer) = Logging.Info
@@ -74,6 +90,25 @@ catch_exceptions(::MessageBuffer) = true
 function push_line!(buf::MessageBuffer, level::LogLevel, record::Integer, line::AbstractString)
     push!(buf.entries, (; level, record, text = String(line)))
     length(buf.entries) > buf.capacity && deleteat!(buf.entries, 1:(length(buf.entries) - buf.capacity))
+    return nothing
+end
+
+# Description of a progress line of `@debug_progress`, or `nothing` for another line.
+progress_description(text::AbstractString) = (m = match(PROGRESS_LINE, text); isnothing(m) ? nothing : m[1])
+
+function push_worker_line!(buf::MessageBuffer, pid::Int, level::LogLevel, record::Integer, line::AbstractString)
+    lines = get!(Vector{MessageEntry}, buf.worker_entries, pid)
+    desc = progress_description(line)
+    if !isnothing(desc)
+        prefix = "[ Progress: $desc "
+        i = findfirst(e -> startswith(e.text, prefix) && progress_description(e.text) == desc, lines)
+        isnothing(i) || deleteat!(lines, i)
+    end
+    push!(lines, (; level, record, text = String(line)))
+    length(lines) > buf.worker_capacity && popfirst!(lines)
+    if length(buf.worker_entries) > MESSAGE_BUFFER_WORKERS
+        delete!(buf.worker_entries, argmin(p -> last(buf.worker_entries[p]).record, keys(buf.worker_entries)))
+    end
     return nothing
 end
 
@@ -116,7 +151,9 @@ end
     JuLeAna.append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString)
 
 Add `text` written to the captured output `stream` (`:stdout` or `:stderr`) to `buf`,
-line by line; an unfinished last line waits for the rest of its text.
+line by line; an unfinished last line waits for the rest of its text. A line relayed from
+a worker goes to the lines of that worker (see [`JuLeAna.worker_output`](@ref)), and only
+with `Warning:` or `Error:` also to the other lines.
 """
 function append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString)
     @lock buf.lock begin
@@ -127,12 +164,27 @@ function append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString
             isempty(strip(l)) && continue
             m = match(r"(Warning|Error):\s*(.*)$", l)
             level = isnothing(m) ? Logging.Info : m[1] == "Error" ? Logging.Error : Logging.Warn
-            push_line!(buf, level, (buf.record += 1), l)
+            record = (buf.record += 1)
+            w = match(WORKERS_OUTPUT_LINE, l)
+            if !isnothing(w)
+                push_worker_line!(buf, parse(Int, w[1]), level, record, w[2])
+                level >= Logging.Warn || continue
+            end
+            push_line!(buf, level, record, l)
             isnothing(m) || (buf.alert = (; level, text = String(m[2]), time = time()))
         end
     end
     return nothing
 end
+
+"""
+    JuLeAna.worker_output(buf::MessageBuffer, pid::Integer)
+
+Return a copy of the output lines kept in `buf` for the worker with process ID `pid`,
+oldest first, as entries like those of [`JuLeAna.message_entries`](@ref) with the text
+without the `From worker <pid>:` prefix.
+"""
+worker_output(buf::MessageBuffer, pid::Integer) = @lock buf.lock copy(get(buf.worker_entries, pid, MessageEntry[]))
 
 """
     JuLeAna.message_lines(buf::MessageBuffer)
@@ -681,7 +733,7 @@ function draw_interface!(m::JuLeAnaTUI, f::Tachikoma.Frame)
     elseif m.page == 2
         render_graph(m.graph_page, m.snap, m.progress, body_area, f.buffer; grid = m.graph_page.disk ? m.history_page.grid : nothing)
     elseif m.page == 3
-        render_workers(m.workers_page, m.snap, m.busy, message_entries(m.messages), body_area, f.buffer)
+        render_workers(m.workers_page, m.snap, m.busy, m.messages, body_area, f.buffer)
     elseif m.page == 4
         render_progress(m.progress_page, m.progress, m.busy, m.step_msgs, body_area, f.buffer)
     elseif m.page == 5

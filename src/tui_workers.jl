@@ -426,30 +426,12 @@ function workers_draw_output!(buf, area, title, lines, back, focused)
     return back, inner
 end
 
-# Output lines of the worker `pid` among the message `entries`: the lines relayed with its
-# prefix, without the prefix. Of the progress lines of `@debug_progress`, only the newest
-# one of each description is kept.
-function workers_output_lines(entries, pid)
-    texts = Tuple{String,LogLevel}[]
-    for e in entries
-        m = match(WORKERS_OUTPUT_LINE, e.text)
-        (isnothing(m) || parse(Int, m[1]) != pid) && continue
-        push!(texts, (m[2], e.level))
+# Lines of the output pane of a worker from its entries kept by the message buffer, colored by level.
+function workers_output_lines(entries)
+    return map(entries) do e
+        color = e.level >= Logging.Error ? :error : e.level >= Logging.Warn ? :warning : :text
+        return (replace(e.text, '\t' => "    "), Tachikoma.tstyle(color))
     end
-    progress_desc(text) = (m = match(PROGRESS_LINE, text); isnothing(m) ? nothing : m[1])
-    newest = Dict{String,Int}()
-    for (i, (text, _)) in pairs(texts)
-        desc = progress_desc(text)
-        isnothing(desc) || (newest[desc] = i)
-    end
-    lines = Tuple{String,Tachikoma.Style}[]
-    for (i, (text, level)) in pairs(texts)
-        desc = progress_desc(text)
-        isnothing(desc) || newest[desc] == i || continue
-        color = level >= Logging.Error ? :error : level >= Logging.Warn ? :warning : :text
-        push!(lines, (replace(text, '\t' => "    "), Tachikoma.tstyle(color)))
-    end
-    return lines
 end
 
 # Spans of the information line: workers, busy workers and the countdown to the cancel of idle allocations.
@@ -479,12 +461,12 @@ function workers_render_editor(page::WorkersPage, area, buf)
 end
 
 """
-    JuLeAna.render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
-        at::DateTime = now(UTC))
+    JuLeAna.render_workers(page::WorkersPage, snap, busy, messages::JuLeAna.MessageBuffer, area::Tachikoma.Rect,
+        buf::Tachikoma.Buffer; at::DateTime = now(UTC))
 
 Draw the Workers page into `area` of `buf`. `snap` is the controller snapshot (or `nothing`),
-`busy` the busy workers (see `busy_workers`), `entries` the entries of the message buffer
-(see [`JuLeAna.message_entries`](@ref)) and `at` the current UTC time.
+`busy` the busy workers (see `busy_workers`), `messages` the message buffer that keeps the
+output of the workers (see [`JuLeAna.worker_output`](@ref)) and `at` the current UTC time.
 
 A line at the top shows the number of workers and the countdown to the cancel of idle
 allocations (`idle cancel in mm:ss`, or `no idle cancel`). Two columns follow. The left one
@@ -499,7 +481,7 @@ While the start script is edited the editor fills the whole area. A message abou
 start script, the form of the SLURM options and the question before a cancel are drawn
 over the page.
 """
-function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer; at::DateTime = now(UTC))
+function render_workers(page::WorkersPage, snap, busy, messages, area::Tachikoma.Rect, buf::Tachikoma.Buffer; at::DateTime = now(UTC))
     page.alloc_list = page.worker_list = page.alloc_out = page.worker_out = Tachikoma.Rect(area.x, area.y, 0, 0)
     if !isnothing(page.editor)
         workers_render_editor(page, area, buf)
@@ -562,7 +544,7 @@ function render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.
     end
     worker = workers_selected_worker(page)
     title = isnothing(worker) ? "Output of the worker" : "Output of worker $(worker.pid)"
-    lines = isnothing(worker) ? Tuple{String,Tachikoma.Style}[] : workers_output_lines(entries, worker.pid)
+    lines = isnothing(worker) ? Tuple{String,Tachikoma.Style}[] : workers_output_lines(worker_output(messages, worker.pid))
     page.worker_back, page.worker_out = workers_draw_output!(buf, wbottom, title, lines, page.worker_back, page.focus == 2)
     return workers_render_modals(page, snap, area, buf)
 end
