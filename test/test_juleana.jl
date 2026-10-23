@@ -162,6 +162,8 @@ end
         @test r.Status == ProcessStatus(0)
         @test r.X == "-"
         @test r.Error == "boom"
+        # a run-level item with a partition field keeps the columns of the log
+        @test failure_log(DetLog, (; det..., partition = missing), "boom") == r
 
         PartLog = NamedTuple{(:Detector, :usability, :Partition, :Status, :X, :Error)}
         r = failure_log(PartLog, (; det..., partition = :p1), "boom")

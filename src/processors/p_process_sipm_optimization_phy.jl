@@ -51,8 +51,8 @@ function p_process_sipm_optimization_phy(
     filekey = first(rinfo).phy.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :phy; system = :spms, only_processable = true)
-    @info "Loaded channel info with $(length(chinfo)) detectors"
+    chinfo_unfolded = channelinfo(l200, period, :phy; system = :spms, only_processable = true, explode_partitions = true)
+    @info "Loaded channel info with $(length(chinfo_unfolded)) detector-partitions"
 
     if reprocess
         @info "Reprocess all detectors"
@@ -66,10 +66,6 @@ function p_process_sipm_optimization_phy(
         Symbol("Res. 1PE"), Symbol("Trig. Thres."), :Error)}
 
     # get worker pool
-
-    # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(
-        l200, chinfo, period, :phy; unfold_partitions = true)
 
     # flush stdout
     flush(stdout)

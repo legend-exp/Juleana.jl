@@ -51,9 +51,9 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :cal; system = :geds, only_processable = true) |>
-             filterby(@pf $low_aoe_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) detectors"
+    chinfo_unfolded = channelinfo(l200, period, :cal; system = :geds, only_processable = true, explode_partitions = true) |>
+                      filterby(@pf $low_aoe_status in [:valid, :present])
+    @info "Loaded channel info with $(length(chinfo_unfolded)) detector-partitions"
 
     if reprocess
         @info "Reprocess all detectors"
@@ -67,10 +67,6 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
         Symbol("Cut Value"), Symbol("SEP SF"), Symbol("FEP SF"), :Error)}
 
     # get worker pool
-
-    # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(
-        l200, chinfo, period, :cal; unfold_partitions = true)
 
     # flush stdout
     flush(stdout)

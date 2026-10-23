@@ -47,9 +47,9 @@ function p_process_lq_calibration_cut_cal(
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :cal; system = :geds, only_processable = true) |>
-             filterby(@pf $lq_status in [:valid, :present])
-    @info "Loaded channel info with $(length(chinfo)) detectors"
+    chinfo_unfolded = channelinfo(l200, period, :cal; system = :geds, only_processable = true, explode_partitions = true) |>
+                      filterby(@pf $lq_status in [:valid, :present])
+    @info "Loaded channel info with $(length(chinfo_unfolded)) detector-partitions"
 
     if reprocess
         @info "Reprocess all detectors"
@@ -66,10 +66,6 @@ function p_process_lq_calibration_cut_cal(
         Symbol("High Cut"), Symbol("DEP SF"), Symbol("CC SF"), :CutError)}
 
     # get worker pool
-
-    # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(
-        l200, chinfo, period, :cal; unfold_partitions = true)
 
     # flush stdout
     flush(stdout)

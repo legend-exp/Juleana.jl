@@ -43,7 +43,6 @@ using LegendDataManagement: LegendDataManagement, DataCategory, DataPeriod, Data
 using LegendDataManagement.LDMUtils: LDMUtils, create_logtbl, create_metadatatbl,
                                      create_pars,
                                      create_validity,
-                                     get_partition_channelinfo,
                                      get_partitionvalidity, get_plottitle,
                                      get_preportfilename, get_rreportfilename,
                                      get_totalTimer, savelfig, writevalidity

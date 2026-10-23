@@ -37,8 +37,8 @@ function p_process_filter_optimization_cal(
     filekey = first(rinfo).cal.startkey
     @info "Found filekey $filekey"
 
-    chinfo = channelinfo(l200, period, :cal; system = :geds, only_processable = true)
-    @info "Loaded channel info with $(length(chinfo)) detectors"
+    chinfo_unfolded = channelinfo(l200, period, :cal; system = :geds, only_processable = true, explode_partitions = true)
+    @info "Loaded channel info with $(length(chinfo_unfolded)) detector-partitions"
 
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
@@ -53,10 +53,6 @@ function p_process_filter_optimization_cal(
         Symbol("Rise Time"), Symbol("Flat-Top Time"), Symbol("Min. FWHM"), :Error)}
 
     # get worker pool
-
-    # get unfolded channel info where each entry is a detector and its partition for all partitions that contain period
-    chinfo_unfolded = get_partition_channelinfo(
-        l200, chinfo, period, :cal; unfold_partitions = true)
 
     # flush stdout
     flush(stdout)
