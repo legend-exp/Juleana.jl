@@ -276,6 +276,12 @@ processors:
       timeout: 0
       use_cache: true
     dependencies:
+      - process_energy_calibration_cal
+      - p_process_energy_cal
+      - process_aoe_calibration_cut_cal
+      - p_process_aoe_calibration_cut_cal
+      - process_lq_calibration_cut_cal
+      - p_process_lq_calibration_cut_cal
       - p_process_sipm_calibration_phy
       - process_sipm_calibration_phy
 
