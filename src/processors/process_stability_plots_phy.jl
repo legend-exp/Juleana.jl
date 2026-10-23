@@ -64,7 +64,9 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
     log_nt = NamedTuple{(:Detector, :usability, :Status, :Plot, :Error)}
 
     @info "Loading pulser data for period $period and run $run"
-    puls = read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
+    puls = @process_step "pulser data loader" begin
+        read_ldata((:e_10410, :aux_trig), l200, DataTier(:jlaux), :phy, period, run, det_puls)
+    end
 
     start_time = now()
 
@@ -74,24 +76,18 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
 
         @info "Processing detector $det ($ch)"
 
-        data = try
+        data = @process_step "data loader" begin
             read_ldata((:timestamp, :blmean, :blsigma, :e_10410), l200, DataTier(:jldsp), :phy, period, run, det)
-        catch e
-            @error "Stability data for $det cannot be loaded: $(truncate_error(e))"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), :all, "$(truncate_error(e))"))
-            return (processed = Dict(:all => false), log = Dict(:all => log_det))
         end
 
-        length(puls.e_10410) == length(data.timestamp) ||
-            throw(DimensionMismatch("pulser data of $det_puls ($(length(puls.e_10410)) events) does not match the data of $det ($(length(data.timestamp)) events)"))
-        finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
-        timestamp = data.timestamp[finite_data]
-        time_s = ustrip.(timestamp)
-        bl_f = float.(data.blmean[finite_data])
-        σbl = float.(data.blsigma[finite_data])
-        e10410 = float.(data.e_10410[finite_data])
-        puls_e10410 = puls.e_10410[finite_data]
-        aux_trig = puls.aux_trig[finite_data]
+        timestamp, time_s, bl_f, σbl, e10410, puls_e10410, aux_trig = @process_step "finite event filter" begin
+            length(puls.e_10410) == length(data.timestamp) ||
+                throw(DimensionMismatch("pulser data of $det_puls ($(length(puls.e_10410)) events) does not match the data of $det ($(length(data.timestamp)) events)"))
+            finite_data = isfinite.(data.timestamp) .&& isfinite.(data.blmean) .&& isfinite.(data.blsigma) .&& isfinite.(data.e_10410)
+            timestamp = data.timestamp[finite_data]
+            (timestamp, ustrip.(timestamp), float.(data.blmean[finite_data]), float.(data.blsigma[finite_data]),
+             float.(data.e_10410[finite_data]), puls.e_10410[finite_data], puls.aux_trig[finite_data])
+        end
 
         log_info_dict = Dict{Symbol,NamedTuple}()
         processed_dict = Dict{Symbol,Bool}()
@@ -99,14 +95,16 @@ function process_stability_plots_phy(processing_config, l200::LegendData, period
         # Run, save, and log a plot without aborting the processor on failure.
         function run_plot(make_plot::Function, plot_name::Symbol)
             try
-                p = make_plot()
-                save_plot(p, l200, filekey, det, plot_name)
+                @process_step "$plot_name plot" begin
+                    p = make_plot()
+                    save_plot(p, l200, filekey, det, plot_name)
+                end
                 log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), plot_name, ""))
                 processed_dict[plot_name] = true
             catch e
-                @error "Failed plot $plot_name for detector $det ($ch): $(truncate_error(e))"
+                e isa ProcessStepError || rethrow()
                 log_info_dict[plot_name] = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), plot_name,
-                                                   "$(truncate_error(e))"))
+                                                   "$(truncate_error(e.exception))"))
                 processed_dict[plot_name] = false
             end
         end

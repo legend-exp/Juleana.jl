@@ -75,14 +75,18 @@ function split_peaks(l200::LegendData, period::DataPeriod, run::DataRun, categor
                 maximum_energy = maximum(rightendpoint.(values(energy_windows)))
                 @debug "Reading raw data for detector $det ($ch) from $(length(filekeys)) files"
                 energy_filter = @pf minimum_energy <= f_calib((daqenergy = $daqenergy,)) <= maximum_energy
-                slim_data = read_ldata(l200, DataTier(:raw), filekeys, det; filterby = energy_filter)
-                write_files(output_filename; use_cache, mode = CreateOrReplace()) do outfile
-                    lh5open(outfile, "w") do output
-                        for (label, window) in energy_windows
-                            @debug "Filtering $label for detector $det ($ch)"
-                            peak_data = slim_data |> filterby(@pf f_calib((daqenergy = $daqenergy,)) ∈ window)
-                            output[:jlpks, det, label] = peak_data
-                            counts[label] = length(peak_data)
+                slim_data = @process_step "data loader" begin
+                    read_ldata(l200, DataTier(:raw), filekeys, det; filterby = energy_filter)
+                end
+                @process_step "peak file writer" begin
+                    write_files(output_filename; use_cache, mode = CreateOrReplace()) do outfile
+                        lh5open(outfile, "w") do output
+                            for (label, window) in energy_windows
+                                @debug "Filtering $label for detector $det ($ch)"
+                                peak_data = slim_data |> filterby(@pf f_calib((daqenergy = $daqenergy,)) ∈ window)
+                                output[:jlpks, det, label] = peak_data
+                                counts[label] = length(peak_data)
+                            end
                         end
                     end
                 end
