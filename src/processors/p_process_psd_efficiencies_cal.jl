@@ -177,7 +177,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                                   "A/E low and high cut" => aoe_ds_cut_vec, "A/E and LQ cut" => (aoe_ds_cut_vec .&& lq_high_cut_vec)]
                     fig = Makie.Figure(size = (900, 300 * cld(length(psd_config_det.psd_peaks), 2)))
                     Makie.Label(fig[0, 1:2],
-                                get_plottitle(filekey_ch, part, det, "PSD Survival Fractions"; additional_type = string(psd_classifier)))
+                                get_plottitle(filekey_det, part, det, "PSD Survival Fractions"; additional_type = string(psd_classifier)))
                     for (i, peak) in pairs(psd_config_det.psd_peaks)
                         lo = ustrip(unit(first(e_cal)), peak - psd_config_det.psd_peaks_windows_left[i])
                         hi = ustrip(unit(first(e_cal)), peak + psd_config_det.psd_peaks_windows_right[i])
@@ -190,7 +190,7 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
                         end
                         i == 1 && Makie.axislegend(ax)
                     end
-                    save_plot(fig, l200, part, filekey_ch, det, Symbol("error_survival_fraction_$psd_classifier"))
+                    save_plot(fig, l200, part, filekey_det, det, Symbol("error_survival_fraction_$psd_classifier"))
                 end
                 ## low A/E cut
                 result_peaks_low, report_peaks_low = @process_step "AoE peaks low SF" on_error = plot_cut_spectra begin
@@ -288,9 +288,9 @@ function p_process_psd_efficiencies_cal(processing_config, l200::LegendData, per
 
                 @debug_plot begin
                     p = LegendMakie.lplot(report_peaks_ds, titlesize = 17, figsize = (600, 400*length(report_peaks_ds)),
-                                          title = get_plottitle(filekey_ch, part, det, "A/E Performance";
+                                          title = get_plottitle(filekey_det, part, det, "A/E Performance";
                                                                 additional_type = string(psd_classifier)))
-                    save_plot(p, l200, part, filekey_ch, det, Symbol("aoe_peaks_sf_$psd_classifier"))
+                    save_plot(p, l200, part, filekey_det, det, Symbol("aoe_peaks_sf_$psd_classifier"))
                 end
 
                 # save results
