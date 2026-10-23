@@ -222,6 +222,45 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         @test !JuLeAna.workers_mouse!(page, wheel(1, 1, Tachikoma.mouse_scroll_up))
     end
 
+    @testset "wheel over the worker list and the worker output" begin
+        wheel(x, y, button) = Tachikoma.MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
+        many = [(; pid, host = "viper") for pid in 2:41]
+        page = loaded_page((; overview()..., workers = many))
+        press!(page, KeyEvent(:tab))
+        render_workers_page(page, snap)
+        # the wheel scrolls the list and keeps the selection
+        list = page.worker_list
+        @test JuLeAna.workers_mouse!(page, wheel(list.x, list.y, Tachikoma.mouse_scroll_down))
+        @test page.worker_top == 1 + JuLeAna.WORKERS_WHEEL_LINES && JuLeAna.workers_selected_worker(page).pid == 2
+        text = workers_screen(render_workers_page(page, snap))
+        @test page.worker_top == 1 + JuLeAna.WORKERS_WHEEL_LINES && occursin("Output of worker 2", text)
+        @test !occursin(r"▶ +2 ", text)
+        # moving the selection with a key scrolls the list back to it
+        press!(page, KeyEvent(:down))
+        render_workers_page(page, snap)
+        @test JuLeAna.workers_selected_worker(page).pid == 3 && page.worker_top == 2
+        # the wheel over the allocations scrolls their list
+        alist = page.alloc_list
+        @test JuLeAna.workers_mouse!(page, wheel(alist.x, alist.y, Tachikoma.mouse_scroll_down)) && page.alloc_top > 1
+
+        # scrolled-up output stays on its lines while new lines arrive
+        buf = JuLeAna.MessageBuffer()
+        JuLeAna.append_output!(buf, :stdout, join(("      From worker 3:\tline $i\n" for i in 1:60)))
+        render_workers_page(page, snap, busy, buf)
+        out = page.worker_out
+        @test JuLeAna.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_up))
+        before = workers_screen(render_workers_page(page, snap, busy, buf))
+        @test occursin("scrolled up $(JuLeAna.WORKERS_WHEEL_LINES)", before) && !occursin("line 60", before)
+        JuLeAna.append_output!(buf, :stdout, join(("      From worker 3:\tnew $i\n" for i in 1:5)))
+        after = workers_screen(render_workers_page(page, snap, busy, buf))
+        @test page.worker_back == JuLeAna.WORKERS_WHEEL_LINES + 5 && !occursin("new", after)
+        visible(text) = [m.match for m in eachmatch(r"line \d+", text)]
+        @test visible(after) == visible(before)
+        # End follows the newest line again
+        press!(page, KeyEvent(:end_key))
+        @test occursin("new 5", workers_screen(render_workers_page(page, snap, busy, buf)))
+    end
+
     @testset "mouse selection" begin
         page = loaded_page()
         render_workers_page(page, snap, busy)

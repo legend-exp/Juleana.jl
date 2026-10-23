@@ -45,9 +45,13 @@ mutable struct WorkersPage
     alloc_top::Int
     worker_top::Int
     slurm_top::Int
+    # whether the next render scrolls the focused list to its selection
+    reveal::Bool
     # lines by which each output pane is scrolled up from the newest line
     alloc_back::Int
     worker_back::Int
+    # process ID and record of the newest output line of the worker at the last render
+    worker_seen::Tuple{Int,Int}
     # `:cancel` or `:all` while the cancel of allocations waits for confirmation
     confirm::Union{Nothing,Symbol}
     confirm_id::Int
@@ -64,7 +68,8 @@ mutable struct WorkersPage
 end
 
 function WorkersPage()
-    return WorkersPage(nothing, nothing, false, -Inf, 1, :workers, nothing, nothing, 1, 1, 1, 0, 0, nothing, 0, nothing, nothing, nothing,
+    return WorkersPage(nothing, nothing, false, -Inf, 1, :workers, nothing, nothing, 1, 1, 1, false, 0, 0, (0, 0), nothing, 0, nothing,
+                       nothing, nothing,
                        Any[], Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0),
                        Tachikoma.Rect(1, 1, 0, 0))
 end
@@ -181,6 +186,7 @@ end
 
 # Move the selection of the focused list, or the text of the SLURM pane, by `delta` rows.
 function workers_move!(page::WorkersPage, delta)
+    page.reveal = true
     if page.focus == 1
         items = workers_allocations(page)
         isempty(items) && return nothing
@@ -315,8 +321,8 @@ end
     JuLeAna.workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
 
 Apply the mouse event `evt` to `page`: a left click on a row of the allocations or the workers
-selects it and focuses its pane, and the scroll wheel scrolls the output pane (or the SLURM
-text) under the pointer by three lines. The mouse does nothing while the editor, a message or a
+selects it and focuses its pane, and the scroll wheel scrolls the list, the output pane or
+the SLURM text under the pointer by three lines; scrolling a list keeps its selection. The mouse does nothing while the editor, a message or a
 question is open. Return `true` if the event was used.
 """
 function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
@@ -348,8 +354,12 @@ function workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
         elseif Base.contains(page.worker_out, evt.x, evt.y)
             page.worker_back = max(0, page.worker_back + delta)
             return true
-        elseif workers_tab(page) === :slurm && Base.contains(page.worker_list, evt.x, evt.y)
-            page.slurm_top = max(1, page.slurm_top - delta)
+        elseif Base.contains(page.alloc_list, evt.x, evt.y)
+            page.alloc_top = max(1, page.alloc_top - delta)
+            return true
+        elseif Base.contains(page.worker_list, evt.x, evt.y)
+            workers_tab(page) === :slurm ? (page.slurm_top = max(1, page.slurm_top - delta)) :
+            (page.worker_top = max(1, page.worker_top - delta))
             return true
         end
     end
@@ -393,11 +403,14 @@ function workers_worker_spans(w, item, at)
     return spans
 end
 
-# Draw the `rows` (lists of spans) into `inner` with the row `selected` marked and return the first displayed row.
-function workers_draw_list!(buf, inner, rows, selected, top, focused)
+# Draw the `rows` (lists of spans) into `inner` from the row `top` with the row `selected` marked, scrolled to
+# `selected` if `reveal`, and return the first displayed row.
+function workers_draw_list!(buf, inner, rows, selected, top, focused, reveal)
     top = clamp(top, 1, max(1, length(rows) - inner.height + 1))
-    selected > 0 && selected < top && (top = selected)
-    selected > top + inner.height - 1 && (top = selected - inner.height + 1)
+    if reveal
+        selected > 0 && selected < top && (top = selected)
+        selected > top + inner.height - 1 && (top = selected - inner.height + 1)
+    end
     for r in 0:(inner.height - 1)
         i = top + r
         i <= length(rows) || break
@@ -474,7 +487,7 @@ lists the allocations (number, backend, state, SLURM job name and job IDs, run t
 time it ran, the exit code of a failed one) with the output of the script of the selected
 allocation below, the newest line at the bottom. The right one lists the workers (process
 ID, host, the item a busy worker runs or `idle`) with the lines the selected worker wrote
-below. If the overview has SLURM output, the right pane can show it instead (`squeue`, then
+below; while that output is scrolled up, it stays on the same lines as new ones arrive. If the overview has SLURM output, the right pane can show it instead (`squeue`, then
 `sinfo -t idle`) over the whole column. The focused pane has the heavy border.
 
 While the start script is edited the editor fills the whole area. A message about the
@@ -488,6 +501,7 @@ function render_workers(page::WorkersPage, snap, busy, messages, area::Tachikoma
         return nothing
     end
     (area.width < 20 || area.height < 7) && return nothing
+    reveal, page.reveal = page.reveal, false
     info, body = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Fixed(1), Tachikoma.Fill()]), area)
     put_spans!(buf, info.x, info.y, Tachikoma.right(info), workers_info_spans(page, snap, busy, at))
     left, right = Tachikoma.split_layout(Tachikoma.Layout(Tachikoma.Horizontal, [Tachikoma.Fill(), Tachikoma.Fill()]), body)
@@ -505,7 +519,7 @@ function render_workers(page::WorkersPage, snap, busy, messages, area::Tachikoma
         message(inner, "No allocations. `a` starts workers.", :text_dim)
     else
         page.alloc_top = workers_draw_list!(buf, inner, [workers_allocation_spans(a, at) for a in allocations], selected, page.alloc_top,
-                                            page.focus == 1)
+                                            page.focus == 1, reveal && page.focus == 1)
     end
     alloc = workers_selected_allocation(page)
     title = isnothing(alloc) ? "Output of the allocation" : "Output of allocation $(alloc.id)"
@@ -540,12 +554,18 @@ function render_workers(page::WorkersPage, snap, busy, messages, area::Tachikoma
         items = Dict(b.worker => b for b in busy)
         rows = [workers_worker_spans(w, get(items, w.pid, nothing), at) for w in workers]
         page.worker_top = workers_draw_list!(buf, inner, rows, workers_index(workers, :pid, page.worker_pid), page.worker_top,
-                                             page.focus == 2)
+                                             page.focus == 2, reveal && page.focus == 2)
     end
     worker = workers_selected_worker(page)
     title = isnothing(worker) ? "Output of the worker" : "Output of worker $(worker.pid)"
-    lines = isnothing(worker) ? Tuple{String,Tachikoma.Style}[] : workers_output_lines(worker_output(messages, worker.pid))
-    page.worker_back, page.worker_out = workers_draw_output!(buf, wbottom, title, lines, page.worker_back, page.focus == 2)
+    entries = isnothing(worker) ? MessageEntry[] : worker_output(messages, worker.pid)
+    # while scrolled up, the view stays on its lines as new ones arrive
+    if !isnothing(worker) && page.worker_back > 0 && first(page.worker_seen) == worker.pid
+        page.worker_back += count(e -> e.record > last(page.worker_seen), entries)
+    end
+    page.worker_seen = (isnothing(worker) ? 0 : worker.pid, isempty(entries) ? 0 : last(entries).record)
+    page.worker_back, page.worker_out = workers_draw_output!(buf, wbottom, title, workers_output_lines(entries), page.worker_back,
+                                                             page.focus == 2)
     return workers_render_modals(page, snap, area, buf)
 end
 
