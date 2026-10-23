@@ -1,51 +1,51 @@
 # API
 
 ```@docs
-Juleana
+JuLeAna
 ```
 
 ## Running the dataflow
 
 ```@docs
-Juleana.main
-Juleana.setup_session
-Juleana.run_no_tui
-Juleana.run_tui
-Juleana.parse_commandline
-Juleana.mirror_override_folders
-Juleana.data_config_files
-Juleana.with_production_config
-Juleana.production_setup_dir
-Juleana.production_config_dir
-Juleana.default_config_file
-Juleana.install_default_config
-Juleana.parse_period_runs
-Juleana.init_process
+JuLeAna.main
+JuLeAna.setup_session
+JuLeAna.run_no_tui
+JuLeAna.run_tui
+JuLeAna.parse_commandline
+JuLeAna.mirror_override_folders
+JuLeAna.data_config_files
+JuLeAna.with_production_config
+JuLeAna.production_setup_dir
+JuLeAna.production_config_dir
+JuLeAna.default_config_file
+JuLeAna.install_default_config
+JuLeAna.parse_period_runs
+JuLeAna.init_process
 DataflowSession
-Juleana.report_path
-Juleana.read_report
-Juleana.report_index
-Juleana.failure_summary
-Juleana.report_overview
-Juleana.dataset_summary
-Juleana.period_summary
-Juleana.history_path
-Juleana.history_section
-Juleana.append_history
-Juleana.read_history
-Juleana.history_grid
-Juleana.disk_counts
-Juleana.disk_state
+JuLeAna.report_path
+JuLeAna.read_report
+JuLeAna.report_index
+JuLeAna.failure_summary
+JuLeAna.report_overview
+JuLeAna.dataset_summary
+JuLeAna.period_summary
+JuLeAna.history_path
+JuLeAna.history_section
+JuLeAna.append_history
+JuLeAna.read_history
+JuLeAna.history_grid
+JuLeAna.disk_counts
+JuLeAna.disk_state
 run_processing
 run_step
-Juleana.ReportPlot
-Juleana.display_report
-Juleana.processors
-Juleana.StepOutput
-Juleana.@using_packages
+JuLeAna.ReportPlot
+JuLeAna.display_report
+JuLeAna.processors
+JuLeAna.StepOutput
+JuLeAna.@using_packages
 ProcessingStopped
-Juleana.partition_periods
-Juleana.rank_order_dependencies
+JuLeAna.partition_periods
+JuLeAna.rank_order_dependencies
 ```
 
 ## Controller
@@ -60,7 +60,7 @@ busy_workers
 step_messages
 ProgressStore
 show_progress
-Juleana.effective_config
+JuLeAna.effective_config
 ControllerCommand
 LoadSession
 ReloadConfig
@@ -89,41 +89,41 @@ EditStartScript
 CreateProduction
 SelectProduction
 SelectDataset
-Juleana.check_idle!(::DataflowController)
+JuLeAna.check_idle!(::DataflowController)
 ```
 
 ## Workers
 
 ```@docs
-Juleana.WorkerManager
-Juleana.WorkerAllocation
-Juleana.set_worker_config!
-Juleana.start_script!
-Juleana.edit_start_script!
-Juleana.add_workers!
-Juleana.update_job_ids!
-Juleana.cancel_allocation!
-Juleana.cancel_all!
-Juleana.allocations
-Juleana.mark_activity!
-Juleana.idle_deadline
-Juleana.check_idle!(::Juleana.WorkerManager)
-Juleana.workers_overview
+JuLeAna.WorkerManager
+JuLeAna.WorkerAllocation
+JuLeAna.set_worker_config!
+JuLeAna.start_script!
+JuLeAna.edit_start_script!
+JuLeAna.add_workers!
+JuLeAna.update_job_ids!
+JuLeAna.cancel_allocation!
+JuLeAna.cancel_all!
+JuLeAna.allocations
+JuLeAna.mark_activity!
+JuLeAna.idle_deadline
+JuLeAna.check_idle!(::JuLeAna.WorkerManager)
+JuLeAna.workers_overview
 ```
 
 ## Data productions
 
 ```@docs
-Juleana.ProductionSpec
-Juleana.check_production
-Juleana.create_production
-Juleana.data_config_text
-Juleana.running_manifest
-Juleana.snapshot_software
-Juleana.record_software
-Juleana.software_version
-Juleana.record_metadata
-Juleana.production_log
+JuLeAna.ProductionSpec
+JuLeAna.check_production
+JuLeAna.create_production
+JuLeAna.data_config_text
+JuLeAna.running_manifest
+JuLeAna.snapshot_software
+JuLeAna.record_software
+JuLeAna.software_version
+JuLeAna.record_metadata
+JuLeAna.production_log
 ```
 
 ## Processing config
@@ -141,11 +141,11 @@ waited_processors
 layered_layout
 partition_steps
 check_processor_kwargs
-Juleana.PROCESSORS
-Juleana.register_processor!
-Juleana.PROCESSOR_TRAITS
-Juleana.display_name
-Juleana.RENAMED_PROCESSORS
+JuLeAna.PROCESSORS
+JuLeAna.register_processor!
+JuLeAna.PROCESSOR_TRAITS
+JuLeAna.display_name
+JuLeAna.RENAMED_PROCESSORS
 ```
 
 ## Helpers for processors
@@ -154,15 +154,15 @@ Juleana.RENAMED_PROCESSORS
 parallel
 failure_log
 master_status
-Juleana.process_skipped
+JuLeAna.process_skipped
 detector_status
 truncate_string
 truncate_error
 load_qc_evaluator
-Juleana.redo_detector
-Juleana.detector_selected
-Juleana.write_pars
-Juleana.write_validity
-Juleana.make_par_dir
-Juleana.write_report
+JuLeAna.redo_detector
+JuLeAna.detector_selected
+JuLeAna.write_pars
+JuLeAna.write_validity
+JuLeAna.make_par_dir
+JuLeAna.write_report
 ```

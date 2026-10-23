@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # A literal of Julia syntax: a number, `true`/`false`, a string, a `:symbol`, or a vector
 # of these. Anything else, in particular code, is rejected.
@@ -13,7 +13,7 @@ function literal_value(ex)
 end
 
 """
-    Juleana.parse_kwarg_value(text::AbstractString, current)
+    JuLeAna.parse_kwarg_value(text::AbstractString, current)
 
 Parse the text `text` typed for a processor kwarg whose value is `current` (`nothing` for
 a kwarg that is not set). The text follows the type of `current`: `true`/`false` for a
@@ -25,15 +25,15 @@ expected form when the text does not fit.
 
 # Examples
 ```jldoctest
-julia> Juleana.parse_kwarg_value("12", 10)
+julia> JuLeAna.parse_kwarg_value("12", 10)
 12
 
-julia> Juleana.parse_kwarg_value("V01, V02", [:V00])
+julia> JuLeAna.parse_kwarg_value("V01, V02", [:V00])
 2-element Vector{Symbol}:
  :V01
  :V02
 
-julia> Juleana.parse_kwarg_value("[1, 2]", nothing)
+julia> JuLeAna.parse_kwarg_value("[1, 2]", nothing)
 2-element Vector{Int64}:
  1
  2
@@ -108,12 +108,12 @@ format_level(value::LogLevel) = only(name for (name, level) in LOG_LEVELS if lev
 format_level(value::Symbol) = string(value)
 
 """
-    Juleana.kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
+    JuLeAna.kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
 
 Handle the key `evt` in the kwargs editor and return `:close` when the editor closes,
 `true` otherwise; the editor uses every key. Up and Down move, Enter starts editing the
 value under the cursor and, while editing, sends it as [`SetKwarg`](@ref) once it parses
-(see [`Juleana.parse_kwarg_value`](@ref)); on the log or plot level row, Enter sets the next
+(see [`JuLeAna.parse_kwarg_value`](@ref)); on the log or plot level row, Enter sets the next
 level with [`SetStepLevel`](@ref). Escape stops editing or closes the editor; `u` resets the
 kwarg or level under the cursor and `U` all kwargs and levels of the processor with
 [`ResetKwargs`](@ref).
@@ -165,7 +165,7 @@ function kwargs_key!(editor::KwargsEditor, evt::Tachikoma.KeyEvent, snap, send)
 end
 
 """
-    Juleana.render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_kwargs(editor::KwargsEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the kwargs editor as a box in the middle of `area`: a row for the log and the plot level
 of the processor, then one row per kwarg in alphabetical order with its value, `*` and the

@@ -1,7 +1,7 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 using Test
-using Juleana
+using JuLeAna
 using Distributed: addprocs, remotecall_fetch, rmprocs, @everywhere
 using Logging: Logging, with_logger
 
@@ -20,18 +20,18 @@ end
 function logged_lines(f; log_level, debug_modules = "")
     log_file = tempname()
     withenv("JULIA_DEBUG" => debug_modules) do
-        return with_logger(f, Juleana.processing_logger(; log_file, log_level, console_level = nothing))
+        return with_logger(f, JuLeAna.processing_logger(; log_file, log_level, console_level = nothing))
     end
     return readlines(log_file)
 end
 
 @testset "logging" begin
     @testset "parse_log_level" begin
-        @test Juleana.parse_log_level("debug") == Logging.Debug
-        @test Juleana.parse_log_level("info") == Logging.Info
-        @test Juleana.parse_log_level("warn") == Logging.Warn
-        @test Juleana.parse_log_level("error") == Logging.Error
-        @test_throws "key `config.log_level` must be one of" Juleana.parse_log_level("verbose")
+        @test JuLeAna.parse_log_level("debug") == Logging.Debug
+        @test JuLeAna.parse_log_level("info") == Logging.Info
+        @test JuLeAna.parse_log_level("warn") == Logging.Warn
+        @test JuLeAna.parse_log_level("error") == Logging.Error
+        @test_throws "key `config.log_level` must be one of" JuLeAna.parse_log_level("verbose")
     end
 
     @testset "record format" begin
@@ -76,7 +76,7 @@ end
 
     @testset "processor log level" begin
         log_all() = (@info "info record"; LegendLogTest.f(); LegendLogTest.Sub.f(); LogTestModule.f())
-        in_processor(level) = () -> Juleana.with(log_all, Juleana.PROCESSOR_LOG_LEVEL => level)
+        in_processor(level) = () -> JuLeAna.with(log_all, JuLeAna.PROCESSOR_LOG_LEVEL => level)
         has(lines, text) = any(contains(text), lines)
 
         # a processor at `debug` writes the debug records of the listed packages only
@@ -94,14 +94,14 @@ end
         @test has(lines, "info record") && !has(lines, "debug from")
         # outside of a processor, `debug` covers only the `JULIA_DEBUG` modules
         @test !has(logged_lines(log_all; log_level = Logging.Debug), "debug from")
-        @test Juleana.debug_log_package(Juleana) && Juleana.debug_log_package(LegendLogTest.Sub)
-        @test !Juleana.debug_log_package(Base) && !Juleana.debug_log_package(LogTestModule)
+        @test JuLeAna.debug_log_package(JuLeAna) && JuLeAna.debug_log_package(LegendLogTest.Sub)
+        @test !JuLeAna.debug_log_package(Base) && !JuLeAna.debug_log_package(LogTestModule)
 
         # two processors at the same time keep their own levels
         log_file = tempname()
-        with_logger(Juleana.processing_logger(; log_file, log_level = Logging.Info, console_level = nothing)) do
+        with_logger(JuLeAna.processing_logger(; log_file, log_level = Logging.Info, console_level = nothing)) do
             @sync for (name, level) in (("chatty", Logging.Debug), ("quiet", Logging.Info))
-                Threads.@spawn Juleana.with(Juleana.PROCESSOR_LOG_LEVEL => level) do
+                Threads.@spawn JuLeAna.with(JuLeAna.PROCESSOR_LOG_LEVEL => level) do
                     for _ in 1:20
                         @info "info of $name"
                         LegendLogTest.f()
@@ -117,8 +117,8 @@ end
 
     @testset "progress records" begin
         lines = logged_lines(; log_level = Logging.Debug) do
-            id = Juleana.uuid4()
-            @info Juleana.ProgressLogging.Progress(id, 0.5; name = "bar")
+            id = JuLeAna.uuid4()
+            @info JuLeAna.ProgressLogging.Progress(id, 0.5; name = "bar")
             @info "after the bar"
         end
         @test length(lines) == 1 && occursin("after the bar", only(lines))
@@ -136,20 +136,20 @@ end
                         @error "Processing failed" exception = err
                     end, "\n")
         @test occursin("fit did not converge", text)
-        buf = Juleana.MessageBuffer()
+        buf = JuLeAna.MessageBuffer()
         with_logger(() -> (@error "Processing failed" exception = err), buf)
-        @test any(l -> occursin("fit did not converge", l), Juleana.message_lines(buf))
+        @test any(l -> occursin("fit did not converge", l), JuLeAna.message_lines(buf))
     end
 
     @testset "reports" begin
         # a report as the processors build and log it
-        LDM = Juleana.LegendDataManagement
+        LDM = JuLeAna.LegendDataManagement
         report = LDM.lreport()
         LDM.lreport!(report, "# Main Log")
-        LDM.lreport!(report, Juleana.StructArray(var"Processor Status" = [LDM.process_failed]))
+        LDM.lreport!(report, JuLeAna.StructArray(var"Processor Status" = [LDM.process_failed]))
         LDM.lreport!(report, "Date of processing: 2026-10-15T02:41:28Z")
         LDM.lreport!(report, "## Decay Time Extraction")
-        LDM.lreport!(report, Juleana.StructArray(Detector = ["V$(lpad(i, 5, '0'))A" for i in 1:30], Error = fill("-", 30)))
+        LDM.lreport!(report, JuLeAna.StructArray(Detector = ["V$(lpad(i, 5, '0'))A" for i in 1:30], Error = fill("-", 30)))
         markdown = sprint(show, MIME"text/markdown"(), report)
         text = join(logged_lines(; log_level = Logging.Info) do
                         @info report
@@ -158,32 +158,32 @@ end
         @test occursin("## Decay Time Extraction", text) && occursin("V00030A", text)
         @test count(==('\n'), text) >= count(==('\n'), markdown)
 
-        buf = Juleana.MessageBuffer()
+        buf = JuLeAna.MessageBuffer()
         with_logger(() -> (@info report), buf)
-        line = only(Juleana.message_lines(buf))
+        line = only(JuLeAna.message_lines(buf))
         @test occursin("Decay Time Extraction: Failure, ", line) && occursin("lines, full text in head.log", line)
         # a short Markdown message is kept as it is
-        @test Juleana.markdown_summary("# Title\nsome text") == "# Title\nsome text"
-        @test Juleana.markdown_summary(join(["# Head"; ["row $i" for i in 1:25]], '\n')) == "Head: 26 lines, full text in head.log"
+        @test JuLeAna.markdown_summary("# Title\nsome text") == "# Title\nsome text"
+        @test JuLeAna.markdown_summary(join(["# Head"; ["row $i" for i in 1:25]], '\n')) == "Head: 26 lines, full text in head.log"
     end
 
     @testset "sinks" begin
-        @test_throws "no log file and no console output" Juleana.processing_logger(; console_level = nothing)
-        @test Juleana.process_log_file("logs") == joinpath("logs", "head.log")
+        @test_throws "no log file and no console output" JuLeAna.processing_logger(; console_level = nothing)
+        @test JuLeAna.process_log_file("logs") == joinpath("logs", "head.log")
     end
 
     @testset "worker log file" begin
         log_path = mktempdir()
         pid = only(addprocs(1; exeflags = "--project=$(Base.active_project())"))
         try
-            @everywhere [pid] using Juleana
+            @everywhere [pid] using JuLeAna
             remotecall_fetch(pid, log_path) do log_path
-                Juleana.init_process(log_path, Juleana.parse_log_level("info"))
+                JuLeAna.init_process(log_path, JuLeAna.parse_log_level("info"))
                 @info "worker record"
                 @debug "hidden worker record"
             end
             log_file = joinpath(log_path, "worker-$pid-$(gethostname()).log")
-            @test remotecall_fetch(Juleana.process_log_file, pid, log_path) == log_file
+            @test remotecall_fetch(JuLeAna.process_log_file, pid, log_path) == log_file
             lines = readlines(log_file)
             @test any(contains("Info  [Main] worker record"), lines)
             @test !any(contains("hidden worker record"), lines)
@@ -192,7 +192,7 @@ end
             tmp(job) = remotecall_fetch(pid, log_path, shm, job) do log_path, shm, job
                 ENV["JOB_SHMTMPDIR"] = shm
                 job ? (ENV["SLURM_JOB_ID"] = "1") : delete!(ENV, "SLURM_JOB_ID")
-                Juleana.init_process(log_path, Juleana.parse_log_level("info"))
+                JuLeAna.init_process(log_path, JuLeAna.parse_log_level("info"))
                 tempdir()
             end
             @test tmp(false) != shm
@@ -209,8 +209,8 @@ end
         seen = Int[]
         out = mktemp() do path, io
             redirect_stdout(io) do
-                Juleana.with(Juleana.PROCESSOR_LOG_LEVEL => level) do
-                    Juleana.@debug_progress "Filekey: fk" for x in [1, 2, 3]
+                JuLeAna.with(JuLeAna.PROCESSOR_LOG_LEVEL => level) do
+                    JuLeAna.@debug_progress "Filekey: fk" for x in [1, 2, 3]
                         x == 2 && continue
                         push!(seen, x)
                     end
@@ -224,11 +224,11 @@ end
     seen, out = progress_output(Logging.Debug)
     @test seen == [1, 3]
     @test out == "[ Progress: Filekey: fk 1/3\n[ Progress: Filekey: fk 2/3\n" * "[ Progress: Filekey: fk 3/3\n[ Progress: Filekey: fk 3/3\n"
-    @test all(l -> occursin(Juleana.PROGRESS_LINE, l), split(chomp(out), '\n'))
+    @test all(l -> occursin(JuLeAna.PROGRESS_LINE, l), split(chomp(out), '\n'))
     for level in (Logging.Info, nothing)
         seen, out = progress_output(level)
         @test seen == [1, 3] && isempty(out)
     end
-    @test_throws "@debug_progress: expected a loop" macroexpand(Juleana, :(Juleana.@debug_progress "x" while true
+    @test_throws "@debug_progress: expected a loop" macroexpand(JuLeAna, :(JuLeAna.@debug_progress "x" while true
                                                                            end))
 end

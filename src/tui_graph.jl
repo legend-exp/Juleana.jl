@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Direction bits of a cell of the line drawing, and the box character of each combination
 # (indexed by the bits plus one).
@@ -16,8 +16,8 @@ the first displayed row, whether unselected processors are shown, and the
 [`ProcessorGraph`](@ref) of the processors of the latest snapshot. The page draws the run-level
 processors in a left lane and the partition-level processors in a right lane, one row per
 processor in the order [`topological_order`](@ref) gives. Keys are handled by
-[`Juleana.graph_key!`](@ref) and [`Juleana.graph_mouse!`](@ref), the page is drawn by
-[`Juleana.render_graph`](@ref).
+[`JuLeAna.graph_key!`](@ref) and [`JuLeAna.graph_mouse!`](@ref), the page is drawn by
+[`JuLeAna.render_graph`](@ref).
 
 The state icon of a processor is that of the last processing run, or, while `disk` is
 `true`, that of its reports and processing history on disk.
@@ -87,7 +87,7 @@ function steps_command(snap, chosen)
 end
 
 """
-    Juleana.graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
+    JuLeAna.graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
 
 Apply the key event `evt` to `page` for the controller snapshot `snap` (or `nothing`);
 `send(cmd)` sends a controller command. Return `true` if the key was used and `false`
@@ -134,7 +134,7 @@ function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
 end
 
 """
-    Juleana.graph_mouse!(page::GraphPage, evt::Tachikoma.MouseEvent, snap)::Bool
+    JuLeAna.graph_mouse!(page::GraphPage, evt::Tachikoma.MouseEvent, snap)::Bool
 
 Apply the mouse event `evt` to `page`: the scroll wheel moves the cursor by one row while
 the pointer is inside the block of the last render, and a left click on a processor row
@@ -238,18 +238,18 @@ function put_cells!(chars, styles, r, c, text, style)
 end
 
 """
-    Juleana.render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer; grid = nothing)
+    JuLeAna.render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer; grid = nothing)
 
 Draw the Graph page into `area` of `buf` from the controller snapshot `snap`, the
 progress `prog` (as returned by [`progress`](@ref), or `nothing`) and the grid of the
-reports and the processing history `grid` (as returned by [`Juleana.history_grid`](@ref),
+reports and the processing history `grid` (as returned by [`JuLeAna.history_grid`](@ref),
 or `nothing` while it is not read).
 
 Run-level processors are in the left lane and partition-level processors in the right
 lane, one row per processor in topological order, labeled with its [`display_name`](@ref) and category. A processor shows `[x]` if it is a
 selected step, else `[ ]`, and the icon of its state in the last run: running, failed,
 done, or stopped. While `page.disk` is `true` the icon is instead the
-[`Juleana.disk_state`](@ref) of the processor over the selected periods and runs of `snap`:
+[`JuLeAna.disk_state`](@ref) of the processor over the selected periods and runs of `snap`:
 `✗` failed, `–` missing, `!` warning or `✓` ok, and the last line also shows the counts of
 the processor under the cursor. Unselected processors are dim, and are left out while `page.show_unselected`
 is `false`. Each declared dependency is an edge from the required processor down to

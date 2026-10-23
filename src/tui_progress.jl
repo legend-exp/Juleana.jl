@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Theme color and icon of each step state.
 const STATE_COLORS = (waiting = :text_dim, running = :accent, done = :success, failed = :error, skipped = :text_dim, stopped = :warning,
@@ -16,8 +16,8 @@ State of the Progress page of the terminal user interface: the row under the cur
 first displayed row, whether the cursor follows the running step, and which groups the
 user folded or unfolded. The page lists the steps of the current or last processing run
 grouped by period and run, with the busy workers below. Keys are handled by
-[`Juleana.progress_key!`](@ref) and [`Juleana.progress_mouse!`](@ref), the page is drawn
-by [`Juleana.render_progress`](@ref).
+[`JuLeAna.progress_key!`](@ref) and [`JuLeAna.progress_mouse!`](@ref), the page is drawn
+by [`JuLeAna.render_progress`](@ref).
 
 A row is identified by its key: `(period, run)` for a group and `(period, run, step)` for
 a step, so that the cursor stays on its row when the list changes. `expanded` holds the
@@ -87,7 +87,7 @@ function sync_cursor!(page::ProgressPage, rows)
 end
 
 """
-    Juleana.progress_key!(page::ProgressPage, evt::Tachikoma.KeyEvent, prog)::Bool
+    JuLeAna.progress_key!(page::ProgressPage, evt::Tachikoma.KeyEvent, prog)::Bool
 
 Apply the key event `evt` to `page` for the progress `prog` (as returned by
 [`progress`](@ref), or `nothing`). Return `true` if the key was used and `false` otherwise.
@@ -181,7 +181,7 @@ function scroll_pane!(page::ProgressPage, delta)
 end
 
 """
-    Juleana.progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::Bool
+    JuLeAna.progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::Bool
 
 Apply the mouse event `evt` to `page`: the scroll wheel moves the cursor by one row while
 the pointer is inside the steps block of the last render, and a left click on a row moves
@@ -212,7 +212,7 @@ function progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::B
 end
 
 """
-    Juleana.bar_segments(counts, width::Integer)
+    JuLeAna.bar_segments(counts, width::Integer)
 
 Widths in cells of the segments of a bar of `width` cells that shows `counts` (a
 non-negative number per segment, in the order shown). The segment boundaries are the
@@ -428,7 +428,7 @@ function render_pane(page::ProgressPage, prog, msgs, area, buf)
 end
 
 """
-    Juleana.render_progress(page::ProgressPage, prog, busy, msgs, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_progress(page::ProgressPage, prog, busy, msgs, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the Progress page into `area` of `buf` from the progress `prog` (as returned by
 [`progress`](@ref), or `nothing`), the busy workers `busy` (see [`busy_workers`](@ref)) and

@@ -1,7 +1,7 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
-    Juleana.TIMING_COLUMNS
+    JuLeAna.TIMING_COLUMNS
 
 Column names of the file `interface_timing.tsv`, in order: UTC time of the end of the
 window, controller state, number of frames, frame gap median, 95th percentile and maximum,
@@ -22,7 +22,7 @@ const TIMING_COLUMNS = ("utc", "state", "frames", "gap_p50_ms", "gap_p95_ms", "g
 const TIMING_KINDS = (:key, :mouse, :task, :other)
 
 """
-    Juleana.InterfaceTiming(; window_seconds = 10, clock = time_ns, utc = () -> now(UTC), capacity = 8192, pages = 16)
+    JuLeAna.InterfaceTiming(; window_seconds = 10, clock = time_ns, utc = () -> now(UTC), capacity = 8192, pages = 16)
 
 Recorder of how responsive the terminal interface is, one window of `window_seconds` at a
 time. It keeps, in fixed-size buffers of `capacity` entries per kind of measurement
@@ -40,10 +40,10 @@ time. It keeps, in fixed-size buffers of `capacity` entries per kind of measurem
   `Base.gc_num()`,
 - the thread and thread pool of the first `view` call.
 
-The functions [`Juleana.timing_view_begin!`](@ref), [`Juleana.timing_view_end!`](@ref),
-[`Juleana.timing_update_begin!`](@ref) and [`Juleana.timing_update_end!`](@ref) feed the
+The functions [`JuLeAna.timing_view_begin!`](@ref), [`JuLeAna.timing_view_end!`](@ref),
+[`JuLeAna.timing_update_begin!`](@ref) and [`JuLeAna.timing_update_end!`](@ref) feed the
 recorder; each takes one time reading and writes into the buffers without allocating.
-[`Juleana.timing_flush!`](@ref) closes the window.
+[`JuLeAna.timing_flush!`](@ref) closes the window.
 
 `clock` returns the time in nanoseconds and `utc` the wall-clock time of a row; both can be
 replaced to feed synthetic times.
@@ -112,7 +112,7 @@ function timing_push!(buffer::Vector{UInt64}, n::Int, x::UInt64)
 end
 
 """
-    Juleana.timing_view_begin!(t::InterfaceTiming)
+    JuLeAna.timing_view_begin!(t::InterfaceTiming)
 
 Record the start of a `view` call in `t`: the gap since the start of the previous call and,
 on the first call, the thread it runs on (also logged). Returns the start time.
@@ -131,12 +131,12 @@ function timing_view_begin!(t::InterfaceTiming)
 end
 
 """
-    Juleana.timing_view_end!(t::InterfaceTiming, snap; page = 0)
+    JuLeAna.timing_view_end!(t::InterfaceTiming, snap; page = 0)
 
 Record the end of a `view` call in `t` that showed the page `page` (0 for none): its
 duration, per page if `page` is one of the pages of `t`, and the key-to-redraw latency of the
 key presses since the previous call. When the window of `t` has elapsed, close it with
-[`Juleana.timing_flush!`](@ref), using the controller state and log folder from the
+[`JuLeAna.timing_flush!`](@ref), using the controller state and log folder from the
 controller snapshot `snap` (`nothing` before the first read); returns the row of the
 window, else `nothing`.
 """
@@ -162,11 +162,11 @@ function timing_view_end!(t::InterfaceTiming, snap; page::Integer = 0)
 end
 
 """
-    Juleana.timing_update_begin!(t::InterfaceTiming, evt)
+    JuLeAna.timing_update_begin!(t::InterfaceTiming, evt)
 
 Record the start of a `Tachikoma.update!` call for `evt` in `t`; the start of a key press
 is kept until the end of the next `view`. Returns the start time, to pass to
-[`Juleana.timing_update_end!`](@ref).
+[`JuLeAna.timing_update_end!`](@ref).
 """
 function timing_update_begin!(t::InterfaceTiming, evt)
     now_ns = UInt64(t.clock())
@@ -180,7 +180,7 @@ function timing_update_begin!(t::InterfaceTiming, evt)
 end
 
 """
-    Juleana.timing_update_end!(t::InterfaceTiming, start::UInt64, evt)
+    JuLeAna.timing_update_end!(t::InterfaceTiming, start::UInt64, evt)
 
 Record the end of a `Tachikoma.update!` call for `evt` that started at `start` in `t`.
 """
@@ -208,10 +208,10 @@ end
 timing_field(x::Real) = isnan(x) ? "NA" : string(round(x; digits = 3))
 
 """
-    Juleana.timing_flush!(t::InterfaceTiming, state, log_path)
+    JuLeAna.timing_flush!(t::InterfaceTiming, state, log_path)
 
 Close the window of `t`: format its statistics as one tab-separated row (see
-[`Juleana.TIMING_COLUMNS`](@ref) for the columns), start a new window and return the row.
+[`JuLeAna.TIMING_COLUMNS`](@ref) for the columns), start a new window and return the row.
 `state` is the state of the controller. If `log_path` is a folder name, the row is
 appended to `interface_timing.tsv` in it by a separate task, preceded by the header if the
 file does not exist; the caller never waits for the file. With `log_path = nothing` or `""`

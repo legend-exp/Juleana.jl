@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 using Logging: Logging, ConsoleLogger, NullLogger, with_logger
 using Serialization: deserialize
@@ -37,11 +37,11 @@ end
 # partition.
 struct FakeData end
 LegendDataManagement.is_lrun(::FakeData, key) = true
-Juleana.partition_periods(::FakeData, period) = [period]
+JuLeAna.partition_periods(::FakeData, period) = [period]
 # Periods 3 and 4 share a partition.
 struct SpanData end
 LegendDataManagement.is_lrun(::SpanData, key) = true
-function Juleana.partition_periods(::SpanData, period)
+function JuLeAna.partition_periods(::SpanData, period)
     return period.no in (3, 4) ? DataPeriod.([3, 4]) : [period]
 end
 # Runs that are in the run info but are no analysis runs.
@@ -51,10 +51,10 @@ LegendDataManagement.is_analysis_run(::NoAnalysisData, key) = false
 # Runs that are not in the run info.
 struct NoRunData end
 LegendDataManagement.is_lrun(::NoRunData, key) = false
-Juleana.partition_periods(::Union{NoAnalysisData,NoRunData}, period) = [period]
+JuLeAna.partition_periods(::Union{NoAnalysisData,NoRunData}, period) = [period]
 
 function stub_status(periods, runs, run_steps, partition_steps)
-    run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
+    run_status, partition_status = JuLeAna.RunStatus(), JuLeAna.PartitionStatus()
     for p in periods
         run_status[p] = Dict{Symbol,Dict{DataRun,Bool}}([s => Dict{DataRun,Bool}(runs .=> false) for s in run_steps])
         partition_status[p] = Dict{Symbol,Bool}([s => false for s in partition_steps])
@@ -80,18 +80,18 @@ const REPORT = """
 
 @testset "dataflow" begin
     @testset "processor registry" begin
-        @test length(Juleana.PROCESSORS) == 32
-        @test all(((name, f),) -> nameof(f) === name, Juleana.PROCESSORS)
-        @test all(name -> occursin(r"^(p_)?process_", string(name)), keys(Juleana.PROCESSORS))
-        @test count(name -> startswith(string(name), "p_process_"), keys(Juleana.PROCESSORS)) == 12
+        @test length(JuLeAna.PROCESSORS) == 32
+        @test all(((name, f),) -> nameof(f) === name, JuLeAna.PROCESSORS)
+        @test all(name -> occursin(r"^(p_)?process_", string(name)), keys(JuLeAna.PROCESSORS))
+        @test count(name -> startswith(string(name), "p_process_"), keys(JuLeAna.PROCESSORS)) == 12
 
-        n = length(Juleana.PROCESSORS)
-        @test_throws "processor `process_dsp_cal` is already registered" Juleana.register_processor!(Juleana.process_dsp_cal)
-        @test length(Juleana.PROCESSORS) == n
+        n = length(JuLeAna.PROCESSORS)
+        @test_throws "processor `process_dsp_cal` is already registered" JuLeAna.register_processor!(JuLeAna.process_dsp_cal)
+        @test length(JuLeAna.PROCESSORS) == n
     end
 
     @testset "parse_commandline" begin
-        args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "-r", "1", "2", "--reprocess"])
+        args = JuLeAna.parse_commandline(["-c", "x.json", "-p", "3", "-r", "1", "2", "--reprocess"])
         @test args["config"] == "x.json"
         @test args["periods"] == [["3"]]
         @test args["runs"] == [[1, 2]]
@@ -101,37 +101,37 @@ const REPORT = """
         @test isnothing(args["runmode"])
         @test args["log_path"] == ""
         @test isnothing(args["processor_log_level"])
-        @test Juleana.parse_commandline(["-c", "x.json", "--processor-log-level", "warn"])["processor_log_level"] == "warn"
+        @test JuLeAna.parse_commandline(["-c", "x.json", "--processor-log-level", "warn"])["processor_log_level"] == "warn"
         @test isnothing(args["processor_plot_level"])
-        @test Juleana.parse_commandline(["-c", "x.json", "--processor-plot-level", "debug"])["processor_plot_level"] == "debug"
+        @test JuLeAna.parse_commandline(["-c", "x.json", "--processor-plot-level", "debug"])["processor_plot_level"] == "debug"
 
-        args = Juleana.parse_commandline(["-c", "x.json", "-p", "3", "4", "-p", "6", "--rm", "slurm", "--op"])
+        args = JuLeAna.parse_commandline(["-c", "x.json", "-p", "3", "4", "-p", "6", "--rm", "slurm", "--op"])
         @test args["periods"] == [["3", "4"], ["6"]]
         @test isempty(args["runs"])
         @test args["runmode"] == "slurm"
         @test args["only_partitions"]
 
-        @test Juleana.parse_commandline(["-c", "x.json", "-p", "6,1-3", "-p", "7,2"])["periods"] == [["6,1-3"], ["7,2"]]
-        @test Juleana.parse_commandline(["-c", "x.json", "--no-tui"])["no_tui"]
-        @test Juleana.parse_commandline(["-c", "x.json", "--no_tui"])["no_tui"]
+        @test JuLeAna.parse_commandline(["-c", "x.json", "-p", "6,1-3", "-p", "7,2"])["periods"] == [["6,1-3"], ["7,2"]]
+        @test JuLeAna.parse_commandline(["-c", "x.json", "--no-tui"])["no_tui"]
+        @test JuLeAna.parse_commandline(["-c", "x.json", "--no_tui"])["no_tui"]
     end
 
     @testset "setup folder of the data production" begin
         production = mktempdir()
         withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.yaml")) do
-            @test Juleana.production_setup_dir() == joinpath(production, "setup")
+            @test JuLeAna.production_setup_dir() == joinpath(production, "setup")
             @test !ispath(joinpath(production, "setup"))
             mkpath(joinpath(production, "setup", "config"))
-            @test Juleana.production_setup_dir() == joinpath(production, "setup")
+            @test JuLeAna.production_setup_dir() == joinpath(production, "setup")
         end
         for (old, new) in ("config" => "setup/config", "software" => "setup/software", "metadata-records" => "setup/metadata")
             legacy = mktempdir()
             mkpath(joinpath(legacy, old))
             withenv("LEGEND_DATA_CONFIG" => joinpath(legacy, "config.yaml")) do
-                @test_throws ArgumentError Juleana.production_setup_dir()
-                @test_throws "$legacy" Juleana.production_setup_dir()
-                @test_throws "$old/ to $new/" Juleana.production_setup_dir()
-                @test_throws "$old/ to $new/" Juleana.production_config_dir()
+                @test_throws ArgumentError JuLeAna.production_setup_dir()
+                @test_throws "$legacy" JuLeAna.production_setup_dir()
+                @test_throws "$old/ to $new/" JuLeAna.production_setup_dir()
+                @test_throws "$old/ to $new/" JuLeAna.production_config_dir()
             end
         end
     end
@@ -140,77 +140,77 @@ const REPORT = """
         production = mktempdir()
         shipped = joinpath(dirname(@__DIR__), "config", "processing_config.yaml")
         withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
-            @test Juleana.production_config_dir() == joinpath(production, "setup", "config")
+            @test JuLeAna.production_config_dir() == joinpath(production, "setup", "config")
             # without --config: the shipped config is copied into the production
             installed = joinpath(production, "setup", "config", "processing_config.yaml")
-            @test Juleana.default_config_file() == installed && !ispath(installed)
-            @test_logs (:info, r"Copied the processing config shipped with Juleana") @test Juleana.parse_commandline(String[])["config"] ==
+            @test JuLeAna.default_config_file() == installed && !ispath(installed)
+            @test_logs (:info, r"Copied the processing config shipped with JuLeAna") @test JuLeAna.parse_commandline(String[])["config"] ==
                                                                                            installed
             @test read(installed) == read(shipped)
             # an existing config is kept
             write(installed, "{}")
-            @test_logs Juleana.parse_commandline(["-p", "3"])["config"] == installed
+            @test_logs JuLeAna.parse_commandline(["-p", "3"])["config"] == installed
             @test read(installed, String) == "{}"
             # an old processing_config.json is ignored with a warning, the yaml is installed
             rm(installed)
             legacy = joinpath(production, "setup", "config", "processing_config.json")
             write(legacy, "{\"config\": {}}")
-            @test_logs (:warn, r"Ignoring .*processing_config\.json") (:info, r"Copied the processing config") Juleana.install_default_config()
+            @test_logs (:warn, r"Ignoring .*processing_config\.json") (:info, r"Copied the processing config") JuLeAna.install_default_config()
             @test read(installed) == read(shipped)
             @test read(legacy, String) == "{\"config\": {}}"
-            @test_logs Juleana.install_default_config()
+            @test_logs JuLeAna.install_default_config()
             # with --config nothing is copied
             fresh = mktempdir()
             withenv("LEGEND_DATA_CONFIG" => joinpath(fresh, "config.json")) do
-                @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
+                @test JuLeAna.parse_commandline(["-c", "x.json"])["config"] == "x.json"
                 @test !ispath(joinpath(fresh, "setup"))
             end
-            @test Juleana.parse_commandline(["-c", "x.json"])["config"] == "x.json"
+            @test JuLeAna.parse_commandline(["-c", "x.json"])["config"] == "x.json"
         end
         other = mktempdir()
         withenv("LEGEND_DATA_CONFIG" => "$(joinpath(production, "a.json")):$(joinpath(production, "b.json"))") do
-            @test Juleana.production_config_dir() == joinpath(production, "setup", "config")
+            @test JuLeAna.production_config_dir() == joinpath(production, "setup", "config")
         end
         # a site override before the data config of the production
         site = joinpath(other, "site.yaml")
         withenv("LEGEND_DATA_CONFIG" => "$site:$(joinpath(production, "config.json"))") do
-            @test Juleana.data_config_files() == [site, joinpath(production, "config.json")]
-            @test Juleana.production_config_dir() == joinpath(production, "setup", "config")
-            @test Juleana.current_production() == (basename(production), dirname(production))
-            @test Juleana.with_production_config("/elsewhere/config.json") == "$site:/elsewhere/config.json"
+            @test JuLeAna.data_config_files() == [site, joinpath(production, "config.json")]
+            @test JuLeAna.production_config_dir() == joinpath(production, "setup", "config")
+            @test JuLeAna.current_production() == (basename(production), dirname(production))
+            @test JuLeAna.with_production_config("/elsewhere/config.json") == "$site:/elsewhere/config.json"
         end
         withenv("LEGEND_DATA_CONFIG" => nothing) do
             # without a data production there is no default config
-            @test isnothing(Juleana.parse_commandline(String[])["config"])
-            @test Juleana.parse_commandline(["--new-production"])["new_production"]
-            @test_throws "the environment variable LEGEND_DATA_CONFIG is not set" Juleana.production_config_dir()
-            @test Juleana.with_production_config("/elsewhere/config.json") == "/elsewhere/config.json"
+            @test isnothing(JuLeAna.parse_commandline(String[])["config"])
+            @test JuLeAna.parse_commandline(["--new-production"])["new_production"]
+            @test_throws "the environment variable LEGEND_DATA_CONFIG is not set" JuLeAna.production_config_dir()
+            @test JuLeAna.with_production_config("/elsewhere/config.json") == "/elsewhere/config.json"
         end
     end
 
     @testset "parse_period_runs" begin
         p3, p6, p7 = DataPeriod.((3, 6, 7))
-        @test Juleana.parse_period_runs([], []) == (nothing, nothing)
-        @test Juleana.parse_period_runs([["3", "6"]], []) == ([p3, p6], nothing)
-        @test Juleana.parse_period_runs([["3"], ["6"]], [[2, 1], [4]]) == ([p3, p6], DataRun.([2, 1, 4]))
-        periods, runs = Juleana.parse_period_runs([["3", "6, 4-6,1"], ["7,2"]], [])
+        @test JuLeAna.parse_period_runs([], []) == (nothing, nothing)
+        @test JuLeAna.parse_period_runs([["3", "6"]], []) == ([p3, p6], nothing)
+        @test JuLeAna.parse_period_runs([["3"], ["6"]], [[2, 1], [4]]) == ([p3, p6], DataRun.([2, 1, 4]))
+        periods, runs = JuLeAna.parse_period_runs([["3", "6, 4-6,1"], ["7,2"]], [])
         @test periods == [p3, p6, p7]
         # periods given without runs keep all their runs
         @test runs == Dict(p6 => DataRun.([1, 4, 5, 6]), p7 => [DataRun(2)])
-        @test Juleana.parse_period_runs([["6,2-2,2"]], [])[2] == Dict(p6 => [DataRun(2)])
-        @test_throws "invalid period or run `x` in `-p 6,x`" Juleana.parse_period_runs([["6,x"]], [])
-        @test_throws "invalid period or run `` in `-p 6,`" Juleana.parse_period_runs([["6,"]], [])
-        @test_throws "invalid period or run `p6`" Juleana.parse_period_runs([["p6"]], [])
-        @test_throws "period p06 is given more than once" Juleana.parse_period_runs([["6"], ["6,1"]], [])
-        @test_throws "run range `3-1` in `-p 6,3-1` ends before it starts" Juleana.parse_period_runs([["6,3-1"]], [])
-        @test_throws "`-r` cannot be combined" Juleana.parse_period_runs([["6,1"]], [[2]])
+        @test JuLeAna.parse_period_runs([["6,2-2,2"]], [])[2] == Dict(p6 => [DataRun(2)])
+        @test_throws "invalid period or run `x` in `-p 6,x`" JuLeAna.parse_period_runs([["6,x"]], [])
+        @test_throws "invalid period or run `` in `-p 6,`" JuLeAna.parse_period_runs([["6,"]], [])
+        @test_throws "invalid period or run `p6`" JuLeAna.parse_period_runs([["p6"]], [])
+        @test_throws "period p06 is given more than once" JuLeAna.parse_period_runs([["6"], ["6,1"]], [])
+        @test_throws "run range `3-1` in `-p 6,3-1` ends before it starts" JuLeAna.parse_period_runs([["6,3-1"]], [])
+        @test_throws "`-r` cannot be combined" JuLeAna.parse_period_runs([["6,1"]], [[2]])
 
         # per-period runs go to the session, other run selections come from the config
         cfg = ProcessingConfig(; processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1)),
                                p_processors = Dict{Symbol,ProcessorSpec}(), periods = [p6], runs = [DataRun(4)])
-        args(opts...) = Juleana.parse_commandline(["-c", "x.json", opts...])
-        @test Juleana.session_runs(args("-p", "6,1-2"), cfg) == Dict(p6 => DataRun.([1, 2]))
-        @test Juleana.session_runs(args("-p", "6"), cfg) == [DataRun(4)]
+        args(opts...) = JuLeAna.parse_commandline(["-c", "x.json", opts...])
+        @test JuLeAna.session_runs(args("-p", "6,1-2"), cfg) == Dict(p6 => DataRun.([1, 2]))
+        @test JuLeAna.session_runs(args("-p", "6"), cfg) == [DataRun(4)]
     end
 
     @testset "run_processing" begin
@@ -252,7 +252,7 @@ const REPORT = """
             e
         end
         @test err isa CompositeException
-        @test [sprint(showerror, Juleana.root_exception(x)) for x in err.exceptions] == ["p03 failed"]
+        @test [sprint(showerror, JuLeAna.root_exception(x)) for x in err.exceptions] == ["p03 failed"]
         @test Dict(e.period => e.state for e in progress(store).steps) == Dict(p3 => :failed, p4 => :cancelled)
 
         # A partition step waits for the run dependencies of the unselected partition
@@ -319,18 +319,18 @@ const REPORT = """
 
     @testset "stored_detectors" begin
         file = joinpath(mktempdir(), "dsp.lh5")
-        Juleana.lh5open(file, "cw") do outdata
-            @test isempty(Juleana.stored_detectors(outdata, "jldsp"))
-            outdata[:jldsp, :V1] = Juleana.Table(e = [1.0, 2.0])
+        JuLeAna.lh5open(file, "cw") do outdata
+            @test isempty(JuLeAna.stored_detectors(outdata, "jldsp"))
+            outdata[:jldsp, :V1] = JuLeAna.Table(e = [1.0, 2.0])
         end
-        Juleana.lh5open(file, "cw") do outdata
+        JuLeAna.lh5open(file, "cw") do outdata
             # the group is only found by its String name
             @test !haskey(outdata, :jldsp)
-            @test Juleana.stored_detectors(outdata, "jldsp") == ["V1"]
+            @test JuLeAna.stored_detectors(outdata, "jldsp") == ["V1"]
             # a second detector is added to the existing file
-            outdata[:jldsp, :V2] = Juleana.Table(e = [3.0])
+            outdata[:jldsp, :V2] = JuLeAna.Table(e = [3.0])
         end
-        @test sort(Juleana.lh5open(f -> Juleana.stored_detectors(f, "jldsp"), file)) == ["V1", "V2"]
+        @test sort(JuLeAna.lh5open(f -> JuLeAna.stored_detectors(f, "jldsp"), file)) == ["V1", "V2"]
     end
 
     @testset "run_step" begin
@@ -348,20 +348,20 @@ const REPORT = """
             push!(calls, (; period, run, reprocess, scale))
             result = parallel(items, Row) do itr
                 det = itr.detector
-                if !reprocess && !Juleana.redo_detector(det) && det in (:V1, :V2)
+                if !reprocess && !JuLeAna.redo_detector(det) && det in (:V1, :V2)
                     return (processed = false, log = Row((det, :on, 1, "Already processed --> skipped.")))
                 end
                 plot_dir = mkpath(joinpath(l200.tier[:jlplt], "rplt", "cal", string(period), string(run), "proc"))
                 for name in ("proc_fit", "proc_check")
-                    Juleana.CairoMakie.save(joinpath(plot_dir, "l200-$period-$run-cal-$det-$name.png"),
-                                            Juleana.Makie.Figure(size = (40, 30)))
+                    JuLeAna.CairoMakie.save(joinpath(plot_dir, "l200-$period-$run-cal-$det-$name.png"),
+                                            JuLeAna.Makie.Figure(size = (40, 30)))
                     # the report orders plots by modification time, which file systems resolve to a few ms
                     sleep(0.05)
                 end
                 (processed = true, log = Row((det, :on, 1, "")), value = scale)
             end
-            Juleana.write_pars(pars_file, Juleana.PropDict(:n => length(result)))
-            Juleana.write_report(joinpath(mkpath(l200.tier[:jlrep]), "proc.md"), lreport("# Results", create_logtbl(result)))
+            JuLeAna.write_pars(pars_file, JuLeAna.PropDict(:n => length(result)))
+            JuLeAna.write_report(joinpath(mkpath(l200.tier[:jlrep]), "proc.md"), lreport("# Results", create_logtbl(result)))
             return nothing
         end
         part_proc(cfg, l200, period; reprocess = false, only_first_period = true) = (push!(calls, (; period, only_first_period)); nothing)
@@ -372,12 +372,12 @@ const REPORT = """
                                                        ProcessorSpec(; name = :part_proc, level = :partition, category = :cal, rank = 1)))
         processors = Dict{Symbol,Any}(:run_proc => run_proc, :part_proc => part_proc)
         # the processors of the config by level and rank, then the others
-        tbl = Juleana.processors(cfg; processors = merge(processors, Dict{Symbol,Any}(:extra => identity)))
+        tbl = JuLeAna.processors(cfg; processors = merge(processors, Dict{Symbol,Any}(:extra => identity)))
         @test tbl.Processor == [:run_proc, :part_proc, :extra] && isequal(tbl.Level, [:run, :partition, missing])
         @test isequal(tbl.Rank, [1, 1, missing]) && tbl.Detectors == [true, true, true]
-        pkg_tbl = Juleana.processors(joinpath(pkgdir(Juleana), "config", "processing_config.yaml"))
+        pkg_tbl = JuLeAna.processors(joinpath(pkgdir(JuLeAna), "config", "processing_config.yaml"))
         @test first(pkg_tbl.Processor) == :process_daq_energy_calibration_cal &&
-              sort(pkg_tbl.Processor) == sort!(collect(keys(Juleana.PROCESSORS)))
+              sort(pkg_tbl.Processor) == sort!(collect(keys(JuLeAna.PROCESSORS)))
         @test !pkg_tbl.Detectors[findfirst(==(:process_evt_phy), pkg_tbl.Processor)]
         output_dir = mktempdir()
         step(args...; kw...) = run_step(args...; config = cfg, l200, processors, output_dir, kw...)
@@ -404,7 +404,7 @@ const REPORT = """
         recorder = RecordingDisplay([])
         pushdisplay(recorder)
         try
-            Juleana.display_report(out.report)
+            JuLeAna.display_report(out.report)
         finally
             popdisplay(recorder)
         end
@@ -416,8 +416,8 @@ const REPORT = """
         pane = PlotPaneDisplay([])
         pushdisplay(pane)
         try
-            Juleana.display_report(out.report)
-            Juleana.display_report(out.report_file)
+            JuLeAna.display_report(out.report)
+            JuLeAna.display_report(out.report_file)
         finally
             popdisplay(pane)
         end
@@ -426,7 +426,7 @@ const REPORT = """
             @test occursin("<h1>run_proc: p03 r001", page) && occursin("<table>", page)
             @test count("<img src=\"data:image/png;base64,", page) == 2
         end
-        @test_throws "there is no report file at" Juleana.display_report(joinpath(output_dir, "missing.md"))
+        @test_throws "there is no report file at" JuLeAna.display_report(joinpath(output_dir, "missing.md"))
 
         # production outputs: the other detectors are skipped as processed, everything is written there
         out = step(:run_proc, 3, 1; detectors = [:V2], outputs = :production, scale = 3)
@@ -443,7 +443,7 @@ const REPORT = """
         out = step(:run_proc, 3, 1)
         @test last(calls).reprocess && first.(out.results) == items && occursin("Detectors: all", markdown(out))
         @test occursin("## V1", markdown(out))
-        @test Juleana.session_output_dir() == Juleana.session_output_dir() && isdir(Juleana.session_output_dir())
+        @test JuLeAna.session_output_dir() == JuLeAna.session_output_dir() && isdir(JuLeAna.session_output_dir())
         step(:run_proc, 3, 1; reprocess = false)
         @test !last(calls).reprocess
         # partition level
@@ -472,9 +472,9 @@ const REPORT = """
                 det = itr.detector
                 values = [1.0, 2.0]
                 plot_dir = joinpath(l200.tier[:jlplt], "rplt", "cal", string(period), string(run), "proc")
-                fitted = Juleana.@process_step "fit $det" on_error = () -> Juleana.CairoMakie.save(joinpath(mkpath(plot_dir),
+                fitted = JuLeAna.@process_step "fit $det" on_error = () -> JuLeAna.CairoMakie.save(joinpath(mkpath(plot_dir),
                                                                                                             "l200-$period-$run-cal-$det-error_fit.png"),
-                                                                                                   Juleana.Makie.Figure(size = (40, 30))) begin
+                                                                                                   JuLeAna.Makie.Figure(size = (40, 30))) begin
                     det === :V1 ? sum(values) : error("no peaks in $det")
                 end
                 (processed = true, log = Row((det, :on, 1, "")), fitted, task = current_task())
@@ -492,33 +492,33 @@ const REPORT = """
                                                                                              "fit V3 failed for V3: ErrorException(\"no peaks in V3\")") match_mode = :any failing_step(;
                                                                                                                                                                                         debug = true)
         end
-        @test Juleana.failures() === out.failures && Juleana.failure() === first(out.failures)
-        @test [Juleana.failure_info(f).name for f in out.failures] == ["fit V2", "fit V3"]
-        @test Juleana.failure().det == :V2 && Juleana.failure().values == [1.0, 2.0]
+        @test JuLeAna.failures() === out.failures && JuLeAna.failure() === first(out.failures)
+        @test [JuLeAna.failure_info(f).name for f in out.failures] == ["fit V2", "fit V3"]
+        @test JuLeAna.failure().det == :V2 && JuLeAna.failure().values == [1.0, 2.0]
         @test [r.log.Error for r in last.(out.results)] ==
               ["", "fit V2: ErrorException(\"no peaks in V2\")", "fit V3: ErrorException(\"no peaks in V3\")"]
         @test first(out.results).second.task === current_task()
         @test occursin(", 2 failures, report in", sprint(show, out))
         # without debug, nothing is captured and the failures of the last call are gone
         out = @test_logs (:error, "fit V2 failed for V2: ErrorException(\"no peaks in V2\")") match_mode = :any failing_step()
-        @test isempty(out.failures) && isempty(Juleana.failures())
+        @test isempty(out.failures) && isempty(JuLeAna.failures())
         @test [r.log.Error for r in last.(out.results)] ==
               ["", "fit V2: ErrorException(\"no peaks in V2\")", "fit V3: ErrorException(\"no peaks in V3\")"]
-        @test_throws "no failure was captured" Juleana.failure()
+        @test_throws "no failure was captured" JuLeAna.failure()
         # stops need Infiltrator, or another stop function
         @test_throws "run `using Infiltrator` first" failing_step(; pause = :all)
         @test_throws "run `using Infiltrator` first" failing_step(; debug = :infiltrate)
         @test_throws "`debug` is :yes, expected false, true or :infiltrate" failing_step(; debug = :yes)
         @test_throws "`pause` is \"fit V2\", expected :all or a vector of step names" failing_step(; pause = "fit V2")
         stops = []
-        Juleana.STOP_HOOK[] = (mod, vars, file, line) -> push!(stops, vars)
+        JuLeAna.STOP_HOOK[] = (mod, vars, file, line) -> push!(stops, vars)
         try
             out = redirect_stdout(devnull) do
                 with_logger(() -> failing_step(; detectors = [:V2], debug = :infiltrate), NullLogger())
             end
             @test only(stops)[:det] == :V2 && only(out.failures).det == :V2
         finally
-            Juleana.STOP_HOOK[] = nothing
+            JuLeAna.STOP_HOOK[] = nothing
         end
         # error plots: off in the config, on with the keyword; linked in the report, not embedded
         error_plot = joinpath(output_dir, "jlplt", "rplt", "cal", "p03", "r001", "proc", "l200-p03-r001-cal-V2-error_fit.png")
@@ -552,8 +552,8 @@ const REPORT = """
         function plotting_proc(cfg, l200, period, run; reprocess = false)
             parallel(items, Row) do itr
                 fk = FileKey("l200-$period-$run-cal-20230101T000000Z")
-                Juleana.save_plot(Juleana.Makie.Figure(size = (40, 30)), l200, fk, itr.detector, :info_plot)
-                Juleana.@debug_plot Juleana.save_plot(Juleana.Makie.Figure(size = (40, 30)), l200, fk, itr.detector, :debug_plot)
+                JuLeAna.save_plot(JuLeAna.Makie.Figure(size = (40, 30)), l200, fk, itr.detector, :info_plot)
+                JuLeAna.@debug_plot JuLeAna.save_plot(JuLeAna.Makie.Figure(size = (40, 30)), l200, fk, itr.detector, :debug_plot)
                 (processed = true, log = Row((itr.detector, :on, 1, "")))
             end
         end
@@ -576,7 +576,7 @@ const REPORT = """
                                    plot_formats = [:png, :jls])
         out, files = plots_step(; config = jls_cfg)
         @test haskey(files, "l200-p03-r001-cal-V2-info_plot.png")
-        @test deserialize(files["l200-p03-r001-cal-V2-info_plot.jls"]) isa Juleana.Makie.Figure
+        @test deserialize(files["l200-p03-r001-cal-V2-info_plot.jls"]) isa JuLeAna.Makie.Figure
         @test_throws "`plot_level` is :all, expected :info or :debug" plots_step(; plot_level = :all)
 
         # the selection reaches the workers
@@ -585,10 +585,10 @@ const REPORT = """
         ppt_worker_pool!(pool)
         pid = only(addprocs(1; exeflags = "--project=$(Base.active_project())"))
         try
-            @everywhere [pid] using Juleana
+            @everywhere [pid] using JuLeAna
             push!(pool, pid)
             on_worker(cfg, l200, period, run; reprocess = false) = parallel(items, Row) do itr
-                (processed = true, log = Row((itr.detector, :on, 1, "")), worker = myid(), redo = Juleana.redo_detector(itr.detector))
+                (processed = true, log = Row((itr.detector, :on, 1, "")), worker = myid(), redo = JuLeAna.redo_detector(itr.detector))
             end
             out = run_step(:on_worker, 3, 1;
                            config = ProcessingConfig(;
@@ -631,26 +631,26 @@ const REPORT = """
     @testset "selected_steps and runprocs_mode" begin
         processors = Dict(:run_a => ProcessorSpec(; name = :run_a, level = :run, category = :cal, rank = 1))
         p_processors = Dict(:p_part_b => ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1))
-        @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors)) == ([:run_a], [:p_part_b])
-        @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors, only_runs = true)) == ([:run_a], Symbol[])
-        @test Juleana.selected_steps(ProcessingConfig(; processors, p_processors, only_partitions = true)) == (Symbol[], [:p_part_b])
+        @test JuLeAna.selected_steps(ProcessingConfig(; processors, p_processors)) == ([:run_a], [:p_part_b])
+        @test JuLeAna.selected_steps(ProcessingConfig(; processors, p_processors, only_runs = true)) == ([:run_a], Symbol[])
+        @test JuLeAna.selected_steps(ProcessingConfig(; processors, p_processors, only_partitions = true)) == (Symbol[], [:p_part_b])
 
         env_variables = Dict("A" => "1")
-        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, env_variables,
+        mode = JuLeAna.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, env_variables,
                                                       local_julia_settings = ["--heap-size-hint=2G"]))
-        @test mode isa Juleana.ParallelProcessingTools.OnLocalhost
+        @test mode isa JuLeAna.ParallelProcessingTools.OnLocalhost
         @test mode.n == 3
-        @test mode.julia_flags == `--startup-file=no --threads=$(Juleana.local_worker_threads(3)) --heap-size-hint=2G`
+        @test mode.julia_flags == `--startup-file=no --threads=$(JuLeAna.local_worker_threads(3)) --heap-size-hint=2G`
         @test mode.env == env_variables
         # a thread count in the settings replaces the one shared out
-        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, local_julia_settings = ["--threads=5"]))
+        mode = JuLeAna.runprocs_mode(ProcessingConfig(; processors, p_processors, local_n = 3, local_julia_settings = ["--threads=5"]))
         @test mode.julia_flags == `--startup-file=no --threads=5`
-        @test Juleana.local_worker_threads(Sys.CPU_THREADS) == 1
-        @test Juleana.local_worker_threads(2 * Sys.CPU_THREADS) == 1
-        @test Juleana.local_worker_threads(1) == Sys.CPU_THREADS
-        mode = Juleana.runprocs_mode(ProcessingConfig(; processors, p_processors, runmode = :slurm, slurm_flags = ["--nodes=2"],
+        @test JuLeAna.local_worker_threads(Sys.CPU_THREADS) == 1
+        @test JuLeAna.local_worker_threads(2 * Sys.CPU_THREADS) == 1
+        @test JuLeAna.local_worker_threads(1) == Sys.CPU_THREADS
+        mode = JuLeAna.runprocs_mode(ProcessingConfig(; processors, p_processors, runmode = :slurm, slurm_flags = ["--nodes=2"],
                                                       env_variables))
-        @test mode isa Juleana.ParallelProcessingTools.OnSlurm
+        @test mode isa JuLeAna.ParallelProcessingTools.OnSlurm
         @test mode.slurm_flags == `--nodes=2`
         @test mode.julia_flags == `--startup-file=no`
         @test mode.redirect_output
@@ -661,7 +661,7 @@ const REPORT = """
         report = mktemp() do path, io
             write(io, REPORT)
             close(io)
-            Juleana.read_report(path)
+            JuLeAna.read_report(path)
         end
         @test report.n_entries == 3
         @test report.n_failed == 2

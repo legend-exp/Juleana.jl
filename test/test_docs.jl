@@ -1,8 +1,8 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 using Test
-using Juleana
+using JuLeAna
 import Documenter
 
-Documenter.DocMeta.setdocmeta!(Juleana, :DocTestSetup, :(using Juleana); recursive = true)
-Documenter.doctest(Juleana)
+Documenter.DocMeta.setdocmeta!(JuLeAna, :DocTestSetup, :(using JuLeAna); recursive = true)
+Documenter.doctest(JuLeAna)

@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
     parse_commandline(args::AbstractVector{<:AbstractString})
@@ -10,13 +10,13 @@ interactive session it returns `nothing`.
 
 Options (see `juleana --help` for the full text):
 - `--config`, `-c`: path of the processing config file. Without it, the
-  [`Juleana.install_default_config`](@ref) file of the data production is used (copied
-  from the config shipped with Juleana if the production has none), or `nothing` when
+  [`JuLeAna.install_default_config`](@ref) file of the data production is used (copied
+  from the config shipped with JuLeAna if the production has none), or `nothing` when
   `LEGEND_DATA_CONFIG` is not set (no data production is selected).
 - `--periods`, `-p`: periods, each optionally with runs: `6` (all runs of p06), `6,1`
   (r001), `6,1-3` (r001 to r003), `6,1,4-6`. Each occurrence gives one vector of these
   strings, so `-p 3 4 -p 6,1` gives `[["3", "4"], ["6,1"]]`; see
-  [`Juleana.parse_period_runs`](@ref).
+  [`JuLeAna.parse_period_runs`](@ref).
 - `--runs`, `-r`: run numbers for the periods given without runs, as one vector per
   occurrence.
 - `--runmode`, `--rm`: `local` or `slurm`, replacing the config's run mode.
@@ -30,7 +30,7 @@ Options (see `juleana --help` for the full text):
 
 # Examples
 ```jldoctest
-julia> args = Juleana.parse_commandline(["-c", "config.json", "-p", "3", "4", "--reprocess"]);
+julia> args = JuLeAna.parse_commandline(["-c", "config.json", "-p", "3", "4", "--reprocess"]);
 
 julia> args["periods"], args["reprocess"], args["only_runs"]
 ([["3", "4"]], true, false)
@@ -39,10 +39,10 @@ julia> args["periods"], args["reprocess"], args["only_runs"]
 function parse_commandline(args::AbstractVector{<:AbstractString})
     settings = ArgParseSettings(prog = "LEGEND Julia main data processing",
                                 description = "LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
-                                version = string(pkgversion(Juleana)), add_version = true)
+                                version = string(pkgversion(JuLeAna)), add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
-        help = "path to config file; default: config/processing_config.yaml in the data production, copied there from the config shipped with Juleana if missing"
+        help = "path to config file; default: config/processing_config.yaml in the data production, copied there from the config shipped with JuLeAna if missing"
         arg_type = String
         "--reprocess"
         help = "reprocess all channels while deleting old data"
@@ -117,7 +117,7 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
 end
 
 """
-    Juleana.data_config_files()
+    JuLeAna.data_config_files()
 
 Return the files named by the environment variable `LEGEND_DATA_CONFIG`, which separates
 them by colons as LegendDataManagement reads them. The last file is the data config of the
@@ -132,10 +132,10 @@ function data_config_files()
 end
 
 """
-    Juleana.with_production_config(config::AbstractString)
+    JuLeAna.with_production_config(config::AbstractString)
 
 Return the value of `LEGEND_DATA_CONFIG` that selects the data production whose data config
-is `config`: the override files of [`Juleana.data_config_files`](@ref) followed by `config`,
+is `config`: the override files of [`JuLeAna.data_config_files`](@ref) followed by `config`,
 or `config` alone if `LEGEND_DATA_CONFIG` is not set.
 """
 function with_production_config(config::AbstractString)
@@ -143,12 +143,12 @@ function with_production_config(config::AbstractString)
 end
 
 """
-    Juleana.production_setup_dir()
+    JuLeAna.production_setup_dir()
 
 Return the path of the `setup` folder of the data production: the folder `setup` next
-to the data config of the production, the last file of [`Juleana.data_config_files`](@ref),
+to the data config of the production, the last file of [`JuLeAna.data_config_files`](@ref),
 in the folder that `\$_` stands for in that file. It holds the subfolders `config`,
-`software` and `metadata` that Juleana manages. The folder need not exist and is not created.
+`software` and `metadata` that JuLeAna manages. The folder need not exist and is not created.
 
 Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set, or if the production folder
 has a top-level `config`, `software` or `metadata-records` folder; their contents belong in
@@ -165,30 +165,30 @@ function production_setup_dir()
 end
 
 """
-    Juleana.production_config_dir()
+    JuLeAna.production_config_dir()
 
 Return the path of the `config` folder of the data production, the subfolder `config` of
-the [`Juleana.production_setup_dir`](@ref). The folder need not exist.
+the [`JuLeAna.production_setup_dir`](@ref). The folder need not exist.
 
-Throws an `ArgumentError` under the conditions of [`Juleana.production_setup_dir`](@ref).
+Throws an `ArgumentError` under the conditions of [`JuLeAna.production_setup_dir`](@ref).
 """
 production_config_dir() = joinpath(production_setup_dir(), "config")
 
 """
-    Juleana.default_config_file()
+    JuLeAna.default_config_file()
 
 Return the path of the default processing config file of the data production,
-`setup/config/processing_config.yaml` (see [`Juleana.production_config_dir`](@ref)). The
-file need not exist; see [`Juleana.install_default_config`](@ref).
+`setup/config/processing_config.yaml` (see [`JuLeAna.production_config_dir`](@ref)). The
+file need not exist; see [`JuLeAna.install_default_config`](@ref).
 """
 default_config_file() = joinpath(production_config_dir(), "processing_config.yaml")
 
 """
-    Juleana.install_default_config()
+    JuLeAna.install_default_config()
 
-Return the [`Juleana.default_config_file`](@ref). If the file does not exist, first
-create the [`Juleana.production_config_dir`](@ref) and copy the
-`config/processing_config.yaml` shipped with Juleana into it, logging the copy. An
+Return the [`JuLeAna.default_config_file`](@ref). If the file does not exist, first
+create the [`JuLeAna.production_config_dir`](@ref) and copy the
+`config/processing_config.yaml` shipped with JuLeAna into it, logging the copy. An
 existing file is never overwritten. A `processing_config.json` next to the file is
 ignored with a warning.
 """
@@ -197,15 +197,15 @@ function install_default_config()
     if !isfile(path)
         legacy = joinpath(dirname(path), "processing_config.json")
         isfile(legacy) && @warn "Ignoring $legacy: the processing config is read from YAML; using $path"
-        shipped = joinpath(pkgdir(Juleana), "config", "processing_config.yaml")
+        shipped = joinpath(pkgdir(JuLeAna), "config", "processing_config.yaml")
         cp(shipped, joinpath(mkpath(dirname(path)), basename(path)))
-        @info "Copied the processing config shipped with Juleana ($shipped) to $path"
+        @info "Copied the processing config shipped with JuLeAna ($shipped) to $path"
     end
     return path
 end
 
 """
-    Juleana.parse_period_runs(period_args, run_args)
+    JuLeAna.parse_period_runs(period_args, run_args)
 
 Turn the `--periods` and `--runs` options of [`parse_commandline`](@ref) into
 `(periods, runs)`. `period_args` and `run_args` are vectors with one vector per
@@ -224,7 +224,7 @@ that ends before it starts, and for `--runs` together with periods given with ru
 
 # Examples
 ```jldoctest
-julia> periods, runs = Juleana.parse_period_runs([["3", "6,1-3"], ["7,2,5"]], []);
+julia> periods, runs = JuLeAna.parse_period_runs([["3", "6,1-3"], ["7,2,5"]], []);
 
 julia> string.(periods), sort([string(p) => string.(r) for (p, r) in runs])
 (["p03", "p06", "p07"], ["p06" => ["r001", "r002", "r003"], "p07" => ["r002", "r005"]])
@@ -261,8 +261,8 @@ function parse_period_runs(period_args, run_args)
 end
 
 """
-    Juleana.mirror_override_folders(l200::LegendData)
-    Juleana.mirror_override_folders(overrides::AbstractString, base::AbstractString)
+    JuLeAna.mirror_override_folders(l200::LegendData)
+    JuLeAna.mirror_override_folders(overrides::AbstractString, base::AbstractString)
 
 Create every folder below `overrides` that is missing below `base`, at the same relative
 path, and return the created folders. For `l200`, this is done for the parameter overrides
@@ -300,7 +300,7 @@ Build the processing setup from the output of [`parse_commandline`](@ref) and re
 Reads the config file, applies the command line overrides, sets `ENV` from the
 config's `env_variables` (before the metadata is loaded), builds `LegendData(:l200)` for the `--dataset`,
 creates the parameter folders of its override folders (see
-[`Juleana.mirror_override_folders`](@ref)), and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
+[`JuLeAna.mirror_override_folders`](@ref)), and creates the log directory: `--log_path` when given, otherwise a directory in the `jllog` tier
 named by the current UTC time (`yyyy-mm-ddTHH:MM:SSZ`). `periods` are the selected periods that are in the
 dataset, or all periods of the dataset when the config selects all.
 """
@@ -362,8 +362,8 @@ function setup_processing(parsed_args::AbstractDict)
 end
 
 """
-    Juleana.available_periods(l200::LegendData)
-    Juleana.available_runs(l200::LegendData, period::DataPeriod)
+    JuLeAna.available_periods(l200::LegendData)
+    JuLeAna.available_runs(l200::LegendData, period::DataPeriod)
 
 Return the periods, or the runs of `period`, in the `runinfo` of `l200`, which holds the
 runs of the dataset of `l200`, sorted. The data on disk is not checked.

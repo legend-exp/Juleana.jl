@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Seconds between two background reads of the overview while the page is visible.
 const WORKERS_READ_SECONDS = 5.0
@@ -16,16 +16,16 @@ const WORKERS_OUTPUT_LINE = r"^\s*From worker (\d+):\t(.*)$"
     WorkersPage()
 
 State of the Workers page of the terminal user interface: the latest overview of the worker
-allocations, the workers and SLURM as [`Juleana.workers_overview`](@ref) returns it, the
+allocations, the workers and SLURM as [`JuLeAna.workers_overview`](@ref) returns it, the
 focused pane, the selected allocation and worker, the scroll positions of the output panes,
 a pending confirmation, the start script editor, the form of the SLURM options (see
-[`Juleana.SlurmForm`](@ref)) and the requests for reading the overview.
-Keys are handled by [`Juleana.workers_key!`](@ref) and [`Juleana.workers_mouse!`](@ref), the
-page is drawn by [`Juleana.render_workers`](@ref).
+[`JuLeAna.SlurmForm`](@ref)) and the requests for reading the overview.
+Keys are handled by [`JuLeAna.workers_key!`](@ref) and [`JuLeAna.workers_mouse!`](@ref), the
+page is drawn by [`JuLeAna.render_workers`](@ref).
 
 The page never runs the commands of the overview. It queues requests (see
-[`Juleana.take_requests!`](@ref)) that the interface carries out in the background and
-answers with [`Juleana.workers_result!`](@ref). The selections are kept by allocation number
+[`JuLeAna.take_requests!`](@ref)) that the interface carries out in the background and
+answers with [`JuLeAna.workers_result!`](@ref). The selections are kept by allocation number
 and process ID, so they stay on their item when the lists change.
 """
 mutable struct WorkersPage
@@ -70,11 +70,11 @@ function WorkersPage()
 end
 
 """
-    Juleana.take_requests!(page::WorkersPage)
+    JuLeAna.take_requests!(page::WorkersPage)
 
 Return the requests of `page` for reading the overview and clear them. A request is a named
-tuple with `kind` `:overview`. [`Juleana.read_workers_page`](@ref) carries a request out and
-[`Juleana.workers_result!`](@ref) takes its answer.
+tuple with `kind` `:overview`. [`JuLeAna.read_workers_page`](@ref) carries a request out and
+[`JuLeAna.workers_result!`](@ref) takes its answer.
 """
 function take_requests!(page::WorkersPage)
     requests = copy(page.requests)
@@ -83,10 +83,10 @@ function take_requests!(page::WorkersPage)
 end
 
 """
-    Juleana.read_workers_page(ctrl::DataflowController, request)
+    JuLeAna.read_workers_page(ctrl::DataflowController, request)
 
-Carry out a request of a [`Juleana.WorkersPage`](@ref) (see [`Juleana.take_requests!`](@ref))
-and return `(; request, value)` with the [`Juleana.workers_overview`](@ref) of the workers
+Carry out a request of a [`JuLeAna.WorkersPage`](@ref) (see [`JuLeAna.take_requests!`](@ref))
+and return `(; request, value)` with the [`JuLeAna.workers_overview`](@ref) of the workers
 of `ctrl`, or `(; request, error)` with the message of the exception if the read failed.
 Runs SLURM commands, so it belongs in a background task.
 """
@@ -100,9 +100,9 @@ function read_workers_page(ctrl::DataflowController, request)
 end
 
 """
-    Juleana.workers_result!(page::WorkersPage, answer)
+    JuLeAna.workers_result!(page::WorkersPage, answer)
 
-Take the `answer` to a request of `page` as [`Juleana.read_workers_page`](@ref) returns it:
+Take the `answer` to a request of `page` as [`JuLeAna.read_workers_page`](@ref) returns it:
 the overview replaces the one of `page`, or the message of a failed read becomes its `error`
 and the shown overview stays.
 """
@@ -114,7 +114,7 @@ function workers_result!(page::WorkersPage, answer)
 end
 
 """
-    Juleana.workers_visit!(page::WorkersPage; at::Real = time())
+    JuLeAna.workers_visit!(page::WorkersPage; at::Real = time())
 
 Queue a read of the overview unless one is under way or the latest was queued less than five
 seconds before `at`.
@@ -127,9 +127,9 @@ function workers_visit!(page::WorkersPage; at::Real = time())
 end
 
 """
-    Juleana.workers_stale!(page::WorkersPage)
+    JuLeAna.workers_stale!(page::WorkersPage)
 
-Mark the overview of `page` as out of date, so that the next [`Juleana.workers_visit!`](@ref)
+Mark the overview of `page` as out of date, so that the next [`JuLeAna.workers_visit!`](@ref)
 queues a read at once, even if a read is under way.
 """
 function workers_stale!(page::WorkersPage)
@@ -148,7 +148,7 @@ function workers_index(items, key, id)
 end
 
 """
-    Juleana.workers_selected_allocation(page::WorkersPage)
+    JuLeAna.workers_selected_allocation(page::WorkersPage)
 
 Return the selected allocation of `page` (the first one if none was selected) as the named tuple of
 the overview, or `nothing` if there is none.
@@ -159,7 +159,7 @@ function workers_selected_allocation(page::WorkersPage)
 end
 
 """
-    Juleana.workers_selected_worker(page::WorkersPage)
+    JuLeAna.workers_selected_worker(page::WorkersPage)
 
 Return the selected worker of `page` (the first one if none was selected) as `(; pid, host)`, or
 `nothing` if there is none.
@@ -224,7 +224,7 @@ function open_script_editor!(page::WorkersPage)
 end
 
 """
-    Juleana.workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = nothing)::Bool
+    JuLeAna.workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = nothing)::Bool
 
 Apply the key event `evt` to `page`. `send(cmd)` queues the controller command `cmd` and `snap`
 is the latest controller snapshot. Return `true` if the key was used and `false` otherwise.
@@ -243,7 +243,7 @@ is the latest controller snapshot. Return `true` if the key was used and `false`
     editor Ctrl-O sends [`EditStartScript`](@ref) with the text and closes it, Escape closes
     it without saving, and every other key edits the text. A shown message closes with any key.
   - `o` opens the form of the SLURM options, such as the time limit and the number of nodes,
-    if `snap` has the run mode settings; [`Juleana.slurm_form_key!`](@ref) handles the keys
+    if `snap` has the run mode settings; [`JuLeAna.slurm_form_key!`](@ref) handles the keys
     while it is open.
   - Other keys, such as `1` to `7` and `q`, are not used while no editor, form, message or question is open.
 """
@@ -312,7 +312,7 @@ function workers_key!(page::WorkersPage, evt::Tachikoma.KeyEvent, send; snap = n
 end
 
 """
-    Juleana.workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
+    JuLeAna.workers_mouse!(page::WorkersPage, evt::Tachikoma.MouseEvent)::Bool
 
 Apply the mouse event `evt` to `page`: a left click on a row of the allocations or the workers
 selects it and focuses its pane, and the scroll wheel scrolls the output pane (or the SLURM
@@ -479,12 +479,12 @@ function workers_render_editor(page::WorkersPage, area, buf)
 end
 
 """
-    Juleana.render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
+    JuLeAna.render_workers(page::WorkersPage, snap, busy, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
         at::DateTime = now(UTC))
 
 Draw the Workers page into `area` of `buf`. `snap` is the controller snapshot (or `nothing`),
 `busy` the busy workers (see `busy_workers`), `entries` the entries of the message buffer
-(see [`Juleana.message_entries`](@ref)) and `at` the current UTC time.
+(see [`JuLeAna.message_entries`](@ref)) and `at` the current UTC time.
 
 A line at the top shows the number of workers and the countdown to the cancel of idle
 allocations (`idle cancel in mm:ss`, or `no idle cancel`). Two columns follow. The left one

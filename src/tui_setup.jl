@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Rows of the options pane: label and the values a row cycles through.
 const SETUP_OPTIONS = ((:reprocess, "Reprocess", (nothing, true, false)),
@@ -25,24 +25,24 @@ SetupPicker(kind, items, cursor) = SetupPicker(kind, items, cursor, 1)
 """
     SetupPage()
 
-State of the Setup page of the terminal user interface: a [`Juleana.Checklist`](@ref)
+State of the Setup page of the terminal user interface: a [`JuLeAna.Checklist`](@ref)
 of periods with their runs, one of the run-level and one of the partition-level
 processors, the options pane, the pane with the production root, the data production and
 the dataset, and the
 runinfo of the period or run under the cursor of the periods. The checklists are built from the controller
-snapshots by [`Juleana.sync_setup!`](@ref); keys are handled by
-[`Juleana.setup_key!`](@ref).
+snapshots by [`JuLeAna.sync_setup!`](@ref); keys are handled by
+[`JuLeAna.setup_key!`](@ref).
 
 `focus` is the focused pane: 1 periods, 2 run processors, 3 partition processors,
 4 options, 5 production pane, where `source` is the chosen line (1 root, 2 production,
-3 dataset). `editor` is the open [`Juleana.KwargsEditor`](@ref) or [`Juleana.RunmodeEditor`](@ref), `confirm` is `:write`
+3 dataset). `editor` is the open [`JuLeAna.KwargsEditor`](@ref) or [`JuLeAna.RunmodeEditor`](@ref), `confirm` is `:write`
 while writing the config waits for confirmation, and `picker` is the open
-[`Juleana.SetupPicker`](@ref). `root` is the folder the productions are listed under, or
+[`JuLeAna.SetupPicker`](@ref). `root` is the folder the productions are listed under, or
 `nothing` for the parent folder of the current data production (see
-[`Juleana.production_root`](@ref)); `root_edit` is the text of the root while it is edited
+[`JuLeAna.production_root`](@ref)); `root_edit` is the text of the root while it is edited
 in place, `nothing` otherwise, and `root_hint` a message below the lines of the pane (the
 completion candidates or the error of the root) with whether it is an error. `choices`
-holds the names the pickers list, read by [`Juleana.read_choices`](@ref): `nothing` before
+holds the names the pickers list, read by [`JuLeAna.read_choices`](@ref): `nothing` before
 they are read, the message of the read error, or a `NamedTuple` with `productions` and
 `datasets`.
 """
@@ -105,7 +105,7 @@ end
 processor_tags(p) = [string(p.category), "rank $(lpad(p.rank, 2, '0'))"]
 
 """
-    Juleana.sync_setup!(page::SetupPage, snap; pending::Bool = false)
+    JuLeAna.sync_setup!(page::SetupPage, snap; pending::Bool = false)
 
 Bring `page` in line with the controller snapshot `snap`. The checklists are rebuilt when
 the available periods, runs or processors change, keeping their cursor and filter
@@ -162,18 +162,18 @@ function option_command(key, value)
 end
 
 """
-    Juleana.setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
+    JuLeAna.setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
 
 Handle the key `evt` on the Setup page and return whether it was used. `snap` is the
 latest controller snapshot (or `nothing`) and `send(cmd)` sends a controller command.
 
-An open kwargs or run mode editor gets every key (see [`Juleana.kwargs_key!`](@ref) and
-[`Juleana.runmode_key!`](@ref)); while writing
+An open kwargs or run mode editor gets every key (see [`JuLeAna.kwargs_key!`](@ref) and
+[`JuLeAna.runmode_key!`](@ref)); while writing
 the config waits for confirmation, `y` sends [`WriteConfig`](@ref) for the config folder
 of the data production and any other key cancels. An open picker gets every key: Up and
 Down move the cursor, Enter sends [`SelectProduction`](@ref) or [`SelectDataset`](@ref) for the chosen
 name unless it is the current one, and Escape closes the picker. While the production root is edited
-every key goes to its text (see [`Juleana.root_key!`](@ref)). Otherwise the focused checklist gets the key
+every key goes to its text (see [`JuLeAna.root_key!`](@ref)). Otherwise the focused checklist gets the key
 first; a change of its selection sends `SelectRuns` or `SelectSteps`. Then: Tab and Shift-Tab move between the panes; in a processor pane
 `c` and `p` select the `cal` and `phy` processors of the pane, `d` adds the steps
 the selected steps wait for and `e` opens the kwargs editor for the processor under the
@@ -185,7 +185,7 @@ stops it without waiting for them, `r` reloads the config, `g` rebuilds the
 dependency graph, `W` starts a worker allocation with [`AddWorkers`](@ref) and `w` asks to write
 the current settings to `config/processing_config.yaml` of the data production. `N` sets
 `page.new_production`, which asks the interface to open the new-production form (see
-[`Juleana.ProductionForm`](@ref)); the checklists use `n` to uncheck all items.
+[`JuLeAna.ProductionForm`](@ref)); the checklists use `n` to uncheck all items.
 """
 function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
     evt.action == Tachikoma.key_release && return false
@@ -270,7 +270,7 @@ function setup_key!(page::SetupPage, evt::Tachikoma.KeyEvent, snap, send)
 end
 
 """
-    Juleana.setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
+    JuLeAna.setup_mouse!(page::SetupPage, evt::Tachikoma.MouseEvent, snap, send)
 
 Pass the mouse event `evt` to the checklist under the pointer, focus that pane, and send
 the new selection if it changed. A left click in the options pane focuses it; on an
@@ -352,7 +352,7 @@ function open_line!(page::SetupPage, snap)
 end
 
 """
-    Juleana.production_root(page::SetupPage)
+    JuLeAna.production_root(page::SetupPage)
 
 Return the folder the productions of the Setup page are listed under: `page.root` if it was
 set, else the parent folder of the current data production, or `""` if none is set.
@@ -364,11 +364,11 @@ function production_root(page::SetupPage)
 end
 
 """
-    Juleana.root_key!(page::SetupPage, evt::Tachikoma.KeyEvent)
+    JuLeAna.root_key!(page::SetupPage, evt::Tachikoma.KeyEvent)
 
 Handle the key `evt` while the production root of `page` is edited in `page.root_edit`.
 Printable characters are appended and Backspace removes the last one. Tab completes the
-text with [`Juleana.complete_path`](@ref): it extends the text by the common prefix of the
+text with [`JuLeAna.complete_path`](@ref): it extends the text by the common prefix of the
 folders it matches and, if there are several, shows up to 8 of them in `page.root_hint`.
 Enter sets the root to the text, with `~` expanded, if that is an existing absolute folder,
 which makes the productions be read again, and shows an error and keeps editing otherwise.
@@ -458,13 +458,13 @@ function setup_summary(snap)
 end
 
 """
-    Juleana.dataset_lines(page::SetupPage)
+    JuLeAna.dataset_lines(page::SetupPage)
 
 Return the title and the lines, as vectors of `(text, style)` spans, of the box with the
 runinfo of the period or run under the cursor of the periods of `page`. A run shows one
 line per category with file keys: the number of file keys, the livetime, and `no
 analysis` if it is not an analysis run of the category. A period shows the totals of its
-runs per category (see [`Juleana.period_summary`](@ref)) with the number of runs. The
+runs per category (see [`JuLeAna.period_summary`](@ref)) with the number of runs. The
 first line is the earliest start time. The box has as many lines as the period with the
 most categories needs.
 """
@@ -514,7 +514,7 @@ function dataset_lines(page::SetupPage)
 end
 
 """
-    Juleana.find_productions(root)
+    JuLeAna.find_productions(root)
 
 Return the sorted paths, relative to the folder `root`, of the folders under `root` that
 hold a `config.json` or `config.yaml`; `"."` is `root` itself. The search is breadth-first
@@ -549,11 +549,11 @@ function find_productions(root::AbstractString)
 end
 
 """
-    Juleana.read_choices(ctrl::DataflowController, root)
+    JuLeAna.read_choices(ctrl::DataflowController, root)
 
 Read the names the pickers of the Setup page list, and return them as a `NamedTuple` with
 `productions`, the data productions under the folder `root` (see
-[`Juleana.find_productions`](@ref)), and `datasets`, `"default"` and the names in the
+[`JuLeAna.find_productions`](@ref)), and `datasets`, `"default"` and the names in the
 metadata `datasets/runlists` of the loaded session. Throws if `root` is empty or the run
 lists cannot be read.
 """
@@ -637,14 +637,14 @@ function render_picker(page::SetupPage, area::Tachikoma.Rect, buf::Tachikoma.Buf
 end
 
 """
-    Juleana.render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the Setup page into `area`: periods and runs on the left, the run and partition
 processors in the middle, and on the right the options with a summary of what a start
 would process and the largest logo that fits below it (centered at the bottom of the
 pane), the data production and dataset, and the runinfo of the period or run under the
-cursor of the periods (see [`Juleana.dataset_lines`](@ref)); the production pane shows
-[`Juleana.production_root`](@ref), the data production and the dataset. The open picker is drawn over the page.
+cursor of the periods (see [`JuLeAna.dataset_lines`](@ref)); the production pane shows
+[`JuLeAna.production_root`](@ref), the data production and the dataset. The open picker is drawn over the page.
 """
 function render_setup(page::SetupPage, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     columns = Tachikoma.Layout(Tachikoma.Horizontal, [Tachikoma.Percent(28), Tachikoma.Percent(42), Tachikoma.Fill()])

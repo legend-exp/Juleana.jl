@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Compile the terminal interface when the package is precompiled, so that its first frame
 # and the first keys, mouse events and task results of a session appear without compiling
@@ -13,7 +13,7 @@
     # the interface logs on its first frame; nothing is printed while precompiling
     @compile_workload Logging.with_logger(Logging.NullLogger()) do
         ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
-        m = JuleanaTUI(ctrl; splash_seconds = 0.0)
+        m = JuLeAnaTUI(ctrl; splash_seconds = 0.0)
         # ends the task that runs the commands of the interface
         close(m.commands)
         m.snap = snapshot(ctrl)
@@ -327,7 +327,7 @@
         # The interface loop of `run_tui` on a new interface, without a terminal: frames go to a buffer, keys
         # come from a stream and the size is fixed. Escape is not scripted because the key reader drops it in
         # the first second. Ctrl-C ends the loop after a timer tick; the last timer ends it if the key is lost.
-        let m = JuleanaTUI(DataflowController(Dict{String,Any}("config" => nothing); loader = nothing), MessageBuffer();
+        let m = JuLeAnaTUI(DataflowController(Dict{String,Any}("config" => nothing); loader = nothing), MessageBuffer();
                            splash_seconds = 0.0)
             input = Base.BufferStream()
             write(input, "ab\e[A\e[B\e[C\e[D\t\e[Z\e[<0;10;3M\e[<0;10;3m\e[<64;60;20M")

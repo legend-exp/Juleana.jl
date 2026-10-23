@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Values of `plot_level` and of the entries of `plot_formats`.
 const PLOT_LEVEL_VALUES = (:info, :debug)

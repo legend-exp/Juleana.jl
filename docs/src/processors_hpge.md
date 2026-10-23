@@ -3,29 +3,29 @@
 ## Peak splitting, DSP and quality cuts
 
 ```@docs
-Juleana.process_daq_energy_calibration_cal
-Juleana.process_peak_split_cal
-Juleana.process_peak_split_phy
-Juleana.process_dsp_cal
-Juleana.process_dsp_phy
-Juleana.process_dsp_aux_phy
-Juleana.process_qcs_cal
-Juleana.process_qcs_phy
+JuLeAna.process_daq_energy_calibration_cal
+JuLeAna.process_peak_split_cal
+JuLeAna.process_peak_split_phy
+JuLeAna.process_dsp_cal
+JuLeAna.process_dsp_phy
+JuLeAna.process_dsp_aux_phy
+JuLeAna.process_qcs_cal
+JuLeAna.process_qcs_phy
 ```
 
 ## Decay time and filter optimization
 
 ```@docs
-Juleana.process_decay_time_cal
-Juleana.p_process_decay_time_cal
-Juleana.process_filter_optimization_cal
-Juleana.p_process_filter_optimization_cal
+JuLeAna.process_decay_time_cal
+JuLeAna.p_process_decay_time_cal
+JuLeAna.process_filter_optimization_cal
+JuLeAna.p_process_filter_optimization_cal
 ```
 
 ## Energy calibration
 
 ```@docs
-Juleana.process_ct_correction_cal
-Juleana.process_energy_calibration_cal
-Juleana.p_process_energy_cal
+JuLeAna.process_ct_correction_cal
+JuLeAna.process_energy_calibration_cal
+JuLeAna.p_process_energy_cal
 ```

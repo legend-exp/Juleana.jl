@@ -1,22 +1,22 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
-    module Juleana
+    module JuLeAna
 
 The Julia LEGEND Analysis dataflow.
 
-[`Juleana.main`](@ref) is the entry point of the `juleana` app: it opens the terminal
-user interface ([`Juleana.run_tui`](@ref)) or, with `--no-tui`, runs the enabled
-processors with [`run_processing`](@ref). [`Juleana.setup_session`](@ref) reads the
+[`JuLeAna.main`](@ref) is the entry point of the `juleana` app: it opens the terminal
+user interface ([`JuLeAna.run_tui`](@ref)) or, with `--no-tui`, runs the enabled
+processors with [`run_processing`](@ref). [`JuLeAna.setup_session`](@ref) reads the
 processing config ([`ProcessingConfig`](@ref)), starts the workers, and returns a
 [`DataflowSession`](@ref), which the [`DataflowController`](@ref) of the interface works on. The processors are the functions in `src/processors/`, registered by
-name in [`Juleana.PROCESSORS`](@ref). The module also provides the helpers processors
+name in [`JuLeAna.PROCESSORS`](@ref). The module also provides the helpers processors
 share: distributing work over the worker pool with per-item failure logging
 ([`parallel`](@ref)), combining per-item log rows into a processor status
 ([`master_status`](@ref)), report text and formatting helpers, and the Markdown-safe
 logger installed on the head and all workers.
 """
-module Juleana
+module JuLeAna
 
 using ArgParse: @add_arg_table!, ArgParseSettings, parse_args
 using Base64: base64encode
@@ -153,7 +153,7 @@ include("processors/process_stability_plots_phy.jl")
 include("using_packages.jl")
 include("precompile.jl")
 
-# The packages a Julia session needs to work with the data and the processors; `using Juleana`
+# The packages a Julia session needs to work with the data and the processors; `using JuLeAna`
 # makes their names, not their contents, available. A defined `ParallelProcessingTools` in
 # `Main` also lets ParallelProcessingTools set up the process when the active environment
 # does not have it.

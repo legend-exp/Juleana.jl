@@ -1,9 +1,9 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
     ChecklistItem(key, label::AbstractString; tags = String[])
 
-Selectable entry of a [`Juleana.Checklist`](@ref). `key` identifies the item and must be
+Selectable entry of a [`JuLeAna.Checklist`](@ref). `key` identifies the item and must be
 unique among the items of a checklist, `label` is the displayed text and `tags` are short
 strings displayed dimmed at the right end of the row. Labels and tags are searched by the
 filter of the checklist.
@@ -20,7 +20,7 @@ end
     ChecklistGroup(key, label::AbstractString, items::AbstractVector{ChecklistItem};
                    tags = String[], expanded = true)
 
-Group of items of a two-level [`Juleana.Checklist`](@ref). A group is never selected
+Group of items of a two-level [`JuLeAna.Checklist`](@ref). A group is never selected
 itself: toggling it toggles its visible items. `expanded` states whether the items are
 displayed below the group; the checklist changes it when the group is collapsed or
 expanded.
@@ -43,8 +43,8 @@ end
 Terminal widget that displays a list of items with checkboxes and lets the user select
 any number of them.
 
-`entries` is either a vector of [`Juleana.ChecklistItem`](@ref) (flat list) or a vector
-of [`Juleana.ChecklistGroup`](@ref) (two-level list). Item keys must be unique;
+`entries` is either a vector of [`JuLeAna.ChecklistItem`](@ref) (flat list) or a vector
+of [`JuLeAna.ChecklistGroup`](@ref) (two-level list). Item keys must be unique;
 `checked` is an iterable of the keys of the initially selected items and must only
 contain keys of items of the checklist. Only items are selected, never groups. The
 cursor row is highlighted only while `focused` is `true`. `tag_style(tag::String)`
@@ -81,7 +81,7 @@ shown under the filter, whether or not their group is collapsed.
 # Mouse
 
 `Tachikoma.handle_mouse!(w, evt)` handles clicks and the scroll wheel using the area of the last
-`Tachikoma.render(::Juleana.Checklist, ...)`.
+`Tachikoma.render(::JuLeAna.Checklist, ...)`.
 """
 mutable struct Checklist
     const groups::Vector{ChecklistGroup}
@@ -163,7 +163,7 @@ function clamp_cursor!(w::Checklist)
 end
 
 """
-    Juleana.checked(w::Checklist)
+    JuLeAna.checked(w::Checklist)
 
 Keys of the selected items of `w`, in the order of the unfiltered list.
 """
@@ -172,7 +172,7 @@ function checked(w::Checklist)
 end
 
 """
-    Juleana.set_checked!(w::Checklist, keys)
+    JuLeAna.set_checked!(w::Checklist, keys)
 
 Replace the selection of `w` with the items whose keys are in `keys`. Throws an
 `ArgumentError` naming the keys that belong to no item; the selection is unchanged then.
@@ -186,7 +186,7 @@ function set_checked!(w::Checklist, keys)
 end
 
 """
-    Juleana.set_checked!(f::Function, w::Checklist)
+    JuLeAna.set_checked!(f::Function, w::Checklist)
 
 Replace the selection of `w` with the items for which `f(item::ChecklistItem)` is `true`.
 """
@@ -200,9 +200,9 @@ function set_checked!(f::Function, w::Checklist)
 end
 
 """
-    Juleana.current(w::Checklist)
+    JuLeAna.current(w::Checklist)
 
-The [`Juleana.ChecklistItem`](@ref) or [`Juleana.ChecklistGroup`](@ref) under the cursor
+The [`JuLeAna.ChecklistItem`](@ref) or [`JuLeAna.ChecklistGroup`](@ref) under the cursor
 of `w`, or `nothing` if no rows are visible.
 """
 function current(w::Checklist)
@@ -242,9 +242,9 @@ function handle_filter_key!(w::Checklist, evt::Tachikoma.KeyEvent)
 end
 
 """
-    Tachikoma.handle_key!(w::Juleana.Checklist, evt::Tachikoma.KeyEvent)::Bool
+    Tachikoma.handle_key!(w::JuLeAna.Checklist, evt::Tachikoma.KeyEvent)::Bool
 
-Apply the key event `evt` to `w` as described for [`Juleana.Checklist`](@ref). Return
+Apply the key event `evt` to `w` as described for [`JuLeAna.Checklist`](@ref). Return
 `true` if the widget used the key and `false` otherwise.
 """
 function Tachikoma.handle_key!(w::Checklist, evt::Tachikoma.KeyEvent)::Bool
@@ -298,7 +298,7 @@ function Tachikoma.handle_key!(w::Checklist, evt::Tachikoma.KeyEvent)::Bool
 end
 
 """
-    Tachikoma.handle_mouse!(w::Juleana.Checklist, evt::Tachikoma.MouseEvent)::Bool
+    Tachikoma.handle_mouse!(w::JuLeAna.Checklist, evt::Tachikoma.MouseEvent)::Bool
 
 Apply the mouse event `evt` to `w`. A left button press on a row moves the cursor to the
 row and toggles it like Space does. The scroll wheel moves the cursor by one row while
@@ -330,7 +330,7 @@ function pane_block(title, focused::Bool)
 end
 
 """
-    Tachikoma.render(w::Juleana.Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    Tachikoma.render(w::JuLeAna.Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw `w` into `rect` of `buf`. The view scrolls to keep the cursor row visible. Rows
 never extend beyond `rect`: long labels are shortened, and the tags of a row are dropped

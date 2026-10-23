@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Logging: Logging
 using Test
 using Dates: Minute
@@ -30,7 +30,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
                                                                                     (; reprocess, max_wvfs)); nothing)
     aoe_stub(cfg, l200, period; reprocess = false, only_first_period = false) = (record(:p_process_aoe_cut_cal, period, nothing,
                                                                                         (; reprocess)); false)
-    processors = merge(Juleana.PROCESSORS,
+    processors = merge(JuLeAna.PROCESSORS,
                        Dict{Symbol,Any}(:process_energy_calibration_cal => energy_stub, :p_process_aoe_cut_cal => aoe_stub))
 
     cfg = ProcessingConfig(;
@@ -39,7 +39,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
                            p_processors = Dict(:p_process_aoe_cut_cal => spec(:p_process_aoe_cut_cal, :partition, 1)))
 
     function new_session(config = cfg)
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, config, [p2, p3], nothing, run_steps(config),
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, config, [p2, p3], nothing, run_steps(config),
                                                                                partition_steps(config))
         return DataflowSession(; args = Dict{String,Any}("config" => shipped_config), l200, config, periods, run_steps = run_steps(config),
                                partition_steps = partition_steps(config), run_status, partition_status)
@@ -122,20 +122,20 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test snap.state === :ready && snap.outcome === :finished && isnothing(snap.last_error)
         @test snap.finished >= snap.started
         # the snapshot has the same type in every state, with and without a session
-        @test snap isa Juleana.ControllerSnapshot
+        @test snap isa JuLeAna.ControllerSnapshot
         @test snapshot(DataflowController(Dict{String,Any}("config" => nothing); loader = nothing, record_software = false,
-                                          record_metadata = false)) isa Juleana.ControllerSnapshot
+                                          record_metadata = false)) isa JuLeAna.ControllerSnapshot
         @test sort(map(c -> c[1:3], calls); by = string) ==
               sort([(:process_energy_calibration_cal, p2, DataRun(6)), (:p_process_aoe_cut_cal, p2, nothing)]; by = string)
         energy_call = only(filter(c -> c[1] === :process_energy_calibration_cal, calls))
         @test energy_call[4] == Dict(:reprocess => true, :max_wvfs => 5)
         # the run is added to the processing history of the production
-        entry = last(Juleana.read_history(Juleana.history_path(l200)))
+        entry = last(JuLeAna.read_history(JuLeAna.history_path(l200)))
         @test entry.outcome === :finished &&
-              entry.started == floor(snap.started, Juleana.Second) &&
-              entry.finished == floor(snap.finished, Juleana.Second)
+              entry.started == floor(snap.started, JuLeAna.Second) &&
+              entry.finished == floor(snap.finished, JuLeAna.Second)
         @test entry.host == gethostname()
-        @test entry.software == Juleana.software_version() && startswith(entry.software, "Juleana ")
+        @test entry.software == JuLeAna.software_version() && startswith(entry.software, "JuLeAna ")
         @test Set((s.process, s.level, s.category, s.period, s.run, s.outcome) for s in entry.steps) ==
               Set([(:process_energy_calibration_cal, :run, :cal, p2, DataRun(6), :done),
                    (:p_process_aoe_cut_cal, :partition, :cal, p2, nothing, :done)])
@@ -160,7 +160,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             dispatch!(ctrl, SelectSteps([:process_energy_calibration_cal], Symbol[]))
             dispatch!(ctrl, StartProcessing())
             wait(ctrl)
-            return ctrl, last(Juleana.read_history(Juleana.history_path(l200)))
+            return ctrl, last(JuLeAna.read_history(JuLeAna.history_path(l200)))
         end
         ctrl, entry = withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
             run_recorded()
@@ -168,7 +168,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         snapshot_name = only(readdir(joinpath(production, "setup", "software")))
         @test snapshot(ctrl).outcome === :finished && ctrl.software_snapshot == snapshot_name
         @test isfile(joinpath(production, "setup", "software", snapshot_name, "SNAPSHOT.toml"))
-        @test entry.software == Juleana.software_version(snapshot_name) &&
+        @test entry.software == JuLeAna.software_version(snapshot_name) &&
               endswith(entry.software, ", snapshot setup/software/$snapshot_name")
         # a second run with the same software reuses the snapshot
         ctrl, entry = withenv("LEGEND_DATA_CONFIG" => joinpath(production, "config.json")) do
@@ -182,7 +182,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         end
         snap = snapshot(ctrl)
         @test snap.outcome === :failed && isempty(calls) && occursin("LEGEND_DATA_CONFIG is not set", snap.last_error)
-        @test entry.outcome === :failed && entry.software == Juleana.software_version()
+        @test entry.outcome === :failed && entry.software == JuLeAna.software_version()
     end
 
     @testset "metadata record" begin
@@ -197,7 +197,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         config = joinpath(production, "config.json")
         write(config, replace(read(data_config, String), TEST_METADATA => metadata))
         metadata_l200 = legend_test_data(config)
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(metadata_l200, cfg, [p2], nothing, run_steps(cfg),
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(metadata_l200, cfg, [p2], nothing, run_steps(cfg),
                                                                                partition_steps(cfg))
         session = DataflowSession(; args = Dict{String,Any}("config" => shipped_config), l200 = metadata_l200, config = cfg, periods,
                                   run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
@@ -212,7 +212,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test snapshot(ctrl).outcome === :finished && ctrl.metadata_record == recorded && isnothing(ctrl.software_snapshot)
         folder = joinpath(production, "setup", "metadata", recorded)
         @test sort(readdir(joinpath(folder, "config"))) == ["1-config.json", "2-processing_config.yaml"]
-        entry = last(Juleana.read_history(Juleana.history_path(metadata_l200)))
+        entry = last(JuLeAna.read_history(JuLeAna.history_path(metadata_l200)))
         @test entry.metadata == "setup/metadata/$recorded"
     end
 
@@ -261,7 +261,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test snapshot(ctrl).analysis_runs_only == cfg.analysis_runs_only
         dispatch!(ctrl, SetAnalysisRunsOnly(!cfg.analysis_runs_only))
         @test snapshot(ctrl).analysis_runs_only == !cfg.analysis_runs_only
-        @test Juleana.effective_config(ctrl).analysis_runs_only == !cfg.analysis_runs_only
+        @test JuLeAna.effective_config(ctrl).analysis_runs_only == !cfg.analysis_runs_only
         # the session config is unchanged
         @test ctrl.session.config.analysis_runs_only == cfg.analysis_runs_only
     end
@@ -274,7 +274,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         @test ctrl.workers.config.runmode === cfg.runmode
         dispatch!(ctrl, SetRunmode(other))
         @test snapshot(ctrl).runmode === other
-        @test Juleana.effective_config(ctrl).runmode === other
+        @test JuLeAna.effective_config(ctrl).runmode === other
         @test ctrl.workers.config.runmode === other
         # the session config is unchanged
         @test ctrl.session.config.runmode === cfg.runmode
@@ -295,7 +295,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         snap = snapshot(ctrl)
         @test snap.state === :ready && snap.outcome === :failed
         @test occursin("stub failure", snap.last_error)
-        entry = last(Juleana.read_history(Juleana.history_path(l200)))
+        entry = last(JuLeAna.read_history(JuLeAna.history_path(l200)))
         @test entry.outcome === :failed && any(s -> s.outcome === :failed, entry.steps)
     end
 
@@ -351,7 +351,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         ppt_worker_pool!(pool)
         pid = only(addprocs(1; exeflags = "--project=$(Base.active_project())"))
         try
-            @everywhere [pid] using Juleana
+            @everywhere [pid] using JuLeAna
             push!(pool, pid)
             filekeys = [FileKey("l200-p02-r006-cal-20230101T00000$(i)Z") for i in 1:3]
             slow_item_step(cfg, l200, period, run; reprocess = false) = parallel(filekeys, StopLog) do fk
@@ -411,7 +411,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         props.config.env_variables = Dict("LEGEND_DATA_CONFIG" => data_config)
         config_file = joinpath(root, "controller_config.json")
         writelprops(config_file, props)
-        args = Juleana.parse_commandline(["-c", config_file, "-p", "2", "-o", joinpath(root, "controller_logs")])
+        args = JuLeAna.parse_commandline(["-c", config_file, "-p", "2", "-o", joinpath(root, "controller_logs")])
         session = new_session()
         session = DataflowSession(; args, session.l200, session.config, session.periods, session.run_steps, session.partition_steps,
                                   session.run_status, session.partition_status)
@@ -520,7 +520,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             sleep(0.01)
             dispatch!(ctrl, PostponeIdleCancel())
             @test snapshot(ctrl).idle_deadline > deadline
-            @test !Juleana.check_idle!(ctrl)
+            @test !JuLeAna.check_idle!(ctrl)
             dispatch!(ctrl, CancelAll())
             @test isnothing(snapshot(ctrl).idle_deadline)
             # idle allocations are cancelled
@@ -528,13 +528,13 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
                                        processors, record_software = false, record_metadata = false)
             dispatch!(short, EditStartScript("sleep 60"))
             dispatch!(short, AddWorkers())
-            @test !Juleana.check_idle!(short)
+            @test !JuLeAna.check_idle!(short)
             sleep(0.2)
-            @test Juleana.check_idle!(short)
+            @test JuLeAna.check_idle!(short)
             @test only(snapshot(short).allocations).state === :cancelled
             # a reloaded or new config generates the start script anew
-            Juleana.set_worker_config!(ctrl.workers, ctrl.session.config)
-            @test occursin("elastic_worker", Juleana.start_script!(ctrl.workers).text)
+            JuLeAna.set_worker_config!(ctrl.workers, ctrl.session.config)
+            @test occursin("elastic_worker", JuLeAna.start_script!(ctrl.workers).text)
 
             idle = DataflowController(Dict{String,Any}("config" => shipped_config); processors, loader = _ -> new_session(),
                                       record_software = false, record_metadata = false)
@@ -562,20 +562,20 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             wait(ctrl)
             dispatch!(ctrl, EditStartScript("sleep 60"))
             dispatch!(ctrl, AddWorkers())
-            spec = Juleana.ProductionSpec(; name = "prod", parent, metadata_url = metadata, copy_software = false)
+            spec = JuLeAna.ProductionSpec(; name = "prod", parent, metadata_url = metadata, copy_software = false)
             dispatch!(ctrl, CreateProduction(spec))
             wait(ctrl)
             config = joinpath(parent, "prod", "config.yaml")
             @test snapshot(ctrl).state === :ready && isnothing(snapshot(ctrl).last_error)
             @test ENV["LEGEND_DATA_CONFIG"] == config
             # the new production has no config folder yet, so the shipped config is loaded with a new log folder
-            @test loaded[]["config"] == Juleana.default_config_file() && loaded[]["log_path"] == ""
+            @test loaded[]["config"] == JuLeAna.default_config_file() && loaded[]["log_path"] == ""
             @test only(snapshot(ctrl).allocations).state === :cancelled
-            @test any(contains("Loading the new production $(dirname(config))"), Juleana.production_log(ctrl))
+            @test any(contains("Loading the new production $(dirname(config))"), JuLeAna.production_log(ctrl))
             # a spec that fails its check is rejected at once
             @test_throws "$(joinpath(parent, "prod")) exists" dispatch!(ctrl, CreateProduction(spec))
             # a failing creation keeps the session and the data production
-            bad = Juleana.ProductionSpec(; name = "bad", parent, metadata_url = joinpath(parent, "missing"), copy_software = false)
+            bad = JuLeAna.ProductionSpec(; name = "bad", parent, metadata_url = joinpath(parent, "missing"), copy_software = false)
             dispatch!(ctrl, CreateProduction(bad))
             wait(ctrl)
             @test snapshot(ctrl).state === :ready && occursin("failed with exit code", snapshot(ctrl).last_error)
@@ -607,7 +607,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
             wait(ctrl)
             @test snapshot(ctrl).state === :ready && snapshot(ctrl).dataset == "default"
             @test ENV["LEGEND_DATA_CONFIG"] == "$site:$(joinpath(parent, "other", "config.json"))"
-            @test loaded[]["config"] == Juleana.default_config_file() && loaded[]["dataset"] == "default"
+            @test loaded[]["config"] == JuLeAna.default_config_file() && loaded[]["dataset"] == "default"
             # a folder without config.json is no production
             @test_throws "no config.json" dispatch!(ctrl, SelectProduction(joinpath(parent, "missing")))
             @test ENV["LEGEND_DATA_CONFIG"] == "$site:$(joinpath(parent, "other", "config.json"))"
@@ -649,7 +649,7 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
               energy().config_log_level == Logging.Info &&
               energy().config_plot_level === :info
         @test energy().overridden == [:log_level, :plot_level]
-        spec = Juleana.effective_config(ctrl).processors[:process_energy_calibration_cal]
+        spec = JuLeAna.effective_config(ctrl).processors[:process_energy_calibration_cal]
         @test spec.log_level == Logging.Debug && spec.plot_level === :debug
         dispatch!(ctrl, ResetKwargs(:process_energy_calibration_cal, :log_level))
         @test energy().log_level == Logging.Info && energy().overridden == [:plot_level]
@@ -663,17 +663,17 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
     @testset "report_index and report_overview" begin
         ctrl = DataflowController(new_session(); processors, record_software = false, record_metadata = false)
         jlrep = l200.tier[:jlrep]
-        failed = Juleana.report_path(l200, :process_energy_calibration_cal, :run, p2, DataRun(6), :cal)
+        failed = JuLeAna.report_path(l200, :process_energy_calibration_cal, :run, p2, DataRun(6), :cal)
         mkpath(dirname(failed))
         write(failed, RUN_REPORT)
         before = sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs])
 
         # the reports of the steps of the current or last run, none before the first run
-        @test isempty(Juleana.report_index(ctrl))
+        @test isempty(JuLeAna.report_index(ctrl))
         dispatch!(ctrl, StartProcessing())
         wait(ctrl)
         @test snapshot(ctrl).outcome === :finished
-        rows = Juleana.report_index(ctrl)
+        rows = JuLeAna.report_index(ctrl)
         energy = filter(r -> r.process === :process_energy_calibration_cal, rows)
         @test [(r.period, r.run, r.state) for r in energy] == [[(p2, r, r == DataRun(6) ? :failed : :missing) for r in DataRun.(0:7)];
                                                                [(p3, r, :missing) for r in DataRun.(0:5)]]
@@ -684,15 +684,15 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
         # a later change of the selection does not change the rows
         dispatch!(ctrl, SelectSteps(Symbol[], [:p_process_aoe_cut_cal]))
         dispatch!(ctrl, SelectPeriods([p3]))
-        @test [(r.process, r.period, r.run) for r in Juleana.report_index(ctrl)] == [(r.process, r.period, r.run) for r in rows]
+        @test [(r.process, r.period, r.run) for r in JuLeAna.report_index(ctrl)] == [(r.process, r.period, r.run) for r in rows]
 
-        overview = Juleana.report_overview(ctrl)
+        overview = JuLeAna.report_overview(ctrl)
         @test [(o.name, o.level, o.category, o.nreports) for o in overview] == [("energy_calibration", :run, "cal", 1)]
         @test overview[1].counts == (; ok = 0, warning = 0, failed = 1)
         @test sort!([joinpath(r, f) for (r, _, fs) in walkdir(jlrep) for f in fs]) == before
 
         # all processors of the config against all runs of the runinfo
-        grid = Juleana.history_grid(ctrl)
+        grid = JuLeAna.history_grid(ctrl)
         @test [(r.process, r.level) for r in grid.rows] ==
               [(:process_energy_calibration_cal, :run), (:process_dsp_cal, :run), (:p_process_aoe_cut_cal, :partition)]
         @test [p.period for p in grid.periods] ⊇ [p2, p3]
@@ -700,8 +700,8 @@ waituntil(cond; timeout = 60) = timedwait(cond, timeout; pollint = 0.05) === :ok
 
         idle = DataflowController(Dict{String,Any}("config" => shipped_config); processors, loader = _ -> new_session(),
                                   record_software = false, record_metadata = false)
-        @test_throws "report_index: no session is loaded" Juleana.report_index(idle)
-        @test_throws "report_overview: no session is loaded" Juleana.report_overview(idle)
-        @test_throws "history_grid: no session is loaded" Juleana.history_grid(idle)
+        @test_throws "report_index: no session is loaded" JuLeAna.report_index(idle)
+        @test_throws "report_overview: no session is loaded" JuLeAna.report_overview(idle)
+        @test_throws "history_grid: no session is loaded" JuLeAna.history_grid(idle)
     end
 end

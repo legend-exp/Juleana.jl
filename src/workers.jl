@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Lines of output kept per allocation.
 const ALLOCATION_OUTPUT_LINES = 1000
@@ -14,9 +14,9 @@ const ESRCH_ERRNO = 3
 """
     WorkerAllocation
 
-One run of the worker start script, started by [`Juleana.add_workers!`](@ref). Fields:
+One run of the worker start script, started by [`JuLeAna.add_workers!`](@ref). Fields:
 
-- `id::Int`: number of the allocation, counted from 1 per [`Juleana.WorkerManager`](@ref).
+- `id::Int`: number of the allocation, counted from 1 per [`JuLeAna.WorkerManager`](@ref).
 - `backend::Symbol`: `:local` or `:slurm`.
 - `job_name`: the SLURM job name of the allocation's workers, `nothing` for `:local`.
 - `started`, `finished`: UTC times; `finished` is `nothing` while the script runs.
@@ -48,19 +48,19 @@ end
 The worker allocations of this process and the worker start script they run.
 
 The start script is generated from the processing config of the session by
-[`Juleana.start_script!`](@ref) and saved as `startjlworkers.sh` in the
-[`Juleana.production_config_dir`](@ref). It holds the cluster cookie and the address of this
-process, so it is generated anew for every config ([`Juleana.set_worker_config!`](@ref))
-and can be edited for the rest of the session ([`Juleana.edit_start_script!`](@ref)).
-[`Juleana.add_workers!`](@ref) runs it as a new allocation, [`Juleana.cancel_allocation!`](@ref)
-and [`Juleana.cancel_all!`](@ref) end allocations, [`Juleana.allocations`](@ref) lists them.
+[`JuLeAna.start_script!`](@ref) and saved as `startjlworkers.sh` in the
+[`JuLeAna.production_config_dir`](@ref). It holds the cluster cookie and the address of this
+process, so it is generated anew for every config ([`JuLeAna.set_worker_config!`](@ref))
+and can be edited for the rest of the session ([`JuLeAna.edit_start_script!`](@ref)).
+[`JuLeAna.add_workers!`](@ref) runs it as a new allocation, [`JuLeAna.cancel_allocation!`](@ref)
+and [`JuLeAna.cancel_all!`](@ref) end allocations, [`JuLeAna.allocations`](@ref) lists them.
 
 Running allocations are cancelled when nothing has used them for the
-`idle_timeout_minutes` of the config: see [`Juleana.idle_deadline`](@ref) and
-[`Juleana.check_idle!`](@ref).
+`idle_timeout_minutes` of the config: see [`JuLeAna.idle_deadline`](@ref) and
+[`JuLeAna.check_idle!`](@ref).
 
 `squeue`, `scancel` and `sinfo` are the SLURM commands, without arguments; SLURM counts as
-available when the program of `squeue` is found. [`Juleana.workers_overview`](@ref) collects
+available when the program of `squeue` is found. [`JuLeAna.workers_overview`](@ref) collects
 everything the Workers page shows. All functions may be called from any task.
 """
 mutable struct WorkerManager
@@ -86,7 +86,7 @@ function WorkerManager(; squeue::Cmd = `squeue`, scancel::Cmd = `scancel`, sinfo
 end
 
 """
-    Juleana.set_worker_config!(mgr::WorkerManager, config::ProcessingConfig)
+    JuLeAna.set_worker_config!(mgr::WorkerManager, config::ProcessingConfig)
 
 Use the run mode of `config` for the next allocations of `mgr`. The start script is generated
 anew on its next use; running allocations are not changed.
@@ -99,12 +99,12 @@ function set_worker_config!(mgr::WorkerManager, config::ProcessingConfig)
 end
 
 """
-    Juleana.start_script!(mgr::WorkerManager)
+    JuLeAna.start_script!(mgr::WorkerManager)
 
 Return `(; path, text)` of the start script of `mgr`. The first call after
-[`Juleana.set_worker_config!`](@ref) generates the script for the run mode of the config with
+[`JuLeAna.set_worker_config!`](@ref) generates the script for the run mode of the config with
 `ParallelProcessingTools.write_worker_start_script` and writes it to `startjlworkers.sh` in
-the [`Juleana.production_config_dir`](@ref), keeping an existing file as
+the [`JuLeAna.production_config_dir`](@ref), keeping an existing file as
 `startjlworkers.sh.bak`. Throws an `ArgumentError` if no config is set.
 """
 function start_script!(mgr::WorkerManager)
@@ -121,7 +121,7 @@ function start_script!(mgr::WorkerManager)
 end
 
 """
-    Juleana.edit_start_script!(mgr::WorkerManager, text::AbstractString)
+    JuLeAna.edit_start_script!(mgr::WorkerManager, text::AbstractString)
 
 Replace the start script of `mgr` by `text` and save it to the script file. For the
 `slurm` run mode the script must name its SLURM job `--job-name=julia-<n>-<m>`: each
@@ -141,10 +141,10 @@ function edit_start_script!(mgr::WorkerManager, text::AbstractString)
 end
 
 """
-    Juleana.add_workers!(mgr::WorkerManager)
+    JuLeAna.add_workers!(mgr::WorkerManager)
 
-Run the start script of `mgr` (see [`Juleana.start_script!`](@ref)) with `bash` in the
-background as a new allocation and return its [`Juleana.WorkerAllocation`](@ref). The shell
+Run the start script of `mgr` (see [`JuLeAna.start_script!`](@ref)) with `bash` in the
+background as a new allocation and return its [`JuLeAna.WorkerAllocation`](@ref). The shell
 leads its own process group, so it keeps running when this process ends unless it is
 cancelled. Its standard and error output are kept in the allocation. For the `slurm` run
 mode, the job name of the script is replaced by `julia-<pid of this process>-<n>` with a new `n`.
@@ -201,7 +201,7 @@ function slurm_job_ids(mgr::WorkerManager, job_name::AbstractString)
 end
 
 """
-    Juleana.update_job_ids!(mgr::WorkerManager)
+    JuLeAna.update_job_ids!(mgr::WorkerManager)
 
 Query `squeue` for the jobs of the running SLURM allocations of `mgr` and store their IDs
 in the allocations. Does nothing without such allocations.
@@ -216,7 +216,7 @@ function update_job_ids!(mgr::WorkerManager)
 end
 
 """
-    Juleana.cancel_allocation!(mgr::WorkerManager, id::Integer)
+    JuLeAna.cancel_allocation!(mgr::WorkerManager, id::Integer)
 
 End the allocation `id` of `mgr` if it is running: for a SLURM allocation, `scancel` the
 jobs that `squeue` lists for this user under the allocation's job name (and no others),
@@ -247,9 +247,9 @@ function cancel_allocation!(mgr::WorkerManager, id::Integer)
 end
 
 """
-    Juleana.cancel_all!(mgr::WorkerManager)
+    JuLeAna.cancel_all!(mgr::WorkerManager)
 
-Cancel every running allocation of `mgr` with [`Juleana.cancel_allocation!`](@ref).
+Cancel every running allocation of `mgr` with [`JuLeAna.cancel_allocation!`](@ref).
 """
 function cancel_all!(mgr::WorkerManager)
     ids = @lock mgr.lock [a.id for a in mgr.allocations if a.state === :running]
@@ -266,11 +266,11 @@ const AllocationOutputInfo = @NamedTuple{id::Int, backend::Symbol, job_name::Uni
                                          job_ids::Vector{String}, output::Vector{String}}
 
 """
-    Juleana.allocations(mgr::WorkerManager; output::Bool = true)
+    JuLeAna.allocations(mgr::WorkerManager; output::Bool = true)
 
 Return a copy of the allocations of `mgr` as `NamedTuple`s with the fields of
-[`Juleana.WorkerAllocation`](@ref) except `process`, and without `output` unless `output`:
-a `Vector{Juleana.AllocationOutputInfo}`, or a `Vector{Juleana.AllocationInfo}` without output.
+[`JuLeAna.WorkerAllocation`](@ref) except `process`, and without `output` unless `output`:
+a `Vector{JuLeAna.AllocationOutputInfo}`, or a `Vector{JuLeAna.AllocationInfo}` without output.
 """
 function allocations(mgr::WorkerManager; output::Bool = true)
     @lock mgr.lock if output
@@ -283,10 +283,10 @@ function allocations(mgr::WorkerManager; output::Bool = true)
 end
 
 """
-    Juleana.mark_activity!(mgr::WorkerManager, time::DateTime = now(UTC))
+    JuLeAna.mark_activity!(mgr::WorkerManager, time::DateTime = now(UTC))
 
 Record that the workers of `mgr` were used at `time` (UTC), such as by the end of a
-processing run or a postponement: the idle time of [`Juleana.idle_deadline`](@ref) counts from
+processing run or a postponement: the idle time of [`JuLeAna.idle_deadline`](@ref) counts from
 the latest such time.
 """
 function mark_activity!(mgr::WorkerManager, time::DateTime = now(UTC))
@@ -295,10 +295,10 @@ function mark_activity!(mgr::WorkerManager, time::DateTime = now(UTC))
 end
 
 """
-    Juleana.idle_deadline(mgr::WorkerManager; processing::Bool)
+    JuLeAna.idle_deadline(mgr::WorkerManager; processing::Bool)
 
-Return the UTC time at which [`Juleana.check_idle!`](@ref) cancels the running allocations of
-`mgr`: the last activity (see [`Juleana.mark_activity!`](@ref); a new allocation counts too)
+Return the UTC time at which [`JuLeAna.check_idle!`](@ref) cancels the running allocations of
+`mgr`: the last activity (see [`JuLeAna.mark_activity!`](@ref); a new allocation counts too)
 plus the `idle_timeout_minutes` of the config. Return `nothing` while `processing`, if
 no allocation runs, without a config, or if the timeout is `0`.
 """
@@ -311,10 +311,10 @@ function idle_deadline(mgr::WorkerManager; processing::Bool)
 end
 
 """
-    Juleana.check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(UTC))
+    JuLeAna.check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(UTC))
 
-Cancel all running allocations of `mgr` with [`Juleana.cancel_all!`](@ref) if `time` (UTC) has
-reached the [`Juleana.idle_deadline`](@ref). Return whether they were cancelled.
+Cancel all running allocations of `mgr` with [`JuLeAna.cancel_all!`](@ref) if `time` (UTC) has
+reached the [`JuLeAna.idle_deadline`](@ref). Return whether they were cancelled.
 """
 function check_idle!(mgr::WorkerManager; processing::Bool, time::DateTime = now(UTC))
     deadline = idle_deadline(mgr; processing)
@@ -330,14 +330,14 @@ const WorkersOverview = @NamedTuple{allocations::Vector{AllocationOutputInfo}, s
                                     slurm::Union{Nothing,@NamedTuple{queue::String,idle::String}}}
 
 """
-    Juleana.workers_overview(mgr::WorkerManager)
+    JuLeAna.workers_overview(mgr::WorkerManager)
 
-Collect what the Workers page shows and return a `Juleana.WorkersOverview`
+Collect what the Workers page shows and return a `JuLeAna.WorkersOverview`
 `(; allocations, script, workers, slurm)`:
 
-- `allocations`: [`Juleana.allocations`](@ref) with their output, after
-  [`Juleana.update_job_ids!`](@ref);
-- `script`: the `(; path, text)` of [`Juleana.start_script!`](@ref), or the message of the
+- `allocations`: [`JuLeAna.allocations`](@ref) with their output, after
+  [`JuLeAna.update_job_ids!`](@ref);
+- `script`: the `(; path, text)` of [`JuLeAna.start_script!`](@ref), or the message of the
   error that kept it from being generated;
 - `workers`: one `(; pid, host)` per worker process, `host` `nothing` until it is known;
   the host of a new worker is asked for in the background;

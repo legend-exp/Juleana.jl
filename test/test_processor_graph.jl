@@ -1,15 +1,15 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 
 @testset "processor graph" begin
     rspec(name, rank; deps = Symbol[]) = ProcessorSpec(; name, level = :run, category = :cal, rank, dependencies = deps)
     pspec(name, rank; deps = Symbol[]) = ProcessorSpec(; name, level = :partition, category = :cal, rank, dependencies = deps)
-    edge(g, u, v) = Juleana.Graphs.has_edge(g.graph, findfirst(==(u), g.names), findfirst(==(v), g.names))
+    edge(g, u, v) = JuLeAna.Graphs.has_edge(g.graph, findfirst(==(u), g.names), findfirst(==(v), g.names))
     # every edge goes from a lower to a higher layer, and the positions of each layer are 1:n
     function valid_layout(g, layout)
-        edges_ok = all(e -> first(layout[Juleana.Graphs.src(e)]) < first(layout[Juleana.Graphs.dst(e)]), Juleana.Graphs.edges(g.graph))
+        edges_ok = all(e -> first(layout[JuLeAna.Graphs.src(e)]) < first(layout[JuLeAna.Graphs.dst(e)]), JuLeAna.Graphs.edges(g.graph))
         layers_ok = all(unique(first.(layout))) do l
             sort([p for (k, p) in layout if k == l]) == 1:count(x -> first(x) == l, layout)
         end
@@ -26,7 +26,7 @@ using Test
         @test valid_layout(g, layout)
         # processors without dependencies are not ordered by rank: both are in the first layer
         g = processor_graph([rspec(:y, 1), rspec(:x, 2)])
-        @test isempty(Juleana.Graphs.edges(g.graph)) && first.(layered_layout(g)) == [1, 1]
+        @test isempty(JuLeAna.Graphs.edges(g.graph)) && first.(layered_layout(g)) == [1, 1]
         # equal ranks are listed by name
         @test topological_order(processor_graph([rspec(:y, 1), rspec(:x, 1)])) == [:x, :y]
     end
@@ -44,8 +44,8 @@ using Test
         @test dependent_processors(g, [:r3]) == Set([:r3])
         @test all(a -> all(b -> (b in required_processors(g, [a])) == (a in dependent_processors(g, [b])), g.names), g.names)
         order = topological_order(g)
-        for e in Juleana.Graphs.edges(g.graph)
-            @test findfirst(==(g.names[Juleana.Graphs.src(e)]), order) < findfirst(==(g.names[Juleana.Graphs.dst(e)]), order)
+        for e in JuLeAna.Graphs.edges(g.graph)
+            @test findfirst(==(g.names[JuLeAna.Graphs.src(e)]), order) < findfirst(==(g.names[JuLeAna.Graphs.dst(e)]), order)
         end
         @test valid_layout(g, layered_layout(g))
     end
@@ -98,7 +98,7 @@ using Test
         cfg = ProcessingConfig(joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         g = processor_graph(cfg)
         @test Set(g.names) == union(keys(cfg.processors), keys(cfg.p_processors))
-        @test !Juleana.Graphs.is_cyclic(g.graph)
+        @test !JuLeAna.Graphs.is_cyclic(g.graph)
         @test valid_layout(g, layered_layout(g))
         # any objects with name, level, rank and dependencies work, e.g. snapshot entries
         entries = [(; name = :a, level = :run, rank = 1, dependencies = Symbol[]),

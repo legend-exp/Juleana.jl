@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 const HISTORY_TITLE = "# Processing history"
 const HISTORY_COLUMNS = ["Processor", "Level", "Category", "Period", "Run", "Outcome", "Started (UTC)", "Finished (UTC)",
@@ -6,7 +6,7 @@ const HISTORY_COLUMNS = ["Processor", "Level", "Category", "Period", "Run", "Out
 const HISTORY_TIME_FORMAT = dateformat"yyyy-mm-dd HH:MM:SS"
 
 """
-    Juleana.history_path(l200::LegendData)
+    JuLeAna.history_path(l200::LegendData)
 
 Return the path of the processing history of the data production `l200`: `history.md` in
 the `jllog` tier.
@@ -17,10 +17,10 @@ format_history_time(t) = isnothing(t) ? "–" : Dates.format(t, HISTORY_TIME_FOR
 parse_history_time(s) = s == "–" ? nothing : DateTime(s, HISTORY_TIME_FORMAT)
 
 """
-    Juleana.history_section(entry)
+    JuLeAna.history_section(entry)
 
 Return the Markdown section of the processing history for the processing run `entry`, a
-`NamedTuple` with the fields of the entries [`Juleana.read_history`](@ref) returns.
+`NamedTuple` with the fields of the entries [`JuLeAna.read_history`](@ref) returns.
 """
 function history_section(entry)
     io = IOBuffer()
@@ -43,9 +43,9 @@ function history_section(entry)
 end
 
 """
-    Juleana.append_history(path::AbstractString, entry)
+    JuLeAna.append_history(path::AbstractString, entry)
 
-Append the section of the processing run `entry` (see [`Juleana.history_section`](@ref)) to
+Append the section of the processing run `entry` (see [`JuLeAna.history_section`](@ref)) to
 the processing history file `path`, creating the file with its title if it does not
 exist. The section is written with a single write.
 """
@@ -57,15 +57,15 @@ function append_history(path::AbstractString, entry)
 end
 
 """
-    Juleana.read_history(path::AbstractString)
+    JuLeAna.read_history(path::AbstractString)
 
-Read the processing history file `path` written by [`Juleana.append_history`](@ref) and
+Read the processing history file `path` written by [`JuLeAna.append_history`](@ref) and
 return its processing runs in the order they were written, an empty vector if the file
 does not exist. Each run is a `NamedTuple` `(; started, finished, user, host, outcome,
 log_path, software, metadata, steps)` with `outcome` a `Symbol`, `software` the description of the
-software (see [`Juleana.software_version`](@ref)) or `nothing` for a section without one,
+software (see [`JuLeAna.software_version`](@ref)) or `nothing` for a section without one,
 `metadata` the record of the metadata (`setup/metadata/<name>`, see
-[`Juleana.record_metadata`](@ref)) or `nothing` for a section without one, the times as `DateTime` (UTC, to the second)
+[`JuLeAna.record_metadata`](@ref)) or `nothing` for a section without one, the times as `DateTime` (UTC, to the second)
 or `nothing`,
 and `steps` a vector of `(; process, level, category, period, run, outcome, started,
 finished, done, failed, notrun)` with `period` a `DataPeriod` and `run` a `DataRun`, or
@@ -119,7 +119,7 @@ end
 const HISTORY_GRID_OUTCOMES = (:failed, :stopped, :cancelled)
 
 """
-    Juleana.history_grid(processors, period_runs, overview, history)
+    JuLeAna.history_grid(processors, period_runs, overview, history)
 
 Combine the reports on disk and the processing history into one cell per processor and
 run (run level) or period (partition level).
@@ -127,8 +127,8 @@ run (run level) or period (partition level).
 `processors` are anything with the fields `name`, `level` and `category`, such as
 [`ProcessorSpec`](@ref), in the order of the rows. `period_runs` is a vector of
 `period => runs` pairs with `DataPeriod`s and vectors of `DataRun`s, the columns.
-`overview` is the result of [`Juleana.report_overview`](@ref), `history` that of
-[`Juleana.read_history`](@ref).
+`overview` is the result of [`JuLeAna.report_overview`](@ref), `history` that of
+[`JuLeAna.read_history`](@ref).
 
 Return `(; periods, rows)` with `periods` the vector of `(; period, runs)` and `rows` one
 `(; process, level, category, cells)` per processor. `cells` is a `Dict` from
@@ -181,9 +181,9 @@ function history_grid(processors, period_runs, overview, history)
 end
 
 """
-    Juleana.disk_counts(row, period_runs)
+    JuLeAna.disk_counts(row, period_runs)
 
-Count the cells of `row`, a row of [`Juleana.history_grid`](@ref), in the runs of
+Count the cells of `row`, a row of [`JuLeAna.history_grid`](@ref), in the runs of
 `period_runs` (pairs or a `Dict` of `period => runs`); a partition-level row has one cell
 per period. Return `(; ok, warning, failed, missing, total)`: `failed` counts the cells in
 state `:failed`, from a report or the history, `missing` the cells without a report and
@@ -202,9 +202,9 @@ function disk_counts(row, period_runs)
 end
 
 """
-    Juleana.disk_state(counts)
+    JuLeAna.disk_state(counts)
 
-Return the state of a processor on disk from its [`Juleana.disk_counts`](@ref): `:failed`
+Return the state of a processor on disk from its [`JuLeAna.disk_counts`](@ref): `:failed`
 if a cell failed, else `:missing` if a cell is missing, else `:warning` if a cell has a
 warning, else `:ok`; `nothing` if there are no cells.
 """

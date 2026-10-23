@@ -42,14 +42,14 @@ The processor status is `Failure` if any row counts as a failure, otherwise `War
 any row counts as a warning, otherwise `Success`. A report without rows is a `Failure`.
 
 The Reports page counts each report as `ok`, `warn` or `fail` from its `Processor Status`
-(see [`Juleana.read_report`](@ref)); a report without that table counts as `fail` if any
+(see [`JuLeAna.read_report`](@ref)); a report without that table counts as `fail` if any
 row failed, `warn` if any row has a warning, and `ok` otherwise. For the current run, a
 report that does not exist is counted as `miss`.
 
 ## Adding a processor
 
 Each processor is a function in its own file in `src/processors/`, included by
-`src/Juleana.jl` and registered in [`Juleana.PROCESSORS`](@ref) under the name used in
+`src/JuLeAna.jl` and registered in [`JuLeAna.PROCESSORS`](@ref) under the name used in
 the processing config. To add one:
 
 1. Write the function in a new file `src/processors/process_xxx.jl` (or
@@ -57,8 +57,8 @@ the processing config. To add one:
    `process_xxx(processing_config, l200, period, run; reprocess::Bool = false, kwargs...)`
    or `p_process_xxx(processing_config, l200, period; reprocess::Bool = false,
    only_first_period::Bool = true, kwargs...)`. Add explicit `using` imports to
-   `src/Juleana.jl` for any new names it uses.
-2. Add `include("processors/process_xxx.jl")` to `src/Juleana.jl`.
+   `src/JuLeAna.jl` for any new names it uses.
+2. Add `include("processors/process_xxx.jl")` to `src/JuLeAna.jl`.
 3. End the file with `register_processor!(process_xxx)`.
 4. Add an entry `process_xxx` to the `processors` (or `p_processors`) section of the
    processing config.

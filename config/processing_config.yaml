@@ -18,7 +18,7 @@ config:
       julia_settings: []
   env_variables:
     GKSwstype: "100"
-    JULIA_DEBUG: "Juleana,LegendSpecFits"
+    JULIA_DEBUG: "JuLeAna,LegendSpecFits"
     JULIA_WORKER_TIMEOUT: "240"
   log_level: info
   idle_timeout_minutes: 20

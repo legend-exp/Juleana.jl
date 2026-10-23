@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Frame, Rect, GraphicsRegion, PixelSnapshot, find_text, row_text, style_at
 using Logging: Logging, with_logger
 using LegendDataManagement: DataPeriod
@@ -12,7 +12,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
 # Render the Log page of `page` into a `width` x `height` test backend.
 function render_log_page(page, entries, width = 120, height = 30; kwargs...)
     tb = TestBackend(width, height)
-    Juleana.render_log(page, entries, Rect(1, 1, width, height), tb.buf; kwargs...)
+    JuLeAna.render_log(page, entries, Rect(1, 1, width, height), tb.buf; kwargs...)
     return tb
 end
 
@@ -20,58 +20,58 @@ log_text(tb, height = 30) = join((row_text(tb, r) for r in 1:height), "\n")
 
 # A buffer with an info message, a multi-line warning, an error and an output line.
 function sample_buffer(capacity = 1000)
-    buf = Juleana.MessageBuffer(capacity)
+    buf = JuLeAna.MessageBuffer(capacity)
     with_logger(buf) do
         @info "loading the session"
         @warn "careful with this" detail = "first\nsecond"
         @error "fit failed" period = 3
     end
-    Juleana.append_output!(buf, :stdout, "from worker 2: done\n")
+    JuLeAna.append_output!(buf, :stdout, "from worker 2: done\n")
     return buf
 end
 
-press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
+press(page, entries, key) = JuLeAna.log_key!(page, KeyEvent(key), entries)
 
 @testset "Log page" begin
-    entries = Juleana.message_entries(sample_buffer())
+    entries = JuLeAna.message_entries(sample_buffer())
     # an info line, a warning with two keyword lines, an error with one, an output line
     @test [e.level for e in entries] == [Logging.Info, Logging.Warn, Logging.Warn, Logging.Warn, Logging.Error, Logging.Error, Logging.Info]
     @test length(unique(e.record for e in entries)) == 4
 
     @testset "level filter keeps the lines of a record" begin
-        page = Juleana.LogPage()
-        @test length(Juleana.shown_entries(page, entries)) == length(entries)
+        page = JuLeAna.LogPage()
+        @test length(JuLeAna.shown_entries(page, entries)) == length(entries)
         warn_rows = findall(e -> e.level == Logging.Warn, entries)
         @test length(warn_rows) == 3
         press(page, entries, 'l')
         @test page.min_level == Logging.Warn
-        shown = Juleana.shown_entries(page, entries)
+        shown = JuLeAna.shown_entries(page, entries)
         @test [entries[i].level for i in shown] == [e.level for e in entries if e.level >= Logging.Warn]
         @test warn_rows ⊆ shown
         press(page, entries, 'l')
         @test page.min_level == Logging.Error
-        @test all(i -> entries[i].level == Logging.Error, Juleana.shown_entries(page, entries))
+        @test all(i -> entries[i].level == Logging.Error, JuLeAna.shown_entries(page, entries))
         press(page, entries, 'l')
         @test page.min_level == Logging.Info
     end
 
     @testset "text filter is case-insensitive and record-wise" begin
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         page.filter = "SECOND"
-        shown = Juleana.shown_entries(page, entries)
+        shown = JuLeAna.shown_entries(page, entries)
         # a match in a continuation line keeps the whole record
         @test shown == findall(e -> e.level == Logging.Warn, entries)
         page.filter = "FIT failed"
-        @test [entries[i].level for i in Juleana.shown_entries(page, entries)] == [e.level for e in entries if e.level == Logging.Error]
+        @test [entries[i].level for i in JuLeAna.shown_entries(page, entries)] == [e.level for e in entries if e.level == Logging.Error]
         page.filter = "no such text"
-        @test isempty(Juleana.shown_entries(page, entries))
+        @test isempty(JuLeAna.shown_entries(page, entries))
         page.filter = "worker"
         page.min_level = Logging.Warn
-        @test isempty(Juleana.shown_entries(page, entries))
+        @test isempty(JuLeAna.shown_entries(page, entries))
     end
 
     @testset "empty and filtered views" begin
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         @test find_text(render_log_page(page, entries[1:0]), "No messages yet.") !== nothing
         tb = render_log_page(page, entries)
         text = log_text(tb)
@@ -83,7 +83,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
     end
 
     @testset "colors by level and highlighted matches" begin
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         page.filter = "FIT"
         tb = render_log_page(page, entries)
         hit = find_text(tb, "fit failed")
@@ -101,18 +101,18 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
     end
 
     @testset "following and scrolling" begin
-        buf = Juleana.MessageBuffer()
+        buf = JuLeAna.MessageBuffer()
         with_logger(buf) do
             for i in 1:60
                 @info "message $i"
             end
         end
-        page = Juleana.LogPage()
-        entries = Juleana.message_entries(buf)
+        page = JuLeAna.LogPage()
+        entries = JuLeAna.message_entries(buf)
         tb = render_log_page(page, entries)
         @test find_text(tb, "message 60") !== nothing && find_text(tb, "message 1 ") === nothing
         with_logger(() -> @info("message 61"), buf)
-        entries = Juleana.message_entries(buf)
+        entries = JuLeAna.message_entries(buf)
         @test find_text(render_log_page(page, entries), "message 61") !== nothing
 
         @test press(page, entries, :up) && !page.follow
@@ -122,7 +122,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         # new messages do not move the view
         top = page.top
         with_logger(() -> @info("message 62"), buf)
-        render_log_page(page, Juleana.message_entries(buf))
+        render_log_page(page, JuLeAna.message_entries(buf))
         @test page.top == top
         @test press(page, entries, :home) && page.top == 1 && !page.follow
         @test find_text(render_log_page(page, entries), "message 1") !== nothing
@@ -135,17 +135,17 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         @test press(page, entries, :down) && !page.follow
 
         # the wheel scrolls while the pointer is inside the block
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         render_log_page(page, entries)
         wheel(button, x = 5, y = 8) = MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
-        @test Juleana.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up), entries) && !page.follow
-        @test page.top == last(Juleana.shown_entries(page, entries)) - page.height + 1 - 3
-        @test !Juleana.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up, 500, 8), entries)
-        @test !Juleana.log_mouse!(page, MouseEvent(5, 8, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), entries)
+        @test JuLeAna.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up), entries) && !page.follow
+        @test page.top == last(JuLeAna.shown_entries(page, entries)) - page.height + 1 - 3
+        @test !JuLeAna.log_mouse!(page, wheel(Tachikoma.mouse_scroll_up, 500, 8), entries)
+        @test !JuLeAna.log_mouse!(page, MouseEvent(5, 8, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false), entries)
     end
 
     @testset "editing the filter" begin
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         @test press(page, entries, '/') && page.editing
         for key in ('q', '5', '?', 'f', 'l', 'W')
             @test press(page, entries, key)
@@ -162,14 +162,14 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         for key in ('1', '6', 'q', '?', :tab, :escape)
             @test !press(page, entries, key)
         end
-        @test !Juleana.log_key!(page, KeyEvent(:up, Tachikoma.key_release), entries)
+        @test !JuLeAna.log_key!(page, KeyEvent(:up, Tachikoma.key_release), entries)
     end
 
     @testset "full buffer points to the log file" begin
         buf = sample_buffer(4)
-        entries = Juleana.message_entries(buf)
+        entries = JuLeAna.message_entries(buf)
         @test length(entries) == 4
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         text = log_text(render_log_page(page, entries; capacity = 4))
         @test occursin("older lines in head.log", text)
         text = log_text(render_log_page(page, entries; capacity = 4, log_path = "/some/dir"))
@@ -178,7 +178,7 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
     end
 
     @testset "small areas" begin
-        page = Juleana.LogPage()
+        page = JuLeAna.LogPage()
         for (w, h) in ((2, 2), (5, 3), (20, 4))
             tb = render_log_page(page, entries, w, h)
             @test tb isa TestBackend
@@ -191,14 +191,14 @@ press(page, entries, key) = Juleana.log_key!(page, KeyEvent(key), entries)
         args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
         cfg = ProcessingConfig(; processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
                                p_processors = Dict{Symbol,ProcessorSpec}())
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg),
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg),
                                                                                partition_steps(cfg))
         session = DataflowSession(; args, l200, config = cfg, periods, run_steps = run_steps(cfg), partition_steps = partition_steps(cfg),
                                   run_status, partition_status)
         buf = sample_buffer()
         render_model(m, w = 120, h = 30) = (tb = TestBackend(w, h);
                                             Tachikoma.view(m, Frame(tb.buf, Rect(1, 1, w, h), GraphicsRegion[], PixelSnapshot[])); tb)
-        m = Juleana.JuleanaTUI(DataflowController(session; processors = Dict{Symbol,Any}()), buf)
+        m = JuLeAna.JuLeAnaTUI(DataflowController(session; processors = Dict{Symbol,Any}()), buf)
         Tachikoma.update!(m, KeyEvent('5'))
         @test m.page == 5
         text = log_text(render_model(m))

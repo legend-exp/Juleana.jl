@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # States of a processing step, in the order they are shown; every state after `:running`
 # is final.
@@ -62,7 +62,7 @@ or of a run (run level) with the step's state, the number of items handed to `pa
 and how many of them finished, failed, were not run or are running on which worker.
 Messages logged on this process while a step runs are kept with the step (see
 [`step_messages`](@ref)) when the logger in use passes them to the store, as
-[`Juleana.MessageBuffer`](@ref), the logger of the terminal user interface, does.
+[`JuLeAna.MessageBuffer`](@ref), the logger of the terminal user interface, does.
 
 The store also records the busy workers: every item that a worker runs, from the moment
 the item is handed to the worker until its call returns. This record is kept across
@@ -248,7 +248,7 @@ seconds_between(t0::DateTime, t1::DateTime) = (t1 - t0) / Millisecond(1000)
     progress(ctrl::DataflowController)
 
 Return a copy of the progress of the current or last processing run as a
-`Juleana.ProgressSummary`, a `NamedTuple` with fixed field types:
+`JuLeAna.ProgressSummary`, a `NamedTuple` with fixed field types:
 
 - `started`, `finished`: UTC times of the run, `nothing` if not (yet) reached.
 - `fraction`: overall progress in `[0, 1]`, the mean of the step fractions. A finished,

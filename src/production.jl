@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 const METADATA_URL = "git@github.com:legend-exp/legend-metadata"
 const PRODUCTION_NAME = r"^[a-zA-Z0-9._-]+$"
@@ -33,7 +33,7 @@ dataprod_checkout(branch) = """
         set_default = false, copy_software = true, shell = basename(get(ENV, "SHELL", "")),
         home = homedir())
 
-What [`Juleana.create_production`](@ref) creates: the data production `name` in the folder
+What [`JuLeAna.create_production`](@ref) creates: the data production `name` in the folder
 `parent` (an absolute path).
 
 - `metadata_url`: the `legend-metadata` repository to clone.
@@ -51,7 +51,7 @@ What [`Juleana.create_production`](@ref) creates: the data production `name` in 
 - `set_default`: whether to set `LEGEND_DATA_CONFIG` to the new production in the startup
   file of the shell `shell` (`bash`: `.bashrc`, `zsh`: `.zshrc`) in `home`.
 - `copy_software`: whether to copy the software of this process into the production (see
-  [`Juleana.record_software`](@ref)).
+  [`JuLeAna.record_software`](@ref)).
 """
 Base.@kwdef struct ProductionSpec
     name::String
@@ -74,7 +74,7 @@ function shell_rc_file(shell, home)
 end
 
 """
-    Juleana.check_production(spec::ProductionSpec)
+    JuLeAna.check_production(spec::ProductionSpec)
 
 Return the folder of the production `spec` describes, after checking `spec` without
 changing anything: the name contains only letters, digits, `.`, `_` and `-`, the parent is
@@ -131,7 +131,7 @@ function run_logged(cmd::Cmd, log)
 end
 
 """
-    Juleana.data_config_text(tier_paths, parent)
+    JuLeAna.data_config_text(tier_paths, parent)
 
 Return the text of the `config.yaml` of a new production: the paths of the `l200` setup
 relative to the folder of the file (`\$_`), and after the `tier` path one `tier/<label>`
@@ -159,20 +159,20 @@ function data_config_text(tier_paths, parent)
 end
 
 """
-    Juleana.create_production(spec::ProductionSpec; log = line -> @info(line))
+    JuLeAna.create_production(spec::ProductionSpec; log = line -> @info(line))
 
 Create the data production `spec` describes and return the path of its data config file
 `config.yaml`, which `LEGEND_DATA_CONFIG` names to use it. Checks `spec` first with
-[`Juleana.check_production`](@ref), then
+[`JuLeAna.check_production`](@ref), then
 
 1. creates the production folder and clones the metadata with its submodules into
    `legend-metadata`; with `metadata_ref` it checks out that branch or tag and updates all
    submodules to the commits it records, then it checks out the other branches of `spec`,
 2. creates the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
-3. writes `config.yaml` (see [`Juleana.data_config_text`](@ref)),
+3. writes `config.yaml` (see [`JuLeAna.data_config_text`](@ref)),
 4. copies the parameter folders into `generated/jlpar`,
 5. copies the software of this process into a subfolder of `setup/software` (see
-   [`Juleana.record_software`](@ref)),
+   [`JuLeAna.record_software`](@ref)),
 6. sets `LEGEND_DATA_CONFIG` in the shell startup file: replaces the lines that export it,
    or appends one.
 
@@ -270,10 +270,10 @@ function git_state(dir)
 end
 
 """
-    Juleana.running_manifest()
+    JuLeAna.running_manifest()
 
-Return the path of the manifest of the environment this process loaded Juleana from: the
-first environment of `Base.load_path()` whose manifest has a `Juleana` entry. Throws an
+Return the path of the manifest of the environment this process loaded JuLeAna from: the
+first environment of `Base.load_path()` whose manifest has a `JuLeAna` entry. Throws an
 `ErrorException` if there is none.
 """
 function running_manifest()
@@ -282,25 +282,25 @@ function running_manifest()
         dir = dirname(project)
         for name in ("Manifest-v$(VERSION.major).$(VERSION.minor).toml", "Manifest.toml")
             manifest = joinpath(dir, name)
-            isfile(manifest) && haskey(get(TOML.parsefile(manifest), "deps", Dict()), "Juleana") && return manifest
+            isfile(manifest) && haskey(get(TOML.parsefile(manifest), "deps", Dict()), "JuLeAna") && return manifest
         end
     end
-    return throw(ErrorException("running_manifest: no environment of the load path has Juleana in its manifest"))
+    return throw(ErrorException("running_manifest: no environment of the load path has JuLeAna in its manifest"))
 end
 
 """
-    Juleana.snapshot_software(dest::AbstractString; manifest = Juleana.running_manifest(),
-        source = pkgdir(Juleana), log = line -> @info(line))
+    JuLeAna.snapshot_software(dest::AbstractString; manifest = JuLeAna.running_manifest(),
+        source = pkgdir(JuLeAna), log = line -> @info(line))
 
 Copy the software of this process to the folder `dest`, so that it can be installed again
-with `Pkg.Apps.develop(path = "<dest>/Juleana.jl")`:
+with `Pkg.Apps.develop(path = "<dest>/JuLeAna.jl")`:
 
-- the package `source` of Juleana to `dest/Juleana.jl`: for a git checkout the files git
+- the package `source` of JuLeAna to `dest/JuLeAna.jl`: for a git checkout the files git
   tracks, with their uncommitted changes, and the untracked files it does not ignore, else
   every file except `.git` and `docs/build`; its own manifests are not copied;
 - every other package that `manifest` takes from a path (developed packages) to
   `dest/<name>`, likewise;
-- `manifest` to `dest/Juleana.jl/Manifest.toml`, with the Juleana entry taken from `.`
+- `manifest` to `dest/JuLeAna.jl/Manifest.toml`, with the JuLeAna entry taken from `.`
   and the copied packages from `../<name>`, so that every package keeps its version;
 - each copied package folder is a git repository with one commit of all its files,
   including `Manifest.toml`, so that `Pkg.add(path = ...)` accepts it. The commit has a
@@ -313,14 +313,14 @@ with `Pkg.Apps.develop(path = "<dest>/Juleana.jl")`:
 
 Returns `dest`. Throws if `dest` exists.
 """
-function snapshot_software(dest::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana), log = line -> @info(line))
+function snapshot_software(dest::AbstractString; manifest = running_manifest(), source = pkgdir(JuLeAna), log = line -> @info(line))
     ispath(dest) && throw(ArgumentError("snapshot_software: $dest exists"))
     data = TOML.parsefile(manifest)
     deps = data["deps"]
-    copies = Pair{String,String}["Juleana" => source]
+    copies = Pair{String,String}["JuLeAna" => source]
     for (name, entries) in deps, entry in entries
 
-        name != "Juleana" && haskey(entry, "path") || continue
+        name != "JuLeAna" && haskey(entry, "path") || continue
         path = entry["path"]
         push!(copies, name => (isabspath(path) ? path : normpath(joinpath(dirname(manifest), path))))
     end
@@ -330,7 +330,7 @@ function snapshot_software(dest::AbstractString; manifest = running_manifest(), 
              "| Package | Source | Commit | Uncommitted changes |", "|---|---|---|---|"]
     states = Dict{String,Any}()
     for (name, path) in copies
-        target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
+        target = joinpath(dest, name == "JuLeAna" ? "JuLeAna.jl" : name)
         copy_package_tree(path, target)
         state = git_state(path)
         states[name] = state
@@ -340,24 +340,24 @@ function snapshot_software(dest::AbstractString; manifest = running_manifest(), 
     end
     for (name, entries) in deps, entry in entries
 
-        if name == "Juleana"
+        if name == "JuLeAna"
             foreach(k -> delete!(entry, k), ("git-tree-sha1", "repo-url", "repo-rev", "repo-subdir"))
             entry["path"] = "."
         elseif haskey(entry, "path")
             entry["path"] = "../$name"
         end
     end
-    open(io -> TOML.print(io, data; sorted = true), joinpath(dest, "Juleana.jl", "Manifest.toml"), "w")
+    open(io -> TOML.print(io, data; sorted = true), joinpath(dest, "JuLeAna.jl", "Manifest.toml"), "w")
     packages = Dict{String,Any}()
     for (name, path) in copies
-        target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
+        target = joinpath(dest, name == "JuLeAna" ? "JuLeAna.jl" : name)
         state = states[name]
         message = "Snapshot of $path" *
                   (isnothing(state) ? " (not a git checkout)" : " at $(state.commit)" * (state.modified ? " with uncommitted changes" : ""))
         # `Manifest.toml` is ignored by the `.gitignore` of a package
         run_logged(`git -C $target init -q -b main`, log)
         run_logged(`git -C $target add -A --force`, log)
-        run_logged(`git -C $target -c user.name=Juleana -c user.email=juleana@localhost -c commit.gpgsign=false commit -q -m $message`, log)
+        run_logged(`git -C $target -c user.name=JuLeAna -c user.email=juleana@localhost -c commit.gpgsign=false commit -q -m $message`, log)
         tree = strip(read(`git -C $target rev-parse $("HEAD^{tree}")`, String))
         packages[name] = Dict{String,Any}("source" => path, "tree" => tree)
         isnothing(state) || merge!(packages[name], Dict{String,Any}("commit" => state.commit, "modified" => state.modified))
@@ -370,12 +370,12 @@ function snapshot_software(dest::AbstractString; manifest = running_manifest(), 
                                            "fingerprint" => fingerprint, "packages" => packages); sorted = true)
     end
     append!(lines,
-            ["", "## Reproducing", "", "In this folder, install the packages from the manifest and run Juleana from the copy:", "", "```",
-             "cd <this folder>/Juleana.jl", "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
-             "export LEGEND_DATA_CONFIG=<data config of the production>", "julia --project=. -m Juleana --no-tui ...", "```", "",
-             "Every package folder is a git repository with one commit. `Pkg.develop(path = \"<this folder>/Juleana.jl\")` " *
-             "and `Pkg.add(path = \"<this folder>/Juleana.jl\")` install the copy as well; `add` installs the committed tree. " *
-             "`Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")` replaces the globally installed `juleana` app.", "",
+            ["", "## Reproducing", "", "In this folder, install the packages from the manifest and run JuLeAna from the copy:", "", "```",
+             "cd <this folder>/JuLeAna.jl", "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
+             "export LEGEND_DATA_CONFIG=<data config of the production>", "julia --project=. -m JuLeAna --no-tui ...", "```", "",
+             "Every package folder is a git repository with one commit. `Pkg.develop(path = \"<this folder>/JuLeAna.jl\")` " *
+             "and `Pkg.add(path = \"<this folder>/JuLeAna.jl\")` install the copy as well; `add` installs the committed tree. " *
+             "`Pkg.Apps.develop(path = \"<this folder>/JuLeAna.jl\")` replaces the globally installed `juleana` app.", "",
              "`SNAPSHOT.toml` holds the same information in machine-readable form."])
     write(joinpath(dest, "PROVENANCE.md"), join(lines, "\n") * "\n")
     log("Wrote $(joinpath(dest, "PROVENANCE.md"))")
@@ -383,19 +383,19 @@ function snapshot_software(dest::AbstractString; manifest = running_manifest(), 
 end
 
 """
-    Juleana.record_software(root::AbstractString; manifest = Juleana.running_manifest(),
-        source = pkgdir(Juleana), log = line -> @info(line))
+    JuLeAna.record_software(root::AbstractString; manifest = JuLeAna.running_manifest(),
+        source = pkgdir(JuLeAna), log = line -> @info(line))
 
 Make sure the folder `root/setup/software` holds a snapshot of the software of this process
 and return the name of its subfolder. Takes a new snapshot with
-[`Juleana.snapshot_software`](@ref) and compares its `fingerprint` with that of every
+[`JuLeAna.snapshot_software`](@ref) and compares its `fingerprint` with that of every
 subfolder that has a `SNAPSHOT.toml`; other subfolders are ignored. For equal software it
 removes the new snapshot and returns the existing subfolder. Otherwise the new snapshot
-becomes the subfolder `<yyyy-mm-ddTHHMMSSZ>-<short Juleana commit>`, with `-modified`
-appended if Juleana had uncommitted changes, and `nogit` instead of the commit if it is not
+becomes the subfolder `<yyyy-mm-ddTHHMMSSZ>-<short JuLeAna commit>`, with `-modified`
+appended if JuLeAna had uncommitted changes, and `nogit` instead of the commit if it is not
 a git checkout. Throws if a step fails.
 """
-function record_software(root::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana), log = line -> @info(line))
+function record_software(root::AbstractString; manifest = running_manifest(), source = pkgdir(JuLeAna), log = line -> @info(line))
     software = mkpath(joinpath(root, "setup", "software"))
     fresh = joinpath(software, ".new-" * string(uuid4()))
     try
@@ -413,7 +413,7 @@ function record_software(root::AbstractString; manifest = running_manifest(), so
         log("The software is already recorded in $(joinpath(software, sub))")
         return sub
     end
-    juleana = snapshot["packages"]["Juleana"]
+    juleana = snapshot["packages"]["JuLeAna"]
     name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") *
            "Z-" *
            (haskey(juleana, "commit") ? first(juleana["commit"], 7) : "nogit") *
@@ -424,17 +424,17 @@ function record_software(root::AbstractString; manifest = running_manifest(), so
 end
 
 """
-    Juleana.software_version(snapshot = nothing)
+    JuLeAna.software_version(snapshot = nothing)
 
 Return a one-line description of the software of this process for the processing
-history: the Juleana version, and for a git checkout its short commit and `modified` if it
+history: the JuLeAna version, and for a git checkout its short commit and `modified` if it
 has uncommitted changes, the Julia version, and with `snapshot`, the name of a subfolder of
-`setup/software` (see [`Juleana.record_software`](@ref)), `snapshot setup/software/<snapshot>`.
+`setup/software` (see [`JuLeAna.record_software`](@ref)), `snapshot setup/software/<snapshot>`.
 """
 function software_version(snapshot = nothing)
-    state = git_state(pkgdir(Juleana))
+    state = git_state(pkgdir(JuLeAna))
     checkout = isnothing(state) ? "" : " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
-    return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION" * (isnothing(snapshot) ? "" : ", snapshot setup/software/$snapshot")
+    return "JuLeAna $(pkgversion(JuLeAna))$checkout, Julia $VERSION" * (isnothing(snapshot) ? "" : ", snapshot setup/software/$snapshot")
 end
 
 # Untracked files of the metadata up to this size are copied into its record; larger ones
@@ -491,7 +491,7 @@ function metadata_state(metadata)
 end
 
 """
-    Juleana.record_metadata(root::AbstractString, metadata::AbstractString;
+    JuLeAna.record_metadata(root::AbstractString, metadata::AbstractString;
         configs = String[], log = line -> @info(line))
 
 Make sure the folder `root/setup/metadata` holds a record of the metadata checkout

@@ -1,13 +1,13 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Dates: DateTime
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TaskEvent, TestBackend, Frame, Rect, GraphicsRegion, PixelSnapshot, key_release
 using Test
 
 # `InterfaceTiming` that reads the time from `now_ns[]`.
 function manual_timing(now_ns; kwargs...)
-    return Juleana.InterfaceTiming(; clock = () -> now_ns[], utc = () -> DateTime(2026, 1, 2, 3, 4, 5), kwargs...)
+    return JuLeAna.InterfaceTiming(; clock = () -> now_ns[], utc = () -> DateTime(2026, 1, 2, 3, 4, 5), kwargs...)
 end
 
 ms(x) = round(UInt64, x * 1e6)
@@ -22,17 +22,17 @@ ms(x) = round(UInt64, x * 1e6)
         pages = (1, 2, 1, 1)
         for (s, d, page) in zip(starts, durations, pages)
             now_ns[] = ms(1000 + s)
-            Juleana.timing_view_begin!(t)
+            JuLeAna.timing_view_begin!(t)
             now_ns[] = ms(1000 + s + d)
-            @test isnothing(Juleana.timing_view_end!(t, nothing; page))
+            @test isnothing(JuLeAna.timing_view_end!(t, nothing; page))
         end
         @test t.n_frames == 4 && t.n_gaps == 3
         @test t.view_thread == (Threads.threadid(), Threads.threadpool())
         now_ns[] = ms(1000 + 10_000)
-        row = Juleana.timing_flush!(t, :running, nothing)
+        row = JuLeAna.timing_flush!(t, :running, nothing)
         fields = split(row, '\t')
-        @test length(fields) == length(Juleana.TIMING_COLUMNS)
-        col(name) = fields[findfirst(==(name), Juleana.TIMING_COLUMNS)]
+        @test length(fields) == length(JuLeAna.TIMING_COLUMNS)
+        col(name) = fields[findfirst(==(name), JuLeAna.TIMING_COLUMNS)]
         @test col("utc") == "2026-01-02T03:04:05"
         @test col("state") == "running"
         @test col("frames") == "4"
@@ -49,7 +49,7 @@ ms(x) = round(UInt64, x * 1e6)
         # the next window starts empty and continues the frame gaps
         @test t.n_frames == 0 && all(iszero, t.page_frames) && t.slowest_view_page == 0
         now_ns[] = ms(1000 + 10_100)
-        Juleana.timing_view_begin!(t)
+        JuLeAna.timing_view_begin!(t)
         @test t.n_gaps == 1
     end
 
@@ -57,9 +57,9 @@ ms(x) = round(UInt64, x * 1e6)
         now_ns = Ref(ms(0))
         t = manual_timing(now_ns)
         function update(evt, duration)
-            start = Juleana.timing_update_begin!(t, evt)
+            start = JuLeAna.timing_update_begin!(t, evt)
             now_ns[] += ms(duration)
-            Juleana.timing_update_end!(t, start, evt)
+            JuLeAna.timing_update_end!(t, start, evt)
         end
         update(KeyEvent('a'), 5)
         update(KeyEvent('b'), 7)
@@ -72,14 +72,14 @@ ms(x) = round(UInt64, x * 1e6)
         @test t.slowest_update === :refresh
         # the view starts 10 ms after the last update and takes 4 ms
         now_ns[] += ms(10)
-        Juleana.timing_view_begin!(t)
+        JuLeAna.timing_view_begin!(t)
         now_ns[] += ms(4)
-        Juleana.timing_view_end!(t, nothing)
+        JuLeAna.timing_view_end!(t, nothing)
         @test t.n_pending == 0 && t.n_keys == 2
         # the keys arrived 60 and 55 ms before the end of the view
         @test sort(t.key_latencies[1:2]) == [ms(55), ms(60)]
-        row = split(Juleana.timing_flush!(t, :ready, nothing), '\t')
-        col(name) = row[findfirst(==(name), Juleana.TIMING_COLUMNS)]
+        row = split(JuLeAna.timing_flush!(t, :ready, nothing), '\t')
+        col(name) = row[findfirst(==(name), JuLeAna.TIMING_COLUMNS)]
         @test col("keys") == "2"
         @test col("update_task_max_ms") == "30.0"
         @test col("update_key_max_ms") == "7.0"
@@ -93,12 +93,12 @@ ms(x) = round(UInt64, x * 1e6)
         t = manual_timing(now_ns; capacity = 3)
         for i in 1:10
             now_ns[] += ms(1)
-            Juleana.timing_view_begin!(t)
-            Juleana.timing_view_end!(t, nothing)
+            JuLeAna.timing_view_begin!(t)
+            JuLeAna.timing_view_end!(t, nothing)
         end
         @test t.n_frames == 10
         @test count(!=(0), t.view_times) <= 3
-        row = split(Juleana.timing_flush!(t, :ready, nothing), '\t')
+        row = split(JuLeAna.timing_flush!(t, :ready, nothing), '\t')
         @test row[3] == "10"
     end
 
@@ -106,8 +106,8 @@ ms(x) = round(UInt64, x * 1e6)
         now_ns = Ref(ms(0))
         t = manual_timing(now_ns)
         GC.gc()
-        row = split(Juleana.timing_flush!(t, :ready, nothing), '\t')
-        col(name) = row[findfirst(==(name), Juleana.TIMING_COLUMNS)]
+        row = split(JuLeAna.timing_flush!(t, :ready, nothing), '\t')
+        col(name) = row[findfirst(==(name), JuLeAna.TIMING_COLUMNS)]
         @test parse(Int, col("gc_count")) >= 1
         @test parse(Float64, col("gc_time_ms")) > 0
         @test parse(Float64, col("gc_max_pause_ms")) > 0
@@ -119,8 +119,8 @@ ms(x) = round(UInt64, x * 1e6)
         # without a log folder nothing is written, and the window still restarts
         for snap in (nothing, (; state = :loading, log_path = nothing), (; state = :loading, log_path = ""))
             now_ns[] += ms(1500)
-            Juleana.timing_view_begin!(t)
-            row = Juleana.timing_view_end!(t, snap)
+            JuLeAna.timing_view_begin!(t)
+            row = JuLeAna.timing_view_end!(t, snap)
             @test row isa String
             @test t.n_frames == 0
         end
@@ -128,22 +128,22 @@ ms(x) = round(UInt64, x * 1e6)
         @test isempty(readdir(dir))
         for i in 1:2
             now_ns[] += ms(1500)
-            Juleana.timing_view_begin!(t)
-            @test Juleana.timing_view_end!(t, (; state = :running, log_path = dir)) isa String
+            JuLeAna.timing_view_begin!(t)
+            @test JuLeAna.timing_view_end!(t, (; state = :running, log_path = dir)) isa String
         end
         path = joinpath(dir, "interface_timing.tsv")
         @test timedwait(() -> isfile(path) && countlines(path) == 3, 30) === :ok
         lines = readlines(path)
-        @test lines[1] == join(Juleana.TIMING_COLUMNS, '\t')
-        @test all(l -> length(split(l, '\t')) == length(Juleana.TIMING_COLUMNS), lines)
+        @test lines[1] == join(JuLeAna.TIMING_COLUMNS, '\t')
+        @test all(l -> length(split(l, '\t')) == length(JuLeAna.TIMING_COLUMNS), lines)
         @test split(lines[2], '\t')[2] == "running"
         @test count(==(lines[1]), lines) == 1
     end
 
     @testset "validation" begin
-        @test_throws "window_seconds must be positive" Juleana.InterfaceTiming(; window_seconds = 0)
-        @test_throws "capacity must be positive" Juleana.InterfaceTiming(; capacity = 0)
-        @test_throws "pages must be positive" Juleana.InterfaceTiming(; pages = 0)
+        @test_throws "window_seconds must be positive" JuLeAna.InterfaceTiming(; window_seconds = 0)
+        @test_throws "capacity must be positive" JuLeAna.InterfaceTiming(; capacity = 0)
+        @test_throws "pages must be positive" JuLeAna.InterfaceTiming(; pages = 0)
     end
 end
 
@@ -151,8 +151,8 @@ end
 withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
     @testset "Interface timing in the terminal interface" begin
         args = Dict{String,Any}("config" => "none")
-        m = Juleana.JuleanaTUI(DataflowController(args; processors = Dict{Symbol,Any}(), loader = _ -> error("no session")))
-        @test m.timing isa Juleana.InterfaceTiming
+        m = JuLeAna.JuLeAnaTUI(DataflowController(args; processors = Dict{Symbol,Any}(), loader = _ -> error("no session")))
+        @test m.timing isa JuLeAna.InterfaceTiming
         tb = TestBackend(100, 30)
         frame = Frame(tb.buf, Rect(1, 1, 100, 30), GraphicsRegion[], PixelSnapshot[])
         for _ in 1:3

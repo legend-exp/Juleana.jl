@@ -5,13 +5,13 @@
 # for local builds.
 
 using Documenter
-using Juleana
+using JuLeAna
 
 # Doctest setup
-DocMeta.setdocmeta!(Juleana, :DocTestSetup, :(using Juleana); recursive = true)
+DocMeta.setdocmeta!(JuLeAna, :DocTestSetup, :(using JuLeAna); recursive = true)
 
-makedocs(sitename = "Juleana", modules = [Juleana], checkdocs = :exports,
-         format = Documenter.HTML(prettyurls = !("local" in ARGS), canonical = "https://legend-exp.github.io/Juleana.jl/stable/"),
+makedocs(sitename = "JuLeAna", modules = [JuLeAna], checkdocs = :exports,
+         format = Documenter.HTML(prettyurls = !("local" in ARGS), canonical = "https://legend-exp.github.io/JuLeAna.jl/stable/"),
          pages = ["Home" => "index.md", "Running the dataflow" => "running.md", "Working in the REPL" => "repl.md",
                   "Configuration" => "configuration.md",
                   "Processors" => ["Overview" => "processors.md", "HPGe calibration" => "processors_hpge.md",
@@ -20,4 +20,4 @@ makedocs(sitename = "Juleana", modules = [Juleana], checkdocs = :exports,
                   "LICENSE" => "LICENSE.md"], doctest = ("fixdoctests" in ARGS) ? :fix : true, linkcheck = !("nonstrict" in ARGS),
          warnonly = ("nonstrict" in ARGS))
 
-deploydocs(repo = "github.com/legend-exp/Juleana.jl.git", forcepush = true, push_preview = true)
+deploydocs(repo = "github.com/legend-exp/JuLeAna.jl.git", forcepush = true, push_preview = true)
