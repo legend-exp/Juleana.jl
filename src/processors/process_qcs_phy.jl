@@ -68,15 +68,18 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
     chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     det_puls = chinfo_puls.detector
     @info "Load pulser flags for $det_puls"
-    is_pulser = read_ldata(:aux_trig, l200, DataTier(:jlaux), :phy, period, run, det_puls)
+    is_pulser = @process_step "pulser flag loader" begin
+        read_ldata(:aux_trig, l200, DataTier(:jlaux), :phy, period, run, det_puls)
+    end
     @info "Loaded $(count(is_pulser)) pulser flags"
 
     # load forced-trigger flags
     chinfo_forced = channelinfo(l200, filekey, Symbol(qc_config.forced_trigger.detector))
     det_forced = chinfo_forced.detector
     @info "Load forced-trigger flags for $det_forced"
-    is_forced = read_ldata(:aux_trig, l200, DataTier(:jlaux), :phy, period, run, det_forced)
-    is_forced = is_forced .&& .!is_pulser
+    is_forced = @process_step "forced-trigger flag loader" begin
+        read_ldata(:aux_trig, l200, DataTier(:jlaux), :phy, period, run, det_forced) .&& .!is_pulser
+    end
     @info "Loaded $(count(is_forced)) forced-trigger events excluding pulsers"
 
     function det_qcs_phy(chinfo_det::NamedTuple)
@@ -106,19 +109,22 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
         end
 
         @debug "Processing detector $det ($ch)"
-        qc_labels = read_ldata(ljl_propfunc(qc_config_det.labels), l200, DataTier(:jldsp), filekeys, det)
-        if length(qc_labels) < 5000
-            @error "Not enough data points for detector $det ($ch), skip"
-            throw(ErrorException("Not enough data points for detector $det ($ch)"))
+        qc_labels = @process_step "data loader" begin
+            labels = read_ldata(ljl_propfunc(qc_config_det.labels), l200, DataTier(:jldsp), filekeys, det)
+            length(labels) < 5000 && throw(ErrorException("Not enough data points for detector $det ($ch): $(length(labels)) < 5000"))
+            labels
         end
 
-        # generate QC flags
-        single_pulse_pf = ljl_propfunc(qc_config_det.is_single_pulse)
-        empty_trace_pf = ljl_propfunc(qc_config_det.is_empty_trace)
-        qc_flags = Table(merge(columns(qc_labels),
-                               (is_single_pulse = single_pulse_pf.(qc_labels), is_empty_trace = empty_trace_pf.(qc_labels))))
-        qc_propfunc = merge(qc_config_det.labels,
-                            PropDict(:is_single_pulse => qc_config_det.is_single_pulse, :is_empty_trace => qc_config_det.is_empty_trace))
+        qc_flags, qc_propfunc, single_pulse_pf, empty_trace_pf = @process_step "QC flags" begin
+            single_pulse_pf = ljl_propfunc(qc_config_det.is_single_pulse)
+            empty_trace_pf = ljl_propfunc(qc_config_det.is_empty_trace)
+            qc_flags = Table(merge(columns(qc_labels),
+                                   (is_single_pulse = single_pulse_pf.(qc_labels), is_empty_trace = empty_trace_pf.(qc_labels))))
+            qc_propfunc = merge(qc_config_det.labels,
+                                PropDict(:is_single_pulse => qc_config_det.is_single_pulse,
+                                         :is_empty_trace => qc_config_det.is_empty_trace))
+            qc_flags, qc_propfunc, single_pulse_pf, empty_trace_pf
+        end
 
         n_single_pulse = count(qc_flags.is_single_pulse)
         n_physics = count(qc_flags.is_single_pulse .&& .!is_pulser)
@@ -127,35 +133,38 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
             @warn "Detector $det ($ch): $n_invalid_dsp_single_pulse of $n_single_pulse single-pulse events fail is_valid_dsp; check the QC cuts"
         end
 
-        # calculate survival fractions
         qc = Table(merge(columns(qc_flags), (is_pulser = is_pulser,)))
         flag_names = collect(columnnames(qc_flags))
-        plot_flag_names = Symbol[first(typeof(path).parameters[1]) for path in PropertyFunctions.input_property_paths(single_pulse_pf)]
-        forced_plot_flag_names = [Symbol[first(typeof(path).parameters[1])
-                                         for path in PropertyFunctions.input_property_paths(empty_trace_pf)];
-                                  :is_empty_trace]
         n_pulser = count(is_pulser)
-        pulser_sf_values = [count(getproperty(qc_flags, flag_name)[is_pulser]) / n_pulser * 100u"percent" for flag_name in flag_names]
-        pulser_sf = NamedTuple{Tuple(flag_names)}(Tuple(pulser_sf_values))
         n_forced = count(is_forced)
-        forced_trigger_sf_values = [count(getproperty(qc_flags, flag_name)[is_forced]) / n_forced * 100u"percent"
-                                    for flag_name in flag_names]
-        forced_trigger_sf = NamedTuple{Tuple(flag_names)}(Tuple(forced_trigger_sf_values))
+        pulser_sf, forced_trigger_sf = @process_step "survival fractions" begin
+            pulser_sf_values = [count(getproperty(qc_flags, flag_name)[is_pulser]) / n_pulser * 100u"percent" for flag_name in flag_names]
+            forced_trigger_sf_values = [count(getproperty(qc_flags, flag_name)[is_forced]) / n_forced * 100u"percent"
+                                        for flag_name in flag_names]
+            NamedTuple{Tuple(flag_names)}(Tuple(pulser_sf_values)), NamedTuple{Tuple(flag_names)}(Tuple(forced_trigger_sf_values))
+        end
         survival_fractions = (pulser = pulser_sf, forced_trigger = forced_trigger_sf)
 
-        # plot pulser survival fractions for the flags used by is_single_pulse
-        x = collect(eachindex(plot_flag_names))
-        pulser_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(pulser_sf, flag_name) for flag_name in plot_flag_names]))
-        fig = Makie.Figure(size = (max(800, 55 * length(plot_flag_names)), 500))
-        ax = Makie.Axis(fig[1, 1], title = get_plottitle(filekey, det, "Pulser QC Survival Fractions"), xlabel = "QC flag",
-                        ylabel = "Survival fraction (%)", xticks = (x, string.(plot_flag_names)), xticklabelrotation = pi / 3,
-                        limits = ((0.3, length(plot_flag_names) + 0.7), nothing))
-        Makie.scatter!(ax, x, pulser_sf_plot, markersize = 12, color = LegendMakie.AchatBlue, label = "Pulser")
-        LegendMakie.add_watermarks!(final = true)
-        save_plot(fig, l200, filekey, det, :qc_survival_fractions)
+        @process_step "pulser survival fraction plot" begin
+            # plot pulser survival fractions for the flags used by is_single_pulse
+            plot_flag_names = Symbol[first(typeof(path).parameters[1])
+                                     for path in PropertyFunctions.input_property_paths(single_pulse_pf)]
+            x = collect(eachindex(plot_flag_names))
+            pulser_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(pulser_sf, flag_name) for flag_name in plot_flag_names]))
+            fig = Makie.Figure(size = (max(800, 55 * length(plot_flag_names)), 500))
+            ax = Makie.Axis(fig[1, 1], title = get_plottitle(filekey, det, "Pulser QC Survival Fractions"), xlabel = "QC flag",
+                            ylabel = "Survival fraction (%)", xticks = (x, string.(plot_flag_names)), xticklabelrotation = pi / 3,
+                            limits = ((0.3, length(plot_flag_names) + 0.7), nothing))
+            Makie.scatter!(ax, x, pulser_sf_plot, markersize = 12, color = LegendMakie.AchatBlue, label = "Pulser")
+            LegendMakie.add_watermarks!(final = true)
+            save_plot(fig, l200, filekey, det, :qc_survival_fractions)
+        end
 
-        # plot forced-trigger survival fractions for is_empty_trace and its component flags
-        @debug_plot begin
+        @debug_plot @process_step "forced-trigger survival fraction plot" begin
+            # plot forced-trigger survival fractions for is_empty_trace and its component flags
+            forced_plot_flag_names = [Symbol[first(typeof(path).parameters[1])
+                                             for path in PropertyFunctions.input_property_paths(empty_trace_pf)];
+                                      :is_empty_trace]
             x_forced = collect(eachindex(forced_plot_flag_names))
             forced_trigger_sf_plot = mvalue.(ustrip.(u"percent",
                                                      [getproperty(forced_trigger_sf, flag_name) for flag_name in forced_plot_flag_names]))
@@ -168,10 +177,11 @@ function process_qcs_phy(processing_config, l200::LegendData, period::DataPeriod
             save_plot(fig, l200, filekey, det, :qc_survival_fractions_forced_trigger)
         end
 
-        # write QC flags
-        write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
-            lh5open(outfilename, "w") do outdata
-                return outdata[:jlqcs, det] = qc
+        @process_step "QC flag file writer" begin
+            write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
+                lh5open(outfilename, "w") do outdata
+                    return outdata[:jlqcs, det] = qc
+                end
             end
         end
 

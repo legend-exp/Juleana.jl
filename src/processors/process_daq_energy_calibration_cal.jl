@@ -79,34 +79,39 @@ function process_daq_energy_calibration_cal(processing_config, l200::LegendData,
         @timeit calibration_timer "$det" begin
             @timeit calibration_timer "Get DAQ Energy" begin
                 @debug "Reading DAQ energy for detector $det from $(length(filekeys)) files"
-                e_daq = read_ldata(:daqenergy, l200, DataTier(:raw), filekeys, det).daqenergy
+                e_daq = @process_step "data loader" begin
+                    read_ldata(:daqenergy, l200, DataTier(:raw), filekeys, det).daqenergy
+                end
             end
             try
                 @info "Auto calibrating $det ($ch)"
-                result_autocal, report_autocal = autocal_energy(e_daq, raw_config_det.th228_cal_lines; mode = :ratio,
-                                                                min_e = raw_config_det.min_e, max_e = raw_config_det.max_e,
-                                                                max_e_binning_quantile = raw_config_det.max_e_binning_quantile,
-                                                                σ = raw_config_det.σ, threshold = raw_config_det.threshold,
-                                                                min_n_peaks = raw_config_det.min_n_peaks,
-                                                                max_n_peaks = raw_config_det.max_n_peaks, α = raw_config_det.α,
-                                                                rtol = raw_config_det.rtol)
-                p = LegendMakie.lplot(report_autocal, raw_config_det.th228_cal_lines, figsize = (650, 400),
-                                      title = get_plottitle(filekey, det, "Calibrated DAQ Online Energy"))
-                save_plot(p, l200, filekey, det, :daq_energy)
+                result_autocal, report_autocal = @process_step "automatic calibration" begin
+                    autocal_energy(e_daq, raw_config_det.th228_cal_lines; mode = :ratio, min_e = raw_config_det.min_e,
+                                   max_e = raw_config_det.max_e, max_e_binning_quantile = raw_config_det.max_e_binning_quantile,
+                                   σ = raw_config_det.σ, threshold = raw_config_det.threshold, min_n_peaks = raw_config_det.min_n_peaks,
+                                   max_n_peaks = raw_config_det.max_n_peaks, α = raw_config_det.α, rtol = raw_config_det.rtol)
+                end
+                @process_step "calibrated energy plot" begin
+                    p = LegendMakie.lplot(report_autocal, raw_config_det.th228_cal_lines, figsize = (650, 400),
+                                          title = get_plottitle(filekey, det, "Calibrated DAQ Online Energy"))
+                    save_plot(p, l200, filekey, det, :daq_energy)
+                end
             catch e
-                @error "Error in DAQ energy calibration for detector $det: $(truncate_error(e))"
-                binwidth = 8 * 15
-                edges = range(0; step = binwidth, length = max(2, floor(Int, maximum(e_daq) / binwidth) + 2))
-                hist = StatsBase.fit(StatsBase.Histogram, e_daq, edges)
-                fig = Makie.Figure(size = (650, 400))
-                ax = Makie.Axis(fig[1, 1], xlabel = "Energy (ADC)", ylabel = "Counts / $binwidth ADC", yscale = log10,
-                                limits = (extrema(edges), (0.9, max(1, maximum(hist.weights)) * 1.2)),
-                                title = get_plottitle(filekey, det, "Failed DAQ Calibration: Uncalibrated Spectrum"))
-                Makie.stephist!(ax, StatsBase.midpoints(edges), weights = replace(hist.weights, 0 => 1e-10), bins = edges,
-                                color = LegendMakie.BEGeOrange)
-                LegendMakie.add_watermarks!(final = true)
-                save_plot(fig, l200, filekey, det, :daq_energy_failed)
-                log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "-", "-", "-", truncate_error(e)))
+                e isa ProcessStepError || rethrow()
+                @process_step "uncalibrated energy plot" begin
+                    binwidth = 8 * 15
+                    edges = range(0; step = binwidth, length = max(2, floor(Int, maximum(e_daq) / binwidth) + 2))
+                    hist = StatsBase.fit(StatsBase.Histogram, e_daq, edges)
+                    fig = Makie.Figure(size = (650, 400))
+                    ax = Makie.Axis(fig[1, 1], xlabel = "Energy (ADC)", ylabel = "Counts / $binwidth ADC", yscale = log10,
+                                    limits = (extrema(edges), (0.9, max(1, maximum(hist.weights)) * 1.2)),
+                                    title = get_plottitle(filekey, det, "Failed DAQ Calibration: Uncalibrated Spectrum"))
+                    Makie.stephist!(ax, StatsBase.midpoints(edges), weights = replace(hist.weights, 0 => 1e-10), bins = edges,
+                                    color = LegendMakie.BEGeOrange)
+                    LegendMakie.add_watermarks!(final = true)
+                    save_plot(fig, l200, filekey, det, :daq_energy_failed)
+                end
+                log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "-", "-", "-", truncate_error(e.exception)))
                 return (processed = false, log = log_det)
             end
         end

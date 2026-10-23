@@ -56,19 +56,6 @@ processors:
     dependencies:
       - process_daq_energy_calibration_cal
 
-  process_peak_split_phy:
-    enabled: false
-    category: phy
-    log_level: info
-    plot_level: info
-    rank: 13
-    kwargs:
-      reprocess: false
-      timeout: 0
-      use_cache: false
-    dependencies:
-      - process_daq_energy_calibration_cal
-
   process_decay_time_cal:
     enabled: false
     category: cal
@@ -194,16 +181,30 @@ processors:
       use_partition_pars: true
     dependencies:
       - p_process_aoe_calibration_cut_cal
+      - p_process_aoe_cut_cal
       - p_process_lq_calibration_cut_cal
       - process_aoe_calibration_cut_cal
       - process_lq_calibration_cut_cal
+
+  process_peak_split_phy:
+    enabled: false
+    category: phy
+    log_level: info
+    plot_level: info
+    rank: 13
+    kwargs:
+      reprocess: false
+      timeout: 0
+      use_cache: false
+    dependencies:
+      - process_daq_energy_calibration_cal
 
   process_dsp_aux_phy:
     enabled: false
     category: phy
     log_level: info
     plot_level: info
-    rank: 13
+    rank: 14
     kwargs:
       reprocess: false
       timeout: 0
@@ -215,7 +216,7 @@ processors:
     category: phy
     log_level: info
     plot_level: info
-    rank: 13
+    rank: 15
     kwargs:
       reprocess: false
       timeout: 0
@@ -227,7 +228,7 @@ processors:
     category: phy
     log_level: info
     plot_level: info
-    rank: 14
+    rank: 16
     kwargs:
       reprocess: false
       timeout: 0
@@ -245,7 +246,7 @@ processors:
     category: phy
     log_level: info
     plot_level: info
-    rank: 16
+    rank: 17
     kwargs:
       reprocess: false
       timeout: 0
@@ -258,7 +259,7 @@ processors:
     category: phy
     log_level: info
     plot_level: info
-    rank: 17
+    rank: 18
     kwargs:
       reprocess: false
       timeout: 0
@@ -270,12 +271,19 @@ processors:
     category: phy
     log_level: info
     plot_level: info
-    rank: 17
+    rank: 19
     kwargs:
       reprocess: false
       timeout: 0
       use_cache: true
     dependencies:
+      - process_energy_calibration_cal
+      - p_process_energy_cal
+      - process_aoe_calibration_cut_cal
+      - p_process_aoe_calibration_cut_cal
+      - p_process_aoe_cut_cal
+      - process_lq_calibration_cut_cal
+      - p_process_lq_calibration_cut_cal
       - p_process_sipm_calibration_phy
       - process_sipm_calibration_phy
 
@@ -284,7 +292,7 @@ processors:
     category: phy
     log_level: info
     plot_level: info
-    rank: 13
+    rank: 20
     kwargs:
       reprocess: false
       timeout: 0

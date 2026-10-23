@@ -68,7 +68,9 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
     chinfo_puls = channelinfo(l200, filekey, Symbol(qc_config.pulser.puls_detector))
     det_puls = chinfo_puls.detector
     @info "Load pulser timestamps for $det_puls"
-    pulser_timestamps = read_ldata(:timestamp, l200, DataTier(:raw), raw_filekeys, det_puls).timestamp
+    pulser_timestamps = @process_step "pulser timestamp loader" begin
+        read_ldata(:timestamp, l200, DataTier(:raw), raw_filekeys, det_puls).timestamp
+    end
     @info "Loaded $(length(pulser_timestamps)) pulser timestamps"
 
     function det_qcs_cal(chinfo_det::NamedTuple)
@@ -94,21 +96,23 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
         end
 
         @debug "Processing detector $det ($ch)"
-        data_det = read_ldata((:timestamp, :e_trap), l200, DataTier(:jldsp), filekeys, det)
-        if length(data_det) < 5000
-            @error "Not enough data points for detector $det ($ch), skip"
-            throw(ErrorException("Not enough data points for detector $det ($ch)"))
+        data_det = @process_step "data loader" begin
+            data = read_ldata((:timestamp, :e_trap), l200, DataTier(:jldsp), filekeys, det)
+            length(data) < 5000 && throw(ErrorException("Not enough data points for detector $det ($ch): $(length(data)) < 5000"))
+            data
         end
 
-        # generate QC flags
-        qc_labels = read_ldata(ljl_propfunc(qc_config_det.labels), l200, DataTier(:jldsp), filekeys, det)
-        single_pulse_pf = ljl_propfunc(qc_config_det.is_single_pulse)
-        qc_flags = Table(merge(columns(qc_labels), (is_single_pulse = single_pulse_pf.(qc_labels),)))
-        qc_propfunc = merge(qc_config_det.labels, PropDict(:is_single_pulse => qc_config_det.is_single_pulse))
+        qc_flags, qc_propfunc, single_pulse_pf = @process_step "QC flags" begin
+            qc_labels = read_ldata(ljl_propfunc(qc_config_det.labels), l200, DataTier(:jldsp), filekeys, det)
+            single_pulse_pf = ljl_propfunc(qc_config_det.is_single_pulse)
+            qc_flags = Table(merge(columns(qc_labels), (is_single_pulse = single_pulse_pf.(qc_labels),)))
+            qc_flags, merge(qc_config_det.labels, PropDict(:is_single_pulse => qc_config_det.is_single_pulse)), single_pulse_pf
+        end
 
-        # generate pulser tags
-        pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
-        is_pulser = flag_coincidences(data_det.timestamp, pulser_timestamps; ts_window = pulser_config_det.puls_ts_window)
+        is_pulser = @process_step "pulser flags" begin
+            pulser_config_det = merge(qc_config.pulser.default, get(qc_config.pulser, det, PropDict()))
+            flag_coincidences(data_det.timestamp, pulser_timestamps; ts_window = pulser_config_det.puls_ts_window)
+        end
         @debug "Found $(count(is_pulser)) pulser events"
 
         # Count accepted events missed by the configured single-pulse cuts.
@@ -118,62 +122,79 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
             @warn "Detector $det ($ch): $n_invalid_e_single_pulse of $n_single_pulse single-pulse events fail is_valid_e; check the QC cuts"
         end
 
-        # calculate survival fractions
         qc = Table(merge(columns(qc_flags), (is_pulser = is_pulser,)))
         flag_names = collect(columnnames(qc_flags))
-        plot_flag_names = Symbol[first(typeof(path).parameters[1]) for path in PropertyFunctions.input_property_paths(single_pulse_pf)]
         n_pulser = count(is_pulser)
-        pulser_sf_values = [count(getproperty(qc_flags, flag_name)[is_pulser]) / n_pulser * 100u"percent" for flag_name in flag_names]
-        pulser_sf = NamedTuple{Tuple(flag_names)}(Tuple(pulser_sf_values))
+        pulser_sf = @process_step "pulser survival fractions" begin
+            pulser_sf_values = [count(getproperty(qc_flags, flag_name)[is_pulser]) / n_pulser * 100u"percent" for flag_name in flag_names]
+            NamedTuple{Tuple(flag_names)}(Tuple(pulser_sf_values))
+        end
 
-        fep_idx = findfirst(==(:Tl208FEP), Symbol.(energy_config_det.th228_names))
         valid_energy = isfinite.(data_det.e_trap) .&& (data_det.e_trap .> 0) .&& .!is_pulser
         e_uncal = collect(data_det.e_trap[valid_energy])
-        quantile_perc = if energy_config_det.quantile_perc isa String
-            parse(Float64, energy_config_det.quantile_perc)
-        else
-            energy_config_det.quantile_perc
+        plot_uncal_spectrum() = begin
+            fig = Makie.Figure()
+            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Uncalibrated Spectrum"), xlabel = "Energy (ADC)",
+                            ylabel = "Counts")
+            Makie.stephist!(ax, e_uncal; bins = 1000)
+            save_plot(fig, l200, filekey, det, :error_simple_calibration)
         end
-        result_simple, _ = simple_calibration(e_uncal, energy_config_det.th228_lines, energy_config_det.left_window_sizes,
-                                              energy_config_det.right_window_sizes, ; calib_type = :th228, quantile_perc = quantile_perc,
-                                              binning_peak_window = energy_config_det.binning_peak_window)
-        e_cal = e_uncal .* result_simple.c
-        fep_sf_values = map(flag_names) do flag_name
-            result_fep, _ = get_peak_survival_fraction(e_cal, mvalue(energy_config_det.th228_lines[fep_idx]),
-                                                       (energy_config_det.left_window_sizes[fep_idx],
-                                                        energy_config_det.right_window_sizes[fep_idx]),
-                                                       getproperty(qc_flags, flag_name)[valid_energy];
-                                                       fit_func = Symbol(energy_config_det.th228_fit_func[fep_idx]), uncertainty = true)
-            return result_fep.sf
+        result_simple = @process_step "simple calibration" on_error = plot_uncal_spectrum begin
+            quantile_perc = if energy_config_det.quantile_perc isa String
+                parse(Float64, energy_config_det.quantile_perc)
+            else
+                energy_config_det.quantile_perc
+            end
+            first(simple_calibration(e_uncal, energy_config_det.th228_lines, energy_config_det.left_window_sizes,
+                                     energy_config_det.right_window_sizes, ; calib_type = :th228, quantile_perc = quantile_perc,
+                                     binning_peak_window = energy_config_det.binning_peak_window))
         end
-        fep_sf = NamedTuple{Tuple(flag_names)}(Tuple(fep_sf_values))
+
+        fep_sf = @process_step "Tl-208 FEP survival fractions" begin
+            fep_idx = findfirst(==(:Tl208FEP), Symbol.(energy_config_det.th228_names))
+            e_cal = e_uncal .* result_simple.c
+            fep_sf_values = map(flag_names) do flag_name
+                result_fep, _ = get_peak_survival_fraction(e_cal, mvalue(energy_config_det.th228_lines[fep_idx]),
+                                                           (energy_config_det.left_window_sizes[fep_idx],
+                                                            energy_config_det.right_window_sizes[fep_idx]),
+                                                           getproperty(qc_flags, flag_name)[valid_energy];
+                                                           fit_func = Symbol(energy_config_det.th228_fit_func[fep_idx]), uncertainty = true)
+                return result_fep.sf
+            end
+            NamedTuple{Tuple(flag_names)}(Tuple(fep_sf_values))
+        end
         survival_fractions = (pulser = pulser_sf, Tl208FEP = fep_sf)
 
-        # plot energy spectra before and after QC
-        data_det_for_plot = data_det[qc_flags.is_valid_e]
-        data_det_after_qc = data_det[qc_flags.is_single_pulse .&& .!is_pulser .&& qc_flags.is_valid_e]
-        data_pulser = data_det[qc_flags.is_single_pulse .&& is_pulser .&& qc_flags.is_valid_e]
-        fig = Makie.Figure(size = (620, 400))
-        binwidth = 8 * 15
-        spectrum_range = range(0, maximum(data_det_after_qc.e_trap), step = binwidth)
-        hall = StatsBase.fit(StatsBase.Histogram, data_det_for_plot.e_trap, spectrum_range)
-        hqc = StatsBase.fit(StatsBase.Histogram, data_det_after_qc.e_trap, spectrum_range)
-        hp = StatsBase.fit(StatsBase.Histogram, data_pulser.e_trap, spectrum_range)
-        ax = Makie.Axis(fig[1, 1], xlabel = "Energy (ADC)", ylabel = "Counts / $(binwidth) ADC", xtickformat = x -> string.(round.(Int, x)),
-                        yscale = log10, limits = (extrema(first(hall.edges)), (0.9, maximum(hall.weights) * 1.2)),
-                        title = get_plottitle(filekey, det, "Trap Raw Energy Spectrum"))
-        Makie.stephist!(ax, StatsBase.midpoints(first(hall.edges)), weights = replace(hall.weights, 0 => 1e-10), bins = first(hall.edges),
-                        color = LegendMakie.BEGeOrange, label = "Trap - before QC")
-        Makie.stephist!(ax, StatsBase.midpoints(first(hqc.edges)), weights = replace(hqc.weights, 0 => 1e-10), bins = first(hqc.edges),
-                        color = LegendMakie.AchatBlue, label = "Trap - after QC")
-        Makie.stephist!(ax, StatsBase.midpoints(first(hp.edges)), weights = replace(hp.weights, 0 => 1e-10), bins = first(hp.edges),
-                        color = :red, label = "Pulser")
-        Makie.axislegend(ax, position = :rt, framevisible = true, framecolor = :lightgray)
-        LegendMakie.add_watermarks!(final = true)
-        save_plot(fig, l200, filekey, det, :raw_energy_e_trap)
+        @process_step "energy spectrum plot" begin
+            # plot energy spectra before and after QC
+            data_det_for_plot = data_det[qc_flags.is_valid_e]
+            data_det_after_qc = data_det[qc_flags.is_single_pulse .&& .!is_pulser .&& qc_flags.is_valid_e]
+            data_pulser = data_det[qc_flags.is_single_pulse .&& is_pulser .&& qc_flags.is_valid_e]
+            fig = Makie.Figure(size = (620, 400))
+            binwidth = 8 * 15
+            spectrum_range = range(0, maximum(data_det_after_qc.e_trap), step = binwidth)
+            hall = StatsBase.fit(StatsBase.Histogram, data_det_for_plot.e_trap, spectrum_range)
+            hqc = StatsBase.fit(StatsBase.Histogram, data_det_after_qc.e_trap, spectrum_range)
+            hp = StatsBase.fit(StatsBase.Histogram, data_pulser.e_trap, spectrum_range)
+            ax = Makie.Axis(fig[1, 1], xlabel = "Energy (ADC)", ylabel = "Counts / $(binwidth) ADC",
+                            xtickformat = x -> string.(round.(Int, x)), yscale = log10,
+                            limits = (extrema(first(hall.edges)), (0.9, maximum(hall.weights) * 1.2)),
+                            title = get_plottitle(filekey, det, "Trap Raw Energy Spectrum"))
+            Makie.stephist!(ax, StatsBase.midpoints(first(hall.edges)), weights = replace(hall.weights, 0 => 1e-10),
+                            bins = first(hall.edges), color = LegendMakie.BEGeOrange, label = "Trap - before QC")
+            Makie.stephist!(ax, StatsBase.midpoints(first(hqc.edges)), weights = replace(hqc.weights, 0 => 1e-10),
+                            bins = first(hqc.edges), color = LegendMakie.AchatBlue, label = "Trap - after QC")
+            Makie.stephist!(ax, StatsBase.midpoints(first(hp.edges)), weights = replace(hp.weights, 0 => 1e-10), bins = first(hp.edges),
+                            color = :red, label = "Pulser")
+            Makie.axislegend(ax, position = :rt, framevisible = true, framecolor = :lightgray)
+            LegendMakie.add_watermarks!(final = true)
+            save_plot(fig, l200, filekey, det, :raw_energy_e_trap)
+        end
 
-        @debug_plot begin
+        @debug_plot @process_step "survival fraction plot" begin
             # plot survival fractions for the flags used by is_single_pulse
+            plot_flag_names = Symbol[first(typeof(path).parameters[1])
+                                     for path in PropertyFunctions.input_property_paths(single_pulse_pf)]
             x = collect(eachindex(plot_flag_names))
             pulser_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(pulser_sf, flag_name) for flag_name in plot_flag_names]))
             fep_sf_plot = mvalue.(ustrip.(u"percent", [getproperty(fep_sf, flag_name) for flag_name in plot_flag_names]))
@@ -188,10 +209,11 @@ function process_qcs_cal(processing_config, l200::LegendData, period::DataPeriod
             save_plot(fig, l200, filekey, det, :qc_survival_fractions)
         end
 
-        # write QC flags
-        write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
-            lh5open(outfilename, "w") do outdata
-                return outdata[:jlqcs, det] = qc
+        @process_step "QC flag file writer" begin
+            write_files(qcsfilename; use_cache, mode = CreateOrReplace()) do outfilename
+                lh5open(outfilename, "w") do outdata
+                    return outdata[:jlqcs, det] = qc
+                end
             end
         end
 

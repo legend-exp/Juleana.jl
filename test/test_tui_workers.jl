@@ -5,13 +5,14 @@ using JuLeAna: AddWorkers, CancelAllocation, CancelAll, PostponeIdleCancel, Edit
 using Tachikoma: Tachikoma, KeyEvent, TestBackend, Rect, find_text, row_text, style_at
 using LegendDataManagement: DataPeriod, DataRun
 using Dates: DateTime, Minute, Second
+using Logging: with_logger
 using Test
 
 # Render the Workers page of `page` into a `width` x `height` test backend.
-function render_workers_page(page, snap = nothing, busy = JuLeAna.BusyItem[], entries = JuLeAna.MessageEntry[]; width = 120, height = 24,
-                             at = DateTime(2026, 10, 15, 12, 0, 0))
+function render_workers_page(page, snap = nothing, busy = JuLeAna.BusyItem[], messages = JuLeAna.MessageBuffer(); width = 120,
+                             height = 24, at = DateTime(2026, 10, 15, 12, 0, 0))
     tb = TestBackend(width, height)
-    JuLeAna.render_workers(page, snap, busy, entries, Rect(1, 1, width, height), tb.buf; at)
+    JuLeAna.render_workers(page, snap, busy, messages, Rect(1, 1, width, height), tb.buf; at)
     return tb
 end
 
@@ -145,8 +146,7 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         buf = JuLeAna.MessageBuffer()
         JuLeAna.append_output!(buf, :stdout,
                                "      From worker 2:\thello\n      From worker 3:\tother\n      From worker 2:\tWarning: careful\nhead line\n")
-        entries = JuLeAna.message_entries(buf)
-        tb = render_workers_page(page, snap, busy, entries)
+        tb = render_workers_page(page, snap, busy, buf)
         text = workers_screen(tb)
         @test occursin("Output of worker 2", text) && occursin("hello", text) && occursin("Warning: careful", text)
         @test !occursin("other", text) && !occursin("From worker", text) && !occursin("head line", text)
@@ -155,7 +155,7 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         # the second pane takes the arrow keys after Tab
         press!(page, KeyEvent(:tab), KeyEvent(:down))
         @test JuLeAna.workers_selected_worker(page).pid == 3 && JuLeAna.workers_selected_allocation(page).id == 1
-        text = workers_screen(render_workers_page(page, snap, busy, entries))
+        text = workers_screen(render_workers_page(page, snap, busy, buf))
         @test occursin("Output of worker 3", text) && occursin("other", text) && !occursin("hello", text)
         press!(page, KeyEvent(:tab))
         @test page.focus == 1
@@ -166,8 +166,29 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
                                "      From worker 3:\tbetween\n" *
                                "      From worker 3:\t[ Progress: Filekey: b 1/1\n" *
                                "      From worker 3:\t[ Progress: Filekey: a 2/2\n")
-        lines = first.(JuLeAna.workers_output_lines(JuLeAna.message_entries(buf), 3))
-        @test lines == ["between", "[ Progress: Filekey: b 1/1", "[ Progress: Filekey: a 2/2"]
+        @test [e.text for e in JuLeAna.worker_output(buf, 3)] == ["between", "[ Progress: Filekey: b 1/1", "[ Progress: Filekey: a 2/2"]
+        # a description that starts like another one is a progress bar of its own
+        JuLeAna.append_output!(buf, :stdout, "      From worker 3:\t[ Progress: Filekey: a b 1/3\n")
+        @test count(e -> startswith(e.text, "[ Progress: Filekey: a"), JuLeAna.worker_output(buf, 3)) == 2
+        # the output of many workers pushes out neither the lines of another worker nor the other lines
+        buf = JuLeAna.MessageBuffer(10; worker_capacity = 5)
+        with_logger(() -> (@info "head message"), buf)
+        JuLeAna.append_output!(buf, :stdout, "      From worker 3:\t[ Progress: Filekey: a 7/60\n")
+        for pid in 4:20, i in 1:50
+            JuLeAna.append_output!(buf, :stdout,
+                                   "      From worker $pid:\t[ Progress: Filekey: f$pid $i/50\n      From worker $pid:\tline $i\n")
+        end
+        @test only(JuLeAna.worker_output(buf, 3)).text == "[ Progress: Filekey: a 7/60"
+        @test occursin("head message", only(JuLeAna.message_lines(buf)))
+        # each worker keeps its last `worker_capacity` lines, the progress line among them
+        @test [e.text for e in JuLeAna.worker_output(buf, 20)] ==
+              ["line 47", "line 48", "line 49", "[ Progress: Filekey: f20 50/50", "line 50"]
+        @test isempty(JuLeAna.worker_output(buf, 99))
+        # warnings and errors of a worker also go to the other lines and raise the alert
+        JuLeAna.append_output!(buf, :stdout, "      From worker 5:\t┌ Error: fit failed\n")
+        @test JuLeAna.message_lines(buf)[end] == "      From worker 5:\t┌ Error: fit failed"
+        @test JuLeAna.worker_output(buf, 5)[end].text == "┌ Error: fit failed" && buf.alert.text == "fit failed"
+        @test_throws "worker_capacity must be positive" JuLeAna.MessageBuffer(; worker_capacity = 0)
     end
 
     @testset "scrolling the output" begin
@@ -199,6 +220,45 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         @test JuLeAna.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_up)) && page.alloc_back == JuLeAna.WORKERS_WHEEL_LINES
         @test JuLeAna.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_down)) && page.alloc_back == 0
         @test !JuLeAna.workers_mouse!(page, wheel(1, 1, Tachikoma.mouse_scroll_up))
+    end
+
+    @testset "wheel over the worker list and the worker output" begin
+        wheel(x, y, button) = Tachikoma.MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
+        many = [(; pid, host = "viper") for pid in 2:41]
+        page = loaded_page((; overview()..., workers = many))
+        press!(page, KeyEvent(:tab))
+        render_workers_page(page, snap)
+        # the wheel scrolls the list and keeps the selection
+        list = page.worker_list
+        @test JuLeAna.workers_mouse!(page, wheel(list.x, list.y, Tachikoma.mouse_scroll_down))
+        @test page.worker_top == 1 + JuLeAna.WORKERS_WHEEL_LINES && JuLeAna.workers_selected_worker(page).pid == 2
+        text = workers_screen(render_workers_page(page, snap))
+        @test page.worker_top == 1 + JuLeAna.WORKERS_WHEEL_LINES && occursin("Output of worker 2", text)
+        @test !occursin(r"▶ +2 ", text)
+        # moving the selection with a key scrolls the list back to it
+        press!(page, KeyEvent(:down))
+        render_workers_page(page, snap)
+        @test JuLeAna.workers_selected_worker(page).pid == 3 && page.worker_top == 2
+        # the wheel over the allocations scrolls their list
+        alist = page.alloc_list
+        @test JuLeAna.workers_mouse!(page, wheel(alist.x, alist.y, Tachikoma.mouse_scroll_down)) && page.alloc_top > 1
+
+        # scrolled-up output stays on its lines while new lines arrive
+        buf = JuLeAna.MessageBuffer()
+        JuLeAna.append_output!(buf, :stdout, join(("      From worker 3:\tline $i\n" for i in 1:60)))
+        render_workers_page(page, snap, busy, buf)
+        out = page.worker_out
+        @test JuLeAna.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_up))
+        before = workers_screen(render_workers_page(page, snap, busy, buf))
+        @test occursin("scrolled up $(JuLeAna.WORKERS_WHEEL_LINES)", before) && !occursin("line 60", before)
+        JuLeAna.append_output!(buf, :stdout, join(("      From worker 3:\tnew $i\n" for i in 1:5)))
+        after = workers_screen(render_workers_page(page, snap, busy, buf))
+        @test page.worker_back == JuLeAna.WORKERS_WHEEL_LINES + 5 && !occursin("new", after)
+        visible(text) = [m.match for m in eachmatch(r"line \d+", text)]
+        @test visible(after) == visible(before)
+        # End follows the newest line again
+        press!(page, KeyEvent(:end_key))
+        @test occursin("new 5", workers_screen(render_workers_page(page, snap, busy, buf)))
     end
 
     @testset "mouse selection" begin

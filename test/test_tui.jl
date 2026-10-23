@@ -380,7 +380,9 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test !any(contains("partial"), JuLeAna.message_lines(buf))
             JuLeAna.append_output!(buf, :stdout, " line\n      From worker 2:\t┌ Error: fit failed\n")
             lines = JuLeAna.message_lines(buf)
-            @test lines[end - 1] == "      From worker 2:\tpartial line"
+            # a worker's line goes to its own lines, its error also to the other lines
+            @test [e.text for e in JuLeAna.worker_output(buf, 2)] == ["partial line", "┌ Error: fit failed"]
+            @test !any(contains("partial"), lines) && lines[end] == "      From worker 2:\t┌ Error: fit failed"
             @test buf.alert.level == Logging.Error && buf.alert.text == "fit failed"
             @test_throws "capacity must be positive" JuLeAna.MessageBuffer(0)
 
