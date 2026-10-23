@@ -9,10 +9,5 @@ Test.@testset "Package ambiguities" begin
 end # testset
 
 Test.@testset "Aqua tests" begin
-    Aqua.test_all(
-        Juleana,
-        ambiguities = true,
-        stale_deps = false,
-        persistent_tasks = false
-    )
+    Aqua.test_all(Juleana, ambiguities = true, stale_deps = false)
 end # testset

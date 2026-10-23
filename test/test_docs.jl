@@ -4,10 +4,5 @@ using Test
 using Juleana
 import Documenter
 
-Documenter.DocMeta.setdocmeta!(
-    Juleana,
-    :DocTestSetup,
-    :(using Juleana);
-    recursive = true
-)
+Documenter.DocMeta.setdocmeta!(Juleana, :DocTestSetup, :(using Juleana); recursive = true)
 Documenter.doctest(Juleana)
