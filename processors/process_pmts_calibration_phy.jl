@@ -119,8 +119,14 @@ function process_pmts_calibration_phy(processing_config::PropDict, l200::LegendD
     chinfo = chinfo_all[findall(c -> c.processable && c.usability == :on, chinfo_all)]
     @info "Loaded channel info: $(length(chinfo)) of $(length(chinfo_all)) PMTs are on and processable"
 
-    calibration_config = dataprod_config(l200).pmt(filekey).calibration
-    dsp_config         = dataprod_config(l200).pmt(filekey).default
+    pmt_config         = dataprod_config(l200).pmt(filekey)
+    dsp_config         = pmt_config.default
+    # 1 p.e. fit settings: the `calibration` block of the PMT config is optional; without it
+    # all PMTs use these defaults (fit settings = LegendSpecFits.pmts_calibration defaults)
+    calibration_config = merge(
+        PropDict(:default => PropDict(:qc => "pulse_height > 0", :kwargs => PropDict(:energy_var => "pulse_height"))),
+        get(pmt_config, :calibration, PropDict()))
+    haskey(pmt_config, :calibration) || @info "No `calibration` block in the PMT config -- using the default 1 p.e. fit settings"
 
     mkpath(joinpath(data_path(l200.par.rpars.pmtcal), string(period)))
     pmtcal_period_dir = data_path(l200.par.rpars.pmtcal[period])
