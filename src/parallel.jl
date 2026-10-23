@@ -8,17 +8,17 @@ without writing results.
 struct ProcessingStopped <: Exception end
 
 function Base.showerror(io::IO, ::ProcessingStopped)
-    print(io, "ProcessingStopped: processing was stopped")
+    return print(io, "ProcessingStopped: processing was stopped")
 end
 
 # Stop flag of the current processing run, set by `run_processing`; `nothing` outside of it.
-const PROCESSING_STOP = ScopedValue{Union{Nothing, Threads.Atomic{Bool}}}(nothing)
+const PROCESSING_STOP = ScopedValue{Union{Nothing,Threads.Atomic{Bool}}}(nothing)
 
 # Flag of the current processing run to stop waiting for running items; `nothing` outside of it.
-const PROCESSING_ABANDON = ScopedValue{Union{Nothing, Threads.Atomic{Bool}}}(nothing)
+const PROCESSING_ABANDON = ScopedValue{Union{Nothing,Threads.Atomic{Bool}}}(nothing)
 
 # Progress entry of the current processing step, set by `run_processing`; `nothing` outside of it.
-const PROGRESS_STEP = ScopedValue{Union{Nothing, Tuple{ProgressStore, ProgressKey}}}(nothing)
+const PROGRESS_STEP = ScopedValue{Union{Nothing,Tuple{ProgressStore,ProgressKey}}}(nothing)
 
 # Called by `StoppablePool` with each worker it hands out to the current item of `parallel`.
 const ITEM_STARTED = ScopedValue{Any}(nothing)
@@ -26,7 +26,7 @@ const ITEM_STARTED = ScopedValue{Any}(nothing)
 # Worker pool that hands out no worker once `stop` is set: `take!` throws
 # `ProcessingStopped` instead, also while it waits for a free worker. That keeps a stop
 # from hanging when no worker will become free, e.g. after all workers were stopped.
-struct StoppablePool{P <: AbstractWorkerPool} <: AbstractWorkerPool
+struct StoppablePool{P<:AbstractWorkerPool} <: AbstractWorkerPool
     pool::P
     stop::Threads.Atomic{Bool}
 end
@@ -68,17 +68,15 @@ present when `log_nt` has a `Partition` column. A new item type for [`parallel`]
 needs its own `failure_log` method.
 """
 function failure_log(log_nt::Type{<:NamedTuple}, itr::FileKey, message::AbstractString)
-    log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt)) - 3)..., message))
+    return log_nt((itr, ProcessStatus(0), fill("-", length(fieldnames(log_nt)) - 3)..., message))
 end
 
 function failure_log(log_nt::Type{<:NamedTuple}, itr::NamedTuple, message::AbstractString)
     haskey(itr, :detector) && haskey(itr, :usability) ||
         throw(ArgumentError("failure_log needs `detector` and `usability` fields, got $(keys(itr))"))
-    lead = :Partition in fieldnames(log_nt) ?
-           (itr.detector, detector_status(itr.usability), itr.partition) :
+    lead = :Partition in fieldnames(log_nt) ? (itr.detector, detector_status(itr.usability), itr.partition) :
            (itr.detector, detector_status(itr.usability))
-    log_nt((lead..., ProcessStatus(0),
-        fill("-", length(fieldnames(log_nt)) - length(lead) - 2)..., message))
+    return log_nt((lead..., ProcessStatus(0), fill("-", length(fieldnames(log_nt)) - length(lead) - 2)..., message))
 end
 
 # Call `advance()` once for each task in `tasks` as it finishes, checking every `poll` seconds;
@@ -152,34 +150,26 @@ end
 master_status(results)  # process_succeeded
 ```
 """
-function parallel(
-        f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeout::Real = 0,
-        retry::Bool = false, process_name::AbstractString = "")
+function parallel(f, iterator::AbstractArray, log_nt::Type{<:NamedTuple}; timeout::Real = 0, retry::Bool = false,
+                  process_name::AbstractString = "")
     for T in unique(typeof.(iterator))
-        hasmethod(failure_log, Tuple{Type{log_nt}, T, String}) ||
-            throw(ArgumentError("parallel: no failure_log method for items of type $T"))
+        hasmethod(failure_log, Tuple{Type{log_nt},T,String}) || throw(ArgumentError("parallel: no failure_log method for items of type $T"))
     end
     # ScopedValues do not reach the workers: the item function sets those of `run_step` and the item again
-    selection, write, error_plots, log_level, plot_level,
-    plot_formats = DETECTOR_SELECTION[],
-    WRITE_PARS[], ERROR_PLOTS[], PROCESSOR_LOG_LEVEL[], PLOT_LEVEL[], PLOT_FORMATS[]
+    selection, write, error_plots, log_level, plot_level, plot_formats = DETECTOR_SELECTION[], WRITE_PARS[], ERROR_PLOTS[],
+                                                                         PROCESSOR_LOG_LEVEL[], PLOT_LEVEL[], PLOT_FORMATS[]
     if !isnothing(selection) && all(itr -> hasproperty(itr, :detector), iterator)
         item_detectors = Set(string(itr.detector) for itr in iterator)
         unknown = setdiff(selection, item_detectors)
-        isempty(unknown) ||
-            throw(ArgumentError("parallel: the detectors $(join(sort!(collect(unknown)), ", ")) chosen in " *
-                                "`run_step` are not among the items; the items have the detectors $(join(sort!(collect(item_detectors)), ", "))"))
+        isempty(unknown) || throw(ArgumentError("parallel: the detectors $(join(sort!(collect(unknown)), ", ")) chosen in " *
+                                                "`run_step` are not among the items; the items have the detectors $(join(sort!(collect(item_detectors)), ", "))"))
     end
     if !isnothing(selection) && !write
         # `run_step` with temporary outputs: detectors that are not selected are not run
-        iterator = filter(
-            itr -> !hasproperty(itr, :detector) || string(itr.detector) in selection,
-            vec(iterator))
+        iterator = filter(itr -> !hasproperty(itr, :detector) || string(itr.detector) in selection, vec(iterator))
     end
-    run_item(itr) = with(() -> f(itr), DETECTOR_SELECTION => selection,
-        WRITE_PARS => write, ERROR_PLOTS => error_plots,
-        PROCESSOR_LOG_LEVEL => log_level, PLOT_LEVEL => plot_level, PLOT_FORMATS =>
-            plot_formats, CURRENT_ITEM => itr)
+    run_item(itr) = with(() -> f(itr), DETECTOR_SELECTION => selection, WRITE_PARS => write, ERROR_PLOTS => error_plots,
+                         PROCESSOR_LOG_LEVEL => log_level, PLOT_LEVEL => plot_level, PLOT_FORMATS => plot_formats, CURRENT_ITEM => itr)
     stop = PROCESSING_STOP[]
     pool = isnothing(stop) ? ppt_worker_pool() : StoppablePool(ppt_worker_pool(), stop)
     step = PROGRESS_STEP[]
@@ -187,13 +177,11 @@ function parallel(
     flush(stdout)
     # assign tasks to workers
     # Known Caveat: Split broadcasting over iterator and fetch of results in two separate lines, otherwise weird things with onworker going on
-    failure_row(itr, e) = itr =>
-        (processed = false, log = failure_log(log_nt, itr, truncate_error(e)))
+    failure_row(itr, e) = itr => (processed = false, log = failure_log(log_nt, itr, truncate_error(e)))
     # one progress id per item, with the axes of `iterator`
     ids = first_id .+ (LinearIndices(iterator) .- first(LinearIndices(iterator)))
     label(itr) = string(hasproperty(itr, :detector) ? itr.detector : itr)
-    item_outcome(res) = res isa NamedTuple && get(res, :skipped, false) === true ? :notrun :
-                        :done
+    item_outcome(res) = res isa NamedTuple && get(res, :skipped, false) === true ? :notrun : :done
     if !isnothing(DEBUG_CAPTURE[])
         result = map(iterator, ids) do itr, id
             !isnothing(stop) && stop[] && throw(ProcessingStopped())
@@ -206,7 +194,7 @@ function parallel(
                 failure_row(itr, e), :failed
             end
             isnothing(step) || item_finished!(step..., id, outcome)
-            item_result
+            return item_result
         end
         record = STEP_RECORD[]
         isnothing(record) || append!(record.results, vec(result))
@@ -214,8 +202,7 @@ function parallel(
     end
     tasks = broadcast(iterator, ids) do itr, id
         Threads.@spawn begin
-            started = isnothing(step) ? nothing :
-                      worker -> item_started!(step..., id, worker, label(itr))
+            started = isnothing(step) ? nothing : worker -> item_started!(step..., id, worker, label(itr))
             result, outcome = try
                 # Past `maxtime`, onworker terminates the worker (never the main process) and
                 # counts the timeout as a failed try; the last failure lands in the catch below.

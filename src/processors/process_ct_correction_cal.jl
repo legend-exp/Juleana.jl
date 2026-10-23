@@ -24,8 +24,8 @@ For each energy type in `energy_types` of the `ctc` section of the energy config
 # Returns
 `nothing`.
 """
-function process_ct_correction_cal(processing_config, l200::LegendData, period::DataPeriod,
-        run::DataRun; reprocess::Bool = false, timeout::Real = 0)
+function process_ct_correction_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool = false,
+                                   timeout::Real = 0)
     @info "CT correction for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
@@ -47,8 +47,8 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
     end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Energy Type"),
-        Symbol("FCT/1E6"), Symbol("FWHM Before"), Symbol("FWHM After"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Energy Type"), Symbol("FCT/1E6"), Symbol("FWHM Before"),
+                         Symbol("FWHM After"), :Error)}
 
     # get worker pool
 
@@ -68,9 +68,9 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
             throw(ErrorException("QC file not found"))
         end
 
-        result_dict = Dict{Symbol, NamedTuple}()
-        log_info_dict = Dict{Symbol, NamedTuple}()
-        processed_dict = Dict{Symbol, Bool}()
+        result_dict = Dict{Symbol,NamedTuple}()
+        log_info_dict = Dict{Symbol,NamedTuple}()
+        processed_dict = Dict{Symbol,Bool}()
 
         energy_config_det = merge(energy_config.default, get(energy_config, det, PropDict()))
         ctc_config_det = merge(energy_config.ctc.default, get(energy_config.ctc, det, PropDict()))
@@ -82,10 +82,8 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
             for e_type in energy_types
                 if haskey(pars_db[det], e_type)
                     @debug "Filter $e_type already processed, skip"
-                    log_info = log_nt((det, detector_status(chinfo_det.usability),
-                        ProcessStatus(1), e_type, pars_db[det][e_type].fct*1e6,
-                        pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after,
-                        "Already processed --> skipped."))
+                    log_info = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), e_type, pars_db[det][e_type].fct*1e6,
+                                       pars_db[det][e_type].fwhm_before, pars_db[det][e_type].fwhm_after, "Already processed --> skipped."))
                     processed_dict[e_type] = false
                     log_info_dict[e_type] = log_info
                 end
@@ -97,10 +95,8 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
         data_det_after_qc = @process_step "data loader" begin
             @debug "Load DSP data after QC"
             if !all([haskey(processed_dict, e_type) for e_type in energy_types])
-                qc_mask = read_ldata(
-                    @pf($is_single_pulse && !$is_pulser), l200, :jlqcs, filekey, det)
-                read_ldata(
-                    (energy_types..., :qdrift), l200, :jldsp, :cal, period, run, det)[qc_mask]
+                qc_mask = read_ldata(@pf($is_single_pulse && !$is_pulser), l200, :jlqcs, filekey, det)
+                read_ldata((energy_types..., :qdrift), l200, :jldsp, :cal, period, run, det)[qc_mask]
             end
         end
 
@@ -124,33 +120,24 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
                 plot_uncal_spectrum() = begin
                     fig = Makie.Figure()
                     ax = Makie.Axis(fig[1, 1];
-                        title = get_plottitle(filekey, det, "Uncalibrated Spectrum";
-                            additional_type = string(e_type)),
-                        xlabel = "Energy (ADC)", ylabel = "Counts")
-                    Makie.stephist!(ax,
-                        filter(isfinite, ustrip.(getproperty(data_det_after_qc, e_type)));
-                        bins = 1000)
-                    save_plot(fig, l200, filekey, det,
-                        Symbol("error_simple_calibration_$(e_type)"))
+                                    title = get_plottitle(filekey, det, "Uncalibrated Spectrum"; additional_type = string(e_type)),
+                                    xlabel = "Energy (ADC)", ylabel = "Counts")
+                    Makie.stephist!(ax, filter(isfinite, ustrip.(getproperty(data_det_after_qc, e_type))); bins = 1000)
+                    save_plot(fig, l200, filekey, det, Symbol("error_simple_calibration_$(e_type)"))
                 end
-                result_simple,
-                report_simple = @process_step "$e_type simple calibration" on_error = plot_uncal_spectrum begin
+                result_simple, report_simple = @process_step "$e_type simple calibration" on_error = plot_uncal_spectrum begin
                     @debug "Get $e_type simple calibration"
-                    simple_calibration(getproperty(data_det_after_qc, e_type),
-                        energy_config_det.th228_lines, energy_config_det.left_window_sizes,
-                        energy_config_det.right_window_sizes, ;
-                        calib_type = :th228, quantile_perc = quantile_perc,
-                        binning_peak_window = energy_config_det.binning_peak_window)
+                    simple_calibration(getproperty(data_det_after_qc, e_type), energy_config_det.th228_lines,
+                                       energy_config_det.left_window_sizes, energy_config_det.right_window_sizes, ; calib_type = :th228,
+                                       quantile_perc = quantile_perc, binning_peak_window = energy_config_det.binning_peak_window)
                 end
 
                 # get simple calibration constant
                 m_cal_simple = result_simple.c
                 # save plots for simple calibration for control
                 @debug_plot begin
-                    p = LegendMakie.lplot(report_simple,
-                        cal = true,
-                        title = get_plottitle(filekey, det, "Simple Calibration";
-                            additional_type = string(e_type)))
+                    p = LegendMakie.lplot(report_simple, cal = true,
+                                          title = get_plottitle(filekey, det, "Simple Calibration"; additional_type = string(e_type)))
                     save_plot(p, l200, filekey, det, Symbol("simple_calibration_$(e_type)"))
                 end
 
@@ -164,56 +151,43 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
                     x = ustrip.(e_cal_ctc[in_window])
                     y = ustrip.(data_det_after_qc.qdrift[in_window])
                     mask = isfinite.(x) .&& isfinite.(y)
-                    h = fit(Histogram,
-                        (x[mask], y[mask]),
-                        (range(extrema(x[mask])...; length = 101),
-                            range(extrema(y[mask])...; length = 101)))
+                    h = fit(Histogram, (x[mask], y[mask]),
+                            (range(extrema(x[mask])...; length = 101), range(extrema(y[mask])...; length = 101)))
                     fig = Makie.Figure()
                     ax = Makie.Axis(fig[1, 1];
-                        title = get_plottitle(filekey, det, "Drift Time vs Energy";
-                            additional_type = "$e_type $ctc_cal_peak"),
-                        xlabel = "Energy", ylabel = "qdrift")
+                                    title = get_plottitle(filekey, det, "Drift Time vs Energy"; additional_type = "$e_type $ctc_cal_peak"),
+                                    xlabel = "Energy", ylabel = "qdrift")
                     Makie.heatmap!(ax, h.edges[1], h.edges[2], h.weights)
-                    save_plot(
-                        fig, l200, filekey, det, Symbol("error_alpha_generation_$(e_type)"))
+                    save_plot(fig, l200, filekey, det, Symbol("error_alpha_generation_$(e_type)"))
                 end
-                result_ctc,
-                report_ctc = @process_step "$e_type alpha generation" on_error = plot_ctc_peak_drift begin
+                result_ctc, report_ctc = @process_step "$e_type alpha generation" on_error = plot_ctc_peak_drift begin
                     @debug "Get $e_type Charge Trapping Alpha"
-                    ctc_energy(getproperty(data_det_after_qc, e_type) .* m_cal_simple,
-                        data_det_after_qc.qdrift,
-                        ctc_config_det.peak,
-                        (ctc_config_det.left_window_size, ctc_config_det.right_window_size),
-                        m_cal_simple;
-                        e_expression = "$e_type",
-                        pol_order = ctc_config_det.ctc_order)
+                    ctc_energy(getproperty(data_det_after_qc, e_type) .* m_cal_simple, data_det_after_qc.qdrift, ctc_config_det.peak,
+                               (ctc_config_det.left_window_size, ctc_config_det.right_window_size), m_cal_simple; e_expression = "$e_type",
+                               pol_order = ctc_config_det.ctc_order)
                 end
 
                 @debug "Found Best $e_type FWHM: $(round(u"keV", result_ctc.fwhm_after, digits=2))"
                 @debug "Found $e_type FCTs: $(round.(result_ctc.fct .* 1e6, digits=2))E-6"
 
                 @debug_plot begin
-                    p = LegendMakie.lplot(report_ctc,
-                        figsize = (600, 600),
-                        title = get_plottitle(filekey, det, "CTC"; additional_type = "$e_type $ctc_cal_peak"))
+                    p = LegendMakie.lplot(report_ctc, figsize = (600, 600),
+                                          title = get_plottitle(filekey, det, "CTC"; additional_type = "$e_type $ctc_cal_peak"))
                     save_plot(p, l200, filekey, det, Symbol("ctc_$(e_type)"))
                 end
 
                 yield()
-                log_ch = log_nt((det, detector_status(chinfo_det.usability),
-                    ProcessStatus(1), "$e_type", result_ctc.fct*1e6,
-                    result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))
+                log_ch = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$e_type", result_ctc.fct*1e6,
+                                 result_ctc.fwhm_before, result_ctc.fwhm_after, "-"))
 
                 # add results to dict
                 result_dict[e_type] = result_ctc
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = true
             catch e
-                e isa ProcessStepError ||
-                    @error "Error in $e_type CT correction: $(truncate_error(e))"
-                log_ch = log_nt((
-                    det, detector_status(chinfo_det.usability), ProcessStatus(0),
-                    "$e_type", "-", "-", "-", "$(truncate_error(e))"))
+                e isa ProcessStepError || @error "Error in $e_type CT correction: $(truncate_error(e))"
+                log_ch = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "$e_type", "-", "-", "-",
+                                 "$(truncate_error(e))"))
                 # add results to dict
                 log_info_dict[e_type] = log_ch
                 processed_dict[e_type] = false
@@ -226,9 +200,8 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
     # get start time
     start_time = now()
 
-    result_ctc = parallel(
-        det_ct_correction, chinfo, log_nt; timeout = timeout, retry = false,
-        process_name = "$period-$run-process_ct_correction_cal")
+    result_ctc = parallel(det_ct_correction, chinfo, log_nt; timeout = timeout, retry = false,
+                          process_name = "$period-$run-process_ct_correction_cal")
 
     @info "Finished CT correction"
 
@@ -253,7 +226,7 @@ function process_ct_correction_cal(processing_config, l200::LegendData, period::
     @info report
 
     # flush stdout
-    flush(stdout)
+    return flush(stdout)
 end
 
 register_processor!(process_ct_correction_cal)

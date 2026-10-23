@@ -30,13 +30,11 @@ trigger threshold marked.
 # Returns
 Return `nothing`.
 """
-function process_dsp_aux_phy(
-        processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
-        reprocess::Bool = false, timeout::Real = 0, use_cache::Bool = true)
+function process_dsp_aux_phy(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool = false,
+                             timeout::Real = 0, use_cache::Bool = true)
     @info "Process auxiliary detector DSP for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key = :unprocessable)),
-        only(runinfo(l200, (period, run, :phy)).keys))
+    filekeys = filter(!in(bad_filekeys(l200; load_key = :unprocessable)), only(runinfo(l200, (period, run, :phy)).keys))
 
     filekey = start_filekey(l200, (period, run, :phy))
     @info "Found filekey $filekey"
@@ -57,22 +55,14 @@ function process_dsp_aux_phy(
         log_min = floor(log10(max(minimum(energy), 1.0)))
         log_max = max(log_min + 1, ceil(log10(max(maximum(energy), threshold))))
         bins = 10.0 .^ range(log_min, log_max; length = 101)
-        p = LegendMakie.lhist(energy;
-            bins = bins,
-            figsize = (700, 450),
-            title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
-            xlabel = "$energy_type (ADC)",
-            ylabel = "Counts / bin",
-            xscale = log10,
-            yscale = log10,
-            xlims = extrema(bins),
-            legend_position = :none
-        )
+        p = LegendMakie.lhist(energy; bins = bins, figsize = (700, 450), title = get_plottitle(filekey, det, "Auxiliary DSP cross-check"),
+                              xlabel = "$energy_type (ADC)", ylabel = "Counts / bin", xscale = log10, yscale = log10, xlims = extrema(bins),
+                              legend_position = :none)
         ax = Makie.current_axis()
-        Makie.vlines!(ax, [threshold]; color = LegendMakie.BEGeOrange, linestyle = :dash,
-            linewidth = 2, label = "$energy_type > $threshold")
+        Makie.vlines!(ax, [threshold]; color = LegendMakie.BEGeOrange, linestyle = :dash, linewidth = 2,
+                      label = "$energy_type > $threshold")
         Makie.axislegend(ax; position = :lt)
-        p
+        return p
     end
 
     function det_dsp_aux(chinfo_det::NamedTuple)
@@ -84,13 +74,11 @@ function process_dsp_aux_phy(
 
         if !reprocess && !redo_detector(det) && isfile(dspfilename)
             try
-                n_evts = length(read_ldata(
-                    :timestamp, l200, DataTier(:jlaux), filekey, det))
+                n_evts = length(read_ldata(:timestamp, l200, DataTier(:jlaux), filekey, det))
                 @info "DSP for auxiliary detector $det ($ch) already exists, skip"
                 return (result = (n_evts = n_evts,), processed = false,
-                    log = log_nt((
-                        det, detector_status(chinfo_det.usability), ProcessStatus(1),
-                        "$n_evts", "Already processed --> skipped.")))
+                        log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$n_evts",
+                                      "Already processed --> skipped.")))
             catch e
                 @warn "Error reading existing DSP file for auxiliary detector $det ($ch): $(truncate_error(e))"
                 @info "Reprocess auxiliary detector $det ($ch)"
@@ -109,8 +97,7 @@ function process_dsp_aux_phy(
 
             @debug "Generate DSP for $det"
             dsp_data = @process_step "auxiliary DSP" begin
-                legend_dsp_function(dsp_config_pd.additional_detectors[det], "dsp.additional_detectors.$det")(
-                    raw_data, dsp_config_det)
+                legend_dsp_function(dsp_config_pd.additional_detectors[det], "dsp.additional_detectors.$det")(raw_data, dsp_config_det)
             end
 
             @debug "Calibrate DSP data"
@@ -125,8 +112,7 @@ function process_dsp_aux_phy(
             @debug_plot begin
                 @info "Generate auxiliary DSP cross-check plot for $det"
                 energy_type, threshold = split(evt_config_pd_det.cal.aux_trig, '>'; limit = 2)
-                energy_type, threshold = Symbol(strip(energy_type)),
-                parse(Float64, strip(threshold))
+                energy_type, threshold = Symbol(strip(energy_type)), parse(Float64, strip(threshold))
                 p = plot_dsp_aux_crosscheck(dsp_data, det, energy_type, threshold)
                 save_plot(p, l200, filekey, det, :dsp_aux_energy)
             end
@@ -134,21 +120,17 @@ function process_dsp_aux_phy(
             @info "Write DSP data to disk"
             write_files(dspfilename; use_cache, mode = CreateOrReplace()) do outfilename
                 lh5open(outfilename, "w") do outdata
-                    outdata[:jlaux, det] = merged_table
+                    return outdata[:jlaux, det] = merged_table
                 end
             end
 
-            log_det = log_nt((det, detector_status(chinfo_det.usability),
-                ProcessStatus(1), "$(length(dsp_data))", ""))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), "$(length(dsp_data))", ""))
             @info "Finished DSP for auxiliary detector $det ($ch): $(length(dsp_data)) events"
 
             return (result = (n_evts = length(dsp_data),), processed = true, log = log_det)
         catch e
-            e isa ProcessStepError ||
-                @error "Error while running DSP for auxiliary detector $det: $(e)"
-            return (processed = false,
-                log = log_nt((det, detector_status(chinfo_det.usability),
-                    ProcessStatus(0), "0", "$e")))
+            e isa ProcessStepError || @error "Error while running DSP for auxiliary detector $det: $(e)"
+            return (processed = false, log = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "0", "$e")))
         end
     end
 
@@ -156,8 +138,8 @@ function process_dsp_aux_phy(
     start_time = now()
 
     # execute in parallel
-    result_dsp_aux = parallel(det_dsp_aux, chinfo_aux, log_nt; timeout = timeout,
-        retry = false, process_name = "$period-$run-process_dsp_aux_phy")
+    result_dsp_aux = parallel(det_dsp_aux, chinfo_aux, log_nt; timeout = timeout, retry = false,
+                              process_name = "$period-$run-process_dsp_aux_phy")
 
     @info "Finished auxiliary detector DSP"
 
@@ -175,7 +157,7 @@ function process_dsp_aux_phy(
     write_report(get_rreportfilename(l200, filekey, :dsp_aux_phy), report)
     @info report
 
-    flush(stdout)
+    return flush(stdout)
 end
 
 register_processor!(process_dsp_aux_phy; output_tiers = [:jlaux])

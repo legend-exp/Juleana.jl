@@ -38,9 +38,8 @@ julia> args["periods"], args["reprocess"], args["only_runs"]
 """
 function parse_commandline(args::AbstractVector{<:AbstractString})
     settings = ArgParseSettings(prog = "LEGEND Julia main data processing",
-        description = "LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
-        version = string(pkgversion(Juleana)),
-        add_version = true)
+                                description = "LEGEND Julia main data processing for data processing on single server machines or via SLURM with access to LEGEND data. Please check the config for all settings related to the data processing.",
+                                version = string(pkgversion(Juleana)), add_version = true)
     @add_arg_table! settings begin
         "--config", "-c"
         help = "path to config file; default: config/processing_config.yaml in the data production, copied there from the config shipped with Juleana if missing"
@@ -110,7 +109,8 @@ function parse_commandline(args::AbstractVector{<:AbstractString})
         action = :append_arg
     end
     parsed_args = parse_args(append!(String[], args), settings)
-    !isnothing(parsed_args) && isnothing(parsed_args["config"]) &&
+    !isnothing(parsed_args) &&
+        isnothing(parsed_args["config"]) &&
         haskey(ENV, "LEGEND_DATA_CONFIG") &&
         (parsed_args["config"] = install_default_config())
     return parsed_args
@@ -127,8 +127,7 @@ LegendDataManagement applies on top of it for every production.
 Throws an `ArgumentError` if `LEGEND_DATA_CONFIG` is not set.
 """
 function data_config_files()
-    haskey(ENV, "LEGEND_DATA_CONFIG") ||
-        throw(ArgumentError("data_config_files: the environment variable LEGEND_DATA_CONFIG is not set"))
+    haskey(ENV, "LEGEND_DATA_CONFIG") || throw(ArgumentError("data_config_files: the environment variable LEGEND_DATA_CONFIG is not set"))
     return String.(split(ENV["LEGEND_DATA_CONFIG"], r":(?!\\)"))
 end
 
@@ -140,10 +139,7 @@ is `config`: the override files of [`Juleana.data_config_files`](@ref) followed 
 or `config` alone if `LEGEND_DATA_CONFIG` is not set.
 """
 function with_production_config(config::AbstractString)
-    join(
-        vcat(
-            haskey(ENV, "LEGEND_DATA_CONFIG") ? data_config_files()[1:(end - 1)] :
-            String[], config), ":")
+    return join(vcat(haskey(ENV, "LEGEND_DATA_CONFIG") ? data_config_files()[1:(end - 1)] : String[], config), ":")
 end
 
 """
@@ -160,12 +156,11 @@ has a top-level `config`, `software` or `metadata-records` folder; their content
 """
 function production_setup_dir()
     production = dirname(abspath(last(data_config_files())))
-    old = [("config", "setup/config"), ("software", "setup/software"),
-        ("metadata-records", "setup/metadata")]
+    old = [("config", "setup/config"), ("software", "setup/software"), ("metadata-records", "setup/metadata")]
     found = filter(m -> isdir(joinpath(production, first(m))), old)
-    isempty(found) || throw(ArgumentError(
-        "The data production $production has folders in the old layout. Move " *
-        join(["$a/ to $b/" for (a, b) in found], ", ") * "."))
+    isempty(found) || throw(ArgumentError("The data production $production has folders in the old layout. Move " *
+                                          join(["$a/ to $b/" for (a, b) in found], ", ") *
+                                          "."))
     return joinpath(production, "setup")
 end
 
@@ -201,8 +196,7 @@ function install_default_config()
     path = default_config_file()
     if !isfile(path)
         legacy = joinpath(dirname(path), "processing_config.json")
-        isfile(legacy) &&
-            @warn "Ignoring $legacy: the processing config is read from YAML; using $path"
+        isfile(legacy) && @warn "Ignoring $legacy: the processing config is read from YAML; using $path"
         shipped = joinpath(pkgdir(Juleana), "config", "processing_config.yaml")
         cp(shipped, joinpath(mkpath(dirname(path)), basename(path)))
         @info "Copied the processing config shipped with Juleana ($shipped) to $path"
@@ -238,7 +232,7 @@ julia> string.(periods), sort([string(p) => string.(r) for (p, r) in runs])
 """
 function parse_period_runs(period_args, run_args)
     periods = DataPeriod[]
-    period_runs = Dict{DataPeriod, Vector{DataRun}}()
+    period_runs = Dict{DataPeriod,Vector{DataRun}}()
     function number(text, spec)
         n = tryparse(Int, strip(text))
         isnothing(n) && throw(ArgumentError("invalid period or run `$text` in `-p $spec`"))
@@ -253,17 +247,16 @@ function parse_period_runs(period_args, run_args)
         runs = Int[]
         for part in parts[2:end]
             bounds = number.(split(part, '-'; limit = 2), spec)
-            first(bounds) <= last(bounds) ||
-                throw(ArgumentError("run range `$part` in `-p $spec` ends before it starts"))
+            first(bounds) <= last(bounds) || throw(ArgumentError("run range `$part` in `-p $spec` ends before it starts"))
             append!(runs, first(bounds):last(bounds))
         end
         period_runs[period] = DataRun.(sort!(unique!(runs)))
     end
     global_runs = DataRun[DataRun(r) for r in Iterators.flatten(run_args)]
-    !isempty(period_runs) && !isempty(global_runs) &&
+    !isempty(period_runs) &&
+        !isempty(global_runs) &&
         throw(ArgumentError("`-r` cannot be combined with periods given with runs (`-p 6,1`)"))
-    runs = !isempty(period_runs) ? period_runs :
-           isempty(global_runs) ? nothing : global_runs
+    runs = !isempty(period_runs) ? period_runs : isempty(global_runs) ? nothing : global_runs
     return isempty(periods) ? nothing : periods, runs
 end
 
@@ -284,8 +277,7 @@ function mirror_override_folders(l200::LegendData)
     created = String[]
     for db in ("par", "jlpar")
         overrides = joinpath(data_path(l200, "metadata"), "jldataprod", "overrides", db)
-        isdir(overrides) &&
-            append!(created, mirror_override_folders(overrides, data_path(l200, db)))
+        isdir(overrides) && append!(created, mirror_override_folders(overrides, data_path(l200, db)))
     end
     return created
 end
@@ -316,23 +308,14 @@ function setup_processing(parsed_args::AbstractDict)
     config_dict = readlprops(parsed_args["config"])
     # command line overrides; per-period runs are applied to the session, not the config
     periods, runs = parse_period_runs(parsed_args["periods"], parsed_args["runs"])
-    cli = (;
-        runmode = parsed_args["runmode"],
-        submit_jobs = parsed_args["submit_jobs"],
-        analysis_runs_only = parsed_args["analysis_runs_only"],
-        only_partitions = parsed_args["only_partitions"],
-        only_runs = parsed_args["only_runs"],
-        ignore_config = parsed_args["ignore_config"],
-        reprocess = parsed_args["reprocess"],
-        periods,
-        runs = runs isa AbstractDict ? nothing : runs
-    )
+    cli = (; runmode = parsed_args["runmode"], submit_jobs = parsed_args["submit_jobs"],
+           analysis_runs_only = parsed_args["analysis_runs_only"], only_partitions = parsed_args["only_partitions"],
+           only_runs = parsed_args["only_runs"], ignore_config = parsed_args["ignore_config"], reprocess = parsed_args["reprocess"],
+           periods, runs = runs isa AbstractDict ? nothing : runs)
     # the command line level takes precedence over `config.processor_log_level`
-    isnothing(parsed_args["processor_log_level"]) ||
-        (config_dict.config.processor_log_level = parsed_args["processor_log_level"])
+    isnothing(parsed_args["processor_log_level"]) || (config_dict.config.processor_log_level = parsed_args["processor_log_level"])
     # the command line level takes precedence over `config.processor_plot_level`
-    isnothing(parsed_args["processor_plot_level"]) ||
-        (config_dict.config.processor_plot_level = parsed_args["processor_plot_level"])
+    isnothing(parsed_args["processor_plot_level"]) || (config_dict.config.processor_plot_level = parsed_args["processor_plot_level"])
     processing_config = ProcessingConfig(config_dict; cli...)
     # the environment variables must be set before the metadata is loaded
     for (key, value) in processing_config.env_variables
@@ -342,15 +325,14 @@ function setup_processing(parsed_args::AbstractDict)
     @info "Loading Legend MetaData"
     dataset = Symbol(parsed_args["dataset"])
     l200 = LegendData(:l200; dataset)
-    dataset == :default || haskey(l200.metadata.datasets.runlists, dataset) ||
+    dataset == :default ||
+        haskey(l200.metadata.datasets.runlists, dataset) ||
         throw(ArgumentError("dataset $dataset is not in the metadata datasets/runlists"))
     for folder in mirror_override_folders(l200)
         @info "Created the parameter folder $folder of an override folder"
     end
 
-    log_path = mkpath(isempty(parsed_args["log_path"]) ?
-                      joinpath(l200.tier[:jllog], utc_timestamp()) :
-                      parsed_args["log_path"])
+    log_path = mkpath(isempty(parsed_args["log_path"]) ? joinpath(l200.tier[:jllog], utc_timestamp()) : parsed_args["log_path"])
     processing_config = ProcessingConfig(config_dict; cli..., log_path)
     @info "Log path: $log_path"
 
@@ -370,13 +352,10 @@ function setup_processing(parsed_args::AbstractDict)
     end
     @info "Process periods: $(string.(periods))"
     if runs isa AbstractDict
-        @info "Process runs: " * join(
-            ("$p: $(join(string.(r), ", "))"
-            for (p, r) in sort!(collect(runs); by = first)), "; ")
+        @info "Process runs: " * join(("$p: $(join(string.(r), ", "))" for (p, r) in sort!(collect(runs); by = first)), "; ")
     else
         runs = processing_config.runs
-        @info isnothing(runs) ? "Process all runs of the dataset for each period" :
-              "Process runs: $(string.(runs))"
+        @info isnothing(runs) ? "Process all runs of the dataset for each period" : "Process runs: $(string.(runs))"
     end
 
     return l200, processing_config, periods
@@ -397,8 +376,7 @@ function available_runs(l200::LegendData, period::DataPeriod)
 end
 
 # `runs === nothing` selects all available runs of `period`
-function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{
-        AbstractVector{DataRun}, Nothing})
+function processable_runs(l200::LegendData, period::DataPeriod, runs::Union{AbstractVector{DataRun},Nothing})
     available = available_runs(l200, period)
     isnothing(runs) && return available
     for run in runs
@@ -409,7 +387,7 @@ end
 
 # Runs given per period; a period without an entry keeps all its runs.
 function processable_runs(l200::LegendData, period::DataPeriod, runs::AbstractDict{DataPeriod})
-    processable_runs(l200, period, get(runs, period, nothing))
+    return processable_runs(l200, period, get(runs, period, nothing))
 end
 
 # Return `(periods, run_status, partition_status)`: the given periods that have
@@ -417,9 +395,9 @@ end
 # step starts as finished unless the step is in `run_steps` or `partition_steps`, so
 # only the selected steps are waited for. `runs` is `nothing` (all runs), a vector of
 # runs for every period, or a dict of runs per period (other periods keep all runs).
-function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig,
-        periods::AbstractVector{DataPeriod},
-        runs::Union{AbstractVector{DataRun}, AbstractDict{DataPeriod}, Nothing}, run_steps::AbstractVector{Symbol}, partition_steps::AbstractVector{Symbol})
+function setup_dependency_graph(l200::LegendData, processing_config::ProcessingConfig, periods::AbstractVector{DataPeriod},
+                                runs::Union{AbstractVector{DataRun},AbstractDict{DataPeriod},Nothing}, run_steps::AbstractVector{Symbol},
+                                partition_steps::AbstractVector{Symbol})
     # get all possible steps
     # `run_steps`/`partition_steps` are local names here, so read the step lists from the tables.
     possible_steps = _sorted_steps(processing_config.processors, false)
@@ -427,19 +405,15 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     run_status = RunStatus()
 
     # check if each period contains any runs at all
-    processable_runs_dict = Dict{DataPeriod, Vector{DataRun}}(periods .=>
-        processable_runs.(Ref(l200), periods, Ref(runs)))
+    processable_runs_dict = Dict{DataPeriod,Vector{DataRun}}(periods .=> processable_runs.(Ref(l200), periods, Ref(runs)))
     periods = filter(p -> !isempty(processable_runs_dict[p]), periods)
 
     # fill
     for period in periods
         # get all processable runs
         period_runs = processable_runs_dict[period]
-        run_status[period] = Dict{Symbol, Dict{DataRun, Bool}}(step =>
-                                                                   Dict{DataRun, Bool}(period_runs .=>
-                                                                       !(step in
-                                                                         run_steps))
-        for step in possible_steps)
+        run_status[period] = Dict{Symbol,Dict{DataRun,Bool}}(step => Dict{DataRun,Bool}(period_runs .=> !(step in run_steps))
+                                                             for step in possible_steps)
     end
 
     # get all possible steps for partition processing
@@ -447,8 +421,7 @@ function setup_dependency_graph(l200::LegendData, processing_config::ProcessingC
     # generate process status with all possible steps for all possible runs in all periods
     partition_status = PartitionStatus()
     for period in periods
-        partition_status[period] = Dict{Symbol, Bool}(step => !(step in partition_steps)
-        for step in possible_p_steps)
+        partition_status[period] = Dict{Symbol,Bool}(step => !(step in partition_steps) for step in possible_p_steps)
     end
 
     return periods, run_status, partition_status

@@ -26,18 +26,15 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
         @testset "local start script and allocations" begin
             mgr = Juleana.WorkerManager()
             @test_throws "no processing config is set" Juleana.start_script!(mgr)
-            Juleana.set_worker_config!(mgr,
-                ProcessingConfig(; processors = Dict(), p_processors = Dict(), local_n = 2))
+            Juleana.set_worker_config!(mgr, ProcessingConfig(; processors = Dict(), p_processors = Dict(), local_n = 2))
             script = Juleana.start_script!(mgr)
             @test script.path == script_file
             @test read(script_file, String) == script.text
-            @test occursin("xargs -n1 -P2", script.text) &&
-                  occursin("elastic_worker", script.text)
+            @test occursin("xargs -n1 -P2", script.text) && occursin("elastic_worker", script.text)
             @test Juleana.start_script!(mgr) == script
             # a new config generates the script anew and keeps the previous file
             write(script_file, "edited")
-            Juleana.set_worker_config!(mgr,
-                ProcessingConfig(; processors = Dict(), p_processors = Dict(), local_n = 3))
+            Juleana.set_worker_config!(mgr, ProcessingConfig(; processors = Dict(), p_processors = Dict(), local_n = 3))
             @test occursin("xargs -n1 -P3", Juleana.start_script!(mgr).text)
             @test read(script_file * ".bak", String) == "edited"
 
@@ -99,24 +96,20 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
             write(scancel, "echo \"\$@\" >> $dir/scancel.args\n")
             sinfo = joinpath(dir, "sinfo.sh")
             write(sinfo, "echo \"sinfo \$@\"\n")
-            mgr = Juleana.WorkerManager(;
-                squeue = `bash $squeue`, scancel = `bash $scancel`, sinfo = `bash $sinfo`)
+            mgr = Juleana.WorkerManager(; squeue = `bash $squeue`, scancel = `bash $scancel`, sinfo = `bash $sinfo`)
             Juleana.set_worker_config!(mgr,
-                ProcessingConfig(;
-                    processors = Dict(), p_processors = Dict(), runmode = :slurm,
-                    slurm_flags = ["--ntasks=2"]))
+                                       ProcessingConfig(; processors = Dict(), p_processors = Dict(), runmode = :slurm,
+                                                        slurm_flags = ["--ntasks=2"]))
             text = Juleana.start_script!(mgr).text
             @test occursin(r"srun --job-name=julia-\d+-\d+", text)
-            @test_throws "must contain `--job-name=julia-<n>-<m>`" Juleana.edit_start_script!(
-                mgr, "srun sleep 60")
+            @test_throws "must contain `--job-name=julia-<n>-<m>`" Juleana.edit_start_script!(mgr, "srun sleep 60")
             @test Juleana.start_script!(mgr).text == text
 
             Juleana.edit_start_script!(mgr, "echo --job-name=julia-1-1; sleep 60")
             alloc = Juleana.add_workers!(mgr)
             @test alloc.job_name == "julia-$(getpid())-1"
             @test wait_until(() -> !isempty(Juleana.allocations(mgr)[1].output))
-            @test only(Juleana.allocations(mgr)[1].output) ==
-                  "--job-name=julia-$(getpid())-1"
+            @test only(Juleana.allocations(mgr)[1].output) == "--job-name=julia-$(getpid())-1"
             Juleana.update_job_ids!(mgr)
             @test Juleana.allocations(mgr)[1].job_ids == ["101"]
             @test occursin("-u $(get(ENV, "USER", ""))", read(joinpath(dir, "squeue.args"), String))
@@ -126,22 +119,17 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
             @test state_of(mgr, 1) === :cancelled
             @test wait_until(() -> !isnothing(Juleana.allocations(mgr)[1].finished))
             # the overview runs squeue and sinfo
-            overview = Juleana.workers_overview(Juleana.WorkerManager(;
-                squeue = `bash $squeue`, scancel = `bash $scancel`, sinfo = `bash $sinfo`))
-            @test occursin("julia-99999-1", overview.slurm.queue) &&
-                  overview.slurm.idle == "sinfo -t idle\n"
-            @test overview.script ==
-                  "ArgumentError: start_script!: no processing config is set"
+            overview = Juleana.workers_overview(Juleana.WorkerManager(; squeue = `bash $squeue`, scancel = `bash $scancel`,
+                                                                      sinfo = `bash $sinfo`))
+            @test occursin("julia-99999-1", overview.slurm.queue) && overview.slurm.idle == "sinfo -t idle\n"
+            @test overview.script == "ArgumentError: start_script!: no processing config is set"
             @test isempty(overview.allocations) && overview.workers == []
             overview = Juleana.workers_overview(mgr)
-            @test overview.script.path == script_file &&
-                  only(overview.allocations).job_ids == ["101"]
+            @test overview.script.path == script_file && only(overview.allocations).job_ids == ["101"]
             # the overview has the same type with and without a start script and SLURM
             @test overview isa Juleana.WorkersOverview
-            @test Juleana.workers_overview(Juleana.WorkerManager(;
-                squeue = `juleana-no-such-command`)) isa Juleana.WorkersOverview
-            @test Juleana.workers_overview(Juleana.WorkerManager(;
-                squeue = `juleana-no-such-command`)).slurm === nothing
+            @test Juleana.workers_overview(Juleana.WorkerManager(; squeue = `juleana-no-such-command`)) isa Juleana.WorkersOverview
+            @test Juleana.workers_overview(Juleana.WorkerManager(; squeue = `juleana-no-such-command`)).slurm === nothing
             # the next allocation gets its own job name
             @test Juleana.add_workers!(mgr).job_name == "julia-$(getpid())-2"
             Juleana.cancel_all!(mgr)
@@ -150,8 +138,7 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
 
         @testset "idle cancel" begin
             mgr = Juleana.WorkerManager()
-            cfg(minutes) = ProcessingConfig(;
-                processors = Dict(), p_processors = Dict(), idle_timeout_minutes = minutes)
+            cfg(minutes) = ProcessingConfig(; processors = Dict(), p_processors = Dict(), idle_timeout_minutes = minutes)
             @test isnothing(Juleana.idle_deadline(mgr; processing = false))
             Juleana.set_worker_config!(mgr, cfg(2))
             Juleana.edit_start_script!(mgr, "sleep 60")
@@ -167,8 +154,7 @@ state_of(mgr, id) = only(filter(a -> a.id == id, Juleana.allocations(mgr))).stat
             Juleana.mark_activity!(mgr, deadline)
             Juleana.mark_activity!(mgr, alloc.started)
             @test Juleana.idle_deadline(mgr; processing = false) == deadline + Minute(2)
-            @test !Juleana.check_idle!(mgr; processing = false, time = deadline +
-                                                                       Second(119))
+            @test !Juleana.check_idle!(mgr; processing = false, time = deadline + Second(119))
             @test Juleana.check_idle!(mgr; processing = false, time = deadline + Minute(2))
             @test state_of(mgr, 1) === :cancelled
             @test isnothing(Juleana.idle_deadline(mgr; processing = false))

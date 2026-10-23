@@ -35,14 +35,11 @@ expressions, e.g.
 # Returns
 Return `nothing`.
 """
-function process_dsp_cal(
-        processing_config, l200::LegendData, period::DataPeriod, run::DataRun;
-        reprocess::Bool = false, timeout::Real = 0, max_wvfs::Int = 10000,
-        use_partition_pars::Bool = true, use_cache::Bool = true)
+function process_dsp_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool = false, timeout::Real = 0,
+                         max_wvfs::Int = 10000, use_partition_pars::Bool = true, use_cache::Bool = true)
     @info "Process DSP for period $period and run $run"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key = :unprocessable)),
-        only(runinfo(l200, (period, run, :cal)).keys))
+    filekeys = filter(!in(bad_filekeys(l200; load_key = :unprocessable)), only(runinfo(l200, (period, run, :cal)).keys))
 
     filekey = start_filekey(l200, (period, run, :cal))
     @info "Found start filekey $filekey"
@@ -61,8 +58,7 @@ function process_dsp_cal(
     pars_tau = get_values(l200.par[pars_type, :pz](filekey))
     @debug "Loaded decay times"
 
-    pars_fltoptimization = get_values(merge(
-        l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
+    pars_fltoptimization = get_values(merge(l200.par[pars_type, :fltopt](filekey), l200.par[pars_type, :aoeopt](filekey)))
     @debug "Loaded optimization parameters"
 
     if reprocess
@@ -72,9 +68,8 @@ function process_dsp_cal(
     end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"),
-        Symbol("Failed Detectors"), Symbol("Total Time"),
-        Symbol("Total Allocated"), :Error)}
+    log_nt = NamedTuple{(:Filekey, :Status, Symbol("Number of Processed Detectors"), Symbol("Failed Detectors"), Symbol("Total Time"),
+                         Symbol("Total Allocated"), :Error)}
 
     # get worker pool
 
@@ -140,17 +135,15 @@ function process_dsp_cal(
 
                         # check if detector has all required optimization pars of the filters its selections require
                         missing_pars=false
-                        for (selection, required, label) in (
-                            (:required_fltopt_selection, :required_fltopt, "energy filter"),
-                            (:required_aoeopt_selection, :required_aoeopt, "A/E"))
+                        for (selection, required, label) in ((:required_fltopt_selection, :required_fltopt, "energy filter"),
+                                                             (:required_aoeopt_selection, :required_aoeopt, "A/E"))
                             if !haskey(dsp_config_pd_det, selection)
                                 @warn "No `$selection` in the DSP config for detector $det, skip detector $ch"
                                 missing_pars=true
                                 break
                             end
                             ljl_propfunc(dsp_config_pd_det[selection])(chinfo_det)||continue
-                            if !all(haskey.(Ref(pars_fltoptimization[det]),
-                                Symbol.(dsp_config_pd_det[required])))
+                            if !all(haskey.(Ref(pars_fltoptimization[det]), Symbol.(dsp_config_pd_det[required])))
                                 @warn "Not all required $label optimization parameters for detector $det, skip detector $ch"
                                 missing_pars=true
                                 break
@@ -167,10 +160,8 @@ function process_dsp_cal(
                             outdata_det = nothing
                             try
                                 raw_data_det = read_ldata(l200, DataTier(:raw), fk, det)
-                                outdata_det = dsp_icpc_compressed(
-                                    raw_data_det, dsp_config_det,
-                                    pars_tau[det].τ, pars_fltoptimization[det];
-                                    f_evaluate_qc = f_evaluate_qc)
+                                outdata_det = dsp_icpc_compressed(raw_data_det, dsp_config_det, pars_tau[det].τ, pars_fltoptimization[det];
+                                                                  f_evaluate_qc = f_evaluate_qc)
                             catch e
                                 if e isa TaskFailedException
                                     e = e.task.exception
@@ -180,8 +171,7 @@ function process_dsp_cal(
                                 continue
                             end
                             # save data to hdf5
-                            "$det" in processed_detectors &&
-                                delete_entry!(outdata, "jldsp/$det")
+                            "$det" in processed_detectors && delete_entry!(outdata, "jldsp/$det")
                             outdata[:jldsp, det] = outdata_det
                             # free memory
                             GC.gc()
@@ -206,9 +196,8 @@ function process_dsp_cal(
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(dsp_timer))
 
         # create log
-        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)),
-            "$(n_detectors)/$(length(chinfo))",
-            string.(failed_detectors), total_time, total_allocated, ""))
+        log_fk = log_nt((fk, ProcessStatus(ifelse(isempty(failed_detectors), 1, 0)), "$(n_detectors)/$(length(chinfo))",
+                         string.(failed_detectors), total_time, total_allocated, ""))
 
         return (timer = dsp_timer, log = log_fk, processed = true)
     end
@@ -217,8 +206,7 @@ function process_dsp_cal(
     start_time = now()
 
     # execute in parallel
-    result_dsp = parallel(filekey_dsp, filekeys, log_nt; timeout = timeout,
-        retry = false, process_name = "$period-$run-process_dsp_cal")
+    result_dsp = parallel(filekey_dsp, filekeys, log_nt; timeout = timeout, retry = false, process_name = "$period-$run-process_dsp_cal")
 
     @info "Finished DSP for period $period and run $run"
 
@@ -242,7 +230,7 @@ function process_dsp_cal(
     @info report
 
     # flush stdout
-    flush(stdout)
+    return flush(stdout)
 end
 
 register_processor!(process_dsp_cal; output_tiers = [:jldsp])

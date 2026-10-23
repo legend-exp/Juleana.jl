@@ -4,44 +4,40 @@
 # `#d6deeb`, title and bright text white, borders and dim text gray, the focused border
 # and the accent `#addb67`, primary blue `#82aaff`, secondary purple `#c792ea`, success
 # `#22da6e`, warning `#ffeb95` and error `#ef5350`.
-const NIGHT_OWL_THEME = Tachikoma.Theme(
-    "night-owl",
-    Tachikoma.Color256(233),  # bg
-    Tachikoma.Color256(240),  # border
-    Tachikoma.Color256(149),  # border_focus
-    Tachikoma.Color256(254),  # text
-    Tachikoma.Color256(242),  # text_dim
-    Tachikoma.Color256(255),  # text_bright
-    Tachikoma.Color256(111),  # primary
-    Tachikoma.Color256(176),  # secondary
-    Tachikoma.Color256(149),  # accent
-    Tachikoma.Color256(41),   # success
-    Tachikoma.Color256(222),  # warning
-    Tachikoma.Color256(203),  # error
-    Tachikoma.Color256(255)  # title
-)
+const NIGHT_OWL_THEME = Tachikoma.Theme("night-owl", Tachikoma.Color256(233),  # bg
+                                        Tachikoma.Color256(240),  # border
+                                        Tachikoma.Color256(149),  # border_focus
+                                        Tachikoma.Color256(254),  # text
+                                        Tachikoma.Color256(242),  # text_dim
+                                        Tachikoma.Color256(255),  # text_bright
+                                        Tachikoma.Color256(111),  # primary
+                                        Tachikoma.Color256(176),  # secondary
+                                        Tachikoma.Color256(149),  # accent
+                                        Tachikoma.Color256(41),   # success
+                                        Tachikoma.Color256(222),  # warning
+                                        Tachikoma.Color256(203),  # error
+                                        Tachikoma.Color256(255)  # title
+                                        )
 
 # Colors of the interface, from the colors of the logo (red `#cb3c33`, green `#389826`,
 # purple `#9558b2`): `border` and `secondary` muted purple, `border_focus`, `primary` and
 # `success` green, `accent` light purple for the cursor and running items, `title` salmon
 # red, `error` pure red so that the two reds differ; text and warning as in Tachikoma's
 # default theme.
-const JULEANA_THEME = Tachikoma.Theme(
-    "juleana",
-    Tachikoma.Color256(234),  # bg
-    Tachikoma.Color256(96),   # border
-    Tachikoma.Color256(77),   # border_focus
-    Tachikoma.Color256(252),  # text
-    Tachikoma.Color256(242),  # text_dim
-    Tachikoma.Color256(159),  # text_bright
-    Tachikoma.Color256(71),   # primary
-    Tachikoma.Color256(133),  # secondary
-    Tachikoma.Color256(140),  # accent
-    Tachikoma.Color256(77),   # success
-    Tachikoma.Color256(214),  # warning
-    Tachikoma.Color256(196),  # error
-    Tachikoma.Color256(167)   # title
-)
+const JULEANA_THEME = Tachikoma.Theme("juleana", Tachikoma.Color256(234),  # bg
+                                      Tachikoma.Color256(96),   # border
+                                      Tachikoma.Color256(77),   # border_focus
+                                      Tachikoma.Color256(252),  # text
+                                      Tachikoma.Color256(242),  # text_dim
+                                      Tachikoma.Color256(159),  # text_bright
+                                      Tachikoma.Color256(71),   # primary
+                                      Tachikoma.Color256(133),  # secondary
+                                      Tachikoma.Color256(140),  # accent
+                                      Tachikoma.Color256(77),   # success
+                                      Tachikoma.Color256(214),  # warning
+                                      Tachikoma.Color256(196),  # error
+                                      Tachikoma.Color256(167)   # title
+                                      )
 
 """
     Juleana.TUI_THEMES
@@ -61,8 +57,7 @@ lists the names for an unknown one.
 """
 function tui_theme(name::AbstractString)
     i = findfirst(t -> t.name == name, TUI_THEMES)
-    isnothing(i) && throw(ArgumentError("unknown theme `$name`; the themes are " *
-                        join((t.name for t in TUI_THEMES), ", ")))
+    isnothing(i) && throw(ArgumentError("unknown theme `$name`; the themes are " * join((t.name for t in TUI_THEMES), ", ")))
     return TUI_THEMES[i]
 end
 

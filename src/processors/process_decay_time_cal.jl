@@ -32,8 +32,8 @@ loading, QC, DSP or the fit throws an error.
 # Returns
 Return `nothing`.
 """
-function process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod,
-        run::DataRun; reprocess::Bool = false, timeout::Real = 0)
+function process_decay_time_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool = false,
+                                timeout::Real = 0)
     @info "Process decay time for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
@@ -60,8 +60,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     f_evaluate_qc = load_qc_evaluator(l200, filekey)
 
     # create log line Tuple
-    log_nt = NamedTuple{(
-        :Detector, :usability, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Decay Time"), Symbol("σ"), :Error)}
 
     # get worker pool
 
@@ -75,8 +74,8 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
 
         if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1),
-                pars_db[det].τ, pars_db[det].fit.σ, "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pars_db[det].τ, pars_db[det].fit.σ,
+                              "Already processed --> skipped."))
             return (processed = false, log = log_det)
         end
 
@@ -135,23 +134,20 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         # get decay time
         plot_decay_times() = begin
             fig = Makie.Figure()
-            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Decay Times"),
-                xlabel = "Decay time", ylabel = "Counts")
+            ax = Makie.Axis(fig[1, 1]; title = get_plottitle(filekey, det, "Decay Times"), xlabel = "Decay time", ylabel = "Counts")
             Makie.stephist!(ax, filter(isfinite, ustrip.(decay_times)); bins = 100)
             save_plot(fig, l200, filekey, det, :error_decay_time_extraction)
         end
-        result,
-        report = @process_step "decay time extraction" on_error = plot_decay_times begin
+        result, report = @process_step "decay time extraction" on_error = plot_decay_times begin
             filter!(x -> min_τ < x < max_τ, decay_times)
-            cuts_τ = cut_single_peak(
-                decay_times, min_τ, max_τ, ; n_bins = nbins, relative_cut = rel_cut_fit)
+            cuts_τ = cut_single_peak(decay_times, min_τ, max_τ, ; n_bins = nbins, relative_cut = rel_cut_fit)
             fit_single_trunc_gauss(decay_times, cuts_τ)
         end
         yield()
 
         @debug_plot begin
             p = LegendMakie.lplot(report, xlabel = "Decay time ($(unit(result.μ)))",
-                title = get_plottitle(filekey, det, "Decay Time Distribution"))
+                                  title = get_plottitle(filekey, det, "Decay Time Distribution"))
             save_plot(p, l200, filekey, det, :decay_time)
         end
 
@@ -160,12 +156,10 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
         status, message = if 350u"µs" <= mvalue(result.μ) <= 700u"µs"
             (process_succeeded, "-")
         else
-            (process_warning,
-                "Decay time $(result.μ) is outside the expected 350–700 µs window.")
+            (process_warning, "Decay time $(result.μ) is outside the expected 350–700 µs window.")
         end
         status == process_warning && @warn "$det ($ch): $message"
-        log_det = log_nt((det, detector_status(chinfo_det.usability),
-            status, result.μ, result.σ, message))
+        log_det = log_nt((det, detector_status(chinfo_det.usability), status, result.μ, result.σ, message))
         return (result = (τ = result.μ, fit = result), processed = true, log = log_det)
     end
 
@@ -174,7 +168,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
 
     # execute in parallel
     result_pz = parallel(det_decay_time, chinfo, log_nt; timeout = timeout, retry = false,
-        process_name = "$period-$run-process_decay_time_cal")
+                         process_name = "$period-$run-process_decay_time_cal")
     @info "Finished decay time extraction"
 
     pars_db = create_pars(pars_db, result_pz)
@@ -198,7 +192,7 @@ function process_decay_time_cal(processing_config, l200::LegendData, period::Dat
     @info report
 
     # flush stdout
-    flush(stdout)
+    return flush(stdout)
 end
 
 register_processor!(process_decay_time_cal)

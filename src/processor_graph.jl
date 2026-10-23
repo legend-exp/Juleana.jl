@@ -31,33 +31,28 @@ processor, or the dependencies form a cycle: processing would then wait forever.
 error names the processors of the cycle.
 """
 function processor_graph(cfg::ProcessingConfig)
-    processor_graph(vcat(collect(values(cfg.processors)), collect(values(cfg.p_processors))))
+    return processor_graph(vcat(collect(values(cfg.processors)), collect(values(cfg.p_processors))))
 end
 
 function processor_graph(specs)
     specs = collect(specs)
     names = [Symbol(s.name) for s in specs]
-    allunique(names) ||
-        throw(ArgumentError("processor graph: processor names must be unique, got $(names)"))
+    allunique(names) || throw(ArgumentError("processor graph: processor names must be unique, got $(names)"))
     index = Dict(n => i for (i, n) in pairs(names))
     graph = Graphs.SimpleDiGraph(length(names))
     for (v, s) in pairs(specs), dep in s.dependencies
 
         u = get(index, Symbol(dep), nothing)
-        isnothing(u) &&
-            throw(ArgumentError("processor graph: `$(names[v])` depends on unknown processor `$dep`"))
+        isnothing(u) && throw(ArgumentError("processor graph: `$(names[v])` depends on unknown processor `$dep`"))
         Graphs.add_edge!(graph, u, v)
     end
     if Graphs.is_cyclic(graph)
-        cycles = filter(c -> length(c) > 1 || Graphs.has_edge(graph, c[1], c[1]),
-            Graphs.strongly_connected_components(graph))
+        cycles = filter(c -> length(c) > 1 || Graphs.has_edge(graph, c[1], c[1]), Graphs.strongly_connected_components(graph))
         throw(ArgumentError("processor graph: the dependencies of these processors form a cycle, " *
                             "so processing would wait forever: " *
                             join((join(sort(names[c]), ", ") for c in cycles), "; ")))
     end
-    return ProcessorGraph(
-        names, [Symbol(s.level) for s in specs], [Int(s.rank)
-                                                  for s in specs], graph)
+    return ProcessorGraph(names, [Symbol(s.level) for s in specs], [Int(s.rank) for s in specs], graph)
 end
 
 """
@@ -121,11 +116,11 @@ a partition-level processor in the same period.
 function waited_processors(g::ProcessorGraph, selected)
     index = Dict(n => i for (i, n) in pairs(g.names))
     chosen = Set{Int}(index[Symbol(n)] for n in selected)
-    result = Dict{Symbol, Vector{Pair{Symbol, Bool}}}()
+    result = Dict{Symbol,Vector{Pair{Symbol,Bool}}}()
     for v in chosen
-        waits = Dict{Int, Bool}()
+        waits = Dict{Int,Bool}()
         # `same_run`: the path from the node to `v` has only run-level processors
-        seen = Set{Tuple{Int, Bool}}()
+        seen = Set{Tuple{Int,Bool}}()
         todo = [(v, g.levels[v] === :run)]
         while !isempty(todo)
             w, same_run = pop!(todo)
@@ -181,19 +176,17 @@ function layered_layout(g::ProcessorGraph)
 
         layer[v] = max(layer[v], layer[u] + 1)
     end
-    layers = [sort!([v for v in nodes if layer[v] == l];
-                  by = v -> (g.levels[v] === :run ? 0 : 1, g.ranks[v], g.names[v]))
+    layers = [sort!([v for v in nodes if layer[v] == l]; by = v -> (g.levels[v] === :run ? 0 : 1, g.ranks[v], g.names[v]))
               for l in 1:maximum(layer; init = 0)]
     position = zeros(Int, length(nodes))
     renumber!(l) = foreach(((p, v),) -> position[v] = p, pairs(layers[l]))
     foreach(renumber!, eachindex(layers))
     for _ in 1:4,
-        (range, neighbors) in ((2:length(layers), v -> Graphs.inneighbors(g.graph, v)),
-            ((length(layers) - 1):-1:1, v -> Graphs.outneighbors(g.graph, v)))
+        (range, neighbors) in
+        ((2:length(layers), v -> Graphs.inneighbors(g.graph, v)), ((length(layers) - 1):-1:1, v -> Graphs.outneighbors(g.graph, v)))
 
         for l in range
-            barycenter(v) = (ns = neighbors(v);
-                isempty(ns) ? position[v] : sum(position[ns]) / length(ns))
+            barycenter(v) = (ns = neighbors(v); isempty(ns) ? position[v] : sum(position[ns]) / length(ns))
             sort!(layers[l]; by = barycenter)
             renumber!(l)
         end

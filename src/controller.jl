@@ -50,12 +50,12 @@ Select the runs to process.
   of the period. Every period and every run of it must be in the dataset.
 """
 struct SelectRuns <: ControllerCommand
-    runs::Union{Nothing, Vector{DataRun}, Dict{DataPeriod, Union{Nothing, Vector{DataRun}}}}
+    runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Union{Nothing,Vector{DataRun}}}}
     SelectRuns(::Nothing) = new(nothing)
     function SelectRuns(runs::AbstractDict)
-        new(Dict{DataPeriod, Union{Nothing, Vector{DataRun}}}(
-            DataPeriod(p) => (isnothing(r) ? nothing : DataRun[DataRun(x) for x in r])
-        for (p, r) in runs))
+        return new(Dict{DataPeriod,Union{Nothing,Vector{DataRun}}}(DataPeriod(p) =>
+                                                                       (isnothing(r) ? nothing : DataRun[DataRun(x) for x in r])
+                                                                   for (p, r) in runs))
     end
     SelectRuns(runs) = new(DataRun[DataRun(r) for r in runs])
 end
@@ -71,7 +71,7 @@ struct SelectSteps <: ControllerCommand
     run_steps::Vector{Symbol}
     partition_steps::Vector{Symbol}
     function SelectSteps(run_steps, partition_steps)
-        new(Symbol.(run_steps), Symbol.(partition_steps))
+        return new(Symbol.(run_steps), Symbol.(partition_steps))
     end
 end
 
@@ -82,7 +82,7 @@ Set the `reprocess` keyword passed to every processor: `true` or `false` overrid
 config, `nothing` keeps the configured values.
 """
 struct SetReprocess <: ControllerCommand
-    reprocess::Union{Nothing, Bool}
+    reprocess::Union{Nothing,Bool}
 end
 
 """
@@ -94,7 +94,7 @@ for example `Logging.Debug`, replacing the `log_level` of each processor entry.
 `processor_log_level` of the config.
 """
 struct SetProcessorLogLevel <: ControllerCommand
-    level::Union{Nothing, LogLevel}
+    level::Union{Nothing,LogLevel}
 end
 
 """
@@ -105,7 +105,7 @@ each processor entry. `nothing` keeps the levels of the processor entries. The l
 starts as `processor_plot_level` of the config.
 """
 struct SetProcessorPlotLevel <: ControllerCommand
-    level::Union{Nothing, Symbol}
+    level::Union{Nothing,Symbol}
 end
 
 """
@@ -138,8 +138,7 @@ next worker allocations; running allocations are not changed.
 struct SetRunmode <: ControllerCommand
     runmode::Symbol
     function SetRunmode(runmode)
-        runmode in (:local, :slurm) ||
-            throw(ArgumentError("SetRunmode: runmode must be :local or :slurm, got $(repr(runmode))"))
+        runmode in (:local, :slurm) || throw(ArgumentError("SetRunmode: runmode must be :local or :slurm, got $(repr(runmode))"))
         return new(runmode)
     end
 end
@@ -157,15 +156,12 @@ strings, the extra options of the local Julia processes, the flags of the SLURM 
 the options of the Julia processes it starts.
 """
 struct SetRunmodeSettings <: ControllerCommand
-    local_n::Union{Nothing, Int}
-    local_julia_settings::Union{Nothing, Vector{String}}
-    slurm_flags::Union{Nothing, Vector{String}}
-    slurm_julia_settings::Union{Nothing, Vector{String}}
-    function SetRunmodeSettings(;
-            local_n = nothing, local_julia_settings = nothing, slurm_flags = nothing,
-            slurm_julia_settings = nothing)
-        isnothing(local_n) || local_n > 0 ||
-            throw(ArgumentError("SetRunmodeSettings: local_n must be positive, got $local_n"))
+    local_n::Union{Nothing,Int}
+    local_julia_settings::Union{Nothing,Vector{String}}
+    slurm_flags::Union{Nothing,Vector{String}}
+    slurm_julia_settings::Union{Nothing,Vector{String}}
+    function SetRunmodeSettings(; local_n = nothing, local_julia_settings = nothing, slurm_flags = nothing, slurm_julia_settings = nothing)
+        isnothing(local_n) || local_n > 0 || throw(ArgumentError("SetRunmodeSettings: local_n must be positive, got $local_n"))
         return new(local_n, local_julia_settings, slurm_flags, slurm_julia_settings)
     end
 end
@@ -194,17 +190,17 @@ Override the log level (`key = :log_level`, `value` a `LogLevel` or one of `"deb
 struct SetStepLevel <: ControllerCommand
     step::Symbol
     key::Symbol
-    value::Union{LogLevel, Symbol}
+    value::Union{LogLevel,Symbol}
     function SetStepLevel(step, key, value)
         key = Symbol(key)
         if key === :log_level
-            value isa LogLevel || haskey(LOG_LEVELS, string(value)) ||
+            value isa LogLevel ||
+                haskey(LOG_LEVELS, string(value)) ||
                 throw(ArgumentError("SetStepLevel: the log level must be \"debug\", \"info\", \"warn\" or \"error\", got $(repr(value))"))
             value = value isa LogLevel ? value : LOG_LEVELS[string(value)]
         elseif key === :plot_level
             value = Symbol(value)
-            value in PLOT_LEVEL_VALUES ||
-                throw(ArgumentError("SetStepLevel: the plot level must be :info or :debug, got $(repr(value))"))
+            value in PLOT_LEVEL_VALUES || throw(ArgumentError("SetStepLevel: the plot level must be :info or :debug, got $(repr(value))"))
         else
             throw(ArgumentError("SetStepLevel: the key must be :log_level or :plot_level, got $(repr(key))"))
         end
@@ -220,13 +216,11 @@ all processors, of the processor `step`, or only the override of `key` (a kwarg,
 `:log_level` or `:plot_level`) of the processor `step`.
 """
 struct ResetKwargs <: ControllerCommand
-    step::Union{Nothing, Symbol}
-    key::Union{Nothing, Symbol}
+    step::Union{Nothing,Symbol}
+    key::Union{Nothing,Symbol}
     function ResetKwargs(step = nothing, key = nothing)
-        isnothing(step) && !isnothing(key) &&
-            throw(ArgumentError("ResetKwargs: a key needs a processor"))
-        return new(isnothing(step) ? nothing : Symbol(step), isnothing(key) ? nothing :
-                                                             Symbol(key))
+        isnothing(step) && !isnothing(key) && throw(ArgumentError("ResetKwargs: a key needs a processor"))
+        return new(isnothing(step) ? nothing : Symbol(step), isnothing(key) ? nothing : Symbol(key))
     end
 end
 
@@ -277,7 +271,7 @@ at the path is first copied to `path * ".bak"`. The file is written as YAML. The
 [`ReloadConfig`](@ref) reads.
 """
 struct WriteConfig <: ControllerCommand
-    path::Union{Nothing, String}
+    path::Union{Nothing,String}
 end
 
 WriteConfig() = WriteConfig(nothing)
@@ -402,7 +396,7 @@ files and the processing config `args["config"]`) in its `setup/metadata` folder
 [`Juleana.record_metadata`](@ref)). A run fails if a record fails.
 """
 mutable struct DataflowController
-    const args::Dict{String, Any}
+    const args::Dict{String,Any}
     const processors::AbstractDict{Symbol}
     const loader::Any
     const lock::ReentrantLock
@@ -416,52 +410,45 @@ mutable struct DataflowController
     const production_lines::Vector{String}
     # subfolders of `setup/software` and `setup/metadata` recorded for the current or last
     # processing run
-    software_snapshot::Union{Nothing, String}
-    metadata_record::Union{Nothing, String}
+    software_snapshot::Union{Nothing,String}
+    metadata_record::Union{Nothing,String}
     state::Symbol
-    session::Union{Nothing, DataflowSession}
+    session::Union{Nothing,DataflowSession}
     # selected periods, including those without runs to process
     periods::Vector{DataPeriod}
     available_periods::Vector{DataPeriod}
-    available_runs::Dict{DataPeriod, Vector{DataRun}}
-    reprocess::Union{Nothing, Bool}
-    processor_log_level::Union{Nothing, LogLevel}
-    processor_plot_level::Union{Nothing, Symbol}
-    analysis_runs_only::Union{Nothing, Bool}
-    runmode::Union{Nothing, Symbol}
+    available_runs::Dict{DataPeriod,Vector{DataRun}}
+    reprocess::Union{Nothing,Bool}
+    processor_log_level::Union{Nothing,LogLevel}
+    processor_plot_level::Union{Nothing,Symbol}
+    analysis_runs_only::Union{Nothing,Bool}
+    runmode::Union{Nothing,Symbol}
     # `local_n`, `local_julia_settings`, `slurm_flags` and `slurm_julia_settings` set by `SetRunmodeSettings`
-    runmode_settings::Dict{Symbol, Any}
+    runmode_settings::Dict{Symbol,Any}
     check_dependencies::Bool
-    kwarg_overrides::Dict{Symbol, Dict{Symbol, Any}}
+    kwarg_overrides::Dict{Symbol,Dict{Symbol,Any}}
     # `:log_level` and `:plot_level` set by `SetStepLevel`, per processor
-    level_overrides::Dict{Symbol, Dict{Symbol, Any}}
-    task::Union{Nothing, Task}
-    outcome::Union{Nothing, Symbol}
-    last_error::Union{Nothing, String}
-    started::Union{Nothing, DateTime}
-    finished::Union{Nothing, DateTime}
+    level_overrides::Dict{Symbol,Dict{Symbol,Any}}
+    task::Union{Nothing,Task}
+    outcome::Union{Nothing,Symbol}
+    last_error::Union{Nothing,String}
+    started::Union{Nothing,DateTime}
+    finished::Union{Nothing,DateTime}
 end
 
-function DataflowController(
-        args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
-        console::Bool = true, loader = parsed_args -> setup_session(parsed_args; console),
-        workers::WorkerManager = WorkerManager(), record_software::Bool = true,
-        record_metadata::Bool = true)
-    return DataflowController(Dict{String, Any}(args), processors, loader, ReentrantLock(),
-        Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), ProgressStore(), workers,
-        record_software, record_metadata, String[], nothing, nothing,
-        :idle, nothing, DataPeriod[], DataPeriod[],
-        Dict{DataPeriod, Vector{DataRun}}(), nothing, nothing, nothing, nothing, nothing,
-        Dict{Symbol, Any}(), true, Dict{Symbol, Dict{Symbol, Any}}(),
-        Dict{Symbol, Dict{Symbol, Any}}(), nothing, nothing, nothing, nothing, nothing)
+function DataflowController(args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS, console::Bool = true,
+                            loader = parsed_args -> setup_session(parsed_args; console), workers::WorkerManager = WorkerManager(),
+                            record_software::Bool = true, record_metadata::Bool = true)
+    return DataflowController(Dict{String,Any}(args), processors, loader, ReentrantLock(), Threads.Atomic{Bool}(false),
+                              Threads.Atomic{Bool}(false), ProgressStore(), workers, record_software, record_metadata, String[], nothing,
+                              nothing, :idle, nothing, DataPeriod[], DataPeriod[], Dict{DataPeriod,Vector{DataRun}}(), nothing, nothing,
+                              nothing, nothing, nothing, Dict{Symbol,Any}(), true, Dict{Symbol,Dict{Symbol,Any}}(),
+                              Dict{Symbol,Dict{Symbol,Any}}(), nothing, nothing, nothing, nothing, nothing)
 end
 
-function DataflowController(
-        session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS,
-        workers::WorkerManager = WorkerManager(), record_software::Bool = true,
-        record_metadata::Bool = true)
-    ctrl = DataflowController(
-        session.args; processors, loader = nothing, workers, record_software, record_metadata)
+function DataflowController(session::DataflowSession; processors::AbstractDict{Symbol} = PROCESSORS,
+                            workers::WorkerManager = WorkerManager(), record_software::Bool = true, record_metadata::Bool = true)
+    ctrl = DataflowController(session.args; processors, loader = nothing, workers, record_software, record_metadata)
     install_session!(ctrl, session)
     return ctrl
 end
@@ -469,7 +456,7 @@ end
 function Base.show(io::IO, ctrl::DataflowController)
     print(io, "DataflowController(", repr(ctrl.state))
     isnothing(ctrl.session) || print(io, ", ", ctrl.session)
-    print(io, ")")
+    return print(io, ")")
 end
 
 # Take over `session` and list the periods and runs of its dataset; the caller holds the lock.
@@ -479,8 +466,7 @@ function install_session!(ctrl::DataflowController, session::DataflowSession)
     ctrl.processor_plot_level = session.config.processor_plot_level
     ctrl.periods = copy(session.periods)
     ctrl.available_periods = available_periods(session.l200)
-    ctrl.available_runs = Dict(p => available_runs(session.l200, p)
-    for p in ctrl.available_periods)
+    ctrl.available_runs = Dict(p => available_runs(session.l200, p) for p in ctrl.available_periods)
     set_worker_config!(ctrl.workers, effective_config(ctrl))
     ctrl.state = :ready
     return ctrl
@@ -505,30 +491,20 @@ function load_in_background!(f, ctrl::DataflowController, fallback)
 end
 
 function require_state(ctrl::DataflowController, cmd::ControllerCommand, states::Symbol...)
-    ctrl.state in states ||
-        throw(ArgumentError("$(nameof(typeof(cmd))) is not possible while the controller is $(repr(ctrl.state))"))
+    ctrl.state in states || throw(ArgumentError("$(nameof(typeof(cmd))) is not possible while the controller is $(repr(ctrl.state))"))
     return nothing
 end
 
 # Processor specs of `specs` with the session's kwarg overrides merged into their kwargs and
 # its level overrides replacing their log and plot levels.
-function with_overrides(specs::AbstractDict{Symbol, ProcessorSpec},
-        overrides::AbstractDict, levels::AbstractDict)
-    return Dict{Symbol, ProcessorSpec}(name =>
-                                           !haskey(overrides, name) &&
-                                           !haskey(levels, name) ?
-                                           spec :
-                                           ProcessorSpec(
-                                               spec.name, spec.level, spec.enabled,
-                                               spec.category, spec.rank, spec.dependencies,
-                                               merge(spec.kwargs,
-                                                   get(overrides, name, Dict{Symbol, Any}())),
-                                               spec.error_plots,
-                                               get(get(levels, name, Dict{Symbol, Any}()),
-                                                   :log_level, spec.log_level),
-                                               get(get(levels, name, Dict{Symbol, Any}()),
-                                                   :plot_level, spec.plot_level))
-    for (name, spec) in specs)
+function with_overrides(specs::AbstractDict{Symbol,ProcessorSpec}, overrides::AbstractDict, levels::AbstractDict)
+    return Dict{Symbol,ProcessorSpec}(name =>
+                                          !haskey(overrides, name) && !haskey(levels, name) ? spec :
+                                          ProcessorSpec(spec.name, spec.level, spec.enabled, spec.category, spec.rank, spec.dependencies,
+                                                        merge(spec.kwargs, get(overrides, name, Dict{Symbol,Any}())), spec.error_plots,
+                                                        get(get(levels, name, Dict{Symbol,Any}()), :log_level, spec.log_level),
+                                                        get(get(levels, name, Dict{Symbol,Any}()), :plot_level, spec.plot_level))
+                                      for (name, spec) in specs)
 end
 
 """
@@ -542,22 +518,19 @@ run mode settings (see [`SetRunmodeSettings`](@ref)) applied.
 function effective_config(ctrl::DataflowController)
     cfg = ctrl.session.config
     settings = ctrl.runmode_settings
-    return ProcessingConfig(something(ctrl.runmode, cfg.runmode), cfg.submit_jobs,
-        get(settings, :local_n, cfg.local_n),
-        get(settings, :local_julia_settings, cfg.local_julia_settings), get(
-            settings, :slurm_flags, cfg.slurm_flags),
-        get(settings, :slurm_julia_settings, cfg.slurm_julia_settings), cfg.env_variables, cfg.periods, cfg.runs,
-        something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs, cfg.max_parallel_steps,
-        cfg.log_path, cfg.log_level, cfg.processor_log_level,
-        cfg.processor_plot_level, cfg.plot_formats, cfg.idle_timeout_minutes,
-        with_overrides(cfg.processors, ctrl.kwarg_overrides, ctrl.level_overrides),
-        with_overrides(cfg.p_processors, ctrl.kwarg_overrides, ctrl.level_overrides))
+    return ProcessingConfig(something(ctrl.runmode, cfg.runmode), cfg.submit_jobs, get(settings, :local_n, cfg.local_n),
+                            get(settings, :local_julia_settings, cfg.local_julia_settings), get(settings, :slurm_flags, cfg.slurm_flags),
+                            get(settings, :slurm_julia_settings, cfg.slurm_julia_settings), cfg.env_variables, cfg.periods, cfg.runs,
+                            something(ctrl.analysis_runs_only, cfg.analysis_runs_only), cfg.only_partitions, cfg.only_runs,
+                            cfg.max_parallel_steps, cfg.log_path, cfg.log_level, cfg.processor_log_level, cfg.processor_plot_level,
+                            cfg.plot_formats, cfg.idle_timeout_minutes,
+                            with_overrides(cfg.processors, ctrl.kwarg_overrides, ctrl.level_overrides),
+                            with_overrides(cfg.p_processors, ctrl.kwarg_overrides, ctrl.level_overrides))
 end
 
 function processor_spec(cfg::ProcessingConfig, step::Symbol)
-    haskey(cfg.processors, step) ? cfg.processors[step] :
-    haskey(cfg.p_processors, step) ? cfg.p_processors[step] :
-    throw(ArgumentError("unknown processor `$step`"))
+    return haskey(cfg.processors, step) ? cfg.processors[step] :
+           haskey(cfg.p_processors, step) ? cfg.p_processors[step] : throw(ArgumentError("unknown processor `$step`"))
 end
 
 """
@@ -577,8 +550,8 @@ end
 
 function apply!(ctrl::DataflowController, cmd::LoadSession)
     require_state(ctrl, cmd, :idle)
-    isnothing(get(ctrl.args, "config", nothing)) && throw(ArgumentError(
-        "LoadSession: no processing config: give one with --config or select a data production with LEGEND_DATA_CONFIG"))
+    isnothing(get(ctrl.args, "config", nothing)) &&
+        throw(ArgumentError("LoadSession: no processing config: give one with --config or select a data production with LEGEND_DATA_CONFIG"))
     load_in_background!(ctrl, :idle) do
         session = ctrl.loader(ctrl.args)
         @lock ctrl.lock install_session!(ctrl, session)
@@ -592,8 +565,7 @@ function apply!(ctrl::DataflowController, cmd::ReloadConfig)
         l200, config, periods = setup_processing(session.args)
         check_processor_kwargs(config; ctrl.processors)
         @lock ctrl.lock begin
-            session.l200, session.config, session.periods, session.runs = l200,
-            config, periods, session_runs(session.args, config)
+            session.l200, session.config, session.periods, session.runs = l200, config, periods, session_runs(session.args, config)
             session.run_steps, session.partition_steps = selected_steps(config)
             empty!(ctrl.kwarg_overrides)
             empty!(ctrl.level_overrides)
@@ -606,8 +578,7 @@ end
 
 function check_available_periods(ctrl::DataflowController, periods)
     unknown = setdiff(periods, ctrl.available_periods)
-    isempty(unknown) ||
-        throw(ArgumentError("periods not in the dataset: $(join(string.(unknown), ", "))"))
+    isempty(unknown) || throw(ArgumentError("periods not in the dataset: $(join(string.(unknown), ", "))"))
     return nothing
 end
 
@@ -628,7 +599,7 @@ function apply!(ctrl::DataflowController, cmd::SelectPeriods)
         filter!(((p, _),) -> p in cmd.periods, runs)
         isempty(runs) && (ctrl.session.runs = nothing)
     end
-    select_periods!(ctrl, cmd.periods)
+    return select_periods!(ctrl, cmd.periods)
 end
 
 function apply!(ctrl::DataflowController, cmd::SelectRuns)
@@ -637,21 +608,17 @@ function apply!(ctrl::DataflowController, cmd::SelectRuns)
     if cmd.runs isa AbstractDict
         check_available_periods(ctrl, keys(cmd.runs))
         for (period, runs) in cmd.runs
-            unknown = isnothing(runs) ? DataRun[] :
-                      setdiff(runs, ctrl.available_runs[period])
-            isempty(unknown) ||
-                throw(ArgumentError("runs not available in $period: $(join(string.(unknown), ", "))"))
+            unknown = isnothing(runs) ? DataRun[] : setdiff(runs, ctrl.available_runs[period])
+            isempty(unknown) || throw(ArgumentError("runs not available in $period: $(join(string.(unknown), ", "))"))
         end
-        explicit = Dict{DataPeriod, Vector{DataRun}}(p => sort(unique(r))
-        for (p, r) in cmd.runs if !isnothing(r))
+        explicit = Dict{DataPeriod,Vector{DataRun}}(p => sort(unique(r)) for (p, r) in cmd.runs if !isnothing(r))
         session.runs = isempty(explicit) ? nothing : explicit
         select_periods!(ctrl, collect(keys(cmd.runs)))
     else
         if !isnothing(cmd.runs)
             selectable = reduce(union, (ctrl.available_runs[p] for p in ctrl.periods); init = DataRun[])
             unknown = setdiff(cmd.runs, selectable)
-            isempty(unknown) ||
-                throw(ArgumentError("runs not available in the selected periods: $(join(string.(unknown), ", "))"))
+            isempty(unknown) || throw(ArgumentError("runs not available in the selected periods: $(join(string.(unknown), ", "))"))
         end
         session.runs = isnothing(cmd.runs) ? nothing : sort(unique(cmd.runs))
         select_periods!(ctrl, ctrl.periods)
@@ -661,11 +628,9 @@ end
 function apply!(ctrl::DataflowController, cmd::SelectSteps)
     require_state(ctrl, cmd, :ready)
     cfg = ctrl.session.config
-    for (steps, specs, section) in ((cmd.run_steps, cfg.processors, "processors"),
-        (cmd.partition_steps, cfg.p_processors, "p_processors"))
+    for (steps, specs, section) in ((cmd.run_steps, cfg.processors, "processors"), (cmd.partition_steps, cfg.p_processors, "p_processors"))
         unknown = filter(!in(keys(specs)), steps)
-        isempty(unknown) ||
-            throw(ArgumentError("not in `$section` of the config: $(join(unknown, ", "))"))
+        isempty(unknown) || throw(ArgumentError("not in `$section` of the config: $(join(unknown, ", "))"))
     end
     ctrl.session.run_steps = filter(in(cmd.run_steps), run_steps(cfg; enabled_only = false))
     ctrl.session.partition_steps = filter(in(cmd.partition_steps), partition_steps(cfg; enabled_only = false))
@@ -687,7 +652,8 @@ end
 
 function apply!(ctrl::DataflowController, cmd::SetProcessorPlotLevel)
     require_state(ctrl, cmd, :idle, :ready)
-    isnothing(cmd.level) || cmd.level in PLOT_LEVEL_VALUES ||
+    isnothing(cmd.level) ||
+        cmd.level in PLOT_LEVEL_VALUES ||
         throw(ArgumentError("the plot level is $(repr(cmd.level)), expected :info or :debug"))
     ctrl.processor_plot_level = cmd.level
     return nothing
@@ -726,11 +692,9 @@ end
 function apply!(ctrl::DataflowController, cmd::SetKwarg)
     require_state(ctrl, cmd, :ready)
     spec = processor_spec(ctrl.session.config, cmd.step)
-    overrides = merge(get(ctrl.kwarg_overrides, cmd.step, Dict{Symbol, Any}()),
-        Dict{Symbol, Any}(cmd.key => cmd.value))
-    candidate = ProcessorSpec(
-        spec.name, spec.level, spec.enabled, spec.category, spec.rank,
-        spec.dependencies, merge(spec.kwargs, overrides), spec.error_plots, spec.log_level, spec.plot_level)
+    overrides = merge(get(ctrl.kwarg_overrides, cmd.step, Dict{Symbol,Any}()), Dict{Symbol,Any}(cmd.key => cmd.value))
+    candidate = ProcessorSpec(spec.name, spec.level, spec.enabled, spec.category, spec.rank, spec.dependencies,
+                              merge(spec.kwargs, overrides), spec.error_plots, spec.log_level, spec.plot_level)
     problem = processor_kwargs_problem(candidate, ctrl.processors)
     isnothing(problem) || throw(ArgumentError(problem))
     ctrl.kwarg_overrides[cmd.step] = overrides
@@ -740,7 +704,7 @@ end
 function apply!(ctrl::DataflowController, cmd::SetStepLevel)
     require_state(ctrl, cmd, :ready)
     processor_spec(ctrl.session.config, cmd.step)
-    get!(Dict{Symbol, Any}, ctrl.level_overrides, cmd.step)[cmd.key] = cmd.value
+    get!(Dict{Symbol,Any}, ctrl.level_overrides, cmd.step)[cmd.key] = cmd.value
     return nothing
 end
 
@@ -769,19 +733,16 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     require_state(ctrl, cmd, :ready)
     session = ctrl.session
     steps, p_steps = copy(session.run_steps), copy(session.partition_steps)
-    isempty(steps) && isempty(p_steps) &&
+    isempty(steps) &&
+        isempty(p_steps) &&
         throw(ArgumentError("no processing steps selected: enable processors in the config file or select them on the Setup page"))
     isempty(ctrl.periods) && throw(ArgumentError("no periods selected"))
     cfg = effective_config(ctrl)
-    problems = filter(!isnothing,
-        [processor_kwargs_problem(processor_spec(cfg, step), ctrl.processors)
-         for step in vcat(steps, p_steps)])
-    isempty(problems) ||
-        throw(ArgumentError("processor kwargs mismatch:\n  " * join(problems, "\n  ")))
+    problems = filter(!isnothing, [processor_kwargs_problem(processor_spec(cfg, step), ctrl.processors) for step in vcat(steps, p_steps)])
+    isempty(problems) || throw(ArgumentError("processor kwargs mismatch:\n  " * join(problems, "\n  ")))
     if ctrl.check_dependencies
-        session.periods, session.run_status,
-        session.partition_status = setup_dependency_graph(
-            session.l200, cfg, ctrl.periods, session.runs, steps, p_steps)
+        session.periods, session.run_status, session.partition_status = setup_dependency_graph(session.l200, cfg, ctrl.periods,
+                                                                                               session.runs, steps, p_steps)
     end
     ctrl.stop[], ctrl.abandon[] = false, false
     # no progress of the last run is shown until `run_processing` registers the new steps
@@ -790,25 +751,21 @@ function apply!(ctrl::DataflowController, cmd::StartProcessing)
     ctrl.software_snapshot, ctrl.metadata_record = nothing, nothing
     ctrl.started, ctrl.finished = now(UTC), nothing
     (; l200, periods, run_status, partition_status) = session
-    check_dependencies, reprocess, processor_log_level,
-    processor_plot_level = ctrl.check_dependencies,
-    ctrl.reprocess, ctrl.processor_log_level, ctrl.processor_plot_level
+    check_dependencies, reprocess, processor_log_level, processor_plot_level = ctrl.check_dependencies, ctrl.reprocess,
+                                                                               ctrl.processor_log_level, ctrl.processor_plot_level
     ctrl.task = Threads.@spawn begin
         outcome, err = try
             if ctrl.record_software || ctrl.record_metadata
                 configs = data_config_files()
                 production = dirname(abspath(last(configs)))
-                ctrl.record_software &&
-                    (ctrl.software_snapshot = record_software(production))
+                ctrl.record_software && (ctrl.software_snapshot = record_software(production))
                 processing_config = get(ctrl.args, "config", nothing)
                 isnothing(processing_config) || push!(configs, processing_config)
-                ctrl.record_metadata && (ctrl.metadata_record = record_metadata(
-                    production, data_path(l200, "metadata"); configs))
+                ctrl.record_metadata && (ctrl.metadata_record = record_metadata(production, data_path(l200, "metadata"); configs))
             end
-            run_processing(
-                cfg, l200, periods, steps, p_steps, run_status, partition_status;
-                processors = ctrl.processors, check_dependencies, reprocess, processor_log_level, processor_plot_level,
-                ctrl.stop, ctrl.abandon, progress_store = ctrl.progress)
+            run_processing(cfg, l200, periods, steps, p_steps, run_status, partition_status; processors = ctrl.processors,
+                           check_dependencies, reprocess, processor_log_level, processor_plot_level, ctrl.stop, ctrl.abandon,
+                           progress_store = ctrl.progress)
             :finished, nothing
         catch e
             ctrl.stop[] ? (:stopped, nothing) : (:failed, e)
@@ -828,20 +785,17 @@ end
 
 # Append the steps of the processing run that ended with `outcome` to the processing
 # history of `l200`; an error is logged and does not change the outcome.
-function write_history(ctrl::DataflowController, cfg::ProcessingConfig,
-        l200, outcome::Symbol, finished::DateTime)
+function write_history(ctrl::DataflowController, cfg::ProcessingConfig, l200, outcome::Symbol, finished::DateTime)
     try
         steps = map(progress(ctrl).steps) do e
             (; level, category) = processor_spec(cfg, e.step)
-            (; process = e.step, level, category, e.period, e.run,
-                outcome = e.state, e.started, e.finished, e.done, e.failed, e.notrun)
+            return (; process = e.step, level, category, e.period, e.run, outcome = e.state, e.started, e.finished, e.done, e.failed,
+                    e.notrun)
         end
         path = append_history(history_path(l200),
-            (; ctrl.started, finished, user = get(ENV, "USER", "unknown"),
-                host = gethostname(), outcome, cfg.log_path,
-                software = software_version(ctrl.software_snapshot),
-                metadata = isnothing(ctrl.metadata_record) ? nothing :
-                           "setup/metadata/$(ctrl.metadata_record)", steps))
+                              (; ctrl.started, finished, user = get(ENV, "USER", "unknown"), host = gethostname(), outcome, cfg.log_path,
+                               software = software_version(ctrl.software_snapshot),
+                               metadata = isnothing(ctrl.metadata_record) ? nothing : "setup/metadata/$(ctrl.metadata_record)", steps))
         @info "Added the processing run to the history in $path"
     catch e
         @error "Writing the processing history failed" exception = (e, catch_backtrace())
@@ -854,8 +808,7 @@ function apply!(ctrl::DataflowController, cmd::StopProcessing)
     cmd.force && (ctrl.abandon[] = true)
     ctrl.stop[] = true
     ctrl.state = :stopping
-    cmd.force &&
-        @warn "Stopping without waiting for the running items; their workers stay busy until the items end"
+    cmd.force && @warn "Stopping without waiting for the running items; their workers stay busy until the items end"
     return nothing
 end
 
@@ -874,8 +827,7 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
     for (step, levels) in ctrl.level_overrides
         spec = processor_spec(session.config, step)
         entry = props[spec.level === :run ? :processors : :p_processors][step]
-        haskey(levels, :log_level) && (entry.log_level = only(name
-        for (name, level) in LOG_LEVELS if level == levels[:log_level]))
+        haskey(levels, :log_level) && (entry.log_level = only(name for (name, level) in LOG_LEVELS if level == levels[:log_level]))
         haskey(levels, :plot_level) && (entry.plot_level = string(levels[:plot_level]))
     end
     selected = union(session.run_steps, session.partition_steps)
@@ -888,8 +840,7 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
     if isnothing(ctrl.processor_log_level)
         delete!(props.config, :processor_log_level)
     else
-        props.config.processor_log_level = only(name
-        for (name, level) in LOG_LEVELS if level == ctrl.processor_log_level)
+        props.config.processor_log_level = only(name for (name, level) in LOG_LEVELS if level == ctrl.processor_log_level)
     end
     if isnothing(ctrl.processor_plot_level)
         delete!(props.config, :processor_plot_level)
@@ -903,8 +854,7 @@ function apply!(ctrl::DataflowController, cmd::WriteConfig)
         name === :slurm_flags && (settings.slurm.flags = value)
         name === :slurm_julia_settings && (settings.slurm.julia_settings = value)
     end
-    path = isnothing(cmd.path) ?
-           joinpath(mkpath(production_config_dir()), "processing_config.yaml") : cmd.path
+    path = isnothing(cmd.path) ? joinpath(mkpath(production_config_dir()), "processing_config.yaml") : cmd.path
     isfile(path) && cp(path, path * ".bak"; force = true)
     writelprops(path, props)
     ctrl.args["config"] = path
@@ -919,7 +869,7 @@ function apply!(ctrl::DataflowController, cmd::AddWorkers)
 end
 
 function apply!(ctrl::DataflowController, cmd::CancelAllocation)
-    (cancel_allocation!(ctrl.workers, cmd.id); nothing)
+    return (cancel_allocation!(ctrl.workers, cmd.id); nothing)
 end
 
 apply!(ctrl::DataflowController, ::CancelAll) = (cancel_all!(ctrl.workers); nothing)
@@ -960,14 +910,12 @@ function apply!(ctrl::DataflowController, cmd::SelectProduction)
     require_state(ctrl, cmd, :idle, :ready)
     configs = [joinpath(cmd.path, f) for f in ("config.json", "config.yaml")]
     i = findfirst(isfile, configs)
-    isnothing(i) &&
-        throw(ArgumentError("$(cmd.path) is not a data production: it has no config.json or config.yaml"))
+    isnothing(i) && throw(ArgumentError("$(cmd.path) is not a data production: it has no config.json or config.yaml"))
     config = configs[i]
     reload_session!(ctrl) do
         ENV["LEGEND_DATA_CONFIG"] = with_production_config(config)
         @lock ctrl.lock begin
-            ctrl.args["config"], ctrl.args["log_path"],
-            ctrl.args["dataset"] = install_default_config(), "", "default"
+            ctrl.args["config"], ctrl.args["log_path"], ctrl.args["dataset"] = install_default_config(), "", "default"
         end
         @info "Loading the data production $(cmd.path)"
     end
@@ -991,7 +939,7 @@ Return a copy of the lines of the last [`CreateProduction`](@ref) of `ctrl`.
 production_log(ctrl::DataflowController) = @lock ctrl.lock copy(ctrl.production_lines)
 
 function apply!(ctrl::DataflowController, ::PostponeIdleCancel)
-    (mark_activity!(ctrl.workers); nothing)
+    return (mark_activity!(ctrl.workers); nothing)
 end
 
 """
@@ -1003,8 +951,7 @@ runs or is stopping. Return whether they were cancelled. The terminal user inter
 with every read of the controller state.
 """
 function check_idle!(ctrl::DataflowController)
-    @lock ctrl.lock check_idle!(ctrl.workers; processing = ctrl.state in
-                                                           (:running, :stopping))
+    @lock ctrl.lock check_idle!(ctrl.workers; processing = ctrl.state in (:running, :stopping))
 end
 
 function apply!(ctrl::DataflowController, cmd::EditStartScript)
@@ -1026,31 +973,23 @@ end
 
 # Types of the value of `snapshot`. The field types are fixed, so that the interface code that
 # shows the controller state is compiled once for every state.
-const ProcessorInfo = @NamedTuple{
-    name::Symbol, level::Symbol, category::Symbol, rank::Int, enabled::Bool,
-    selected::Bool, dependencies::Vector{Symbol}, kwargs::Dict{Symbol, Any},
-    config_kwargs::Dict{Symbol, Any},
-    accepted::Union{Nothing, Vector{Symbol}}, overridden::Vector{Symbol},
-    log_level::LogLevel, plot_level::Symbol, config_log_level::LogLevel,
-    config_plot_level::Symbol}
-const RunmodeSettings = @NamedTuple{
-    local_n::Int, local_julia_settings::Vector{String}, slurm_flags::Vector{String},
-    slurm_julia_settings::Vector{String}}
-const ControllerSnapshot = @NamedTuple{
-    state::Symbol, outcome::Union{Nothing, Symbol}, last_error::Union{Nothing, String},
-    started::Union{Nothing, DateTime}, finished::Union{Nothing, DateTime}, config_file::Union{
-        Nothing, String},
-    log_path::Union{Nothing, String}, dataset::String, available_periods::Vector{DataPeriod},
-    available_runs::Dict{DataPeriod, Vector{DataRun}}, periods::Vector{DataPeriod},
-    runs::Union{Nothing, Vector{DataRun}, Dict{DataPeriod, Vector{DataRun}}}, run_steps::Vector{Symbol},
-    partition_steps::Vector{Symbol}, processors::Vector{ProcessorInfo}, reprocess::Union{
-        Nothing, Bool},
-    processor_log_level::Union{Nothing, LogLevel},
-    processor_plot_level::Union{Nothing, Symbol},
-    analysis_runs_only::Union{Nothing, Bool}, runmode::Union{Nothing, Symbol}, runmode_settings::Union{
-        Nothing, RunmodeSettings},
-    check_dependencies::Bool, nworkers::Int,
-    allocations::Vector{AllocationInfo}, idle_deadline::Union{Nothing, DateTime}}
+const ProcessorInfo = @NamedTuple{name::Symbol, level::Symbol, category::Symbol, rank::Int, enabled::Bool, selected::Bool,
+                                  dependencies::Vector{Symbol}, kwargs::Dict{Symbol,Any}, config_kwargs::Dict{Symbol,Any},
+                                  accepted::Union{Nothing,Vector{Symbol}}, overridden::Vector{Symbol}, log_level::LogLevel,
+                                  plot_level::Symbol, config_log_level::LogLevel, config_plot_level::Symbol}
+const RunmodeSettings = @NamedTuple{local_n::Int, local_julia_settings::Vector{String}, slurm_flags::Vector{String},
+                                    slurm_julia_settings::Vector{String}}
+const ControllerSnapshot = @NamedTuple{state::Symbol, outcome::Union{Nothing,Symbol}, last_error::Union{Nothing,String},
+                                       started::Union{Nothing,DateTime}, finished::Union{Nothing,DateTime},
+                                       config_file::Union{Nothing,String}, log_path::Union{Nothing,String}, dataset::String,
+                                       available_periods::Vector{DataPeriod}, available_runs::Dict{DataPeriod,Vector{DataRun}},
+                                       periods::Vector{DataPeriod}, runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}},
+                                       run_steps::Vector{Symbol}, partition_steps::Vector{Symbol}, processors::Vector{ProcessorInfo},
+                                       reprocess::Union{Nothing,Bool}, processor_log_level::Union{Nothing,LogLevel},
+                                       processor_plot_level::Union{Nothing,Symbol}, analysis_runs_only::Union{Nothing,Bool},
+                                       runmode::Union{Nothing,Symbol}, runmode_settings::Union{Nothing,RunmodeSettings},
+                                       check_dependencies::Bool, nworkers::Int, allocations::Vector{AllocationInfo},
+                                       idle_deadline::Union{Nothing,DateTime}}
 
 """
     snapshot(ctrl::DataflowController)
@@ -1090,61 +1029,46 @@ function snapshot(ctrl::DataflowController)
         else
             cfg = effective_config(ctrl)
             selected = union(session.run_steps, session.partition_steps)
-            ProcessorInfo[(; name, spec.level, spec.category, spec.rank,
-                              spec.enabled, selected = name in selected,
-                              dependencies = copy(spec.dependencies), kwargs = copy(spec.kwargs),
-                              config_kwargs = copy(processor_spec(session.config, name).kwargs),
-                              accepted = accepted_kwargs(ctrl.processors, spec),
-                              overridden = sort!(collect(union(
-                                  keys(get(ctrl.kwarg_overrides, name, Dict{Symbol, Any}())),
-                                  keys(get(ctrl.level_overrides, name, Dict{Symbol, Any}()))))),
-                              spec.log_level, spec.plot_level,
-                              config_log_level = processor_spec(session.config, name).log_level,
-                              config_plot_level = processor_spec(session.config, name).plot_level)
-                          for name in vcat(run_steps(cfg; enabled_only = false),
-                partition_steps(cfg; enabled_only = false))
+            ProcessorInfo[(; name, spec.level, spec.category, spec.rank, spec.enabled, selected = name in selected,
+                           dependencies = copy(spec.dependencies), kwargs = copy(spec.kwargs),
+                           config_kwargs = copy(processor_spec(session.config, name).kwargs),
+                           accepted = accepted_kwargs(ctrl.processors, spec),
+                           overridden = sort!(collect(union(keys(get(ctrl.kwarg_overrides, name, Dict{Symbol,Any}())),
+                                                            keys(get(ctrl.level_overrides, name, Dict{Symbol,Any}()))))), spec.log_level,
+                           spec.plot_level, config_log_level = processor_spec(session.config, name).log_level,
+                           config_plot_level = processor_spec(session.config, name).plot_level)
+                          for name in vcat(run_steps(cfg; enabled_only = false), partition_steps(cfg; enabled_only = false))
                           for spec in (processor_spec(cfg, name),)]
         end
         runmode_settings = if isnothing(session)
             nothing
         else
             cfg = effective_config(ctrl)
-            (; cfg.local_n, local_julia_settings = copy(cfg.local_julia_settings),
-                slurm_flags = copy(cfg.slurm_flags),
-                slurm_julia_settings = copy(cfg.slurm_julia_settings))
+            (; cfg.local_n, local_julia_settings = copy(cfg.local_julia_settings), slurm_flags = copy(cfg.slurm_flags),
+             slurm_julia_settings = copy(cfg.slurm_julia_settings))
         end
         return convert(ControllerSnapshot,
-            (;
-                ctrl.state, ctrl.outcome, ctrl.last_error, ctrl.started, ctrl.finished,
-                config_file = get(ctrl.args, "config", nothing),
-                log_path = isnothing(session) ? nothing : session.config.log_path,
-                dataset = string(get(ctrl.args, "dataset", "default")),
-                available_periods = copy(ctrl.available_periods),
-                available_runs = Dict(p => copy(r) for (p, r) in ctrl.available_runs),
-                periods = copy(ctrl.periods),
-                runs = isnothing(session) ? nothing : deepcopy(session.runs),
-                run_steps = isnothing(session) ? Symbol[] : copy(session.run_steps),
-                partition_steps = isnothing(session) ? Symbol[] :
-                                  copy(session.partition_steps),
-                processors, ctrl.reprocess, ctrl.processor_log_level, ctrl.processor_plot_level,
-                analysis_runs_only = isnothing(session) ? ctrl.analysis_runs_only :
-                                     something(ctrl.analysis_runs_only, session.config.analysis_runs_only),
-                runmode = isnothing(session) ? ctrl.runmode :
-                          something(ctrl.runmode, session.config.runmode),
-                runmode_settings,
-                ctrl.check_dependencies,
-                nworkers = nprocs() > 1 ? nworkers() : 0,
-                allocations = allocations(ctrl.workers; output = false),
-                idle_deadline = idle_deadline(ctrl.workers; processing = ctrl.state in (
-                    :running, :stopping))
-            ))
+                       (; ctrl.state, ctrl.outcome, ctrl.last_error, ctrl.started, ctrl.finished,
+                        config_file = get(ctrl.args, "config", nothing), log_path = isnothing(session) ? nothing : session.config.log_path,
+                        dataset = string(get(ctrl.args, "dataset", "default")), available_periods = copy(ctrl.available_periods),
+                        available_runs = Dict(p => copy(r) for (p, r) in ctrl.available_runs), periods = copy(ctrl.periods),
+                        runs = isnothing(session) ? nothing : deepcopy(session.runs),
+                        run_steps = isnothing(session) ? Symbol[] : copy(session.run_steps),
+                        partition_steps = isnothing(session) ? Symbol[] : copy(session.partition_steps), processors, ctrl.reprocess,
+                        ctrl.processor_log_level, ctrl.processor_plot_level,
+                        analysis_runs_only = isnothing(session) ? ctrl.analysis_runs_only :
+                                             something(ctrl.analysis_runs_only, session.config.analysis_runs_only),
+                        runmode = isnothing(session) ? ctrl.runmode : something(ctrl.runmode, session.config.runmode), runmode_settings,
+                        ctrl.check_dependencies, nworkers = nprocs() > 1 ? nworkers() : 0,
+                        allocations = allocations(ctrl.workers; output = false),
+                        idle_deadline = idle_deadline(ctrl.workers; processing = ctrl.state in (:running, :stopping))))
     end
 end
 
 progress(ctrl::DataflowController) = progress(ctrl.progress)
 # An item whose worker has ended waits for a retry on another worker, so it is not busy.
 function busy_workers(ctrl::DataflowController)
-    filter(b -> b.worker in procs(), busy_workers(ctrl.progress))
+    return filter(b -> b.worker in procs(), busy_workers(ctrl.progress))
 end
 step_messages(ctrl::DataflowController, key) = step_messages(ctrl.progress, key)
 
@@ -1159,15 +1083,14 @@ the state `:missing`. Returns an empty vector before the first run. Throws an
 """
 function report_index(ctrl::DataflowController)
     l200, cfg = @lock ctrl.lock begin
-        isnothing(ctrl.session) &&
-            throw(ArgumentError("report_index: no session is loaded"))
+        isnothing(ctrl.session) && throw(ArgumentError("report_index: no session is loaded"))
         ctrl.session.l200, effective_config(ctrl)
     end
     jlrep = l200.tier[:jlrep]
     return map(progress(ctrl).steps) do e
         (; level, category) = processor_spec(cfg, e.step)
-        (; process = e.step, level, category, e.period, e.run,
-            read_report(report_path(jlrep, e.step, level, e.period, e.run, category))...)
+        return (; process = e.step, level, category, e.period, e.run,
+                read_report(report_path(jlrep, e.step, level, e.period, e.run, category))...)
     end
 end
 
@@ -1182,8 +1105,7 @@ function report_overview(ctrl::DataflowController)
     session = @lock ctrl.lock ctrl.session
     isnothing(session) && throw(ArgumentError("report_overview: no session is loaded"))
     return report_overview(session.l200;
-        processors = vcat(collect(values(session.config.processors)),
-            collect(values(session.config.p_processors))))
+                           processors = vcat(collect(values(session.config.processors)), collect(values(session.config.p_processors))))
 end
 
 """
@@ -1208,15 +1130,12 @@ data production. Throws an `ArgumentError` when no session is loaded.
 """
 function history_grid(ctrl::DataflowController)
     l200, config = @lock ctrl.lock begin
-        isnothing(ctrl.session) &&
-            throw(ArgumentError("history_grid: no session is loaded"))
+        isnothing(ctrl.session) && throw(ArgumentError("history_grid: no session is loaded"))
         ctrl.session.l200, ctrl.session.config
     end
-    processors = vcat(
-        sort!(collect(values(config.processors)); by = s -> (s.rank, s.name)),
-        sort!(collect(values(config.p_processors)); by = s -> (s.rank, s.name)))
+    processors = vcat(sort!(collect(values(config.processors)); by = s -> (s.rank, s.name)),
+                      sort!(collect(values(config.p_processors)); by = s -> (s.rank, s.name)))
     info = runinfo(l200)
-    period_runs = [period => sort!(unique(info.run[info.period .== period]))
-                   for period in sort!(unique(info.period))]
+    period_runs = [period => sort!(unique(info.run[info.period .== period])) for period in sort!(unique(info.period))]
     return history_grid(processors, period_runs, report_overview(l200), read_history(history_path(l200)))
 end

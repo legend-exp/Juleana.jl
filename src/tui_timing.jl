@@ -13,15 +13,10 @@ window in seconds, `threadid:threadpool` of the thread that draws, the page show
 slowest `view` and, for each page shown, `page:frames:mean view time` separated by spaces.
 Times are in milliseconds; `NA` marks a statistic without measurements.
 """
-const TIMING_COLUMNS = (
-    "utc", "state", "frames", "gap_p50_ms", "gap_p95_ms",
-    "gap_max_ms", "view_p95_ms", "view_max_ms",
-    "update_p95_ms", "update_max_ms", "keys", "key_p50_ms", "key_p95_ms", "key_max_ms",
-    "gc_count", "gc_time_ms", "gc_max_pause_ms",
-    "update_key_max_ms", "update_mouse_max_ms", "update_task_max_ms",
-    "slowest_update", "window_s", "view_thread",
-    "view_max_page", "page_views"
-)
+const TIMING_COLUMNS = ("utc", "state", "frames", "gap_p50_ms", "gap_p95_ms", "gap_max_ms", "view_p95_ms", "view_max_ms", "update_p95_ms",
+                        "update_max_ms", "keys", "key_p50_ms", "key_p95_ms", "key_max_ms", "gc_count", "gc_time_ms", "gc_max_pause_ms",
+                        "update_key_max_ms", "update_mouse_max_ms", "update_task_max_ms", "slowest_update", "window_s", "view_thread",
+                        "view_max_page", "page_views")
 
 # Kinds of events handled by `Tachikoma.update!`, the slot of each in the per-kind maxima.
 const TIMING_KINDS = (:key, :mouse, :task, :other)
@@ -89,22 +84,17 @@ mutable struct InterfaceTiming
     slowest_view_page::Int
     gc_start::Base.GC_Num
     # `(threadid, threadpool)` of the first `view` call
-    view_thread::Union{Nothing, Tuple{Int, Symbol}}
+    view_thread::Union{Nothing,Tuple{Int,Symbol}}
 end
 
-function InterfaceTiming(; window_seconds::Real = 10, clock = time_ns,
-        utc = () -> now(UTC), capacity::Integer = 8192,
-        pages::Integer = 16)
-    window_seconds > 0 ||
-        throw(ArgumentError("InterfaceTiming: window_seconds must be positive, got $window_seconds"))
-    capacity > 0 ||
-        throw(ArgumentError("InterfaceTiming: capacity must be positive, got $capacity"))
+function InterfaceTiming(; window_seconds::Real = 10, clock = time_ns, utc = () -> now(UTC), capacity::Integer = 8192, pages::Integer = 16)
+    window_seconds > 0 || throw(ArgumentError("InterfaceTiming: window_seconds must be positive, got $window_seconds"))
+    capacity > 0 || throw(ArgumentError("InterfaceTiming: capacity must be positive, got $capacity"))
     pages > 0 || throw(ArgumentError("InterfaceTiming: pages must be positive, got $pages"))
-    return InterfaceTiming(
-        clock, utc, round(UInt64, 1e9 * window_seconds), ReentrantLock(),
-        zeros(UInt64, capacity), zeros(UInt64, capacity), zeros(UInt64, capacity), zeros(UInt64, capacity),
-        zeros(UInt64, 256), zeros(UInt64, length(TIMING_KINDS)), zeros(Int, pages), zeros(UInt64, pages),
-        0, 0, 0, 0, 0, 0, 0, 0, clock(), 0, :none, 0, 0, Base.gc_num(), nothing)
+    return InterfaceTiming(clock, utc, round(UInt64, 1e9 * window_seconds), ReentrantLock(), zeros(UInt64, capacity),
+                           zeros(UInt64, capacity), zeros(UInt64, capacity), zeros(UInt64, capacity), zeros(UInt64, 256),
+                           zeros(UInt64, length(TIMING_KINDS)), zeros(Int, pages), zeros(UInt64, pages), 0, 0, 0, 0, 0, 0, 0, 0, clock(), 0,
+                           :none, 0, 0, Base.gc_num(), nothing)
 end
 
 timing_kind(::Tachikoma.KeyEvent) = 1
@@ -168,9 +158,7 @@ function timing_view_end!(t::InterfaceTiming, snap; page::Integer = 0)
     t.n_keys += max(t.n_pending - length(t.pending_keys), 0)
     t.n_pending = 0
     now_ns - t.window_start >= t.window_ns || return nothing
-    return timing_flush!(t, isnothing(snap) ? :starting : snap.state, isnothing(snap) ?
-                                                                      nothing :
-                                                                      snap.log_path)
+    return timing_flush!(t, isnothing(snap) ? :starting : snap.state, isnothing(snap) ? nothing : snap.log_path)
 end
 
 """
@@ -214,8 +202,7 @@ function timing_stats(buffer::Vector{UInt64}, n::Int)
     n == 0 && return (NaN, NaN, NaN)
     sample = view(buffer, 1:n)
     sort!(sample)
-    return (quantile(sample, 0.5; sorted = true) / 1e6,
-        quantile(sample, 0.95; sorted = true) / 1e6, Float64(last(sample)) / 1e6)
+    return (quantile(sample, 0.5; sorted = true) / 1e6, quantile(sample, 0.95; sorted = true) / 1e6, Float64(last(sample)) / 1e6)
 end
 
 timing_field(x::Real) = isnan(x) ? "NA" : string(round(x; digits = 3))
@@ -240,33 +227,19 @@ function timing_flush!(t::InterfaceTiming, state, log_path)
     gc = Base.gc_num()
     gc_count = gc.pause - t.gc_start.pause
     gc_ns = gc.total_time - t.gc_start.total_time
-    gc_max_ns = gc_count == 0 ? 0 :
-                gc.max_pause > t.gc_start.max_pause ? gc.max_pause :
-                min(gc.max_pause, gc_ns)
+    gc_max_ns = gc_count == 0 ? 0 : gc.max_pause > t.gc_start.max_pause ? gc.max_pause : min(gc.max_pause, gc_ns)
     gap = timing_stats(t.frame_gaps, t.n_gaps)
     view_ = timing_stats(t.view_times, t.n_views)
     update = timing_stats(t.update_times, t.n_updates)
     key = timing_stats(t.key_latencies, t.n_keys)
     thread = isnothing(t.view_thread) ? "NA" : "$(t.view_thread[1]):$(t.view_thread[2])"
-    pages = join(
-        ("$p:$n:$(timing_field(t.page_view_ns[p] / n / 1e6))"
-        for (p, n) in pairs(t.page_frames) if n > 0),
-        ' ')
-    row = join(
-        (
-            Dates.format(t.utc(), dateformat"yyyy-mm-ddTHH:MM:SS"), state, t.n_frames,
-            timing_field(gap[1]), timing_field(gap[2]), timing_field(gap[3]),
-            timing_field(view_[2]), timing_field(view_[3]),
-            timing_field(update[2]), timing_field(update[3]),
-            t.n_keys, timing_field(key[1]), timing_field(key[2]), timing_field(key[3]),
-            gc_count, timing_field(gc_ns / 1e6), timing_field(gc_max_ns / 1e6),
-            timing_field(t.update_max[1] / 1e6), timing_field(t.update_max[2] / 1e6), timing_field(t.update_max[3] /
-                                                                                                   1e6),
-            t.slowest_update, timing_field((now_ns - t.window_start) / 1e9), thread,
-            t.slowest_view_page == 0 ? "NA" : t.slowest_view_page, isempty(pages) ? "NA" :
-                                                                   pages
-        ),
-        '\t')
+    pages = join(("$p:$n:$(timing_field(t.page_view_ns[p] / n / 1e6))" for (p, n) in pairs(t.page_frames) if n > 0), ' ')
+    row = join((Dates.format(t.utc(), dateformat"yyyy-mm-ddTHH:MM:SS"), state, t.n_frames, timing_field(gap[1]), timing_field(gap[2]),
+                timing_field(gap[3]), timing_field(view_[2]), timing_field(view_[3]), timing_field(update[2]), timing_field(update[3]),
+                t.n_keys, timing_field(key[1]), timing_field(key[2]), timing_field(key[3]), gc_count, timing_field(gc_ns / 1e6),
+                timing_field(gc_max_ns / 1e6), timing_field(t.update_max[1] / 1e6), timing_field(t.update_max[2] / 1e6),
+                timing_field(t.update_max[3] / 1e6), t.slowest_update, timing_field((now_ns - t.window_start) / 1e9), thread,
+                t.slowest_view_page == 0 ? "NA" : t.slowest_view_page, isempty(pages) ? "NA" : pages), '\t')
     t.n_frames = t.n_gaps = t.n_views = t.n_updates = t.n_keys = 0
     fill!(t.update_max, 0)
     fill!(t.page_frames, 0)
@@ -277,12 +250,12 @@ function timing_flush!(t::InterfaceTiming, state, log_path)
     if !isnothing(log_path) && !isempty(log_path)
         path = joinpath(log_path, "interface_timing.tsv")
         errormonitor(Threads.@spawn @lock t.lock begin
-            header = !isfile(path)
-            open(path, "a") do io
-                header && println(io, join(TIMING_COLUMNS, '\t'))
-                println(io, row)
-            end
-        end)
+                         header = !isfile(path)
+                         open(path, "a") do io
+                             header && println(io, join(TIMING_COLUMNS, '\t'))
+                             println(io, row)
+                         end
+                     end)
     end
     return row
 end

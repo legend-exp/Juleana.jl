@@ -10,8 +10,7 @@ using TerminalLoggers
 import ParallelProcessingTools
 using Base.ScopedValues: with
 using Distributed: RemoteException, myid, remotecall_fetch
-using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, DataRun,
-                            process_succeeded, process_warning, process_failed
+using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, DataRun, process_succeeded, process_warning, process_failed
 
 module UsingPackagesTest
 using Juleana
@@ -22,14 +21,11 @@ end
     @testset "package names" begin
         @test ParallelProcessingTools === Juleana.ParallelProcessingTools
         @test LDMUtils === Juleana.LegendDataManagement.LDMUtils
-        @test all(m -> m isa Module,
-            (CairoMakie, LegendHDF5IO, LegendSpecFits, Measurements, PropDicts, Unitful))
+        @test all(m -> m isa Module, (CairoMakie, LegendHDF5IO, LegendSpecFits, Measurements, PropDicts, Unitful))
         @test UsingPackagesTest.channelinfo === LegendDataManagement.channelinfo
         @test UsingPackagesTest.create_logtbl === LDMUtils.create_logtbl
-        @test UsingPackagesTest.Figure === Makie.Figure &&
-              UsingPackagesTest.lplot === LegendMakie.lplot
-        @test UsingPackagesTest.mvalue === Measurements.value &&
-              UsingPackagesTest.muncert === Measurements.uncertainty
+        @test UsingPackagesTest.Figure === Makie.Figure && UsingPackagesTest.lplot === LegendMakie.lplot
+        @test UsingPackagesTest.mvalue === Measurements.value && UsingPackagesTest.muncert === Measurements.uncertainty
     end
 
     @testset "log underscores" begin
@@ -37,8 +33,7 @@ end
         @test message == "process\\_dsp\\_cal and e\\_cusp\\_ctc; `already_quoted`"
         @test !any(x -> x isa Markdown.Italic, Markdown.parse(message).content[1].content)
         @test Juleana.escape_log_underscores("already\\_escaped") == "already\\_escaped"
-        @test Juleana.escape_log_underscores("``code_with_underscores`` and a_b") ==
-              "``code_with_underscores`` and a\\_b"
+        @test Juleana.escape_log_underscores("``code_with_underscores`` and a_b") == "``code_with_underscores`` and a\\_b"
 
         output = IOBuffer()
         with_logger(UnderscoreSafeLogger(TerminalLogger(output))) do
@@ -46,8 +41,7 @@ end
         end
         @test occursin("process_dsp_cal and e_cusp_ctc; already_quoted", String(take!(output)))
         for inner in (TerminalLogger(output), ConsoleLogger(output))
-            @test Logging.catch_exceptions(UnderscoreSafeLogger(inner)) ==
-                  Logging.catch_exceptions(inner)
+            @test Logging.catch_exceptions(UnderscoreSafeLogger(inner)) == Logging.catch_exceptions(inner)
         end
     end
 
@@ -55,9 +49,7 @@ end
         @test truncate_string("short", 10) == "short"
         @test truncate_string("αβγδε"^3, 4) == "αβγδ..."
         @test truncate_string(SubString("abcdef", 2), 3) == "bcd..."
-        msg = truncate_error(
-            CompositeException([
-                ErrorException("x"^50), ErrorException("second")]), 10)
+        msg = truncate_error(CompositeException([ErrorException("x"^50), ErrorException("second")]), 10)
         @test endswith(msg, "...")
         @test length(msg) == 13
         @test !occursin("second", msg)
@@ -71,8 +63,7 @@ end
         end
         @test wrapped isa TaskFailedException
         @test truncate_error(wrapped) == string(ErrorException("inner failure"))
-        @test truncate_error(CompositeException([wrapped, ErrorException("second")])) ==
-              string(ErrorException("inner failure"))
+        @test truncate_error(CompositeException([wrapped, ErrorException("second")])) == string(ErrorException("inner failure"))
     end
 
     @testset "root_exception" begin
@@ -92,17 +83,17 @@ end
         captured = CapturedException(root, catch_backtrace())
         @test Juleana.root_exception(root) === root
         @test Juleana.root_exception(42) === 42
-        for wrapped in (task_failed, remote, captured,
-            CompositeException([captured, ErrorException("second")]),
-            CompositeException([task_failed]), CapturedException(CompositeException([remote]), []))
+        for wrapped in
+            (task_failed, remote, captured, CompositeException([captured, ErrorException("second")]), CompositeException([task_failed]),
+             CapturedException(CompositeException([remote]), []))
             @test Juleana.root_exception(wrapped) == root
         end
         nested = Threads.@spawn throw(CompositeException([remote]))
         @test Juleana.root_exception(try
-            wait(nested)
-        catch e
-            e
-        end) == root
+                                         wait(nested)
+                                     catch e
+                                         e
+                                     end) == root
         @test truncate_error(remote) == string(root)
         @test truncate_error("not an exception") == "not an exception"
     end
@@ -112,10 +103,9 @@ end
     end
 
     @testset "legend_dsp_function" begin
-        @test Juleana.legend_dsp_function("dsp_icpc_compressed", "dsp.x") ===
-              Juleana.LegendDSP.dsp_icpc_compressed
-        @test_throws "dataprod config key `dsp.additional_detectors.V1` selects `dsp_nonexistent`, which LegendDSP does not define" Juleana.legend_dsp_function(
-            "dsp_nonexistent", "dsp.additional_detectors.V1")
+        @test Juleana.legend_dsp_function("dsp_icpc_compressed", "dsp.x") === Juleana.LegendDSP.dsp_icpc_compressed
+        @test_throws "dataprod config key `dsp.additional_detectors.V1` selects `dsp_nonexistent`, which LegendDSP does not define" Juleana.legend_dsp_function("dsp_nonexistent",
+                                                                                                                                                                "dsp.additional_detectors.V1")
     end
 
     @testset "report texts are internal" begin
@@ -141,10 +131,8 @@ end
         @test master_status([det(:off) => row(process_failed)]) == process_warning
         @test master_status([det(:on) => row(process_warning)]) == process_failed
         @test master_status([det(:ac) => row(process_failed)]) == process_failed
-        @test master_status([det(:on) => row(Juleana.process_skipped),
-            det(:ac) => row(process_succeeded)]) == process_succeeded
-        @test master_status(nothing, [det(:on) => row(process_succeeded)]) ==
-              process_succeeded
+        @test master_status([det(:on) => row(Juleana.process_skipped), det(:ac) => row(process_succeeded)]) == process_succeeded
+        @test master_status(nothing, [det(:on) => row(process_succeeded)]) == process_succeeded
         @test master_status(Pair[]) == process_failed
     end
 
@@ -152,8 +140,7 @@ end
     FkLog = NamedTuple{(:Filekey, :Status, :A, :B, :Error)}
 
     @testset "failure_log" begin
-        @test failure_log(FkLog, fk, "boom") ==
-              FkLog((fk, ProcessStatus(0), "-", "-", "boom"))
+        @test failure_log(FkLog, fk, "boom") == FkLog((fk, ProcessStatus(0), "-", "-", "boom"))
 
         DetLog = NamedTuple{(:Detector, :usability, :Status, :X, :Error)}
         det = (detector = DetectorId(:V00048B), usability = :on, channel = 1)
@@ -174,21 +161,16 @@ end
     end
 
     @testset "parallel" begin
-        ok = parallel(
-            k -> (
-                processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", ""))), [fk], FkLog)
+        ok = parallel(k -> (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", ""))), [fk], FkLog)
         @test only(ok).first == fk
         @test only(ok).second.processed
         @test only(ok).second.log.Status == process_succeeded
 
         failed = parallel(k -> error("item failed"), [fk], FkLog)
         @test !only(failed).second.processed
-        @test only(failed).second.log ==
-              FkLog((fk, ProcessStatus(0), "-", "-", "ErrorException(\"item failed\")"))
+        @test only(failed).second.log == FkLog((fk, ProcessStatus(0), "-", "-", "ErrorException(\"item failed\")"))
 
-        @test_throws "no failure_log method for items of type Int64" parallel(
-            identity, [
-                1, 2], FkLog)
+        @test_throws "no failure_log method for items of type Int64" parallel(identity, [1, 2], FkLog)
 
         viaDo = parallel([fk], FkLog; process_name = "do-block") do k
             (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", "")))
@@ -202,12 +184,10 @@ end
         Juleana.reset_progress!(store, [key])
         labels = String[]
         # a stop flag makes the items go through the stoppable pool, which reports the busy worker
-        with(Juleana.PROGRESS_STEP => (store, key), Juleana.PROCESSING_STOP =>
-            Threads.Atomic{Bool}(false)) do
+        with(Juleana.PROGRESS_STEP => (store, key), Juleana.PROCESSING_STOP => Threads.Atomic{Bool}(false)) do
             parallel([row], DetLog) do r
                 push!(labels, only(Juleana.busy_workers(store)).item)
-                (processed = true,
-                    log = DetLog((r.detector, r.usability, ProcessStatus(1), "-", "")))
+                (processed = true, log = DetLog((r.detector, r.usability, ProcessStatus(1), "-", "")))
             end
             parallel([fk], FkLog) do k
                 push!(labels, only(Juleana.busy_workers(store)).item)
@@ -223,8 +203,7 @@ end
             parallel([row, merge(row, (detector = DetectorId(:V00048A),))], DetLog) do r
                 skipped = r.detector == DetectorId(:V00048A)
                 status = skipped ? Juleana.process_skipped : ProcessStatus(1)
-                (processed = !skipped, skipped,
-                    log = DetLog((r.detector, r.usability, status, "-", "")))
+                (processed = !skipped, skipped, log = DetLog((r.detector, r.usability, status, "-", "")))
             end
         end
         e = only(Juleana.progress(store).steps)
@@ -237,8 +216,7 @@ end
 
         finished = Threads.Atomic{Int}(0)
         staggered = [Threads.@spawn sleep(0.05 * k) for k in 1:4]
-        watcher = Threads.@spawn Juleana.watch_tasks(
-            () -> Threads.atomic_add!(finished, 1), staggered; poll = 0.01)
+        watcher = Threads.@spawn Juleana.watch_tasks(() -> Threads.atomic_add!(finished, 1), staggered; poll = 0.01)
         @test timedwait(() -> istaskdone(watcher), 10) === :ok
         @test finished[] == length(staggered)
 

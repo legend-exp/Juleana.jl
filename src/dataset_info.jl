@@ -14,11 +14,10 @@ category is a `NamedTuple` with
 - `analysis`: whether the run is an analysis run of this category.
 """
 function dataset_summary(l200::LegendData)
-    return Dict((row.period, row.run) => [(; category, nkeys = length(c.keys),
-                     livetime = ustrip(u"s", c.livetime),
-                     start = ismissing(c.startkey) ? nothing : DateTime(c.startkey.time), analysis = c.is_analysis_run)
-                 for (category, c) in pairs(row) if c isa NamedTuple && length(c.keys) > 0]
-    for row in runinfo(l200))
+    return Dict((row.period, row.run) => [(; category, nkeys = length(c.keys), livetime = ustrip(u"s", c.livetime),
+                                           start = ismissing(c.startkey) ? nothing : DateTime(c.startkey.time), analysis = c.is_analysis_run)
+                                          for (category, c) in pairs(row) if c isa NamedTuple && length(c.keys) > 0]
+                for row in runinfo(l200))
 end
 
 """
@@ -32,21 +31,18 @@ of `NamedTuple`s with `category`, `nruns` (runs with file keys of the category),
 """
 function period_summary(summary, period)
     runs = sort!([run for (p, run) in keys(summary) if p == period])
-    totals = Dict{Symbol, Any}()
+    totals = Dict{Symbol,Any}()
     order = Symbol[]
     for run in runs, c in summary[(period, run)]
 
         t = get!(totals, c.category) do
             push!(order, c.category)
-            (; category = c.category, nruns = 0, nkeys = 0,
-                livetime = NaN, start = nothing, nanalysis = 0)
+            return (; category = c.category, nruns = 0, nkeys = 0, livetime = NaN, start = nothing, nanalysis = 0)
         end
         totals[c.category] = (; t.category, nruns = t.nruns + 1, nkeys = t.nkeys + c.nkeys,
-            livetime = isnan(c.livetime) ? t.livetime :
-                       isnan(t.livetime) ? c.livetime : t.livetime + c.livetime,
-            start = isnothing(c.start) ? t.start :
-                    isnothing(t.start) ? c.start : min(t.start, c.start),
-            nanalysis = t.nanalysis + c.analysis)
+                              livetime = isnan(c.livetime) ? t.livetime : isnan(t.livetime) ? c.livetime : t.livetime + c.livetime,
+                              start = isnothing(c.start) ? t.start : isnothing(t.start) ? c.start : min(t.start, c.start),
+                              nanalysis = t.nanalysis + c.analysis)
     end
     return [totals[c] for c in order]
 end

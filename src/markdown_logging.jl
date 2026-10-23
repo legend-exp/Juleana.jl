@@ -14,7 +14,7 @@ julia> Juleana.escape_log_underscores("process_dsp_cal in `p_process_energy_cal`
 ```
 """
 function escape_log_underscores(message::AbstractString)
-    replace(message, r"(`+).*?\1|(?<!\\)_"s => m -> m == "_" ? "\\_" : m)
+    return replace(message, r"(`+).*?\1|(?<!\\)_"s => m -> m == "_" ? "\\_" : m)
 end
 
 """
@@ -31,19 +31,17 @@ using Logging, TerminalLoggers
 global_logger(UnderscoreSafeLogger(TerminalLogger()))
 ```
 """
-struct UnderscoreSafeLogger{L <: AbstractLogger} <: AbstractLogger
+struct UnderscoreSafeLogger{L<:AbstractLogger} <: AbstractLogger
     inner::L
 end
 
 min_enabled_level(logger::UnderscoreSafeLogger) = min_enabled_level(logger.inner)
 function shouldlog(logger::UnderscoreSafeLogger, level, _module, group, id)
-    shouldlog(logger.inner, level, _module, group, id)
+    return shouldlog(logger.inner, level, _module, group, id)
 end
 catch_exceptions(logger::UnderscoreSafeLogger) = catch_exceptions(logger.inner)
 
-function handle_message(logger::UnderscoreSafeLogger, level, message,
-        _module, group, id, file, line; kwargs...)
+function handle_message(logger::UnderscoreSafeLogger, level, message, _module, group, id, file, line; kwargs...)
     safe_message = message isa AbstractString ? escape_log_underscores(message) : message
-    handle_message(
-        logger.inner, level, safe_message, _module, group, id, file, line; kwargs...)
+    return handle_message(logger.inner, level, safe_message, _module, group, id, file, line; kwargs...)
 end

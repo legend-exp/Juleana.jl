@@ -10,7 +10,7 @@ import Juleana
 # from the VS Code editor; its check is switched off for the whole session.
 function __init__()
     Infiltrator.toggle_async_check(false)
-    Juleana.STOP_HOOK[] = Infiltrator.infiltrate
+    return Juleana.STOP_HOOK[] = Infiltrator.infiltrate
 end
 
 end # module JuleanaInfiltratorExt

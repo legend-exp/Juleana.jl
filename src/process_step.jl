@@ -10,7 +10,7 @@ const DEBUG_CAPTURE = ScopedValue{Any}(nothing)
 # `infiltrate`: stop at the innermost failing step; `pause`: `nothing`, `:all` or the names of
 # the steps to stop after when they succeed.
 function debug_capture(step, args; infiltrate::Bool = false, pause = nothing)
-    (; step, args, failures = Failure[], lock = ReentrantLock(), infiltrate, pause)
+    return (; step, args, failures = Failure[], lock = ReentrantLock(), infiltrate, pause)
 end
 
 # Called with the module, the local variables, the file and the line at each stop of
@@ -95,11 +95,10 @@ macro process_step(name, args...)
             $(esc(block))
         catch $err
             # `Base.@locals` must run here, in the processor; it only runs in debug mode
-            process_step_failed($err, $(esc(name)), $file, $line,
-                capturing($err) ? Base.@locals() : nothing, $(QuoteNode(block)), $__module__, $(esc(hook)))
+            process_step_failed($err, $(esc(name)), $file, $line, capturing($err) ? Base.@locals() : nothing, $(QuoteNode(block)),
+                                $__module__, $(esc(hook)))
         end
-        pausing() && process_step_paused($(esc(name)), $file, $line, Base.@locals(),
-            $__module__, $value, $(QuoteNode(block)))
+        pausing() && process_step_paused($(esc(name)), $file, $line, Base.@locals(), $__module__, $value, $(QuoteNode(block)))
         $value
     end
 end
@@ -110,7 +109,7 @@ pausing() = (capture = DEBUG_CAPTURE[]; !isnothing(capture) && !isnothing(captur
 
 # The variables of `variables` without the names that macros generate, which start with '#'.
 function processor_variables(variables)
-    Dict{Symbol, Any}(k => v for (k, v) in variables if !startswith(string(k), '#'))
+    return Dict{Symbol,Any}(k => v for (k, v) in variables if !startswith(string(k), '#'))
 end
 
 # The code of the step `block`, without line numbers, as lines of Julia
@@ -125,14 +124,11 @@ function process_step_paused(name, file, line, variables, mod, value, block)
     item = CURRENT_ITEM[]
     det = hasproperty(item, :detector) ? " for $(item.detector)" : ""
     @info "Paused after $name$det; its value is `step_value`. The code of the step:\n```julia\n$(step_code(block))\n```" _file=file _line=line
-    STOP_HOOK[](
-        mod, merge(processor_variables(variables), Dict{Symbol, Any}(:step_value =>
-            value)), file, line)
+    STOP_HOOK[](mod, merge(processor_variables(variables), Dict{Symbol,Any}(:step_value => value)), file, line)
     return nothing
 end
 
-function process_step_failed(e, name, file, line, variables = nothing,
-        block = nothing, mod = nothing, on_error = nothing)
+function process_step_failed(e, name, file, line, variables = nothing, block = nothing, mod = nothing, on_error = nothing)
     e isa ProcessStepError && rethrow()
     item = CURRENT_ITEM[]
     step_error = ProcessStepError(string(name), item, root_exception(e))
@@ -142,9 +138,8 @@ function process_step_failed(e, name, file, line, variables = nothing,
     vars = nothing
     if !isnothing(variables) && !isnothing(capture)
         vars = processor_variables(variables)
-        failure = Failure(
-            step_error.name, capture.step, capture.args, item, step_error.exception,
-            catch_backtrace(), vars, block, mod, file, line)
+        failure = Failure(step_error.name, capture.step, capture.args, item, step_error.exception, catch_backtrace(), vars, block, mod,
+                          file, line)
         lock(() -> push!(capture.failures, failure), capture.lock)
     end
     if !isnothing(on_error) && ERROR_PLOTS[]
@@ -158,7 +153,7 @@ function process_step_failed(e, name, file, line, variables = nothing,
         @info "Stopped at the failed $(step_error.name)$det. The code of the step:\n```julia\n$(step_code(block))\n```" _file=file _line=line
         STOP_HOOK[](mod, vars, file, line)
     end
-    throw(step_error)
+    return throw(step_error)
 end
 
 """
@@ -181,7 +176,7 @@ struct Failure
     item::Any
     exception::Any
     backtrace::Vector{Any}
-    variables::Dict{Symbol, Any}
+    variables::Dict{Symbol,Any}
     block::Any
     mod::Module
     file::String
@@ -201,10 +196,9 @@ where the step is.
 function failure_info(f::Failure)
     item = getfield(f, :item)
     detector = hasproperty(item, :detector) ? item.detector : nothing
-    return (; name = getfield(f, :name), step = getfield(f, :step),
-        args = getfield(f, :args), item, detector,
-        exception = getfield(f, :exception), backtrace = getfield(f, :backtrace), block = getfield(f, :block),
-        mod = getfield(f, :mod), file = getfield(f, :file), line = getfield(f, :line))
+    return (; name = getfield(f, :name), step = getfield(f, :step), args = getfield(f, :args), item, detector,
+            exception = getfield(f, :exception), backtrace = getfield(f, :backtrace), block = getfield(f, :block), mod = getfield(f, :mod),
+            file = getfield(f, :file), line = getfield(f, :line))
 end
 
 """
@@ -216,30 +210,27 @@ failure_variables(f::Failure) = getfield(f, :variables)
 
 function Base.getproperty(f::Failure, name::Symbol)
     vars = failure_variables(f)
-    haskey(vars, name) ||
-        throw(ArgumentError("the failure of \"$(getfield(f, :name))\" captured no variable `$name`; " *
-                            "it captured $(join(sort!(collect(keys(vars))), ", "))"))
+    haskey(vars, name) || throw(ArgumentError("the failure of \"$(getfield(f, :name))\" captured no variable `$name`; " *
+                                              "it captured $(join(sort!(collect(keys(vars))), ", "))"))
     return vars[name]
 end
 
 function Base.propertynames(f::Failure, private::Bool = false)
-    Tuple(sort!(collect(keys(failure_variables(f)))))
+    return Tuple(sort!(collect(keys(failure_variables(f)))))
 end
 
 function Base.show(io::IO, f::Failure)
     info = failure_info(f)
-    print(io, "Failure(\"", info.name, "\"",
-        isnothing(info.detector) ? "" : " for $(info.detector)", ")")
+    return print(io, "Failure(\"", info.name, "\"", isnothing(info.detector) ? "" : " for $(info.detector)", ")")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", f::Failure)
     info = failure_info(f)
-    println(io, "\"", info.name, "\" failed",
-        isnothing(info.detector) ? "" : " for $(info.detector)", " in ",
-        info.step, " ", join(string.(info.args), " "), " at ", info.file, ":", info.line)
+    println(io, "\"", info.name, "\" failed", isnothing(info.detector) ? "" : " for $(info.detector)", " in ", info.step, " ",
+            join(string.(info.args), " "), " at ", info.file, ":", info.line)
     println(io, "  error: ", truncate_error(info.exception))
     println(io, "  variables: ", join(propertynames(f), ", "))
-    print(io, "  code:\n", join(("    " * l for l in split(step_code(info.block), '\n')), '\n'))
+    return print(io, "  code:\n", join(("    " * l for l in split(step_code(info.block), '\n')), '\n'))
 end
 
 # The failures of the last `run_step` call.
@@ -272,8 +263,7 @@ Juleana.rerun(f; e_uncal = f.e_uncal[f.e_uncal .> 100])   # the step again, with
 """
 function failure()
     isempty(failures()) &&
-        error("no failure was captured: the last `run_step` call had no failure in a " *
-              "`@process_step`, or no `debug = true`")
+        error("no failure was captured: the last `run_step` call had no failure in a " * "`@process_step`, or no `debug = true`")
     return first(failures())
 end
 
@@ -318,26 +308,20 @@ Juleana.rerun(f; window = (100, 200))    # with a changed variable
 """
 function rerun(f::Failure; overrides...)
     info = failure_info(f)
-    vars = merge(failure_variables(f), Dict{Symbol, Any}(overrides))
+    vars = merge(failure_variables(f), Dict{Symbol,Any}(overrides))
     unknown = setdiff(keys(overrides), keys(failure_variables(f)))
-    isempty(unknown) ||
-        throw(ArgumentError("rerun: $(join(sort!(collect(unknown)), ", ")) " *
-                            "$(length(unknown) == 1 ? "is not a captured variable" : "are not captured variables") of \"$(info.name)\"; " *
-                            "the captured variables are $(join(propertynames(f), ", "))"))
+    isempty(unknown) || throw(ArgumentError("rerun: $(join(sort!(collect(unknown)), ", ")) " *
+                                            "$(length(unknown) == 1 ? "is not a captured variable" : "are not captured variables") of \"$(info.name)\"; " *
+                                            "the captured variables are $(join(propertynames(f), ", "))"))
     leaving = block_exit(info.block)
-    isnothing(leaving) ||
-        throw(ArgumentError("rerun: the block of \"$(info.name)\" contains `$leaving`, which " *
-                            "leaves the block, so the block cannot run on its own"))
-    step = Expr(:macrocall, GlobalRef(@__MODULE__, Symbol("@process_step")),
-        LineNumberNode(info.line, Symbol(info.file)),
-        info.name, info.block)
-    ex = Expr(
-        :let, Expr(:block, (:($name = $(QuoteNode(value)))
-        for (name, value) in vars)...), step)
+    isnothing(leaving) || throw(ArgumentError("rerun: the block of \"$(info.name)\" contains `$leaving`, which " *
+                                              "leaves the block, so the block cannot run on its own"))
+    step = Expr(:macrocall, GlobalRef(@__MODULE__, Symbol("@process_step")), LineNumberNode(info.line, Symbol(info.file)), info.name,
+                info.block)
+    ex = Expr(:let, Expr(:block, (:($name = $(QuoteNode(value))) for (name, value) in vars)...), step)
     capture = debug_capture(info.step, info.args)
     try
-        return with(() -> @eval(info.mod, $ex), DEBUG_CAPTURE => capture,
-            CURRENT_ITEM => info.item, WRITE_PARS => false)
+        return with(() -> @eval(info.mod, $ex), DEBUG_CAPTURE => capture, CURRENT_ITEM => info.item, WRITE_PARS => false)
     catch e
         e isa ProcessStepError && !isempty(capture.failures) || rethrow()
         new_failure = first(capture.failures)
@@ -355,8 +339,7 @@ function block_exit(ex, in_loop::Bool = false)
     ex.head === :return && return "return"
     ex.head in (:break, :continue) && return in_loop ? nothing : string(ex.head)
     ex.head === :macrocall && first(ex.args) === Symbol("@goto") && return "@goto"
-    (ex.head in (:function, :->) ||
-     ex.head === :(=) && Meta.isexpr(first(ex.args), :call)) && return nothing
+    (ex.head in (:function, :->) || ex.head === :(=) && Meta.isexpr(first(ex.args), :call)) && return nothing
     body_in_loop = in_loop || ex.head in (:for, :while)
     for arg in ex.args
         leaving = block_exit(arg, body_in_loop)

@@ -104,8 +104,7 @@ mutable struct Checklist
     list::Tachikoma.Rect
 end
 
-function Checklist(
-        entries; title = "", checked = (), focused = true, tag_style = tag -> nothing)
+function Checklist(entries; title = "", checked = (), focused = true, tag_style = tag -> nothing)
     if all(e -> e isa ChecklistItem, entries)
         groups = [ChecklistGroup(nothing, "", collect(ChecklistItem, entries))]
         grouped = false
@@ -118,33 +117,26 @@ function Checklist(
     keys = Set{Any}()
     for group in groups, item in group.items
 
-        item.key in keys &&
-            throw(ArgumentError("Checklist: duplicate item key $(repr(item.key))"))
+        item.key in keys && throw(ArgumentError("Checklist: duplicate item key $(repr(item.key))"))
         push!(keys, item.key)
     end
     empty_rect = Tachikoma.Rect(1, 1, 0, 0)
-    w = Checklist(groups, grouped, String(title), keys, Set{Any}(),
-        tag_style, focused, "", false, 1, 1, 1,
-        empty_rect, empty_rect)
+    w = Checklist(groups, grouped, String(title), keys, Set{Any}(), tag_style, focused, "", false, 1, 1, 1, empty_rect, empty_rect)
     return set_checked!(w, checked)
 end
 
 function matches_filter(filter, label, tags)
-    isempty(filter) || occursin(filter, lowercase(label)) ||
-        any(t -> occursin(filter, lowercase(t)), tags)
+    return isempty(filter) || occursin(filter, lowercase(label)) || any(t -> occursin(filter, lowercase(t)), tags)
 end
 
 # One `(group index, item indices)` per group shown under the filter.
 function visible_entries(w::Checklist)
     filter = lowercase(w.filter)
-    entries = Tuple{Int, Vector{Int}}[]
+    entries = Tuple{Int,Vector{Int}}[]
     for g in eachindex(w.groups)
         group = w.groups[g]
         group_hit = w.grouped && matches_filter(filter, group.label, group.tags)
-        idxs = [i
-                for i in eachindex(group.items)
-                if group_hit ||
-            matches_filter(filter, group.items[i].label, group.items[i].tags)]
+        idxs = [i for i in eachindex(group.items) if group_hit || matches_filter(filter, group.items[i].label, group.items[i].tags)]
         (group_hit || !isempty(idxs)) && push!(entries, (g, idxs))
     end
     return entries
@@ -152,7 +144,7 @@ end
 
 # Displayed rows as `(group index, item index)`; the item index is 0 for a group row.
 function visible_rows(w::Checklist)
-    rows = Tuple{Int, Int}[]
+    rows = Tuple{Int,Int}[]
     for (g, idxs) in visible_entries(w)
         w.grouped && push!(rows, (g, 0))
         (!w.grouped || w.groups[g].expanded) && append!(rows, ((g, i) for i in idxs))
@@ -162,8 +154,7 @@ end
 
 # Keys of the visible items of group `g`, or of all groups if `g` is `nothing`.
 function visible_keys(w::Checklist, g = nothing)
-    [w.groups[gi].items[i].key
-     for (gi, idxs) in visible_entries(w) if isnothing(g) || gi == g for i in idxs]
+    return [w.groups[gi].items[i].key for (gi, idxs) in visible_entries(w) if isnothing(g) || gi == g for i in idxs]
 end
 
 function clamp_cursor!(w::Checklist)
@@ -177,7 +168,7 @@ end
 Keys of the selected items of `w`, in the order of the unfiltered list.
 """
 function checked(w::Checklist)
-    [item.key for group in w.groups for item in group.items if item.key in w.selected]
+    return [item.key for group in w.groups for item in group.items if item.key in w.selected]
 end
 
 """
@@ -188,8 +179,7 @@ Replace the selection of `w` with the items whose keys are in `keys`. Throws an
 """
 function set_checked!(w::Checklist, keys)
     unknown = [k for k in keys if !(k in w.keys)]
-    isempty(unknown) ||
-        throw(ArgumentError("Checklist: unknown item keys $(join(repr.(unknown), ", "))"))
+    isempty(unknown) || throw(ArgumentError("Checklist: unknown item keys $(join(repr.(unknown), ", "))"))
     empty!(w.selected)
     union!(w.selected, keys)
     return w
@@ -322,8 +312,7 @@ function Tachikoma.handle_mouse!(w::Checklist, evt::Tachikoma.MouseEvent)::Bool
         w.cursor = idx
         toggle_row!(w, idx)
         return true
-    elseif evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) &&
-           evt.action == Tachikoma.mouse_press
+    elseif evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) && evt.action == Tachikoma.mouse_press
         Base.contains(w.rect, evt.x, evt.y) || return false
         w.cursor += evt.button == Tachikoma.mouse_scroll_up ? -1 : 1
         clamp_cursor!(w)
@@ -335,11 +324,9 @@ end
 # Border of a pane: the focused pane has a heavy border in the focus color and a title
 # marked with `▶`, the others a thin border and a dim title.
 function pane_block(title, focused::Bool)
-    focused ?
-    Tachikoma.Block(; title = "▶ " * title, box = Tachikoma.BOX_HEAVY,
-        border_style = Tachikoma.tstyle(:border_focus, bold = true)) :
-    Tachikoma.Block(; title, title_style = Tachikoma.tstyle(:text_dim),
-        border_style = Tachikoma.tstyle(:border))
+    return focused ?
+           Tachikoma.Block(; title = "▶ " * title, box = Tachikoma.BOX_HEAVY, border_style = Tachikoma.tstyle(:border_focus, bold = true)) :
+           Tachikoma.Block(; title, title_style = Tachikoma.tstyle(:text_dim), border_style = Tachikoma.tstyle(:border))
 end
 
 """
@@ -354,9 +341,7 @@ function Tachikoma.render(w::Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buf
     title = strip("$(w.title)  $(length(w.selected))/$n_all selected")
     # the title with its padding and focus marker must fit between the corners
     title_room = rect.width - 5 - 2 * w.focused
-    block = pane_block(
-        textwidth(title) <= title_room ? title : first(title, max(0, title_room - 1)) * "…",
-        w.focused)
+    block = pane_block(textwidth(title) <= title_room ? title : first(title, max(0, title_room - 1)) * "…", w.focused)
     w.rect = rect
     w.list = Tachikoma.Rect(rect.x, rect.y, 0, 0)
     w.page = 1
@@ -400,8 +385,7 @@ function Tachikoma.render(w::Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buf
             label, tags = item.label, item.tags
             label_style = text
         end
-        box_style = box == "[x]" ? Tachikoma.tstyle(:success) :
-                    box == "[~]" ? Tachikoma.tstyle(:warning) : dim
+        box_style = box == "[x]" ? Tachikoma.tstyle(:success) : box == "[~]" ? Tachikoma.tstyle(:warning) : dim
         at_cursor = w.focused && row == w.cursor
         at_cursor && (label_style = highlight)
         tag_text = join(tags, "  ")
@@ -411,22 +395,18 @@ function Tachikoma.render(w::Checklist, rect::Tachikoma.Rect, buf::Tachikoma.Buf
             label = clip(label, tag_room)
             tx = x_max - textwidth(tag_text) + 1
             for tag in tags
-                tx = Tachikoma.set_string!(
-                    buf, tx, y, tag, something(w.tag_style(tag), dim); max_x = x_max) + 2
+                tx = Tachikoma.set_string!(buf, tx, y, tag, something(w.tag_style(tag), dim); max_x = x_max) + 2
             end
         else
             label = clip(label, room)
         end
         x = Tachikoma.set_string!(buf, area.x, y, indent, label_style; max_x = x_max)
-        x = Tachikoma.set_string!(buf, x, y, box,
-            at_cursor ? Tachikoma.Style(; fg = box_style.fg, bold = true) : box_style;
-            max_x = x_max)
+        x = Tachikoma.set_string!(buf, x, y, box, at_cursor ? Tachikoma.Style(; fg = box_style.fg, bold = true) : box_style; max_x = x_max)
         Tachikoma.set_string!(buf, x, y, " " * label, label_style; max_x = x_max)
     end
     if show_filter && area.height >= 1
-        Tachikoma.set_string!(buf, area.x, Tachikoma.bottom(area),
-            clip("/" * w.filter * (w.editing ? "▏" : ""), area.width),
-            Tachikoma.tstyle(:accent); max_x = x_max)
+        Tachikoma.set_string!(buf, area.x, Tachikoma.bottom(area), clip("/" * w.filter * (w.editing ? "▏" : ""), area.width),
+                              Tachikoma.tstyle(:accent); max_x = x_max)
     end
     return nothing
 end

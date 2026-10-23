@@ -7,33 +7,28 @@ const FINAL_STEP_STATES = STEP_STATES[3:end]
 
 # A processing step of one period: `run` is the run of a run-level step and `nothing` for
 # a partition-level step.
-const ProgressKey = Tuple{DataPeriod, Union{Nothing, DataRun}, Symbol}
+const ProgressKey = Tuple{DataPeriod,Union{Nothing,DataRun},Symbol}
 
 # A message logged on this process while a step ran: `text` may span several lines.
-const StepMessage = NamedTuple{(:level, :time, :text), Tuple{LogLevel, DateTime, String}}
+const StepMessage = NamedTuple{(:level, :time, :text),Tuple{LogLevel,DateTime,String}}
 
 # Number of messages kept per step; older ones are dropped.
 const STEP_MESSAGE_CAPACITY = 500
 
 const BusyItem = NamedTuple{(:worker, :item, :period, :run, :step, :since, :abandoned),
-    Tuple{Int, String, DataPeriod, Union{Nothing, DataRun}, Symbol, DateTime, Bool}}
+                            Tuple{Int,String,DataPeriod,Union{Nothing,DataRun},Symbol,DateTime,Bool}}
 
 # Types of the value of `progress`. The field types are fixed, so that the interface code that
 # shows the progress is compiled once for every state of a run.
-const StepCounts = NamedTuple{STEP_STATES, NTuple{length(STEP_STATES), Int}}
-const StepSummary = @NamedTuple{
-    period::DataPeriod, run::Union{Nothing, DataRun}, step::Symbol, state::Symbol,
-    total::Int, done::Int, failed::Int, notrun::Int,
-    workers::Vector{Int}, started::Union{Nothing, DateTime},
-    finished::Union{Nothing, DateTime}, error::Union{Nothing, String}, nmessages::Int, fraction::Float64,
-    rate::Union{Nothing, Float64}, eta::Union{Nothing, Float64}}
-const GroupSummary = @NamedTuple{
-    period::DataPeriod, run::Union{Nothing, DataRun}, nsteps::Int, counts::StepCounts,
-    fraction::Float64}
-const ProgressSummary = @NamedTuple{
-    started::Union{Nothing, DateTime}, finished::Union{Nothing, DateTime},
-    fraction::Float64, eta::Union{Nothing, Float64}, counts::StepCounts, steps::Vector{StepSummary},
-    groups::Vector{GroupSummary}}
+const StepCounts = NamedTuple{STEP_STATES,NTuple{length(STEP_STATES),Int}}
+const StepSummary = @NamedTuple{period::DataPeriod, run::Union{Nothing,DataRun}, step::Symbol, state::Symbol, total::Int, done::Int,
+                                failed::Int, notrun::Int, workers::Vector{Int}, started::Union{Nothing,DateTime},
+                                finished::Union{Nothing,DateTime}, error::Union{Nothing,String}, nmessages::Int, fraction::Float64,
+                                rate::Union{Nothing,Float64}, eta::Union{Nothing,Float64}}
+const GroupSummary = @NamedTuple{period::DataPeriod, run::Union{Nothing,DataRun}, nsteps::Int, counts::StepCounts, fraction::Float64}
+const ProgressSummary = @NamedTuple{started::Union{Nothing,DateTime}, finished::Union{Nothing,DateTime}, fraction::Float64,
+                                    eta::Union{Nothing,Float64}, counts::StepCounts, steps::Vector{StepSummary},
+                                    groups::Vector{GroupSummary}}
 
 mutable struct StepProgress
     state::Symbol
@@ -42,21 +37,19 @@ mutable struct StepProgress
     failed::Int
     notrun::Int
     # item id => worker the item runs on
-    const running::Dict{Int, Int}
+    const running::Dict{Int,Int}
     # ids of the items that have not finished yet
     const pending::Set{Int}
-    started::Union{Nothing, DateTime}
-    items_started::Union{Nothing, DateTime}
-    finished::Union{Nothing, DateTime}
+    started::Union{Nothing,DateTime}
+    items_started::Union{Nothing,DateTime}
+    finished::Union{Nothing,DateTime}
     const messages::Vector{StepMessage}
     # error message of a failed step
-    error::Union{Nothing, String}
+    error::Union{Nothing,String}
 end
 
 function StepProgress()
-    StepProgress(
-        :waiting, 0, 0, 0, 0, Dict{Int, Int}(), Set{Int}(), nothing, nothing, nothing,
-        StepMessage[], nothing)
+    return StepProgress(:waiting, 0, 0, 0, 0, Dict{Int,Int}(), Set{Int}(), nothing, nothing, nothing, StepMessage[], nothing)
 end
 
 """
@@ -82,18 +75,17 @@ until their workers are free again.
 mutable struct ProgressStore
     const lock::ReentrantLock
     const keys::Vector{ProgressKey}
-    const steps::Dict{ProgressKey, StepProgress}
+    const steps::Dict{ProgressKey,StepProgress}
     # item id => busy worker record, kept across runs
-    const busy::Dict{Int, BusyItem}
+    const busy::Dict{Int,BusyItem}
     # item ids are unique across runs
     next_item::Int
-    started::Union{Nothing, DateTime}
-    finished::Union{Nothing, DateTime}
+    started::Union{Nothing,DateTime}
+    finished::Union{Nothing,DateTime}
 end
 
 function ProgressStore()
-    ProgressStore(ReentrantLock(), ProgressKey[], Dict{ProgressKey, StepProgress}(),
-        Dict{Int, BusyItem}(), 0, nothing, nothing)
+    return ProgressStore(ReentrantLock(), ProgressKey[], Dict{ProgressKey,StepProgress}(), Dict{Int,BusyItem}(), 0, nothing, nothing)
 end
 
 # Start a new processing run with the steps `keys`, all waiting.
@@ -102,8 +94,7 @@ function reset_progress!(store::ProgressStore, keys)
         empty!(store.keys)
         empty!(store.steps)
         for key in keys
-            haskey(store.steps, key) &&
-                throw(ArgumentError("progress: step $key is scheduled twice"))
+            haskey(store.steps, key) && throw(ArgumentError("progress: step $key is scheduled twice"))
             push!(store.keys, key)
             store.steps[key] = StepProgress()
         end
@@ -113,10 +104,8 @@ function reset_progress!(store::ProgressStore, keys)
 end
 
 # Set the state of step `key`; `error` is the error message of a failed step.
-function set_step_state!(store::ProgressStore, key::ProgressKey, state::Symbol;
-        error::Union{Nothing, AbstractString} = nothing)
-    state in STEP_STATES ||
-        throw(ArgumentError("progress: unknown step state $(repr(state))"))
+function set_step_state!(store::ProgressStore, key::ProgressKey, state::Symbol; error::Union{Nothing,AbstractString} = nothing)
+    state in STEP_STATES || throw(ArgumentError("progress: unknown step state $(repr(state))"))
     @lock store.lock begin
         step = store.steps[key]
         state === :running && (step.started = now(UTC))
@@ -159,12 +148,10 @@ end
 
 # Set every step that has not reached a final state to `state` and close the run.
 function finish_progress!(store::ProgressStore, state::Symbol)
-    state in FINAL_STEP_STATES ||
-        throw(ArgumentError("progress: $(repr(state)) is not a final step state"))
+    state in FINAL_STEP_STATES || throw(ArgumentError("progress: $(repr(state)) is not a final step state"))
     @lock store.lock begin
         for key in store.keys
-            store.steps[key].state in FINAL_STEP_STATES ||
-                set_step_state!(store, key, state)
+            store.steps[key].state in FINAL_STEP_STATES || set_step_state!(store, key, state)
         end
         store.finished = now(UTC)
     end
@@ -187,13 +174,10 @@ end
 
 # Item `id` of step `key`, labeled `label`, was handed to `worker`. A retried item moves to
 # its new worker.
-function item_started!(store::ProgressStore, key::ProgressKey, id::Integer,
-        worker::Integer, label::AbstractString)
+function item_started!(store::ProgressStore, key::ProgressKey, id::Integer, worker::Integer, label::AbstractString)
     @lock store.lock begin
         store.steps[key].running[id] = worker
-        store.busy[id] = (;
-            worker, item = String(label), period = key[1], run = key[2], step = key[3],
-            since = now(UTC), abandoned = false)
+        store.busy[id] = (; worker, item = String(label), period = key[1], run = key[2], step = key[3], since = now(UTC), abandoned = false)
     end
     return nothing
 end
@@ -201,8 +185,7 @@ end
 # Item `id` of step `key` ended with `outcome`: `:done`, `:failed` or `:notrun`. An item
 # that was abandoned before (see `items_abandoned!`) only frees its worker.
 function item_finished!(store::ProgressStore, key::ProgressKey, id::Integer, outcome::Symbol)
-    outcome in (:done, :failed, :notrun) ||
-        throw(ArgumentError("progress: unknown item outcome $(repr(outcome))"))
+    outcome in (:done, :failed, :notrun) || throw(ArgumentError("progress: unknown item outcome $(repr(outcome))"))
     @lock store.lock begin
         delete!(store.busy, id)
         step = get(store.steps, key, nothing)
@@ -227,8 +210,7 @@ function items_abandoned!(store::ProgressStore, key::ProgressKey)
         step = store.steps[key]
         for id in step.pending
             step.notrun += 1
-            haskey(store.busy, id) &&
-                (store.busy[id] = merge(store.busy[id], (; abandoned = true)))
+            haskey(store.busy, id) && (store.busy[id] = merge(store.busy[id], (; abandoned = true)))
         end
         empty!(step.pending)
         empty!(step.running)
@@ -295,43 +277,33 @@ function progress(store::ProgressStore)
             s = store.steps[key]
             finished_items = s.done + s.failed + s.notrun
             rate = if !isnothing(s.items_started) && s.done + s.failed > 0
-                (s.done + s.failed) /
-                max(seconds_between(s.items_started, something(s.finished, t)), 1e-3)
+                (s.done + s.failed) / max(seconds_between(s.items_started, something(s.finished, t)), 1e-3)
             else
                 nothing
             end
-            eta = s.state === :running && !isnothing(rate) ?
-                  (s.total - finished_items) / rate : nothing
-            (; period = key[1], run = key[2], step = key[3],
-                s.state, s.total, s.done, s.failed, s.notrun,
-                workers = sort!(collect(values(s.running))), s.started, s.finished, s.error,
-                nmessages = length(s.messages), fraction = step_fraction(s), rate, eta)
+            eta = s.state === :running && !isnothing(rate) ? (s.total - finished_items) / rate : nothing
+            (; period = key[1], run = key[2], step = key[3], s.state, s.total, s.done, s.failed, s.notrun,
+             workers = sort!(collect(values(s.running))), s.started, s.finished, s.error, nmessages = length(s.messages),
+             fraction = step_fraction(s), rate, eta)
         end
-        count_states(entries) = NamedTuple{STEP_STATES}(map(
-            st -> count(e -> e.state === st, entries), STEP_STATES))
+        count_states(entries) = NamedTuple{STEP_STATES}(map(st -> count(e -> e.state === st, entries), STEP_STATES))
         fraction = isempty(steps) ? 0.0 : sum(e -> e.fraction, steps) / length(steps)
-        eta = if isnothing(store.started) || !isnothing(store.finished) ||
-                 !(0 < fraction < 1)
+        eta = if isnothing(store.started) || !isnothing(store.finished) || !(0 < fraction < 1)
             nothing
         else
             seconds_between(store.started, t) * (1 - fraction) / fraction
         end
         groups = map(unique(e -> (e.period, e.run), steps)) do first_entry
-            entries = filter(
-                e -> e.period == first_entry.period &&
-                     e.run == first_entry.run, steps)
-            (; first_entry.period, first_entry.run,
-                nsteps = length(entries), counts = count_states(entries),
-                fraction = sum(e -> e.fraction, entries) / length(entries))
+            entries = filter(e -> e.period == first_entry.period && e.run == first_entry.run, steps)
+            (; first_entry.period, first_entry.run, nsteps = length(entries), counts = count_states(entries),
+             fraction = sum(e -> e.fraction, entries) / length(entries))
         end
-        return convert(ProgressSummary,
-            (; store.started, store.finished, fraction, eta,
-                counts = count_states(steps), steps, groups))
+        return convert(ProgressSummary, (; store.started, store.finished, fraction, eta, counts = count_states(steps), steps, groups))
     end
 end
 
 function step_label(e)
-    isnothing(e.run) ? "$(e.period) $(e.step)" : "$(e.period)-$(e.run) $(e.step)"
+    return isnothing(e.run) ? "$(e.period) $(e.step)" : "$(e.period)-$(e.run) $(e.step)"
 end
 
 """
@@ -346,27 +318,23 @@ All bars are closed when `f` returns or throws. Returns the value of `f()`.
 """
 function show_progress(f, store::ProgressStore; interval::Real = 1)
     overall = uuid4()
-    bars = Dict{ProgressKey, UUID}()
+    bars = Dict{ProgressKey,UUID}()
     done = Threads.Atomic{Bool}(false)
     function draw()
         p = progress(store)
         @info ProgressLogging.Progress(overall, p.fraction;
-            name = "Processing: $(p.counts.done + p.counts.skipped)/$(length(p.steps)) steps done, $(p.counts.failed) failed")
+                                       name = "Processing: $(p.counts.done + p.counts.skipped)/$(length(p.steps)) steps done, $(p.counts.failed) failed")
         for e in p.steps
             key = (e.period, e.run, e.step)
-            items = e.total == 0 ? "" :
-                    "$(e.done)/$(e.total) items" *
-                    (e.failed > 0 ? ", $(e.failed) failed" : "")
+            items = e.total == 0 ? "" : "$(e.done)/$(e.total) items" * (e.failed > 0 ? ", $(e.failed) failed" : "")
             if e.state === :running
                 id = get!(uuid4, bars, key)
                 @info ProgressLogging.Progress(id, e.fraction; parentid = overall,
-                    name = step_label(e) * (isempty(items) ? "" : ": " * items))
+                                               name = step_label(e) * (isempty(items) ? "" : ": " * items))
             elseif haskey(bars, key)
                 # a closed bar stays in the terminal as one line with the step's final state
-                @info ProgressLogging.Progress(
-                    pop!(bars, key), 1.0; parentid = overall, done = true,
-                    name = step_label(e) * ": $(e.state)" *
-                           (isempty(items) ? "" : ", " * items))
+                @info ProgressLogging.Progress(pop!(bars, key), 1.0; parentid = overall, done = true,
+                                               name = step_label(e) * ": $(e.state)" * (isempty(items) ? "" : ", " * items))
             end
         end
     end

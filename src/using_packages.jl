@@ -21,16 +21,11 @@ channelinfo(l200, filekey)
 """
 macro using_packages()
     return esc(Expr(:toplevel,
-        :(using Juleana.LegendHDF5IO, Juleana.LegendDSP, Juleana.LegendSpecFits,
-                Juleana.LegendDataTypes, Juleana.LegendDataManagement, Juleana.LDMUtils,
-                Juleana.LegendEventAnalysis,
-                Juleana.IntervalSets, Juleana.PropertyFunctions, Juleana.TypedTables,
-                Juleana.PropDicts, Juleana.StatsBase,
-                Juleana.Unitful, Juleana.UnitfulAtomic, Juleana.Format,
-                Juleana.LaTeXStrings, Juleana.Printf,
-                Juleana.Measures, Juleana.Dates, Juleana.Measurements, Juleana.Distributed,
-                Juleana.ProgressMeter,
-                Juleana.TimerOutputs, Juleana.ParallelProcessingTools, Juleana.CairoMakie,
-                Juleana.LegendMakie),
-        :(using Juleana.Measurements: value as mvalue, uncertainty as muncert)))
+                    :(using Juleana.LegendHDF5IO, Juleana.LegendDSP, Juleana.LegendSpecFits, Juleana.LegendDataTypes,
+                            Juleana.LegendDataManagement, Juleana.LDMUtils, Juleana.LegendEventAnalysis, Juleana.IntervalSets,
+                            Juleana.PropertyFunctions, Juleana.TypedTables, Juleana.PropDicts, Juleana.StatsBase, Juleana.Unitful,
+                            Juleana.UnitfulAtomic, Juleana.Format, Juleana.LaTeXStrings, Juleana.Printf, Juleana.Measures, Juleana.Dates,
+                            Juleana.Measurements, Juleana.Distributed, Juleana.ProgressMeter, Juleana.TimerOutputs,
+                            Juleana.ParallelProcessingTools, Juleana.CairoMakie, Juleana.LegendMakie),
+                    :(using Juleana.Measurements: value as mvalue, uncertainty as muncert)))
 end

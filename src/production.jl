@@ -5,8 +5,7 @@ const PRODUCTION_NAME = r"^[a-zA-Z0-9._-]+$"
 const TIER_LABEL = r"^[a-zA-Z0-9_-]+$"
 const BRANCH_NAME = r"^[a-zA-Z0-9._/][a-zA-Z0-9._/-]*$"
 # folders of a new production below `generated/`
-const GENERATED_DIRS = ("tier", "jllog", "jlplt", "jlreport", "jlpar",
-    joinpath("jlpar", "rpars"), joinpath("jlpar", "ppars"))
+const GENERATED_DIRS = ("tier", "jllog", "jlplt", "jlreport", "jlpar", joinpath("jlpar", "rpars"), joinpath("jlpar", "ppars"))
 
 # `git submodule foreach` scripts that check out `branch` in the metadata submodules: the
 # `jldataprod` config and overrides submodules, and all others except those and the
@@ -58,10 +57,10 @@ Base.@kwdef struct ProductionSpec
     name::String
     parent::String
     metadata_url::String = METADATA_URL
-    metadata_ref::Union{Nothing, String} = nothing
-    jldataprod_branch::Union{Nothing, String} = nothing
-    dataprod_branch::Union{Nothing, String} = nothing
-    tier_paths::Vector{Pair{String, String}} = Pair{String, String}[]
+    metadata_ref::Union{Nothing,String} = nothing
+    jldataprod_branch::Union{Nothing,String} = nothing
+    dataprod_branch::Union{Nothing,String} = nothing
+    tier_paths::Vector{Pair{String,String}} = Pair{String,String}[]
     pars::Vector{String} = String[]
     set_default::Bool = false
     copy_software::Bool = true
@@ -71,8 +70,7 @@ end
 
 # The startup file of `shell` in `home`, `nothing` for an unsupported shell.
 function shell_rc_file(shell, home)
-    shell == "bash" ? joinpath(home, ".bashrc") :
-    shell == "zsh" ? joinpath(home, ".zshrc") : nothing
+    return shell == "bash" ? joinpath(home, ".bashrc") : shell == "zsh" ? joinpath(home, ".zshrc") : nothing
 end
 
 """
@@ -89,28 +87,26 @@ shell is `bash` or `zsh`. Throws an `ArgumentError` that names the first problem
 function check_production(spec::ProductionSpec)
     occursin(PRODUCTION_NAME, spec.name) ||
         throw(ArgumentError("the production name $(repr(spec.name)) may contain only letters, digits, '.', '_' and '-'"))
-    isabspath(spec.parent) ||
-        throw(ArgumentError("the production folder must be an absolute path, got $(repr(spec.parent))"))
+    isabspath(spec.parent) || throw(ArgumentError("the production folder must be an absolute path, got $(repr(spec.parent))"))
     path = joinpath(spec.parent, spec.name)
     ispath(path) && throw(ArgumentError("$path exists; remove it or choose another name"))
     for branch in (spec.metadata_ref, spec.jldataprod_branch, spec.dataprod_branch)
-        isnothing(branch) || occursin(BRANCH_NAME, branch) ||
+        isnothing(branch) ||
+            occursin(BRANCH_NAME, branch) ||
             throw(ArgumentError("the branch name $(repr(branch)) may contain only letters, digits, '.', '_', '/' and '-' and may not start with '-'"))
     end
     labels = first.(spec.tier_paths)
-    allunique(labels) ||
-        throw(ArgumentError("tier labels must be unique, got $(join(labels, ", "))"))
+    allunique(labels) || throw(ArgumentError("tier labels must be unique, got $(join(labels, ", "))"))
     for (label, tier) in spec.tier_paths
-        occursin(TIER_LABEL, label) ||
-            throw(ArgumentError("the tier label $(repr(label)) may contain only letters, digits, '_' and '-'"))
+        occursin(TIER_LABEL, label) || throw(ArgumentError("the tier label $(repr(label)) may contain only letters, digits, '_' and '-'"))
         isdir(tier) || throw(ArgumentError("the path $tier of tier $label is not a folder"))
     end
     for pars in spec.pars
         isdir(pars) || throw(ArgumentError("the parameter folder $pars does not exist"))
-        isnothing(pars_subpath(pars)) &&
-            throw(ArgumentError("the parameter folder $pars has no /rpars or /ppars component"))
+        isnothing(pars_subpath(pars)) && throw(ArgumentError("the parameter folder $pars has no /rpars or /ppars component"))
     end
-    spec.set_default && isnothing(shell_rc_file(spec.shell, spec.home)) &&
+    spec.set_default &&
+        isnothing(shell_rc_file(spec.shell, spec.home)) &&
         throw(ArgumentError("cannot set the default production for the shell $(repr(spec.shell)); set LEGEND_DATA_CONFIG by hand"))
     return path
 end
@@ -130,8 +126,7 @@ function run_logged(cmd::Cmd, log)
         log(line)
     end
     wait(process)
-    success(process) ||
-        throw(ErrorException("command failed with exit code $(process.exitcode): $cmd"))
+    success(process) || throw(ErrorException("command failed with exit code $(process.exitcode): $cmd"))
     return nothing
 end
 
@@ -147,8 +142,7 @@ function data_config_text(tier_paths, parent)
     quoted(path) = "'" * replace(path, "'" => "''") * "'"
     prefix = rstrip(parent, '/') * "/"
     tiers = join(("      tier/$label: $(quoted(startswith(path, prefix) ?
-                                             "\$_/../" * path[(length(prefix) + 1):end] : path))\n"
-    for (label, path) in tier_paths))
+                                             "\$_/../" * path[(length(prefix) + 1):end] : path))\n" for (label, path) in tier_paths))
     return """
         setups:
           l200:
@@ -204,17 +198,15 @@ function create_production(spec::ProductionSpec; log = line -> @info(line))
     end
     if !isnothing(spec.jldataprod_branch)
         log("Checking out $(spec.jldataprod_branch) in the jldataprod config and overrides submodules")
-        run_logged(
-            `git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(jldataprod_checkout(spec.jldataprod_branch))`,
-            log)
+        run_logged(`git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(jldataprod_checkout(spec.jldataprod_branch))`,
+                   log)
     end
     if !isnothing(spec.dataprod_branch)
         log("Checking out $(spec.dataprod_branch) in the metadata and its other submodules")
         run_logged(`git -C $metadata checkout $(spec.dataprod_branch)`, log)
         run_logged(`git -C $metadata pull origin $(spec.dataprod_branch)`, log)
-        run_logged(
-            `git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(dataprod_checkout(spec.dataprod_branch))`,
-            log)
+        run_logged(`git -C $metadata -c advice.detachedHead=false submodule foreach --recursive $(dataprod_checkout(spec.dataprod_branch))`,
+                   log)
     end
     foreach(d -> mkpath(joinpath(path, "generated", d)), GENERATED_DIRS)
     log("Created the folders in $(joinpath(path, "generated"))")
@@ -258,9 +250,7 @@ function copy_package_tree(src, dest)
             append!(files, relpath.(joinpath.(root, fs), src))
         end
     else
-        listed = split(
-            read(`git -C $src ls-files -z --cached --others --exclude-standard`, String),
-            '\0'; keepempty = false)
+        listed = split(read(`git -C $src ls-files -z --cached --others --exclude-standard`, String), '\0'; keepempty = false)
         append!(files, filter(f -> isfile(joinpath(src, f)), listed))
     end
     for f in files
@@ -292,12 +282,10 @@ function running_manifest()
         dir = dirname(project)
         for name in ("Manifest-v$(VERSION.major).$(VERSION.minor).toml", "Manifest.toml")
             manifest = joinpath(dir, name)
-            isfile(manifest) &&
-                haskey(get(TOML.parsefile(manifest), "deps", Dict()), "Juleana") &&
-                return manifest
+            isfile(manifest) && haskey(get(TOML.parsefile(manifest), "deps", Dict()), "Juleana") && return manifest
         end
     end
-    throw(ErrorException("running_manifest: no environment of the load path has Juleana in its manifest"))
+    return throw(ErrorException("running_manifest: no environment of the load path has Juleana in its manifest"))
 end
 
 """
@@ -325,86 +313,70 @@ with `Pkg.Apps.develop(path = "<dest>/Juleana.jl")`:
 
 Returns `dest`. Throws if `dest` exists.
 """
-function snapshot_software(
-        dest::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana),
-        log = line -> @info(line))
+function snapshot_software(dest::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana), log = line -> @info(line))
     ispath(dest) && throw(ArgumentError("snapshot_software: $dest exists"))
     data = TOML.parsefile(manifest)
     deps = data["deps"]
-    copies = Pair{String, String}["Juleana" => source]
+    copies = Pair{String,String}["Juleana" => source]
     for (name, entries) in deps, entry in entries
 
         name != "Juleana" && haskey(entry, "path") || continue
         path = entry["path"]
-        push!(copies, name =>
-            (isabspath(path) ? path : normpath(joinpath(dirname(manifest), path))))
+        push!(copies, name => (isabspath(path) ? path : normpath(joinpath(dirname(manifest), path))))
     end
     created = Dates.format(now(UTC), HISTORY_TIME_FORMAT)
     user, host = get(ENV, "USER", "unknown"), gethostname()
-    lines = ["# Software of this production", "",
-        "Copied $created UTC by $user@$host with Julia $VERSION.", "",
-        "| Package | Source | Commit | Uncommitted changes |", "|---|---|---|---|"]
-    states = Dict{String, Any}()
+    lines = ["# Software of this production", "", "Copied $created UTC by $user@$host with Julia $VERSION.", "",
+             "| Package | Source | Commit | Uncommitted changes |", "|---|---|---|---|"]
+    states = Dict{String,Any}()
     for (name, path) in copies
         target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
         copy_package_tree(path, target)
         state = git_state(path)
         states[name] = state
         push!(lines,
-            "| $name | $path | $(isnothing(state) ? "–" : state.commit) | $(isnothing(state) ? "–" : state.modified ? "yes" : "no") |")
+              "| $name | $path | $(isnothing(state) ? "–" : state.commit) | $(isnothing(state) ? "–" : state.modified ? "yes" : "no") |")
         log("Copied $name from $path to $target")
     end
     for (name, entries) in deps, entry in entries
 
         if name == "Juleana"
-            foreach(k -> delete!(entry, k), (
-                "git-tree-sha1", "repo-url", "repo-rev", "repo-subdir"))
+            foreach(k -> delete!(entry, k), ("git-tree-sha1", "repo-url", "repo-rev", "repo-subdir"))
             entry["path"] = "."
         elseif haskey(entry, "path")
             entry["path"] = "../$name"
         end
     end
     open(io -> TOML.print(io, data; sorted = true), joinpath(dest, "Juleana.jl", "Manifest.toml"), "w")
-    packages = Dict{String, Any}()
+    packages = Dict{String,Any}()
     for (name, path) in copies
         target = joinpath(dest, name == "Juleana" ? "Juleana.jl" : name)
         state = states[name]
-        message = "Snapshot of $path" * (isnothing(state) ? " (not a git checkout)" :
-                   " at $(state.commit)" *
-                   (state.modified ? " with uncommitted changes" : ""))
+        message = "Snapshot of $path" *
+                  (isnothing(state) ? " (not a git checkout)" : " at $(state.commit)" * (state.modified ? " with uncommitted changes" : ""))
         # `Manifest.toml` is ignored by the `.gitignore` of a package
         run_logged(`git -C $target init -q -b main`, log)
         run_logged(`git -C $target add -A --force`, log)
-        run_logged(
-            `git -C $target -c user.name=Juleana -c user.email=juleana@localhost -c commit.gpgsign=false commit -q -m $message`,
-            log)
+        run_logged(`git -C $target -c user.name=Juleana -c user.email=juleana@localhost -c commit.gpgsign=false commit -q -m $message`, log)
         tree = strip(read(`git -C $target rev-parse $("HEAD^{tree}")`, String))
-        packages[name] = Dict{String, Any}("source" => path, "tree" => tree)
-        isnothing(state) || merge!(packages[name],
-            Dict{String, Any}("commit" => state.commit, "modified" => state.modified))
+        packages[name] = Dict{String,Any}("source" => path, "tree" => tree)
+        isnothing(state) || merge!(packages[name], Dict{String,Any}("commit" => state.commit, "modified" => state.modified))
     end
-    trees = join(("$name=$(packages[name]["tree"])\n"
-    for name in sort!(collect(keys(packages)))))
-    fingerprint = strip(read(
-        pipeline(`git hash-object --stdin`; stdin = IOBuffer("julia=$VERSION\n" * trees)), String))
+    trees = join(("$name=$(packages[name]["tree"])\n" for name in sort!(collect(keys(packages)))))
+    fingerprint = strip(read(pipeline(`git hash-object --stdin`; stdin = IOBuffer("julia=$VERSION\n" * trees)), String))
     open(joinpath(dest, "SNAPSHOT.toml"), "w") do io
-        TOML.print(io,
-            Dict{String, Any}("created" => created, "user" => user, "host" => host,
-                "julia" => string(VERSION), "fingerprint" => fingerprint, "packages" =>
-                    packages);
-            sorted = true)
+        return TOML.print(io,
+                          Dict{String,Any}("created" => created, "user" => user, "host" => host, "julia" => string(VERSION),
+                                           "fingerprint" => fingerprint, "packages" => packages); sorted = true)
     end
     append!(lines,
-        ["", "## Reproducing", "",
-            "In this folder, install the packages from the manifest and run Juleana from the copy:",
-            "", "```", "cd <this folder>/Juleana.jl",
-            "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
-            "export LEGEND_DATA_CONFIG=<data config of the production>",
-            "julia --project=. -m Juleana --no-tui ...", "```", "",
-            "Every package folder is a git repository with one commit. `Pkg.develop(path = \"<this folder>/Juleana.jl\")` " *
-            "and `Pkg.add(path = \"<this folder>/Juleana.jl\")` install the copy as well; `add` installs the committed tree. " *
-            "`Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")` replaces the globally installed `juleana` app.",
-            "", "`SNAPSHOT.toml` holds the same information in machine-readable form."])
+            ["", "## Reproducing", "", "In this folder, install the packages from the manifest and run Juleana from the copy:", "", "```",
+             "cd <this folder>/Juleana.jl", "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
+             "export LEGEND_DATA_CONFIG=<data config of the production>", "julia --project=. -m Juleana --no-tui ...", "```", "",
+             "Every package folder is a git repository with one commit. `Pkg.develop(path = \"<this folder>/Juleana.jl\")` " *
+             "and `Pkg.add(path = \"<this folder>/Juleana.jl\")` install the copy as well; `add` installs the committed tree. " *
+             "`Pkg.Apps.develop(path = \"<this folder>/Juleana.jl\")` replaces the globally installed `juleana` app.", "",
+             "`SNAPSHOT.toml` holds the same information in machine-readable form."])
     write(joinpath(dest, "PROVENANCE.md"), join(lines, "\n") * "\n")
     log("Wrote $(joinpath(dest, "PROVENANCE.md"))")
     return dest
@@ -423,9 +395,7 @@ becomes the subfolder `<yyyy-mm-ddTHHMMSSZ>-<short Juleana commit>`, with `-modi
 appended if Juleana had uncommitted changes, and `nogit` instead of the commit if it is not
 a git checkout. Throws if a step fails.
 """
-function record_software(
-        root::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana),
-        log = line -> @info(line))
+function record_software(root::AbstractString; manifest = running_manifest(), source = pkgdir(Juleana), log = line -> @info(line))
     software = mkpath(joinpath(root, "setup", "software"))
     fresh = joinpath(software, ".new-" * string(uuid4()))
     try
@@ -438,14 +408,14 @@ function record_software(
     for sub in readdir(software)
         startswith(sub, ".new-") && continue
         file = joinpath(software, sub, "SNAPSHOT.toml")
-        isfile(file) && TOML.parsefile(file)["fingerprint"] == snapshot["fingerprint"] ||
-            continue
+        isfile(file) && TOML.parsefile(file)["fingerprint"] == snapshot["fingerprint"] || continue
         rm(fresh; recursive = true)
         log("The software is already recorded in $(joinpath(software, sub))")
         return sub
     end
     juleana = snapshot["packages"]["Juleana"]
-    name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") * "Z-" *
+    name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") *
+           "Z-" *
            (haskey(juleana, "commit") ? first(juleana["commit"], 7) : "nogit") *
            (get(juleana, "modified", false) ? "-modified" : "")
     mv(fresh, joinpath(software, name))
@@ -463,10 +433,8 @@ has uncommitted changes, the Julia version, and with `snapshot`, the name of a s
 """
 function software_version(snapshot = nothing)
     state = git_state(pkgdir(Juleana))
-    checkout = isnothing(state) ? "" :
-               " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
-    return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION" *
-           (isnothing(snapshot) ? "" : ", snapshot setup/software/$snapshot")
+    checkout = isnothing(state) ? "" : " (" * first(state.commit, 7) * (state.modified ? ", modified" : "") * ")"
+    return "Juleana $(pkgversion(Juleana))$checkout, Julia $VERSION" * (isnothing(snapshot) ? "" : ", snapshot setup/software/$snapshot")
 end
 
 # Untracked files of the metadata up to this size are copied into its record; larger ones
@@ -479,10 +447,10 @@ git_read(dir, args...) = read(`git --no-optional-locks -C $dir $args`, String)
 
 # Hash git gives the contents of the file `path` or of `io` as a blob; nothing is written.
 function git_hash(path::AbstractString)
-    String(strip(read(`git hash-object --no-filters -- $path`, String)))
+    return String(strip(read(`git hash-object --no-filters -- $path`, String)))
 end
 function git_hash(io::IO)
-    String(strip(read(pipeline(`git hash-object --stdin`; stdin = io), String)))
+    return String(strip(read(pipeline(`git hash-object --stdin`; stdin = io), String)))
 end
 
 # Path of the file of the repository `repo` (`"."` for the metadata itself) in a folder of a
@@ -495,18 +463,16 @@ record_subpath(repo) = repo == "." ? "root" : repo
 # from the commit its superproject records; an uninitialized submodule has only that
 # recorded `commit`.
 function metadata_state(metadata)
-    isdir(joinpath(metadata, ".git")) || isfile(joinpath(metadata, ".git")) ||
+    isdir(joinpath(metadata, ".git")) ||
+        isfile(joinpath(metadata, ".git")) ||
         throw(ArgumentError("record_metadata: the metadata $metadata is not a git checkout"))
-    repos = Dict{String, Any}("." => Dict{String, Any}())
+    repos = Dict{String,Any}("." => Dict{String,Any}())
     status = git_read(metadata, "submodule", "status", "--recursive")
     for line in eachline(IOBuffer(status))
         m = match(r"^([ +\-U])([0-9a-f]+) (\S+)", line)
-        isnothing(m) &&
-            throw(ErrorException("record_metadata: unexpected `git submodule status` line $(repr(line))"))
-        repos[String(m[3])] = m[1] == "-" ?
-                              Dict{String, Any}("commit" => String(m[2]), "initialized" =>
-            false) :
-                              Dict{String, Any}("moved" => m[1] != " ")
+        isnothing(m) && throw(ErrorException("record_metadata: unexpected `git submodule status` line $(repr(line))"))
+        repos[String(m[3])] = m[1] == "-" ? Dict{String,Any}("commit" => String(m[2]), "initialized" => false) :
+                              Dict{String,Any}("moved" => m[1] != " ")
     end
     for (repo, state) in repos
         get(state, "initialized", true) || continue
@@ -514,16 +480,12 @@ function metadata_state(metadata)
         state["commit"] = String(strip(git_read(dir, "rev-parse", "HEAD")))
         branch = String(strip(git_read(dir, "rev-parse", "--abbrev-ref", "HEAD")))
         branch == "HEAD" || (state["branch"] = branch)
-        remote = String(strip(read(
-            ignorestatus(`git -C $dir config --get remote.origin.url`), String)))
+        remote = String(strip(read(ignorestatus(`git -C $dir config --get remote.origin.url`), String)))
         isempty(remote) || (state["remote"] = remote)
         state["diff"] = git_read(dir, "diff", "--binary", "--ignore-submodules=all", "HEAD")
-        state["untracked"] = [Dict{String, Any}(
-                                  "path" => String(f), "hash" => git_hash(joinpath(dir, f)),
-                                  "size" => filesize(joinpath(dir, f)))
-                              for f in split(
-            git_read(dir, "ls-files", "-z", "--others", "--exclude-standard"),
-            '\0'; keepempty = false)]
+        state["untracked"] = [Dict{String,Any}("path" => String(f), "hash" => git_hash(joinpath(dir, f)),
+                                               "size" => filesize(joinpath(dir, f)))
+                              for f in split(git_read(dir, "ls-files", "-z", "--others", "--exclude-standard"), '\0'; keepempty = false)]
     end
     return repos
 end
@@ -558,21 +520,17 @@ returned. Otherwise the record becomes the subfolder `<yyyy-mm-ddTHHMMSSZ>-<shor
 metadata>`, with `-modified` appended if a repository has uncommitted changes or untracked
 files, or a submodule is not at the commit its superproject records.
 """
-function record_metadata(root::AbstractString, metadata::AbstractString;
-        configs = String[], log = line -> @info(line))
+function record_metadata(root::AbstractString, metadata::AbstractString; configs = String[], log = line -> @info(line))
     repos = metadata_state(metadata)
     for s in values(repos)
-        s["modified"] = get(s, "moved", false) || !isempty(get(s, "diff", "")) ||
-                        !isempty(get(s, "untracked", []))
+        s["modified"] = get(s, "moved", false) || !isempty(get(s, "diff", "")) || !isempty(get(s, "untracked", []))
     end
-    config_entries = [Dict{String, Any}("source" => abspath(c),
-                          "file" => "$i-$(basename(c))", "hash" => git_hash(c))
+    config_entries = [Dict{String,Any}("source" => abspath(c), "file" => "$i-$(basename(c))", "hash" => git_hash(c))
                       for (i, c) in pairs(configs)]
     io = IOBuffer()
     for repo in sort!(collect(keys(repos)))
         s = repos[repo]
-        println(io, "repo=", repo, " commit=", s["commit"], " diff=",
-            git_hash(IOBuffer(get(s, "diff", ""))))
+        println(io, "repo=", repo, " commit=", s["commit"], " diff=", git_hash(IOBuffer(get(s, "diff", ""))))
         for u in get(s, "untracked", [])
             println(io, "untracked=", repo, "/", u["path"], " ", u["hash"])
         end
@@ -591,12 +549,10 @@ function record_metadata(root::AbstractString, metadata::AbstractString;
     fresh = joinpath(records, ".new-" * string(uuid4()))
     created = Dates.format(now(UTC), HISTORY_TIME_FORMAT)
     user, host = get(ENV, "USER", "unknown"), gethostname()
-    entries = Dict{String, Any}()
+    entries = Dict{String,Any}()
     try
         for (repo, s) in repos
-            entry = Dict{String, Any}(k => s[k]
-            for k in ("commit", "branch", "remote", "initialized", "moved", "modified")
-            if haskey(s, k))
+            entry = Dict{String,Any}(k => s[k] for k in ("commit", "branch", "remote", "initialized", "moved", "modified") if haskey(s, k))
             if get(s, "initialized", true)
                 if !isempty(s["diff"])
                     entry["patch"] = "patches/$(record_subpath(repo)).patch"
@@ -619,19 +575,18 @@ function record_metadata(root::AbstractString, metadata::AbstractString;
             cp(c, joinpath(mkpath(joinpath(fresh, "config")), entry["file"]))
         end
         open(joinpath(fresh, "METADATA.toml"), "w") do io
-            TOML.print(io,
-                Dict{String, Any}("created" => created, "user" => user, "host" => host,
-                    "metadata" => abspath(metadata), "fingerprint" => fingerprint,
-                    "repos" => entries, "configs" => config_entries);
-                sorted = true)
+            return TOML.print(io,
+                              Dict{String,Any}("created" => created, "user" => user, "host" => host, "metadata" => abspath(metadata),
+                                               "fingerprint" => fingerprint, "repos" => entries, "configs" => config_entries);
+                              sorted = true)
         end
-        write(joinpath(fresh, "PROVENANCE.md"),
-            metadata_provenance(metadata, entries, config_entries, created, user, host))
+        write(joinpath(fresh, "PROVENANCE.md"), metadata_provenance(metadata, entries, config_entries, created, user, host))
     catch
         rm(fresh; recursive = true, force = true)
         rethrow()
     end
-    name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") * "Z-" *
+    name = Dates.format(now(UTC), dateformat"yyyy-mm-ddTHHMMSS") *
+           "Z-" *
            first(repos["."]["commit"], 7) *
            (any(s -> get(s, "modified", false), values(repos)) ? "-modified" : "")
     mv(fresh, joinpath(records, name))
@@ -641,27 +596,18 @@ end
 
 # Text of the `PROVENANCE.md` of a metadata record.
 function metadata_provenance(metadata, entries, configs, created, user, host)
-    lines = ["# Metadata of this production", "",
-        "Recorded $created UTC by $user@$host from `$(abspath(metadata))`.", "",
-        "| Repository | Commit | Branch | Uncommitted changes |", "|---|---|---|---|"]
+    lines = ["# Metadata of this production", "", "Recorded $created UTC by $user@$host from `$(abspath(metadata))`.", "",
+             "| Repository | Commit | Branch | Uncommitted changes |", "|---|---|---|---|"]
     repos = sort!(collect(keys(entries)))
     for repo in repos
         e = entries[repo]
-        changes = !get(e, "initialized", true) ? "not checked out" :
-                  e["modified"] ? "yes" : "no"
-        push!(lines,
-            "| $repo | $(e["commit"]) | $(get(e, "branch", "–")) | $changes |")
+        changes = !get(e, "initialized", true) ? "not checked out" : e["modified"] ? "yes" : "no"
+        push!(lines, "| $repo | $(e["commit"]) | $(get(e, "branch", "–")) | $changes |")
     end
-    large = [(repo, u) for repo in repos
-             for u in get(entries[repo], "untracked", [])
-             if !u["copied"]]
+    large = [(repo, u) for repo in repos for u in get(entries[repo], "untracked", []) if !u["copied"]]
     if !isempty(large)
-        append!(lines,
-            ["",
-                "Untracked files larger than $(METADATA_COPY_LIMIT ÷ 1_000_000) MB, recorded by their git hash only:",
-                ""])
-        append!(lines, ["- `$repo/$(u["path"])` ($(u["size"]) bytes, $(u["hash"]))"
-                        for (repo, u) in large])
+        append!(lines, ["", "Untracked files larger than $(METADATA_COPY_LIMIT ÷ 1_000_000) MB, recorded by their git hash only:", ""])
+        append!(lines, ["- `$repo/$(u["path"])` ($(u["size"]) bytes, $(u["hash"]))" for (repo, u) in large])
     end
     if !isempty(configs)
         append!(lines, ["", "Config files, copied to `config/`:", ""])
@@ -669,22 +615,18 @@ function metadata_provenance(metadata, entries, configs, created, user, host)
     end
     root = entries["."]
     append!(lines,
-        ["", "## Restoring", "",
-            "Clone the metadata, check out the recorded commits and apply the uncommitted changes " *
-            "(`<record>` is this folder):", "", "```",
-            "git clone $(get(root, "remote", "<remote>")) legend-metadata", "cd legend-metadata",
-            "git checkout $(root["commit"])", "git submodule update --init --recursive"])
+            ["", "## Restoring", "",
+             "Clone the metadata, check out the recorded commits and apply the uncommitted changes " * "(`<record>` is this folder):", "",
+             "```", "git clone $(get(root, "remote", "<remote>")) legend-metadata", "cd legend-metadata", "git checkout $(root["commit"])",
+             "git submodule update --init --recursive"])
     for repo in repos
-        get(entries[repo], "moved", false) &&
-            push!(lines, "git -C $repo checkout $(entries[repo]["commit"])")
+        get(entries[repo], "moved", false) && push!(lines, "git -C $repo checkout $(entries[repo]["commit"])")
     end
     for repo in repos
         e = entries[repo]
         haskey(e, "patch") && push!(lines, "git -C $repo apply <record>/$(e["patch"])")
-        any(u -> u["copied"], get(e, "untracked", [])) &&
-            push!(lines, "cp -R <record>/untracked/$(record_subpath(repo))/. $repo/")
+        any(u -> u["copied"], get(e, "untracked", [])) && push!(lines, "cp -R <record>/untracked/$(record_subpath(repo))/. $repo/")
     end
-    append!(lines, [
-        "```", "", "`METADATA.toml` holds the same information in machine-readable form."])
+    append!(lines, ["```", "", "`METADATA.toml` holds the same information in machine-readable form."])
     return join(lines, "\n") * "\n"
 end

@@ -8,7 +8,7 @@ names are the keys of the `processors` and `p_processors` tables of a processing
 config. Every file in `src/processors/` adds its processor with
 [`register_processor!`](@ref) when the module is defined.
 """
-const PROCESSORS = Dict{Symbol, Function}()
+const PROCESSORS = Dict{Symbol,Function}()
 
 """
     register_processor!(f; output_tiers = Symbol[], detector_selection::Bool = true)
@@ -22,11 +22,9 @@ registered.
 """
 function register_processor!(f; output_tiers = Symbol[], detector_selection::Bool = true)
     name = nameof(f)
-    haskey(PROCESSORS, name) &&
-        throw(ArgumentError("register_processor!: processor `$name` is already registered"))
+    haskey(PROCESSORS, name) && throw(ArgumentError("register_processor!: processor `$name` is already registered"))
     PROCESSORS[name] = f
-    PROCESSOR_TRAITS[name] = (
-        output_tiers = Symbol.(collect(output_tiers)), detector_selection)
+    PROCESSOR_TRAITS[name] = (output_tiers = Symbol.(collect(output_tiers)), detector_selection)
     return f
 end
 
@@ -46,7 +44,6 @@ end
 # The LegendDSP function `name` that the dataprod config key `config_key` selects.
 function legend_dsp_function(name, config_key::AbstractString)
     sym = Symbol(name)
-    isdefined(LegendDSP, sym) ||
-        throw(ArgumentError("dataprod config key `$config_key` selects `$sym`, which LegendDSP does not define"))
+    isdefined(LegendDSP, sym) || throw(ArgumentError("dataprod config key `$config_key` selects `$sym`, which LegendDSP does not define"))
     return getglobal(LegendDSP, sym)
 end

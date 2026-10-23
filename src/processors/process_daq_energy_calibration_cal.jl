@@ -27,9 +27,8 @@ instead.
 # Returns
 Return `nothing`.
 """
-function process_daq_energy_calibration_cal(
-        processing_config, l200::LegendData, period::DataPeriod,
-        run::DataRun; reprocess::Bool = false, timeout::Real = 0)
+function process_daq_energy_calibration_cal(processing_config, l200::LegendData, period::DataPeriod, run::DataRun; reprocess::Bool = false,
+                                            timeout::Real = 0)
     @info "Process DAQ energy calibration for period $period and run $run"
 
     filekey = start_filekey(l200, (period, run, :cal))
@@ -41,8 +40,7 @@ function process_daq_energy_calibration_cal(
     raw_config = dataprod_config(l200).raw(filekey)
     @debug "Loaded raw config: $(lstring(raw_config))"
 
-    filekeys = filter(!in(bad_filekeys(l200; load_key = :unprocessable)),
-        only(runinfo(l200, (period, run, :cal)).keys))
+    filekeys = filter(!in(bad_filekeys(l200; load_key = :unprocessable)), only(runinfo(l200, (period, run, :cal)).keys))
     isempty(filekeys) && error("No cal filekeys of period $period run $run in the runinfo")
     @info "Found $(length(filekeys)) cal filekeys"
 
@@ -56,8 +54,7 @@ function process_daq_energy_calibration_cal(
     end
 
     # create log line Tuple
-    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Cal. Constant"),
-        Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
+    log_nt = NamedTuple{(:Detector, :usability, :Status, Symbol("Cal. Constant"), Symbol("Total Time"), Symbol("Total Allocated"), :Error)}
 
     # flush stdout
     flush(stdout)
@@ -70,8 +67,8 @@ function process_daq_energy_calibration_cal(
 
         if !reprocess && !redo_detector(det) && haskey(pars_db, det)
             @debug "Detector $det already processed, skip"
-            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1),
-                pars_db[det].c, "0", "0", "Already processed --> skipped."))
+            log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), pars_db[det].c, "0", "0",
+                              "Already processed --> skipped."))
             return (processed = false, log = log_det)
         end
 
@@ -86,35 +83,30 @@ function process_daq_energy_calibration_cal(
             end
             try
                 @info "Auto calibrating $det ($ch)"
-                result_autocal, report_autocal = autocal_energy(
-                    e_daq, raw_config_det.th228_cal_lines; mode = :ratio,
-                    min_e = raw_config_det.min_e, max_e = raw_config_det.max_e,
-                    max_e_binning_quantile = raw_config_det.max_e_binning_quantile,
-                    σ = raw_config_det.σ, threshold = raw_config_det.threshold,
-                    min_n_peaks = raw_config_det.min_n_peaks,
-                    max_n_peaks = raw_config_det.max_n_peaks, α = raw_config_det.α, rtol = raw_config_det.rtol)
-                p = LegendMakie.lplot(
-                    report_autocal, raw_config_det.th228_cal_lines, figsize = (650, 400),
-                    title = get_plottitle(filekey, det, "Calibrated DAQ Online Energy"))
+                result_autocal, report_autocal = autocal_energy(e_daq, raw_config_det.th228_cal_lines; mode = :ratio,
+                                                                min_e = raw_config_det.min_e, max_e = raw_config_det.max_e,
+                                                                max_e_binning_quantile = raw_config_det.max_e_binning_quantile,
+                                                                σ = raw_config_det.σ, threshold = raw_config_det.threshold,
+                                                                min_n_peaks = raw_config_det.min_n_peaks,
+                                                                max_n_peaks = raw_config_det.max_n_peaks, α = raw_config_det.α,
+                                                                rtol = raw_config_det.rtol)
+                p = LegendMakie.lplot(report_autocal, raw_config_det.th228_cal_lines, figsize = (650, 400),
+                                      title = get_plottitle(filekey, det, "Calibrated DAQ Online Energy"))
                 save_plot(p, l200, filekey, det, :daq_energy)
             catch e
                 @error "Error in DAQ energy calibration for detector $det: $(truncate_error(e))"
                 binwidth = 8 * 15
-                edges = range(0; step = binwidth, length = max(2, floor(Int, maximum(e_daq) /
-                                                                             binwidth) + 2))
+                edges = range(0; step = binwidth, length = max(2, floor(Int, maximum(e_daq) / binwidth) + 2))
                 hist = StatsBase.fit(StatsBase.Histogram, e_daq, edges)
                 fig = Makie.Figure(size = (650, 400))
-                ax = Makie.Axis(fig[1, 1], xlabel = "Energy (ADC)",
-                    ylabel = "Counts / $binwidth ADC", yscale = log10,
-                    limits = (extrema(edges), (0.9, max(1, maximum(hist.weights)) * 1.2)),
-                    title = get_plottitle(filekey, det, "Failed DAQ Calibration: Uncalibrated Spectrum"))
-                Makie.stephist!(ax, StatsBase.midpoints(edges),
-                    weights = replace(hist.weights, 0 => 1e-10),
-                    bins = edges, color = LegendMakie.BEGeOrange)
+                ax = Makie.Axis(fig[1, 1], xlabel = "Energy (ADC)", ylabel = "Counts / $binwidth ADC", yscale = log10,
+                                limits = (extrema(edges), (0.9, max(1, maximum(hist.weights)) * 1.2)),
+                                title = get_plottitle(filekey, det, "Failed DAQ Calibration: Uncalibrated Spectrum"))
+                Makie.stephist!(ax, StatsBase.midpoints(edges), weights = replace(hist.weights, 0 => 1e-10), bins = edges,
+                                color = LegendMakie.BEGeOrange)
                 LegendMakie.add_watermarks!(final = true)
                 save_plot(fig, l200, filekey, det, :daq_energy_failed)
-                log_det = log_nt((det, detector_status(chinfo_det.usability),
-                    ProcessStatus(0), "-", "-", "-", truncate_error(e)))
+                log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(0), "-", "-", "-", truncate_error(e)))
                 return (processed = false, log = log_det)
             end
         end
@@ -122,10 +114,8 @@ function process_daq_energy_calibration_cal(
 
         total_time = canonicalize(Dates.Nanosecond(TimerOutputs.tottime(calibration_timer)))
         total_allocated = Base.format_bytes(TimerOutputs.totallocated(calibration_timer))
-        calibration = (c = result_autocal.c * u"keV",
-            func = "$(repr(result_autocal.c)) * daqenergy * keV")
-        log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1),
-            calibration.c, "$total_time", total_allocated, ""))
+        calibration = (c = result_autocal.c * u"keV", func = "$(repr(result_autocal.c)) * daqenergy * keV")
+        log_det = log_nt((det, detector_status(chinfo_det.usability), ProcessStatus(1), calibration.c, "$total_time", total_allocated, ""))
         @info "Finished processing detector $det ($ch) in $total_time"
 
         return (result = calibration, processed = true, log = log_det)
@@ -134,9 +124,8 @@ function process_daq_energy_calibration_cal(
     # get start time
     start_time = now()
 
-    result_calib = parallel(
-        calibrate_det, chinfo, log_nt; timeout = timeout, retry = false,
-        process_name = "$period-$run-process_daq_energy_calibration_cal")
+    result_calib = parallel(calibrate_det, chinfo, log_nt; timeout = timeout, retry = false,
+                            process_name = "$period-$run-process_daq_energy_calibration_cal")
 
     @info "Finished DAQ energy calibration"
 
@@ -162,7 +151,7 @@ function process_daq_energy_calibration_cal(
     @info report
 
     # flush stdout
-    flush(stdout)
+    return flush(stdout)
 end
 
 register_processor!(process_daq_energy_calibration_cal)

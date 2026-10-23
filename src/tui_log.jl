@@ -4,8 +4,7 @@
 const LOG_WHEEL_LINES = 3
 
 # Title and minimum level of each setting of the level filter, in the order of `l`.
-const LOG_PAGE_LEVELS = (
-    ("all", Logging.Info), ("warnings", Logging.Warn), ("errors", Logging.Error))
+const LOG_PAGE_LEVELS = (("all", Logging.Info), ("warnings", Logging.Warn), ("errors", Logging.Error))
 
 """
     LogPage()
@@ -47,8 +46,7 @@ function shown_entries(page::LogPage, entries)
         while j < lastindex(entries) && entries[j + 1].record == entries[i].record
             j += 1
         end
-        if entries[i].level >= page.min_level &&
-           (isempty(needle) || any(k -> occursin(needle, lowercase(entries[k].text)), i:j))
+        if entries[i].level >= page.min_level && (isempty(needle) || any(k -> occursin(needle, lowercase(entries[k].text)), i:j))
             append!(shown, i:j)
         end
         i = j + 1
@@ -138,11 +136,9 @@ following off while the pointer is inside the block of the last render. Return `
 the event was used.
 """
 function log_mouse!(page::LogPage, evt::Tachikoma.MouseEvent, entries)::Bool
-    if evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) &&
-       evt.action == Tachikoma.mouse_press
+    if evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) && evt.action == Tachikoma.mouse_press
         Base.contains(page.rect, evt.x, evt.y) || return false
-        scroll_log!(page, entries, evt.button == Tachikoma.mouse_scroll_up ?
-                                   -LOG_WHEEL_LINES : LOG_WHEEL_LINES)
+        scroll_log!(page, entries, evt.button == Tachikoma.mouse_scroll_up ? -LOG_WHEEL_LINES : LOG_WHEEL_LINES)
         return true
     end
     return false
@@ -152,17 +148,15 @@ end
 # contain the lowercase filter text `needle` highlighted.
 function log_line_spans(text::AbstractString, level::LogLevel, needle::AbstractString)
     color = level >= Logging.Error ? :error : level >= Logging.Warn ? :warning : :text
-    base, dim, hit = Tachikoma.tstyle(color), Tachikoma.tstyle(:text_dim),
-    Tachikoma.tstyle(:accent, bold = true)
+    base, dim, hit = Tachikoma.tstyle(color), Tachikoma.tstyle(:text_dim), Tachikoma.tstyle(:accent, bold = true)
     stamp = occursin(r"^\d\d:\d\d:\d\d", text) ? 8 : 0
     lower = lowercase(text)
     # a lowercase form of another length cannot be matched by position
-    hits = isempty(needle) || ncodeunits(lower) != ncodeunits(text) ? UnitRange{Int}[] :
-           findall(needle, lower)
-    spans = Tuple{String, Tachikoma.Style}[]
+    hits = isempty(needle) || ncodeunits(lower) != ncodeunits(text) ? UnitRange{Int}[] : findall(needle, lower)
+    spans = Tuple{String,Tachikoma.Style}[]
     function plain!(a, b)
         a <= min(b, stamp) && push!(spans, (text[a:min(b, stamp)], dim))
-        max(a, stamp + 1) <= b && push!(spans, (text[max(a, stamp + 1):b], base))
+        return max(a, stamp + 1) <= b && push!(spans, (text[max(a, stamp + 1):b], base))
     end
     pos = 1
     for r in hits
@@ -187,14 +181,13 @@ follows, the last lines are displayed. Long lines are cut at the edge of the blo
 If `entries` holds `capacity` lines, older lines were dropped, and the bottom line points
 to the log file of this process in the directory `log_path` (if not `nothing`).
 """
-function render_log(page::LogPage, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
-        capacity::Integer = typemax(Int), log_path = nothing)
+function render_log(page::LogPage, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer; capacity::Integer = typemax(Int),
+                    log_path = nothing)
     page.rect = area
     page.height = 1
     level_name = LOG_PAGE_LEVELS[something(findfirst(l -> l[2] == page.min_level, LOG_PAGE_LEVELS), 1)][1]
     title = "Log  ($level_name)" *
-            (page.editing || !isempty(page.filter) ?
-             "  filter: " * page.filter * (page.editing ? "▏" : "") : "") *
+            (page.editing || !isempty(page.filter) ? "  filter: " * page.filter * (page.editing ? "▏" : "") : "") *
             (page.follow ? "  (following)" : "")
     (area.width < 3 || area.height < 3) && return nothing
     inner = Tachikoma.render(pane_block(clip_text(title, max(0, area.width - 6)), true), area, buf)
@@ -207,21 +200,17 @@ function render_log(page::LogPage, entries, area::Tachikoma.Rect, buf::Tachikoma
     shown = shown_entries(page, entries)
     height = max(1, inner.height - 1)
     page.height = height
-    page.top = page.follow ? last_top(length(shown), height) :
-               clamp(page.top, 1, last_top(length(shown), height))
+    page.top = page.follow ? last_top(length(shown), height) : clamp(page.top, 1, last_top(length(shown), height))
     needle = lowercase(page.filter)
     for r in 0:(height - 1)
         i = page.top + r
         i <= length(shown) || break
         e = entries[shown[i]]
-        put_spans!(
-            buf, inner.x, inner.y + r, x_max, log_line_spans(e.text, e.level, needle))
+        put_spans!(buf, inner.x, inner.y + r, x_max, log_line_spans(e.text, e.level, needle))
     end
     inner.height >= 2 || return nothing
     status = "$(length(shown)) of $(length(entries)) lines"
-    length(entries) >= capacity && (status *= "  older lines in " *
-               (isnothing(log_path) ? "head.log" : process_log_file(log_path)))
-    Tachikoma.set_string!(buf, inner.x, Tachikoma.bottom(inner),
-        clip_text(status, inner.width), dim; max_x = x_max)
+    length(entries) >= capacity && (status *= "  older lines in " * (isnothing(log_path) ? "head.log" : process_log_file(log_path)))
+    Tachikoma.set_string!(buf, inner.x, Tachikoma.bottom(inner), clip_text(status, inner.width), dim; max_x = x_max)
     return nothing
 end

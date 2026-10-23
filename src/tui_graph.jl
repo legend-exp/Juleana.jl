@@ -3,8 +3,7 @@
 # Direction bits of a cell of the line drawing, and the box character of each combination
 # (indexed by the bits plus one).
 const DIR_N, DIR_S, DIR_E, DIR_W = 0x01, 0x02, 0x04, 0x08
-const BOX_CHARS = (
-    ' ', '│', '│', '│', '─', '└', '┌', '├', '─', '┘', '┐', '┤', '─', '┴', '┬', '┼')
+const BOX_CHARS = (' ', '│', '│', '│', '─', '└', '┌', '├', '─', '┘', '┐', '┤', '─', '┴', '┬', '┼')
 
 # Width of the checkbox and the state icon after a processor name: ` [x] ✓`.
 const GRAPH_DECOR = 6
@@ -28,7 +27,7 @@ rows change. The graph is rebuilt only when the names, levels, ranks or dependen
 processors change.
 """
 mutable struct GraphPage
-    cursor::Union{Nothing, Symbol}
+    cursor::Union{Nothing,Symbol}
     # row index of the cursor at the last use, the fallback when the cursor row vanishes
     index::Int
     # index of the first displayed row
@@ -46,8 +45,7 @@ mutable struct GraphPage
 end
 
 function GraphPage()
-    GraphPage(nothing, 1, 1, 1, true, false, nothing,
-        Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
+    return GraphPage(nothing, 1, 1, 1, true, false, nothing, Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0))
 end
 
 # The `ProcessorGraph` of the processors in `snap`, rebuilt when their layout changed.
@@ -63,9 +61,7 @@ end
 function graph_rows(page::GraphPage, snap)
     (isnothing(snap) || isempty(snap.processors)) && return Symbol[]
     selected = Set(vcat(snap.run_steps, snap.partition_steps))
-    return [n
-            for n in topological_order(page_graph!(page, snap))
-            if page.show_unselected || n in selected]
+    return [n for n in topological_order(page_graph!(page, snap)) if page.show_unselected || n in selected]
 end
 
 # Index of the cursor row in `rows` (0 if there are none), moving the cursor to the
@@ -86,9 +82,8 @@ end
 
 # The `SelectSteps` command for the processors of `snap` in `chosen`.
 function steps_command(snap, chosen)
-    SelectSteps(
-        [p.name for p in snap.processors if p.level === :run && p.name in chosen],
-        [p.name for p in snap.processors if p.level === :partition && p.name in chosen])
+    return SelectSteps([p.name for p in snap.processors if p.level === :run && p.name in chosen],
+                       [p.name for p in snap.processors if p.level === :partition && p.name in chosen])
 end
 
 """
@@ -114,8 +109,7 @@ function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
     delta = key == :up ? -1 :
             key == :down ? 1 :
             key == :pageup ? -page.height :
-            key == :pagedown ? page.height :
-            key == :home ? -length(rows) : key == :end_key ? length(rows) : nothing
+            key == :pagedown ? page.height : key == :home ? -length(rows) : key == :end_key ? length(rows) : nothing
     if !isnothing(delta)
         move_graph_cursor!(page, rows, idx + delta)
     elseif key == :char && evt.char == 'h'
@@ -131,8 +125,7 @@ function graph_key!(page::GraphPage, evt::Tachikoma.KeyEvent, snap, send)::Bool
         end
     elseif key == :char && evt.char == 'd'
         if idx > 0
-            send(steps_command(snap,
-                required_processors(page_graph!(page, snap), vcat(snap.run_steps, snap.partition_steps))))
+            send(steps_command(snap, required_processors(page_graph!(page, snap), vcat(snap.run_steps, snap.partition_steps))))
         end
     else
         return false
@@ -160,8 +153,7 @@ function graph_mouse!(page::GraphPage, evt::Tachikoma.MouseEvent, snap)::Bool
         Base.contains(page.rect, evt.x, evt.y) || return false
         rows = graph_rows(page, snap)
         idx = sync_graph_cursor!(page, rows)
-        move_graph_cursor!(page, rows, idx +
-                                       (evt.button == Tachikoma.mouse_scroll_up ? -1 : 1))
+        move_graph_cursor!(page, rows, idx + (evt.button == Tachikoma.mouse_scroll_up ? -1 : 1))
         return true
     end
     return false
@@ -177,20 +169,19 @@ function last_run_state(states)
 end
 
 function processor_states(prog)
-    by_name = Dict{Symbol, Vector{Symbol}}()
-    isnothing(prog) && return Dict{Symbol, Symbol}()
+    by_name = Dict{Symbol,Vector{Symbol}}()
+    isnothing(prog) && return Dict{Symbol,Symbol}()
     for e in prog.steps
         push!(get!(Vector{Symbol}, by_name, Symbol(e.step)), e.state)
     end
-    return Dict(n => s for (n, states) in by_name
-    for s in (last_run_state(states),) if !isnothing(s))
+    return Dict(n => s for (n, states) in by_name for s in (last_run_state(states),) if !isnothing(s))
 end
 
 # Declared edges between displayed processors, as `(source row, target row)` pairs sorted
 # by source row, then target row.
 function graph_edges(g::ProcessorGraph, rows)
     rowof = Dict(n => i for (i, n) in pairs(rows))
-    edges = Tuple{Int, Int}[]
+    edges = Tuple{Int,Int}[]
     for e in Graphs.edges(g.graph)
         u, v = Graphs.src(e), Graphs.dst(e)
         ru, rv = get(rowof, g.names[u], 0), get(rowof, g.names[v], 0)
@@ -202,12 +193,12 @@ end
 # Track number of each source row of `edges` and the number of tracks. A track spans the
 # rows from its source to its last target; the tracks of overlapping spans differ.
 function assign_tracks(edges)
-    last_target = Dict{Int, Int}()
+    last_target = Dict{Int,Int}()
     for (u, v) in edges
         last_target[u] = max(get(last_target, u, 0), v)
     end
     busy_until = Int[]
-    track = Dict{Int, Int}()
+    track = Dict{Int,Int}()
     for u in sort!(collect(keys(last_target)))
         k = findfirst(<(u), busy_until)
         if isnothing(k)
@@ -272,8 +263,7 @@ the cursor row visible, and the last line shows the number of required and requi
 processors and the tags of the processor under the cursor. Names are cut with `…` if the
 area is too narrow.
 """
-function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
-        buf::Tachikoma.Buffer; grid = nothing)
+function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect, buf::Tachikoma.Buffer; grid = nothing)
     page.rect = area
     page.list = Tachikoma.Rect(area.x, area.y, 0, 0)
     page.height = 1
@@ -285,16 +275,14 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
     inner = Tachikoma.render(pane_block(title, true), area, buf)
     x_max = Tachikoma.right(inner)
     if isnothing(snap) || isempty(snap.processors)
-        Tachikoma.set_string!(
-            buf, inner.x, inner.y, "Loading the session…", dim; max_x = x_max)
+        Tachikoma.set_string!(buf, inner.x, inner.y, "Loading the session…", dim; max_x = x_max)
         return nothing
     end
     g = page_graph!(page, snap)
     rows = graph_rows(page, snap)
     n = length(rows)
     if n == 0
-        Tachikoma.set_string!(
-            buf, inner.x, inner.y, "No processor is selected.", dim; max_x = x_max)
+        Tachikoma.set_string!(buf, inner.x, inner.y, "No processor is selected.", dim; max_x = x_max)
         return nothing
     end
     idx = sync_graph_cursor!(page, rows)
@@ -315,16 +303,14 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
     required = setdiff(required_processors(g, [cursor]), [cursor])
     dependents = setdiff(dependent_processors(g, [cursor]), [cursor])
     selected = Set(vcat(snap.run_steps, snap.partition_steps))
-    counts = Dict{Symbol, Any}()
+    counts = Dict{Symbol,Any}()
     if page.disk && !isnothing(grid)
         period_runs = selected_period_runs(snap)
         for row in grid.rows
             counts[row.process] = disk_counts(row, period_runs)
         end
     end
-    states = page.disk ?
-             Dict(n => s for (n, c) in counts for s in (disk_state(c),) if !isnothing(s)) :
-             processor_states(prog)
+    states = page.disk ? Dict(n => s for (n, c) in counts for s in (disk_state(c),) if !isnothing(s)) : processor_states(prog)
     icons, colors = page.disk ? (REPORT_ICONS, REPORT_COLORS) : (STATE_ICONS, STATE_COLORS)
 
     label = Dict(r => "$(display_name(r)) $(spec[r].category)" for r in rows)
@@ -355,12 +341,11 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
     function edge_color(u, v)
         a, b = rows[u], rows[v]
         (a in required || a == cursor) && (b in required || b == cursor) && return :warning
-        (a in dependents || a == cursor) && (b in dependents || b == cursor) &&
-            return :secondary
+        (a in dependents || a == cursor) && (b in dependents || b == cursor) && return :secondary
         return :text_dim
     end
     plain = filter(e -> edge_color(e...) === :text_dim, edges)
-    arrows = Tuple{Int, Int, Char, Tachikoma.Style}[]
+    arrows = Tuple{Int,Int,Char,Tachikoma.Style}[]
     for (u, v) in vcat(plain, setdiff(edges, plain))
         style = Tachikoma.tstyle(edge_color(u, v))
         c = tcol(track[u])
@@ -393,30 +378,20 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
     for (r, name) in pairs(rows)
         left = lane_left(name)
         x = left ? 1 : xr
-        highlighted = name == cursor ? :accent :
-                      name in required ? :warning :
-                      name in dependents ? :secondary : nothing
+        highlighted = name == cursor ? :accent : name in required ? :warning : name in dependents ? :secondary : nothing
         checked = name in selected
-        name_style = isnothing(highlighted) ?
-                     Tachikoma.tstyle(checked ? :text : :text_dim) :
-                     Tachikoma.tstyle(highlighted; bold = name == cursor, dim = !checked &&
-                                                                                name !=
-                                                                                cursor)
+        name_style = isnothing(highlighted) ? Tachikoma.tstyle(checked ? :text : :text_dim) :
+                     Tachikoma.tstyle(highlighted; bold = name == cursor, dim = !checked && name != cursor)
         put_cells!(chars, styles, r, x, "●", name_style)
-        put_cells!(chars, styles, r, x + 2,
-            rpad(clip_text(label[name], left ? nl : nr), left ? nl : nr), name_style)
+        put_cells!(chars, styles, r, x + 2, rpad(clip_text(label[name], left ? nl : nr), left ? nl : nr), name_style)
         label_x = x + 2 + (left ? nl : nr)
-        put_cells!(chars, styles, r, label_x, checked ? " [x]" : " [ ]",
-            Tachikoma.tstyle(checked ? :text : :text_dim))
+        put_cells!(chars, styles, r, label_x, checked ? " [x]" : " [ ]", Tachikoma.tstyle(checked ? :text : :text_dim))
         state = get(states, name, nothing)
-        isnothing(state) || put_cells!(chars, styles, r, label_x + 4, " " * icons[state],
-            Tachikoma.tstyle(colors[state]))
+        isnothing(state) || put_cells!(chars, styles, r, label_x + 4, " " * icons[state], Tachikoma.tstyle(colors[state]))
     end
 
-    Tachikoma.set_string!(
-        buf, inner.x, inner.y, "Run processors", dim; max_x = min(x_max, inner.x + xr - 3))
-    Tachikoma.set_string!(
-        buf, inner.x + xr - 1, inner.y, "Partition processors", dim; max_x = x_max)
+    Tachikoma.set_string!(buf, inner.x, inner.y, "Run processors", dim; max_x = min(x_max, inner.x + xr - 3))
+    Tachikoma.set_string!(buf, inner.x + xr - 1, inner.y, "Partition processors", dim; max_x = x_max)
     highlight = Tachikoma.tstyle(:border)
     for r in 0:(height - 1)
         row = page.top + r
@@ -425,16 +400,14 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
             cell_style = c <= width ? styles[row, c] : Tachikoma.Style()
             char = c <= width ? chars[row, c] : ' '
             row == idx &&
-                (cell_style = Tachikoma.Style(; fg = cell_style.fg, bg = highlight.fg,
-                    bold = cell_style.bold, dim = cell_style.dim))
+                (cell_style = Tachikoma.Style(; fg = cell_style.fg, bg = highlight.fg, bold = cell_style.bold, dim = cell_style.dim))
             Tachikoma.set_char!(buf, inner.x + c - 1, inner.y + 1 + r, char, cell_style)
         end
     end
     if info_line
         p = spec[cursor]
-        spans = Tuple{String, Tachikoma.Style}[(
-            "$(display_name(cursor)): requires $(length(required)), required by $(length(dependents))",
-            dim)]
+        spans = Tuple{String,Tachikoma.Style}[("$(display_name(cursor)): requires $(length(required)), required by $(length(dependents))",
+                                               dim)]
         for tag in processor_tags(p)
             push!(spans, ("  ", dim), (tag, something(setup_tag_style(tag), dim)))
         end
@@ -442,9 +415,7 @@ function render_graph(page::GraphPage, snap, prog, area::Tachikoma.Rect,
             c = counts[cursor]
             push!(spans, ("  on disk:", dim))
             for state in (:ok, :warning, :failed, :missing)
-                getproperty(c, state) > 0 &&
-                    push!(spans, (" $(getproperty(c, state)) $state",
-                        Tachikoma.tstyle(REPORT_COLORS[state])))
+                getproperty(c, state) > 0 && push!(spans, (" $(getproperty(c, state)) $state", Tachikoma.tstyle(REPORT_COLORS[state])))
             end
             push!(spans, (" of $(c.total)", dim))
         end

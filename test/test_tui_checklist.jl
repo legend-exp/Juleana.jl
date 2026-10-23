@@ -1,8 +1,7 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 using Juleana
-using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Rect, find_text, row_text,
-                 style_at
+using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Rect, find_text, row_text, style_at
 using Test
 
 function render_checklist(w, width = 40, height = 12)
@@ -17,43 +16,25 @@ press!(w, keys...) = [Tachikoma.handle_key!(w, KeyEvent(k)) for k in keys]
 type!(w, text) = press!(w, collect(text)...)
 
 function flat_items()
-    [
-        Juleana.ChecklistItem(:a, "alpha"; tags = ["cal"]),
-        Juleana.ChecklistItem(:b, "beta"; tags = ["rank 3", "deps: a"]),
-        Juleana.ChecklistItem(:c, "gamma"),
-        Juleana.ChecklistItem(:d, "delta")
-    ]
+    return [Juleana.ChecklistItem(:a, "alpha"; tags = ["cal"]), Juleana.ChecklistItem(:b, "beta"; tags = ["rank 3", "deps: a"]),
+            Juleana.ChecklistItem(:c, "gamma"), Juleana.ChecklistItem(:d, "delta")]
 end
 
 function grouped_items()
-    [
-        Juleana.ChecklistGroup(:g1,
-            "Energy",
-            [
-                Juleana.ChecklistItem(:e1, "calibrate"; tags = ["cal"]),
-                Juleana.ChecklistItem(:e2, "resolution")
-            ]),
-        Juleana.ChecklistGroup(:g2,
-            "PSD",
-            [
-                Juleana.ChecklistItem(:p1, "aoe"),
-                Juleana.ChecklistItem(:p2, "lq"; tags = ["phy"])
-            ];
-            tags = ["psd tag"])
-    ]
+    return [Juleana.ChecklistGroup(:g1, "Energy",
+                                   [Juleana.ChecklistItem(:e1, "calibrate"; tags = ["cal"]), Juleana.ChecklistItem(:e2, "resolution")]),
+            Juleana.ChecklistGroup(:g2, "PSD", [Juleana.ChecklistItem(:p1, "aoe"), Juleana.ChecklistItem(:p2, "lq"; tags = ["phy"])];
+                                   tags = ["psd tag"])]
 end
 
 @testset "Checklist" begin
     @testset "construction" begin
         dup = [Juleana.ChecklistItem(:a, "x"), Juleana.ChecklistItem(:a, "y")]
         @test_throws "duplicate item key :a" Juleana.Checklist(dup)
-        dup_groups = [
-            Juleana.ChecklistGroup(:g1, "G1", [Juleana.ChecklistItem(:a, "x")]),
-            Juleana.ChecklistGroup(:g2, "G2", [Juleana.ChecklistItem(:a, "y")])
-        ]
+        dup_groups = [Juleana.ChecklistGroup(:g1, "G1", [Juleana.ChecklistItem(:a, "x")]),
+                      Juleana.ChecklistGroup(:g2, "G2", [Juleana.ChecklistItem(:a, "y")])]
         @test_throws "duplicate item key :a" Juleana.Checklist(dup_groups)
-        @test_throws "unknown item keys :zz" Juleana.Checklist(flat_items(); checked = [
-            :a, :zz])
+        @test_throws "unknown item keys :zz" Juleana.Checklist(flat_items(); checked = [:a, :zz])
         @test_throws "all ChecklistItem or all ChecklistGroup" Juleana.Checklist(Any[flat_items()[1], grouped_items()[1]])
         w = Juleana.Checklist(flat_items(); checked = [:c, :a])
         @test Juleana.checked(w) == [:a, :c]
@@ -64,10 +45,7 @@ end
 
     @testset "colors" begin
         marked = Tachikoma.Style(; fg = Tachikoma.ColorRGB(1, 2, 3), bold = true)
-        w = Juleana.Checklist(flat_items(); checked = [:a], tag_style = tag -> tag ==
-                                                                               "cal" ?
-                                                                               marked :
-                                                                               nothing)
+        w = Juleana.Checklist(flat_items(); checked = [:a], tag_style = tag -> tag == "cal" ? marked : nothing)
         tb = render_checklist(w)
         # tags are right-aligned in the last three cells inside the border
         @test style_at(tb, 38, 2) == marked
@@ -380,8 +358,7 @@ end
         w = Juleana.Checklist(grouped_items(); checked = [:e1])
         @test Juleana.set_checked!(w, [:p2, :e2]) === w
         @test Juleana.checked(w) == [:e2, :p2]
-        @test_throws "unknown item keys :nope, :g1" Juleana.set_checked!(w, [
-            :e1, :nope, :g1])
+        @test_throws "unknown item keys :nope, :g1" Juleana.set_checked!(w, [:e1, :nope, :g1])
         @test Juleana.checked(w) == [:e2, :p2]  # unchanged
         Juleana.set_checked!(w, Symbol[])
         @test isempty(Juleana.checked(w))
@@ -400,10 +377,8 @@ end
     end
 
     @testset "mouse" begin
-        click(x, y) = MouseEvent(
-            x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
-        wheel(x, y, button) = MouseEvent(
-            x, y, button, Tachikoma.mouse_press, false, false, false)
+        click(x, y) = MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
+        wheel(x, y, button) = MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
         w = Juleana.Checklist(grouped_items(); title = "T")
         render_checklist(w)  # rows start at y = 2
         @test Tachikoma.handle_mouse!(w, click(5, 3)) == true
@@ -420,14 +395,8 @@ end
         @test Tachikoma.handle_mouse!(w, click(5, 10)) == false
         @test Tachikoma.handle_mouse!(w, click(5, 1)) == false
         @test Tachikoma.handle_mouse!(w, click(100, 3)) == false
-        @test Tachikoma.handle_mouse!(w,
-            MouseEvent(
-                5, 3, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false)) ==
-              false
-        @test Tachikoma.handle_mouse!(w,
-            MouseEvent(
-                5, 3, Tachikoma.mouse_right, Tachikoma.mouse_press, false, false, false)) ==
-              false
+        @test Tachikoma.handle_mouse!(w, MouseEvent(5, 3, Tachikoma.mouse_left, Tachikoma.mouse_release, false, false, false)) == false
+        @test Tachikoma.handle_mouse!(w, MouseEvent(5, 3, Tachikoma.mouse_right, Tachikoma.mouse_press, false, false, false)) == false
         @test isempty(Juleana.checked(w))
         # wheel
         @test Juleana.current(w).key == :g1

@@ -50,11 +50,9 @@ function master_status(results...)
             for log in logs
                 has_entries = true
                 usability = haskey(log, :usability) ? itr.usability : :on
-                if log.Status == process_succeeded || log.Status == process_skipped ||
-                   (usability == :off && log.Status == process_warning)
+                if log.Status == process_succeeded || log.Status == process_skipped || (usability == :off && log.Status == process_warning)
                     continue
-                elseif (usability == :ac && log.Status == process_warning) ||
-                       (usability == :off && log.Status == process_failed)
+                elseif (usability == :ac && log.Status == process_warning) || (usability == :off && log.Status == process_failed)
                     status = process_warning
                 else
                     return process_failed
@@ -81,7 +79,7 @@ julia> truncate_string("process_dsp_cal", 7)
 ```
 """
 function truncate_string(s::AbstractString, max_length::Integer = 1000)
-    length(s) > max_length ? first(s, max_length) * "..." : s
+    return length(s) > max_length ? first(s, max_length) * "..." : s
 end
 
 """
@@ -104,7 +102,7 @@ Return the text of the [`root_exception`](@ref) of `e`, shortened with
 [`truncate_string`](@ref) to `max_length` characters.
 """
 function truncate_error(e, max_length::Integer = 1000)
-    truncate_string(string(root_exception(e)), max_length)
+    return truncate_string(string(root_exception(e)), max_length)
 end
 
 # Static report sections, one per processor; internal to the module.

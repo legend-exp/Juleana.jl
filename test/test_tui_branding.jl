@@ -1,9 +1,7 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 using Juleana
-using Tachikoma: Tachikoma, KeyEvent, TestBackend, Frame, Rect, GraphicsRegion,
-                 PixelSnapshot,
-                 find_text, row_text, style_at
+using Tachikoma: Tachikoma, KeyEvent, TestBackend, Frame, Rect, GraphicsRegion, PixelSnapshot, find_text, row_text, style_at
 using Logging: Logging, with_logger
 using LegendDataManagement: DataPeriod
 using Test
@@ -50,16 +48,14 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test Juleana.logo_size(Juleana.TEXT_LOGO) == (102, 22)
             @test Juleana.logo_size(Juleana.LOGO_LETTERS) == (73, 8)
             @test Juleana.logo_size(["ab", "abcd", ""]) == (4, 3)
-            @test Juleana.logo_size([[("ab", :red), ("cd", :green)], [("e", :outline)]]) ==
-                  (4, 2)
+            @test Juleana.logo_size([[("ab", :red), ("cd", :green)], [("e", :outline)]]) == (4, 2)
             @test Juleana.logo_size(String[]) == (0, 0)
             colors = Set(name for row in Juleana.TEXT_LOGO for (_, name) in row)
             @test colors == Set([:outline, :red, :green, :purple])
             text = Tachikoma.theme().text
             red, green, purple = Juleana.TITLE_COLORS
             @test Juleana.logo_color(:outline) == text && Juleana.logo_color(:red) == red
-            @test Juleana.logo_color(:green) == green &&
-                  Juleana.logo_color(:purple) == purple
+            @test Juleana.logo_color(:green) == green && Juleana.logo_color(:purple) == purple
             @test_throws "unknown color" Juleana.logo_color(:blue)
         end
 
@@ -69,13 +65,11 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test Juleana.fitting_logo(101, 22) === Juleana.LOGO_LETTERS
             @test Juleana.fitting_logo(102, 21) === Juleana.LOGO_LETTERS
             @test Juleana.fitting_logo(73, 8) === Juleana.LOGO_LETTERS
-            @test isnothing(Juleana.fitting_logo(72, 30)) &&
-                  isnothing(Juleana.fitting_logo(200, 7))
+            @test isnothing(Juleana.fitting_logo(72, 30)) && isnothing(Juleana.fitting_logo(200, 7))
         end
 
         @testset "render logo" begin
-            rows = [[("a", :outline), (" ", :outline), ("b", :red)],
-                "  c", [("d", :green), ("ef", :purple)]]
+            rows = [[("a", :outline), (" ", :outline), ("b", :red)], "  c", [("d", :green), ("ef", :purple)]]
             tb = TestBackend(10, 6)
             Juleana.render_logo(rows, 2, 2, tb.buf)
             text = Tachikoma.theme().text
@@ -85,8 +79,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test rstrip(row_text(tb, 4)) == " def"
             @test style_at(tb, 2, 2).fg == text && style_at(tb, 4, 2).fg == red
             @test style_at(tb, 4, 3).fg == text
-            @test style_at(tb, 2, 4).fg == green && style_at(tb, 3, 4).fg == purple &&
-                  style_at(tb, 4, 4).fg == purple
+            @test style_at(tb, 2, 4).fg == green && style_at(tb, 3, 4).fg == purple && style_at(tb, 4, 4).fg == purple
             # spaces are transparent
             tb = TestBackend(10, 6)
             Tachikoma.set_string!(tb.buf, 1, 2, "xxxxxx", Tachikoma.Style())
@@ -95,8 +88,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             # clipping at `max_x` and `max_y`
             tb = TestBackend(10, 6)
             Juleana.render_logo(rows, 2, 2, tb.buf; max_x = 3, max_y = 3)
-            @test rstrip(row_text(tb, 2)) == " a" && isempty(strip(row_text(tb, 3))) &&
-                  isempty(strip(row_text(tb, 4)))
+            @test rstrip(row_text(tb, 2)) == " a" && isempty(strip(row_text(tb, 3))) && isempty(strip(row_text(tb, 4)))
             # parts outside of the buffer are dropped
             tb = TestBackend(5, 3)
             Juleana.render_logo(Juleana.TEXT_LOGO, -30, -5, tb.buf)
@@ -109,20 +101,17 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
 
         root = mktempdir()
         l200 = legend_test_data(legend_test_setup(root, TEST_DIRS))
-        args = Dict{String, Any}("config" =>
-            joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
-        cfg = ProcessingConfig(;
-            processors = Dict(:process_energy_calibration_cal =>
-                spec(:process_energy_calibration_cal, :run, 1)),
-            p_processors = Dict{Symbol, ProcessorSpec}())
+        args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
+        cfg = ProcessingConfig(; processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1)),
+                               p_processors = Dict{Symbol,ProcessorSpec}())
         function new_session(parsed_args = args)
-            periods, run_status, partition_status = Juleana.setup_dependency_graph(
-                l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg), partition_steps(cfg))
-            return DataflowSession(; args = parsed_args, l200, config = cfg, periods,
-                run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
+            periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [DataPeriod(2)], nothing, run_steps(cfg),
+                                                                                   partition_steps(cfg))
+            return DataflowSession(; args = parsed_args, l200, config = cfg, periods, run_steps = run_steps(cfg),
+                                   partition_steps = partition_steps(cfg), run_status, partition_status)
         end
         quick_step(cfg, l200, period, run; reprocess = false) = nothing
-        processors = Dict{Symbol, Any}(:process_energy_calibration_cal => quick_step)
+        processors = Dict{Symbol,Any}(:process_energy_calibration_cal => quick_step)
         docs_url = "https://legend-exp.github.io/Juleana.jl/stable/"
 
         @testset "startup screen" begin
@@ -130,9 +119,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 sleep(0.3)
                 return new_session(parsed_args)
             end
-            m = Juleana.JuleanaTUI(
-                DataflowController(args; processors, loader = slow_loader);
-                splash_seconds = 5.0)
+            m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = slow_loader); splash_seconds = 5.0)
             # not started: the page is shown
             @test !m.splash && find_text(branding_render(m), "Periods / runs") !== nothing
             Juleana.start!(m)
@@ -142,9 +129,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test find_text(tb, Juleana.juleana_version()) !== nothing
             @test find_text(tb, "Periods / runs") === nothing
             # frame, tabs and key row stay
-            @test find_text(tb, "JuLeAna") !== nothing &&
-                  find_text(tb, "1 Setup") !== nothing &&
-                  find_text(tb, "q quit") !== nothing
+            @test find_text(tb, "JuLeAna") !== nothing && find_text(tb, "1 Setup") !== nothing && find_text(tb, "q quit") !== nothing
             # the link carries the hyperlink
             link = find_text(tb, docs_url)
             @test style_at(tb, link.x, link.y).hyperlink == docs_url
@@ -155,17 +140,14 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test find_text(branding_render(m), "Session loaded") !== nothing
             m.started_at -= 5.0
             tb = branding_render(m)
-            @test find_text(tb, docs_url) === nothing &&
-                  find_text(tb, "Periods / runs") !== nothing
+            @test find_text(tb, docs_url) === nothing && find_text(tb, "Periods / runs") !== nothing
             Tachikoma.update!(m, Tachikoma.TaskEvent(:tick, nothing))
             @test !m.splash
             Tachikoma.cleanup!(m)
         end
 
         @testset "a key ends the startup screen and is not passed on" begin
-            m = Juleana.JuleanaTUI(
-                DataflowController(args; processors, loader = new_session);
-                splash_seconds = 60.0)
+            m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = new_session); splash_seconds = 60.0)
             Juleana.start!(m)
             @test branding_settle!(() -> !isnothing(m.snap) && m.snap.state === :ready, m)
             @test Juleana.splash_active(m)
@@ -174,9 +156,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             Tachikoma.update!(m, KeyEvent('3'))
             @test m.page == 3
             # a quit key ends the screen without quitting
-            m2 = Juleana.JuleanaTUI(
-                DataflowController(args; processors, loader = new_session);
-                splash_seconds = 60.0)
+            m2 = Juleana.JuleanaTUI(DataflowController(args; processors, loader = new_session); splash_seconds = 60.0)
             Juleana.start!(m2)
             Tachikoma.update!(m2, KeyEvent('q'))
             @test !m2.quit && !m2.splash
@@ -185,16 +165,11 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "a failed load ends the startup screen" begin
-            m = Juleana.JuleanaTUI(
-                DataflowController(args; processors, loader = _ -> error("no data config"));
-                splash_seconds = 0.2)
+            m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = _ -> error("no data config")); splash_seconds = 0.2)
             with_logger(Logging.NullLogger()) do
                 Juleana.start!(m)
-                @test branding_settle!(
-                    () -> !isnothing(m.snap) &&
-                          !isnothing(m.snap.last_error), m)
-                @test find_text(branding_render(m), "Loading the session failed") !==
-                      nothing || !Juleana.splash_active(m)
+                @test branding_settle!(() -> !isnothing(m.snap) && !isnothing(m.snap.last_error), m)
+                @test find_text(branding_render(m), "Loading the session failed") !== nothing || !Juleana.splash_active(m)
                 sleep(0.25)
                 @test !Juleana.splash_active(m)
             end
@@ -202,37 +177,29 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
         end
 
         @testset "startup screen sizes" begin
-            m = Juleana.JuleanaTUI(
-                DataflowController(args; processors, loader = new_session);
-                splash_seconds = 60.0)
+            m = Juleana.JuleanaTUI(DataflowController(args; processors, loader = new_session); splash_seconds = 60.0)
             m.splash, m.started_at = true, time()
             full_top = strip(Juleana.TEXT_LOGO[1][1][1])
             letters_bottom = strip(Juleana.LOGO_LETTERS[end])
             body_name(tb, h) = [r for r in 5:h if occursin("JuLeAna", row_text(tb, r))]
             # the full logo, the letters, the name as text
             tb = branding_render(m, 120, 36)
-            @test find_text(tb, full_top) !== nothing &&
-                  find_text(tb, letters_bottom) !== nothing && isempty(body_name(tb, 36))
+            @test find_text(tb, full_top) !== nothing && find_text(tb, letters_bottom) !== nothing && isempty(body_name(tb, 36))
             tb = branding_render(m, 120, 30)
-            @test find_text(tb, full_top) === nothing &&
-                  find_text(tb, letters_bottom) !== nothing && isempty(body_name(tb, 30))
+            @test find_text(tb, full_top) === nothing && find_text(tb, letters_bottom) !== nothing && isempty(body_name(tb, 30))
             tb = branding_render(m, 90, 36)
-            @test find_text(tb, full_top) === nothing &&
-                  find_text(tb, letters_bottom) !== nothing
+            @test find_text(tb, full_top) === nothing && find_text(tb, letters_bottom) !== nothing
             tb = branding_render(m, 70, 26)
-            @test find_text(tb, letters_bottom) === nothing &&
-                  find_text(tb, full_top) === nothing
+            @test find_text(tb, letters_bottom) === nothing && find_text(tb, full_top) === nothing
             rows = body_name(tb, 26)
             @test length(rows) == 1
             x = branding_column(tb, only(rows), "JuLeAna")
             red, green, purple = Juleana.TITLE_COLORS
-            @test [style_at(tb, x + i, only(rows)).fg for i in (0, 2, 4)] ==
-                  [red, green, purple]
+            @test [style_at(tb, x + i, only(rows)).fg for i in (0, 2, 4)] == [red, green, purple]
             @test all(i -> style_at(tb, x + i, only(rows)).bold, 0:6)
             @test find_text(tb, docs_url) !== nothing
             tb = branding_render(m, 120, 14)
-            @test find_text(tb, letters_bottom) === nothing &&
-                  length(body_name(tb, 14)) == 1
+            @test find_text(tb, letters_bottom) === nothing && length(body_name(tb, 14)) == 1
             text_only = branding_render(m, 70, 14)
             @test find_text(text_only, docs_url) !== nothing
             Tachikoma.cleanup!(m)
@@ -251,8 +218,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 @test endswith(row_text(wide, 3), "jl-v9.9.9  /data/l200│")
                 # the name in the logo colors, bold; the version dim
                 x = branding_column(wide, 2, "JuLeAna " * version)
-                @test [style_at(wide, x + i, 2).fg for i in (0, 1, 2, 3, 4, 6)] ==
-                      [red, red, green, green, purple, purple]
+                @test [style_at(wide, x + i, 2).fg for i in (0, 1, 2, 3, 4, 6)] == [red, red, green, green, purple, purple]
                 @test all(i -> style_at(wide, x + i, 2).bold, 0:6)
                 @test style_at(wide, x + 8, 2).fg == dim
                 # the production name and the dimmer root
@@ -267,10 +233,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
                 # no room right of the tabs: nothing in the rows of the tab bar (the Setup page
                 # shows the production in its Production pane)
                 narrow = branding_render(m, 100, 36)
-                @test !any(
-                    y -> occursin(version, row_text(narrow, y)) ||
-                         occursin("jl-v9.9.9", row_text(narrow, y)),
-                    1:4)
+                @test !any(y -> occursin(version, row_text(narrow, y)) || occursin("jl-v9.9.9", row_text(narrow, y)), 1:4)
                 @test find_text(narrow, "7 History") !== nothing
             end
             # a root that is longer than the free space
@@ -282,8 +245,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             # the last of several config files names the production, the ones before are overrides
             withenv("LEGEND_DATA_CONFIG" => "/c/d/site.yaml:/a/b/jl-v1/config.json") do
                 tb = branding_render(m, 120, 36)
-                @test endswith(row_text(tb, 3), "jl-v1  /a/b│") &&
-                      find_text(tb, "site") === nothing
+                @test endswith(row_text(tb, 3), "jl-v1  /a/b│") && find_text(tb, "site") === nothing
             end
             withenv("LEGEND_DATA_CONFIG" => nothing) do
                 tb = branding_render(m, 120, 36)
@@ -301,15 +263,13 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             # the Options pane is too narrow for the logo on common screens
             for (w, h) in ((120, 36), (220, 50))
                 tb = branding_render(m, w, h)
-                @test find_text(tb, letters_bottom) === nothing &&
-                      find_text(tb, "Runs: ") !== nothing
+                @test find_text(tb, letters_bottom) === nothing && find_text(tb, "Runs: ") !== nothing
             end
             # a wide pane takes the letters, which end on the last row inside the pane
             tb = branding_render(m, 260, 50)
             @test find_text(tb, full_top) === nothing
             pos = find_text(tb, letters_bottom)
-            @test !isnothing(pos) && occursin('╯', row_text(tb, pos.y + 1)) &&
-                  find_text(tb, "Runs: ") !== nothing
+            @test !isnothing(pos) && occursin('╯', row_text(tb, pos.y + 1)) && find_text(tb, "Runs: ") !== nothing
             # a wider and taller one the full logo
             tb = branding_render(m, 360, 55)
             @test find_text(tb, full_top) !== nothing
@@ -325,8 +285,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             Tachikoma.update!(m, KeyEvent('?'))
             @test m.help
             tb = branding_render(m)
-            for text in ("Keys", "start workers", "start processing",
-                "Ctrl-G", "Setup page", "All pages", docs_url)
+            for text in ("Keys", "start workers", "start processing", "Ctrl-G", "Setup page", "All pages", docs_url)
                 @test find_text(tb, text) !== nothing
             end
             @test find_text(tb, "follow the running step") === nothing
@@ -335,8 +294,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             @test find_text(tb, "Ctrl-T  Ctrl-S") !== nothing
             # on a low screen the key list is cut, the link and the closing hint stay
             low = branding_render(m, 120, 14)
-            @test find_text(low, docs_url) !== nothing &&
-                  find_text(low, "Esc, ? or q closes") !== nothing
+            @test find_text(low, docs_url) !== nothing && find_text(low, "Esc, ? or q closes") !== nothing
             # other keys do nothing while it is open; `q` closes it without quitting
             Tachikoma.update!(m, KeyEvent('3'))
             @test m.page == 1 && m.help
@@ -353,8 +311,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "config.json")) do
             Tachikoma.update!(m, KeyEvent('4'))
             Tachikoma.update!(m, KeyEvent('?'))
             tb = branding_render(m)
-            @test find_text(tb, "follow the running step") !== nothing &&
-                  find_text(tb, "start workers") === nothing
+            @test find_text(tb, "follow the running step") !== nothing && find_text(tb, "start workers") === nothing
             Tachikoma.update!(m, KeyEvent('?'))
             @test !m.help
 

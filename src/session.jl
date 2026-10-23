@@ -2,9 +2,9 @@
 
 # Completion flags of the run steps: `status[period][step][run]`. Only the scheduler loop of
 # `run_processing` writes them, so they need no lock.
-const RunStatus = Dict{DataPeriod, Dict{Symbol, Dict{DataRun, Bool}}}
+const RunStatus = Dict{DataPeriod,Dict{Symbol,Dict{DataRun,Bool}}}
 # Completion flags of the partition steps: `status[period][step]`.
-const PartitionStatus = Dict{DataPeriod, Dict{Symbol, Bool}}
+const PartitionStatus = Dict{DataPeriod,Dict{Symbol,Bool}}
 
 """
     mutable struct DataflowSession
@@ -33,22 +33,19 @@ Fields:
 partition_steps, run_status, partition_status)` builds a session from keywords.
 """
 mutable struct DataflowSession
-    const args::Dict{String, Any}
+    const args::Dict{String,Any}
     l200::LegendData
     config::ProcessingConfig
     periods::Vector{DataPeriod}
-    runs::Union{Nothing, Vector{DataRun}, Dict{DataPeriod, Vector{DataRun}}}
+    runs::Union{Nothing,Vector{DataRun},Dict{DataPeriod,Vector{DataRun}}}
     run_steps::Vector{Symbol}
     partition_steps::Vector{Symbol}
     run_status::RunStatus
     partition_status::PartitionStatus
 end
 
-function DataflowSession(;
-        args, l200, config, periods, runs = config.runs, run_steps, partition_steps,
-        run_status, partition_status)
-    DataflowSession(args, l200, config, periods, runs, run_steps,
-        partition_steps, run_status, partition_status)
+function DataflowSession(; args, l200, config, periods, runs = config.runs, run_steps, partition_steps, run_status, partition_status)
+    return DataflowSession(args, l200, config, periods, runs, run_steps, partition_steps, run_status, partition_status)
 end
 
 """
@@ -60,29 +57,26 @@ session.partition_steps, session.run_status, session.partition_status; kwargs...
 The keywords are those of that method. Return `nothing`.
 """
 function run_processing(session::DataflowSession; kwargs...)
-    run_processing(session.config, session.l200, session.periods, session.run_steps,
-        session.partition_steps, session.run_status, session.partition_status; kwargs...)
+    return run_processing(session.config, session.l200, session.periods, session.run_steps, session.partition_steps, session.run_status,
+                          session.partition_status; kwargs...)
 end
 
 function Base.show(io::IO, session::DataflowSession)
-    print(io, "DataflowSession(", length(session.periods), " period(s), ",
-        isnothing(session.runs) ? "all runs" : "$(length(session.runs)) run(s)", ", ",
-        length(session.run_steps), " run and ", length(session.partition_steps), " partition steps)")
+    return print(io, "DataflowSession(", length(session.periods), " period(s), ",
+                 isnothing(session.runs) ? "all runs" : "$(length(session.runs)) run(s)", ", ", length(session.run_steps), " run and ",
+                 length(session.partition_steps), " partition steps)")
 end
 
 # Enabled steps sorted by rank. With `only_runs`/`only_partitions` the other level is
 # not scheduled, so its steps start as finished in the dependency graph.
 function selected_steps(cfg::ProcessingConfig)
-    (
-        cfg.only_partitions ? Symbol[] : run_steps(cfg),
-        cfg.only_runs ? Symbol[] : partition_steps(cfg)
-    )
+    return (cfg.only_partitions ? Symbol[] : run_steps(cfg), cfg.only_runs ? Symbol[] : partition_steps(cfg))
 end
 
 function reset_dependency_graph!(session::DataflowSession)
-    session.periods, session.run_status, session.partition_status = setup_dependency_graph(
-        session.l200, session.config, session.periods, session.runs,
-        session.run_steps, session.partition_steps)
+    session.periods, session.run_status, session.partition_status = setup_dependency_graph(session.l200, session.config, session.periods,
+                                                                                           session.runs, session.run_steps,
+                                                                                           session.partition_steps)
     return session
 end
 
@@ -100,20 +94,13 @@ end
 # each would get the thread count of this process and the host would be oversubscribed.
 function runprocs_mode(cfg::ProcessingConfig)
     if cfg.runmode == :local
-        threads = any(f -> startswith(f, "--threads") || startswith(f, "-t"), cfg.local_julia_settings) ?
-                  `` :
+        threads = any(f -> startswith(f, "--threads") || startswith(f, "-t"), cfg.local_julia_settings) ? `` :
                   `--threads=$(local_worker_threads(cfg.local_n))`
-        return OnLocalhost(n = cfg.local_n,
-            julia_flags = `--startup-file=no $threads $(cfg.local_julia_settings)`,
-            env = cfg.env_variables)
+        return OnLocalhost(n = cfg.local_n, julia_flags = `--startup-file=no $threads $(cfg.local_julia_settings)`, env = cfg.env_variables)
     elseif cfg.runmode == :slurm
-        return OnSlurm(
-            slurm_flags = Cmd(cfg.slurm_flags),
-            julia_flags = `--startup-file=no $(cfg.slurm_julia_settings)`,
-            # the workers' output reaches this process with their worker IDs, like for local workers
-            redirect_output = true,
-            env = cfg.env_variables
-        )
+        return OnSlurm(slurm_flags = Cmd(cfg.slurm_flags), julia_flags = `--startup-file=no $(cfg.slurm_julia_settings)`,
+                       # the workers' output reaches this process with their worker IDs, like for local workers
+                       redirect_output = true, env = cfg.env_variables)
     else
         throw(ArgumentError("unsupported runmode $(repr(cfg.runmode))"))
     end
@@ -141,8 +128,7 @@ worker.
 """
 function init_process(log_path::AbstractString = "", log_level::LogLevel = Logging.Info; console::Bool = true)
     set_timelimit(180.0)
-    haskey(ENV, "SLURM_JOB_ID") && haskey(ENV, "JOB_SHMTMPDIR") &&
-        (ENV["TMPDIR"] = ENV["JOB_SHMTMPDIR"])
+    haskey(ENV, "SLURM_JOB_ID") && haskey(ENV, "JOB_SHMTMPDIR") && (ENV["TMPDIR"] = ENV["JOB_SHMTMPDIR"])
     log_file = isempty(log_path) ? nothing : process_log_file(log_path)
     console_level = myid() == 1 ? (console ? Logging.Info : nothing) : Logging.Warn
     global_logger(processing_logger(; log_file, log_level, console_level))
@@ -212,10 +198,8 @@ function setup_session(parsed_args::AbstractDict; console::Bool = true, start_wo
 
     run_steps, partition_steps = selected_steps(config)
     runs = session_runs(parsed_args, config)
-    periods, run_status, partition_status = setup_dependency_graph(
-        l200, config, periods, runs, run_steps, partition_steps)
-    session = DataflowSession(; args = parsed_args, l200, config, periods, runs,
-        run_steps, partition_steps, run_status, partition_status)
+    periods, run_status, partition_status = setup_dependency_graph(l200, config, periods, runs, run_steps, partition_steps)
+    session = DataflowSession(; args = parsed_args, l200, config, periods, runs, run_steps, partition_steps, run_status, partition_status)
     flush(stdout)
     return session
 end

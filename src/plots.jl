@@ -28,7 +28,7 @@ function save_plot(fig::Makie.Figure, l200::LegendData, args...; cleanup::Bool =
     savelfig(fig, l200, args...) do fig, file
         :jls in formats && serialize(first(splitext(file)) * ".jls", fig)
         :png in formats && LegendMakie.lsavefig(fig, file; cleanup = false)
-        cleanup && empty!(fig)
+        return cleanup && empty!(fig)
     end
     return nothing
 end

@@ -1,11 +1,9 @@
 # This file is a part of Juleana.jl, licensed under the MIT License (MIT).
 
 # Theme color and icon of each step state.
-const STATE_COLORS = (
-    waiting = :text_dim, running = :accent, done = :success, failed = :error,
-    skipped = :text_dim, stopped = :warning, cancelled = :warning)
-const STATE_ICONS = (waiting = "○", running = "▶", done = "✓", failed = "✗", skipped = "–",
-    stopped = "■", cancelled = "⊘")
+const STATE_COLORS = (waiting = :text_dim, running = :accent, done = :success, failed = :error, skipped = :text_dim, stopped = :warning,
+                      cancelled = :warning)
+const STATE_ICONS = (waiting = "○", running = "▶", done = "✓", failed = "✗", skipped = "–", stopped = "■", cancelled = "⊘")
 
 # Width of the item bar of a step and of the step bar of a group, in cells.
 const STEP_BAR_WIDTH = 20
@@ -40,7 +38,7 @@ mutable struct ProgressPage
     # rows displayed per page at the last render
     height::Int
     follow::Bool
-    const expanded::Dict{Any, Bool}
+    const expanded::Dict{Any,Bool}
     # area of the steps block and the part of it that holds the rows at the last render
     rect::Tachikoma.Rect
     list::Tachikoma.Rect
@@ -53,9 +51,8 @@ mutable struct ProgressPage
 end
 
 function ProgressPage()
-    ProgressPage(nothing, 1, 1, 1, true, Dict{Any, Bool}(),
-        Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0),
-        nothing, true, 1, 1, 0)
+    return ProgressPage(nothing, 1, 1, 1, true, Dict{Any,Bool}(), Tachikoma.Rect(1, 1, 0, 0), Tachikoma.Rect(1, 1, 0, 0), nothing, true, 1,
+                        1, 0)
 end
 
 # Displayed rows: a group row followed by the rows of its steps if it is unfolded. A group
@@ -64,7 +61,7 @@ end
 function progress_rows(page::ProgressPage, prog)
     rows = @NamedTuple{key::Tuple, step::Bool, entry::Any, unfolded::Bool}[]
     isnothing(prog) && return rows
-    by_group = Dict{Any, Vector{Any}}()
+    by_group = Dict{Any,Vector{Any}}()
     for e in prog.steps
         push!(get!(Vector{Any}, by_group, (e.period, e.run)), e)
     end
@@ -72,11 +69,10 @@ function progress_rows(page::ProgressPage, prog)
         key = (g.period, g.run)
         steps = get(by_group, key, ())
         unfolded = get(page.expanded, key) do
-            any(e -> e.state in (:running, :failed, :stopped) || e.notrun > 0, steps)
+            return any(e -> e.state in (:running, :failed, :stopped) || e.notrun > 0, steps)
         end
         push!(rows, (; key, step = false, entry = g, unfolded))
-        unfolded && append!(rows,
-            (; key = (g.period, g.run, e.step), step = true, entry = e, unfolded = true) for e in steps)
+        unfolded && append!(rows, (; key = (g.period, g.run, e.step), step = true, entry = e, unfolded = true) for e in steps)
     end
     return rows
 end
@@ -133,13 +129,11 @@ function progress_key!(page::ProgressPage, evt::Tachikoma.KeyEvent, prog)::Bool
     delta = key == :up ? -1 :
             key == :down ? 1 :
             key == :pageup ? -page.height :
-            key == :pagedown ? page.height :
-            key == :home ? -length(rows) : key == :end_key ? length(rows) : nothing
+            key == :pagedown ? page.height : key == :home ? -length(rows) : key == :end_key ? length(rows) : nothing
     if !isnothing(delta)
         move_cursor!(page, rows, idx + delta)
     elseif key == :enter && idx > 0 && rows[idx].step
-        page.open == rows[idx].key ? (page.open = nothing) :
-        switch_pane!(page, rows[idx].key)
+        page.open == rows[idx].key ? (page.open = nothing) : switch_pane!(page, rows[idx].key)
         page.follow = false
     elseif key in (:left, :right, :enter)
         if idx > 0
@@ -207,8 +201,7 @@ function progress_mouse!(page::ProgressPage, evt::Tachikoma.MouseEvent, prog)::B
             page.expanded[rows[idx].key] = !rows[idx].unfolded
         end
         return true
-    elseif evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) &&
-           evt.action == Tachikoma.mouse_press
+    elseif evt.button in (Tachikoma.mouse_scroll_up, Tachikoma.mouse_scroll_down) && evt.action == Tachikoma.mouse_press
         Base.contains(page.rect, evt.x, evt.y) || return false
         rows = progress_rows(page, prog)
         idx = sync_cursor!(page, rows)
@@ -237,8 +230,7 @@ end
 # `(character, theme color)` pair).
 function bar_spans(counts, cells, width)
     widths = bar_segments(counts, width)
-    return [(repeat(cells[i][1], widths[i]),
-                Tachikoma.tstyle(cells[i][2], dim = cells[i][2] == :text_dim))
+    return [(repeat(cells[i][1], widths[i]), Tachikoma.tstyle(cells[i][2], dim = cells[i][2] == :text_dim))
             for i in eachindex(cells) if widths[i] > 0]
 end
 
@@ -252,8 +244,7 @@ function put_spans!(buf, x, y, x_max, spans, background = nothing)
         Tachikoma.set_string!(buf, x, y, " "^max(0, x_max - x + 1), bg; max_x = x_max)
     end
     for (text, style) in spans
-        isnothing(background) ||
-            (style = Tachikoma.Style(; fg = style.fg, bg = background.fg, bold = style.bold, dim = style.dim))
+        isnothing(background) || (style = Tachikoma.Style(; fg = style.fg, bg = background.fg, bold = style.bold, dim = style.dim))
         Tachikoma.set_string!(buf, x, y, text, style; max_x = x_max)
         x += textwidth(text)
         x > x_max && break
@@ -270,46 +261,33 @@ function group_spans(g, label_width, expanded)
     c = g.counts
     done = c.done + c.skipped
     counts = [done, c.failed, c.stopped + c.cancelled, c.running, c.waiting]
-    cells = (
-        ('█', :success), ('█', :error), ('█', :warning), ('█', :accent), ('░', :text_dim))
-    text = "$done/$(g.nsteps) done" * (c.failed > 0 ? ", $(c.failed) failed" : "") *
+    cells = (('█', :success), ('█', :error), ('█', :warning), ('█', :accent), ('░', :text_dim))
+    text = "$done/$(g.nsteps) done" *
+           (c.failed > 0 ? ", $(c.failed) failed" : "") *
            (c.stopped > 0 ? ", $(c.stopped) stopped" : "") *
            (c.cancelled > 0 ? ", $(c.cancelled) cancelled" : "")
-    return [
-        (
-            (expanded ? "▾ " : "▸ ") *
-            rpad(clip_text(group_label(g), label_width), label_width) * " ",
-            Tachikoma.tstyle(:primary, bold = true)),
-        bar_spans(counts, cells, GROUP_BAR_WIDTH)...,
-        (" " * lpad(round(Int, 100 * g.fraction), 3) * "%  ", Tachikoma.tstyle(:text)),
-        (text, Tachikoma.tstyle(:text_dim))
-    ]
+    return [((expanded ? "▾ " : "▸ ") * rpad(clip_text(group_label(g), label_width), label_width) * " ",
+             Tachikoma.tstyle(:primary, bold = true)), bar_spans(counts, cells, GROUP_BAR_WIDTH)...,
+            (" " * lpad(round(Int, 100 * g.fraction), 3) * "%  ", Tachikoma.tstyle(:text)), (text, Tachikoma.tstyle(:text_dim))]
 end
 
 function step_spans(e, name_width)
     color = STATE_COLORS[e.state]
-    spans = [("  ", Tachikoma.tstyle(:text)),
-        (STATE_ICONS[e.state] * " ", Tachikoma.tstyle(color)),
-        (rpad(clip_text(display_name(Symbol(e.step)), name_width), name_width) * " ",
-            Tachikoma.tstyle(:text_bright))]
+    spans = [("  ", Tachikoma.tstyle(:text)), (STATE_ICONS[e.state] * " ", Tachikoma.tstyle(color)),
+             (rpad(clip_text(display_name(Symbol(e.step)), name_width), name_width) * " ", Tachikoma.tstyle(:text_bright))]
     if e.total == 0
         push!(spans, (rpad(string(e.state), STEP_BAR_WIDTH), Tachikoma.tstyle(color)))
     else
         cells = (('█', :success), ('█', :error), ('▒', :warning), ('░', :text_dim))
-        counts = [
-            e.done, e.failed, e.notrun, max(0, e.total - e.done - e.failed - e.notrun)]
+        counts = [e.done, e.failed, e.notrun, max(0, e.total - e.done - e.failed - e.notrun)]
         append!(spans, bar_spans(counts, cells, STEP_BAR_WIDTH))
         push!(spans, (" $(e.done)/$(e.total)", Tachikoma.tstyle(:text)))
         e.failed > 0 && push!(spans, ("  $(e.failed) failed", Tachikoma.tstyle(:error)))
         e.notrun > 0 && push!(spans, ("  $(e.notrun) not run", Tachikoma.tstyle(:warning)))
     end
-    isempty(e.workers) ||
-        push!(spans, ("  w " * join(e.workers, ","), Tachikoma.tstyle(:text_dim)))
-    isnothing(e.rate) ||
-        push!(spans, ("  " * string(round(e.rate * 60, digits = 1)) * "/min",
-            Tachikoma.tstyle(:text_dim)))
-    isnothing(e.eta) ||
-        push!(spans, ("  ETA " * format_duration(e.eta), Tachikoma.tstyle(:text_dim)))
+    isempty(e.workers) || push!(spans, ("  w " * join(e.workers, ","), Tachikoma.tstyle(:text_dim)))
+    isnothing(e.rate) || push!(spans, ("  " * string(round(e.rate * 60, digits = 1)) * "/min", Tachikoma.tstyle(:text_dim)))
+    isnothing(e.eta) || push!(spans, ("  ETA " * format_duration(e.eta), Tachikoma.tstyle(:text_dim)))
     return spans
 end
 
@@ -320,22 +298,18 @@ function render_overview(prog, area, buf)
     c = prog.counts
     total = sum(c)
     done = c.done + c.skipped
-    label = "$(round(Int, 100 * prog.fraction))%  $done/$total steps done" *
-            (c.failed > 0 ? ", $(c.failed) failed" : "")
+    label = "$(round(Int, 100 * prog.fraction))%  $done/$total steps done" * (c.failed > 0 ? ", $(c.failed) failed" : "")
     time_text = if isnothing(prog.started)
         ""
     else
         elapsed = format_duration(seconds_between(prog.started, something(prog.finished, now(UTC))))
-        "  elapsed $elapsed" *
-        (isnothing(prog.eta) ? "" : "  ETA " * format_duration(prog.eta))
+        "  elapsed $elapsed" * (isnothing(prog.eta) ? "" : "  ETA " * format_duration(prog.eta))
     end
     bar_width = clamp(area.width - textwidth(time_text), min(10, area.width), 50)
-    Tachikoma.render(
-        Tachikoma.Gauge(prog.fraction; label, filled_style = Tachikoma.tstyle(:success),
-            label_style = Tachikoma.tstyle(:text_bright, bold = true)),
-        Tachikoma.Rect(area.x, area.y, bar_width, 1), buf)
-    Tachikoma.set_string!(buf, area.x + bar_width, area.y, time_text,
-        Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(area))
+    Tachikoma.render(Tachikoma.Gauge(prog.fraction; label, filled_style = Tachikoma.tstyle(:success),
+                                     label_style = Tachikoma.tstyle(:text_bright, bold = true)),
+                     Tachikoma.Rect(area.x, area.y, bar_width, 1), buf)
+    Tachikoma.set_string!(buf, area.x + bar_width, area.y, time_text, Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(area))
     if area.height >= 2
         spans = []
         for state in STEP_STATES
@@ -358,8 +332,7 @@ function render_steps(page::ProgressPage, prog, area, buf)
     page.height = max(1, inner.height)
     rows = progress_rows(page, prog)
     if isempty(rows)
-        Tachikoma.set_string!(buf, inner.x, inner.y, "No processing run yet.",
-            Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(inner))
+        Tachikoma.set_string!(buf, inner.x, inner.y, "No processing run yet.", Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(inner))
         return nothing
     end
     if page.follow
@@ -378,36 +351,28 @@ function render_steps(page::ProgressPage, prog, area, buf)
     idx < page.top && (page.top = idx)
     idx > page.top + height - 1 && (page.top = idx - height + 1)
 
-    label_width = clamp(maximum(textwidth(group_label(r.entry)) for r in rows if !r.step),
-        1, max(1, inner.width ÷ 3))
-    name_width = clamp(
-        maximum(textwidth(display_name(Symbol(e.step))) for e in prog.steps),
-        1, max(1, min(28, inner.width - STEP_BAR_WIDTH - 12)))
+    label_width = clamp(maximum(textwidth(group_label(r.entry)) for r in rows if !r.step), 1, max(1, inner.width ÷ 3))
+    name_width = clamp(maximum(textwidth(display_name(Symbol(e.step))) for e in prog.steps), 1,
+                       max(1, min(28, inner.width - STEP_BAR_WIDTH - 12)))
     highlight = Tachikoma.tstyle(:border)
     x_max = Tachikoma.right(inner)
     for r in 0:(height - 1)
         row = page.top + r
         row <= length(rows) || break
         entry = rows[row]
-        spans = entry.step ? step_spans(entry.entry, name_width) :
-                group_spans(entry.entry, label_width, entry.unfolded)
-        put_spans!(
-            buf, inner.x, inner.y + r, x_max, spans, row == idx ? highlight : nothing)
+        spans = entry.step ? step_spans(entry.entry, name_width) : group_spans(entry.entry, label_width, entry.unfolded)
+        put_spans!(buf, inner.x, inner.y + r, x_max, spans, row == idx ? highlight : nothing)
     end
     return nothing
 end
 
 function render_busy(busy, area, buf)
-    block = Tachikoma.Block(
-        title = "Busy workers ($(length(busy)))",
-        border_style = Tachikoma.tstyle(:border),
-        title_style = Tachikoma.tstyle(:title)
-    )
+    block = Tachikoma.Block(title = "Busy workers ($(length(busy)))", border_style = Tachikoma.tstyle(:border),
+                            title_style = Tachikoma.tstyle(:title))
     (area.width < 3 || area.height < 3) && return nothing
     inner = Tachikoma.render(block, area, buf)
     if isempty(busy)
-        Tachikoma.set_string!(buf, inner.x, inner.y, "none", Tachikoma.tstyle(:text_dim);
-            max_x = Tachikoma.right(inner))
+        Tachikoma.set_string!(buf, inner.x, inner.y, "none", Tachikoma.tstyle(:text_dim); max_x = Tachikoma.right(inner))
         return nothing
     end
     labels = [step_display_label(b) for b in busy]
@@ -415,13 +380,9 @@ function render_busy(busy, area, buf)
     t = now(UTC)
     for (r, (b, label)) in enumerate(zip(busy, labels))
         r <= inner.height || break
-        spans = [
-            (rpad("w " * string(b.worker), 5), Tachikoma.tstyle(:accent)),
-            (rpad(clip_text(label, label_width), label_width) * "  ",
-                Tachikoma.tstyle(:text)),
-            (b.item * "  ", Tachikoma.tstyle(:text)),
-            (format_duration(seconds_between(b.since, t)), Tachikoma.tstyle(:text_dim))
-        ]
+        spans = [(rpad("w " * string(b.worker), 5), Tachikoma.tstyle(:accent)),
+                 (rpad(clip_text(label, label_width), label_width) * "  ", Tachikoma.tstyle(:text)),
+                 (b.item * "  ", Tachikoma.tstyle(:text)), (format_duration(seconds_between(b.since, t)), Tachikoma.tstyle(:text_dim))]
         b.abandoned && push!(spans, ("  abandoned", Tachikoma.tstyle(:warning)))
         put_spans!(buf, inner.x, inner.y + r - 1, Tachikoma.right(inner), spans)
     end
@@ -438,23 +399,18 @@ function render_pane(page::ProgressPage, prog, msgs, area, buf)
     page.pane_height, page.pane_lines = 1, 0
     (area.width < 3 || area.height < 3) && return nothing
     messages = msgs.key == key ? msgs.messages : nothing
-    count = isnothing(messages) ? "" :
-            ": $(length(messages)) " * (length(messages) == 1 ? "message" : "messages")
+    count = isnothing(messages) ? "" : ": $(length(messages)) " * (length(messages) == 1 ? "message" : "messages")
     label = step_display_label((; period = key[1], run = key[2], step = key[3]))
     inner = Tachikoma.render(pane_block(clip_text(label * count, max(0, area.width - 6)), false), area, buf)
-    index = isnothing(prog) ? nothing :
-            findfirst(e -> (e.period, e.run, e.step) == key, prog.steps)
+    index = isnothing(prog) ? nothing : findfirst(e -> (e.period, e.run, e.step) == key, prog.steps)
     entry = isnothing(index) ? nothing : prog.steps[index]
-    lines = Vector{Tuple{String, Tachikoma.Style}}[]
+    lines = Vector{Tuple{String,Tachikoma.Style}}[]
     if !isnothing(entry) && entry.state === :failed && !isnothing(entry.error)
-        append!(lines, [(String(l), Tachikoma.tstyle(:error))]
-        for l in first(split(entry.error, '\n'), 3))
+        append!(lines, [(String(l), Tachikoma.tstyle(:error))] for l in first(split(entry.error, '\n'), 3))
     end
     for msg in something(messages, ()), (i, l) in enumerate(split(msg.text, '\n'))
 
-        stamp = i == 1 ?
-                Dates.format(local_time(msg.time), dateformat"HH:MM:SS") * " " *
-                rpad(string(msg.level), 5) * " " : " "^15
+        stamp = i == 1 ? Dates.format(local_time(msg.time), dateformat"HH:MM:SS") * " " * rpad(string(msg.level), 5) * " " : " "^15
         push!(lines, log_line_spans(stamp * l, msg.level, ""))
     end
     if isempty(lines)
@@ -466,8 +422,7 @@ function render_pane(page::ProgressPage, prog, msgs, area, buf)
     page.pane_top = page.pane_follow ? last : clamp(page.pane_top, 1, last)
     for r in 0:(inner.height - 1)
         page.pane_top + r <= length(lines) || break
-        put_spans!(
-            buf, inner.x, inner.y + r, Tachikoma.right(inner), lines[page.pane_top + r])
+        put_spans!(buf, inner.x, inner.y + r, Tachikoma.right(inner), lines[page.pane_top + r])
     end
     return nothing
 end
@@ -488,11 +443,9 @@ failed step, then the messages oldest first with local time and level, colored b
 It shows the newest lines while `page.pane_follow` is `true`. `msgs` is used only if its
 `key` is `page.open`, else the pane says that the messages are being read.
 """
-function render_progress(
-        page::ProgressPage, prog, busy, msgs, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_progress(page::ProgressPage, prog, busy, msgs, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     busy_height = max(3, min(length(busy), 8) + 2)
-    layout = Tachikoma.Layout(Tachikoma.Vertical,
-        [Tachikoma.Fixed(2), Tachikoma.Fill(), Tachikoma.Fixed(busy_height)])
+    layout = Tachikoma.Layout(Tachikoma.Vertical, [Tachikoma.Fixed(2), Tachikoma.Fill(), Tachikoma.Fixed(busy_height)])
     top, middle, bottom = Tachikoma.split_layout(layout, area)
     pane_height = isnothing(page.open) ? 0 : middle.height ÷ 2
     pane_height >= 5 || (pane_height = 0)
@@ -500,9 +453,7 @@ function render_progress(
     render_overview(prog, top, buf)
     render_steps(page, prog, Tachikoma.Rect(middle.x, middle.y, middle.width, steps_height), buf)
     if pane_height > 0
-        render_pane(page, prog, msgs,
-            Tachikoma.Rect(middle.x, middle.y + steps_height, middle.width, pane_height),
-            buf)
+        render_pane(page, prog, msgs, Tachikoma.Rect(middle.x, middle.y + steps_height, middle.width, pane_height), buf)
     else
         page.pane_height, page.pane_lines = 1, 0
     end

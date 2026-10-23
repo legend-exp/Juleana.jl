@@ -2,8 +2,7 @@
 
 using Juleana
 using Juleana: CreateProduction, ProductionForm
-using Tachikoma: Tachikoma, KeyEvent, TestBackend, Frame, Rect, GraphicsRegion,
-                 PixelSnapshot, find_text, row_text
+using Tachikoma: Tachikoma, KeyEvent, TestBackend, Frame, Rect, GraphicsRegion, PixelSnapshot, find_text, row_text
 using Logging: Logging, with_logger
 using Test
 
@@ -37,9 +36,8 @@ function production_settle!(cond, m; timeout = 60)
 end
 
 function production_render_tui(m, width = 110, height = 30)
-    (tb = TestBackend(width, height);
-        Tachikoma.view(m, Frame(tb.buf, Rect(1, 1, width, height), GraphicsRegion[], PixelSnapshot[]));
-        tb)
+    return (tb = TestBackend(width, height); Tachikoma.view(m, Frame(tb.buf, Rect(1, 1, width, height), GraphicsRegion[], PixelSnapshot[]));
+            tb)
 end
 
 # The data config of the session is a temporary folder: the process environment of the
@@ -54,12 +52,11 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             form = ProductionForm()
             @test form.parent == dirname(dirname(ENV["LEGEND_DATA_CONFIG"]))
             @test form.metadata_url == Juleana.METADATA_URL
-            @test form.checkout && form.jldataprod_branch == "main" &&
-                  form.dataprod_branch == "main"
+            @test form.checkout && form.jldataprod_branch == "main" && form.dataprod_branch == "main"
             @test form.copy_software && !form.set_default && form.phase === :edit
             @test first.(Juleana.production_fields(form)) ==
-                  [:name, :parent, :url, :checkout, :metadata_ref, :jldataprod,
-                :dataprod, :add_tier, :add_par, :set_default, :copy_software, :create]
+                  [:name, :parent, :url, :checkout, :metadata_ref, :jldataprod, :dataprod, :add_tier, :add_par, :set_default,
+                   :copy_software, :create]
             withenv("LEGEND_DATA_CONFIG" => nothing) do
                 @test ProductionForm().parent == ""
             end
@@ -77,8 +74,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             production_press!(form, KeyEvent(:enter))
             @test form.checkout
             # Space is text in a text field
-            production_press!(form, KeyEvent(:up), KeyEvent(:up), KeyEvent(:up),
-                KeyEvent(:up), KeyEvent(' '), KeyEvent('a'))
+            production_press!(form, KeyEvent(:up), KeyEvent(:up), KeyEvent(:up), KeyEvent(:up), KeyEvent(' '), KeyEvent('a'))
             @test form.name == "prod1 a"
             # Tab wraps around, Shift-Tab goes back
             production_press!(form, KeyEvent(:backtab))
@@ -90,10 +86,9 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             # the field for the default production names the startup file
             tb = render_production_form(form)
             @test find_text(tb, "Set as default in .zshrc") !== nothing
-            @test find_text(render_production_form(ProductionForm(; shell = "bash")),
-                "Set as default in .bashrc") !== nothing
-            @test find_text(render_production_form(ProductionForm(; shell = "fish")),
-                "Set as default in the shell startup file") !== nothing
+            @test find_text(render_production_form(ProductionForm(; shell = "bash")), "Set as default in .bashrc") !== nothing
+            @test find_text(render_production_form(ProductionForm(; shell = "fish")), "Set as default in the shell startup file") !==
+                  nothing
             # a key release changes nothing
             before = form.name
             Juleana.production_key!(form, KeyEvent(:char, 'z', Tachikoma.key_release), identity)
@@ -103,45 +98,35 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
 
         @testset "path completion" begin
             root = realpath(mktempdir())
-            foreach(d -> mkpath(joinpath(root, d)),
-                ["alpha/one", "alpha/two", "alpine", "beta", ".hidden", "home/x"])
+            foreach(d -> mkpath(joinpath(root, d)), ["alpha/one", "alpha/two", "alpine", "beta", ".hidden", "home/x"])
             write(joinpath(root, "alfile"), "")
             complete(text) = Juleana.complete_path(text; home = joinpath(root, "home"))
             # a single folder completes with a trailing slash, files are not candidates
-            @test complete(joinpath(root, "be")) ==
-                  (; text = joinpath(root, "beta") * "/", candidates = ["beta/"])
+            @test complete(joinpath(root, "be")) == (; text = joinpath(root, "beta") * "/", candidates = ["beta/"])
             # several folders complete to the common prefix and are listed
-            @test complete(joinpath(root, "a")) ==
-                  (; text = joinpath(root, "alp"), candidates = ["alpha/", "alpine/"])
-            @test complete(joinpath(root, "alpha") * "/") ==
-                  (; text = joinpath(root, "alpha") * "/", candidates = ["one/", "two/"])
+            @test complete(joinpath(root, "a")) == (; text = joinpath(root, "alp"), candidates = ["alpha/", "alpine/"])
+            @test complete(joinpath(root, "alpha") * "/") == (; text = joinpath(root, "alpha") * "/", candidates = ["one/", "two/"])
             # nothing to add: unchanged, hidden folders only for a dot, no match, missing folder, relative
             @test complete(joinpath(root, "beta") * "/").candidates == String[]
-            @test complete(joinpath(root, "")).candidates ==
-                  ["alpha/", "alpine/", "beta/", "home/"]
-            @test complete(joinpath(root, ".")) ==
-                  (; text = joinpath(root, ".hidden") * "/", candidates = [".hidden/"])
-            @test complete(joinpath(root, "zz")) ==
-                  (; text = joinpath(root, "zz"), candidates = String[])
+            @test complete(joinpath(root, "")).candidates == ["alpha/", "alpine/", "beta/", "home/"]
+            @test complete(joinpath(root, ".")) == (; text = joinpath(root, ".hidden") * "/", candidates = [".hidden/"])
+            @test complete(joinpath(root, "zz")) == (; text = joinpath(root, "zz"), candidates = String[])
             @test complete(joinpath(root, "missing", "a")).candidates == String[]
             @test complete("relative") == (; text = "relative", candidates = String[])
             # a leading ~ is expanded
-            @test complete("~/") ==
-                  (; text = joinpath(root, "home", "x") * "/", candidates = ["x/"])
+            @test complete("~/") == (; text = joinpath(root, "home", "x") * "/", candidates = ["x/"])
             @test complete("~/x").text == joinpath(root, "home", "x") * "/"
 
             form = ProductionForm(; parent = joinpath(root, "a"), home = joinpath(root, "home"))
             form.cursor = 2
             sent, _ = production_press!(form, KeyEvent(:tab))
             # extends the text and lists the candidates, the cursor stays
-            @test form.cursor == 2 && form.parent == joinpath(root, "alp") &&
-                  form.hint == "alpha/  alpine/"
+            @test form.cursor == 2 && form.parent == joinpath(root, "alp") && form.hint == "alpha/  alpine/"
             @test find_text(render_production_form(form), "alpha/  alpine/") !== nothing
             production_press!(form, KeyEvent(:tab))
             @test form.cursor == 2 && form.hint == "alpha/  alpine/"
             production_press!(form, KeyEvent('h'), KeyEvent(:tab))
-            @test form.parent == joinpath(root, "alpha") * "/" && form.cursor == 2 &&
-                  form.hint == ""
+            @test form.parent == joinpath(root, "alpha") * "/" && form.cursor == 2 && form.hint == ""
             # nothing left to complete: Tab moves on, Shift-Tab moves back
             form.parent = joinpath(root, "beta") * "/"
             production_press!(form, KeyEvent(:tab))
@@ -159,13 +144,11 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             form.cursor = 1
             production_press!(form, KeyEvent(:tab))
             @test form.cursor == 2
-            form.tier_labels, form.tier_paths, form.pars = ["x"], [joinpath(root, "be")],
-            [joinpath(root, "be")]
+            form.tier_labels, form.tier_paths, form.pars = ["x"], [joinpath(root, "be")], [joinpath(root, "be")]
             for kind in (:tier_path, :par)
                 form.cursor = findfirst(f -> f[1] === kind, Juleana.production_fields(form))
                 production_press!(form, KeyEvent(:tab))
-                @test Juleana.production_text(form, Juleana.production_fields(form)[form.cursor]) ==
-                      joinpath(root, "beta") * "/"
+                @test Juleana.production_text(form, Juleana.production_fields(form)[form.cursor]) == joinpath(root, "beta") * "/"
             end
             @test occursin("Tab complete", production_screen(render_production_form(form)))
         end
@@ -177,8 +160,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             form.cursor = at(:add_tier)
             production_press!(form, KeyEvent(:enter))
             @test form.tier_labels == [""] && fields()[form.cursor] == (:tier_label, 1)
-            production_press!(form, production_typed("fast")..., KeyEvent(:down),
-                production_typed("/data/fast")...)
+            production_press!(form, production_typed("fast")..., KeyEvent(:down), production_typed("/data/fast")...)
             @test form.tier_labels == ["fast"] && form.tier_paths == ["/data/fast"]
             # Ctrl-N on a row adds another row after the last one
             production_press!(form, KeyEvent(:ctrl, 'n'))
@@ -186,10 +168,9 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             production_press!(form, KeyEvent(:ctrl, 'd'))
             @test form.tier_labels == ["fast"] && form.tier_paths == ["/data/fast"]
             form.cursor = at(:add_par)
-            production_press!(form, KeyEvent(:enter), production_typed("/p/rpars")...,
-                KeyEvent(:ctrl, 'n'), production_typed("/q/ppars")...)
-            @test form.pars == ["/p/rpars", "/q/ppars"] &&
-                  fields()[form.cursor] == (:par, 2)
+            production_press!(form, KeyEvent(:enter), production_typed("/p/rpars")..., KeyEvent(:ctrl, 'n'),
+                              production_typed("/q/ppars")...)
+            @test form.pars == ["/p/rpars", "/q/ppars"] && fields()[form.cursor] == (:par, 2)
             production_press!(form, KeyEvent(:delete))
             @test form.pars == ["/p/rpars"]
             # removing needs the cursor on a row
@@ -198,8 +179,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test form.pars == ["/p/rpars"] && form.tier_labels == ["fast"]
             # a form with rows scrolls to keep the cursor visible in a small area
             form.cursor = at(:create)
-            @test find_text(render_production_form(form; height = 6), "[ Create ]") !==
-                  nothing
+            @test find_text(render_production_form(form; height = 6), "[ Create ]") !== nothing
         end
 
         @testset "the spec" begin
@@ -210,17 +190,14 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             form.pars = [parsdir, "  "]
             form.set_default = true
             spec = Juleana.production_spec(form)
-            @test spec.name == "p1" && spec.parent == parent &&
-                  spec.metadata_url == Juleana.METADATA_URL
+            @test spec.name == "p1" && spec.parent == parent && spec.metadata_url == Juleana.METADATA_URL
             @test isnothing(spec.jldataprod_branch) && isnothing(spec.dataprod_branch)
             @test spec.tier_paths == ["fast" => tierdir, "slow" => tierdir]
             @test spec.pars == [parsdir] && spec.set_default && spec.copy_software
             @test spec.shell == "zsh" && spec.home == "/h"
-            form.checkout, form.jldataprod_branch, form.dataprod_branch = true, "dev",
-            " main"
+            form.checkout, form.jldataprod_branch, form.dataprod_branch = true, "dev", " main"
             spec = Juleana.production_spec(form)
-            @test spec.jldataprod_branch == "dev" && spec.dataprod_branch == "main" &&
-                  isnothing(spec.metadata_ref)
+            @test spec.jldataprod_branch == "dev" && spec.dataprod_branch == "main" && isnothing(spec.metadata_ref)
             form.metadata_ref = " v1.0 "
             @test Juleana.production_spec(form).metadata_ref == "v1.0"
             form.checkout = false
@@ -259,21 +236,17 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             sent, _ = production_press!(form, KeyEvent(:enter))
             @test length(sent) == 1 && sent[1] isa CreateProduction
             spec = sent[1].spec
-            @test spec.name == "p1" && spec.parent == parent &&
-                  spec.tier_paths == ["fast" => tierdir] && spec.pars == [parsdir]
-            @test isnothing(spec.jldataprod_branch) && !spec.copy_software &&
-                  !spec.set_default
+            @test spec.name == "p1" && spec.parent == parent && spec.tier_paths == ["fast" => tierdir] && spec.pars == [parsdir]
+            @test isnothing(spec.jldataprod_branch) && !spec.copy_software && !spec.set_default
             @test form.phase === :creating && form.path == joinpath(parent, "p1")
             # nothing is accepted while the production is created
             sent, results = production_press!(form, KeyEvent(:escape), KeyEvent(:ctrl, 'o'), KeyEvent('x'))
-            @test isempty(sent) && all(==(true), results) && form.phase === :creating &&
-                  form.name == "p1"
+            @test isempty(sent) && all(==(true), results) && form.phase === :creating && form.name == "p1"
             # Ctrl-O submits from a text field too
             form2 = ProductionForm(; parent)
             form2.name = "p2"
             sent, _ = production_press!(form2, KeyEvent(:ctrl, 'o'))
-            @test only(sent).spec.jldataprod_branch == "main" &&
-                  only(sent).spec.copy_software
+            @test only(sent).spec.jldataprod_branch == "main" && only(sent).spec.copy_software
         end
 
         @testset "creating, created and failed" begin
@@ -290,17 +263,14 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test !form.accepted
             Juleana.production_answer!(form, 3, nothing)
             @test form.accepted
-            Juleana.production_sync!(form, loading, [
-                "Created /x/p1", "Cloning the metadata"])
+            Juleana.production_sync!(form, loading, ["Created /x/p1", "Cloning the metadata"])
             tb = render_production_form(form, loading)
             @test find_text(tb, "Creating $(joinpath(parent, "p1"))") !== nothing
-            @test find_text(tb, "Cloning the metadata") !== nothing &&
-                  find_text(tb, "Created /x/p1") !== nothing
+            @test find_text(tb, "Cloning the metadata") !== nothing && find_text(tb, "Created /x/p1") !== nothing
             # only the newest lines that fit are shown
             Juleana.production_sync!(form, loading, ["line $i" for i in 1:100])
             tb = render_production_form(form, loading; height = 10)
-            @test find_text(tb, "line 100") !== nothing &&
-                  find_text(tb, "line 50") === nothing
+            @test find_text(tb, "line 100") !== nothing && find_text(tb, "line 50") === nothing
             # created and loaded
             Juleana.production_sync!(form, (; state = :ready, last_error = nothing), ["done"])
             @test form.phase === :done
@@ -314,26 +284,20 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             production_press!(form, KeyEvent(:ctrl, 'o'))
             form.answer_at = 1
             Juleana.production_answer!(form, 1, nothing)
-            Juleana.production_sync!(
-                form, (;
-                    state = :idle, last_error = "git clone failed"), ["Created x"])
-            @test form.phase === :edit && form.error == "git clone failed" &&
-                  form.name == "p1"
+            Juleana.production_sync!(form, (; state = :idle, last_error = "git clone failed"), ["Created x"])
+            @test form.phase === :edit && form.error == "git clone failed" && form.name == "p1"
             @test find_text(render_production_form(form), "git clone failed") !== nothing
             # a rejected command returns to the form with its message
             form = ProductionForm(; parent)
             form.name = "p1"
             production_press!(form, KeyEvent(:ctrl, 'o'))
             form.answer_at = 1
-            Juleana.production_answer!(form,
-                1,
-                ArgumentError("CreateProduction is not possible while the controller is :running"))
-            @test form.phase === :edit &&
-                  occursin("not possible while the controller is :running", form.error)
+            Juleana.production_answer!(form, 1, ArgumentError("CreateProduction is not possible while the controller is :running"))
+            @test form.phase === :edit && occursin("not possible while the controller is :running", form.error)
         end
 
         @testset "the interface without a session" begin
-            noconfig = Dict{String, Any}("config" => nothing, "new_production" => false)
+            noconfig = Dict{String,Any}("config" => nothing, "new_production" => false)
             calls = Threads.Atomic{Int}(0)
             loader(_) = (Threads.atomic_add!(calls, 1); error("no session in this test"))
             # no config: no LoadSession, the form opens after the startup screen
@@ -341,19 +305,15 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             Juleana.start!(m)
             @test !isnothing(m.production)
             @test production_settle!(() -> !isnothing(m.snap) && !Juleana.splash_active(m), m; timeout = 10)
-            @test calls[] == 0 && m.snap.state === :idle && isnothing(m.snap.last_error) &&
-                  m.pending == 0
+            @test calls[] == 0 && m.snap.state === :idle && isnothing(m.snap.last_error) && m.pending == 0
             tb = production_render_tui(m)
-            @test find_text(tb, "New data production") !== nothing &&
-                  find_text(tb, "Parent folder") !== nothing
-            @test occursin("Ctrl-O create", production_screen(tb)) &&
-                  !occursin("quit", production_screen(tb))
+            @test find_text(tb, "New data production") !== nothing && find_text(tb, "Parent folder") !== nothing
+            @test occursin("Ctrl-O create", production_screen(tb)) && !occursin("quit", production_screen(tb))
             # every page renders without a session
             Tachikoma.cleanup!(m)
 
             # `--new-production` with a config does not load a session either
-            withconfig = Dict{String, Any}(
-                "config" => "config/processing_config.yaml", "new_production" => true)
+            withconfig = Dict{String,Any}("config" => "config/processing_config.yaml", "new_production" => true)
             m = Juleana.JuleanaTUI(DataflowController(withconfig; loader); splash_seconds = 0.0)
             Juleana.start!(m)
             @test !isnothing(m.production)
@@ -362,26 +322,19 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             Tachikoma.cleanup!(m)
 
             # a config without the flag loads the session as before
-            plain = Dict{String, Any}("config" => "config/processing_config.yaml", "new_production" =>
-                false)
+            plain = Dict{String,Any}("config" => "config/processing_config.yaml", "new_production" => false)
             m = Juleana.JuleanaTUI(DataflowController(plain; loader); splash_seconds = 0.0)
             with_logger(Logging.NullLogger()) do
                 Juleana.start!(m)
-                @test production_settle!(
-                    () -> calls[] == 1 && !isnothing(m.snap) &&
-                          !isnothing(m.snap.last_error),
-                    m;
-                    timeout = 20)
+                @test production_settle!(() -> calls[] == 1 && !isnothing(m.snap) && !isnothing(m.snap.last_error), m; timeout = 20)
             end
             @test isnothing(m.production)
             Tachikoma.cleanup!(m)
         end
 
         @testset "closing the form and N on the Setup page" begin
-            noconfig = Dict{String, Any}("config" => nothing, "new_production" => false)
-            m = Juleana.JuleanaTUI(
-                DataflowController(noconfig; loader = _ -> error("unused"));
-                splash_seconds = 0.0)
+            noconfig = Dict{String,Any}("config" => nothing, "new_production" => false)
+            m = Juleana.JuleanaTUI(DataflowController(noconfig; loader = _ -> error("unused")); splash_seconds = 0.0)
             Juleana.start!(m)
             @test production_settle!(() -> !isnothing(m.snap), m; timeout = 10)
             m.splash = false
@@ -405,9 +358,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             Tachikoma.update!(m, KeyEvent('N'))
             @test !isnothing(m.production) && !m.setup.new_production
             # a mouse click on a tab does not leave the form
-            Tachikoma.update!(m,
-                Tachikoma.MouseEvent(
-                    1, 1, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+            Tachikoma.update!(m, Tachikoma.MouseEvent(1, 1, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
             @test !isnothing(m.production)
             Tachikoma.update!(m, KeyEvent(:escape))
             # Ctrl-C quits from the form
@@ -418,16 +369,13 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
         end
 
         @testset "a failing creation through the controller" begin
-            noconfig = Dict{String, Any}("config" => nothing, "new_production" => false)
-            m = Juleana.JuleanaTUI(
-                DataflowController(noconfig; loader = _ -> error("unused"));
-                splash_seconds = 0.0)
+            noconfig = Dict{String,Any}("config" => nothing, "new_production" => false)
+            m = Juleana.JuleanaTUI(DataflowController(noconfig; loader = _ -> error("unused")); splash_seconds = 0.0)
             Juleana.start!(m)
             @test production_settle!(() -> !isnothing(m.snap), m; timeout = 10)
             m.splash = false
             form = m.production
-            form.name, form.parent, form.checkout, form.copy_software = "p1", parent, false,
-            false
+            form.name, form.parent, form.checkout, form.copy_software = "p1", parent, false, false
             # the clone of a folder that is no repository fails after the first log line
             form.metadata_url = joinpath(parent, "no-repository")
             form.cursor = length(Juleana.production_fields(form))
@@ -439,8 +387,7 @@ withenv("LEGEND_DATA_CONFIG" => joinpath(mktempdir(), "prods", "current", "confi
             @test occursin("failed", form.error) && form.accepted
             @test any(startswith("Created "), form.log) && m.snap.state === :idle
             @test find_text(production_render_tui(m), "failed") !== nothing
-            @test ENV["LEGEND_DATA_CONFIG"] ==
-                  joinpath(dirname(dirname(ENV["LEGEND_DATA_CONFIG"])), "current", "config.json")
+            @test ENV["LEGEND_DATA_CONFIG"] == joinpath(dirname(dirname(ENV["LEGEND_DATA_CONFIG"])), "current", "config.json")
             Tachikoma.cleanup!(m)
         end
     end

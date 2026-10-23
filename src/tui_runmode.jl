@@ -3,12 +3,8 @@
 # Settings of the run modes that the editor shows: name in `SetRunmodeSettings` and
 # `ControllerSnapshot.runmode_settings`, run mode and label. `local_n` is a number, the others
 # are lists of strings.
-const RUNMODE_SETTINGS = (
-    (:local_n, :local, "workers (n)"),
-    (:local_julia_settings, :local, "julia_settings"),
-    (:slurm_flags, :slurm, "flags"),
-    (:slurm_julia_settings, :slurm, "julia_settings")
-)
+const RUNMODE_SETTINGS = ((:local_n, :local, "workers (n)"), (:local_julia_settings, :local, "julia_settings"),
+                          (:slurm_flags, :slurm, "flags"), (:slurm_julia_settings, :slurm, "julia_settings"))
 
 """
     RunmodeEditor()
@@ -19,9 +15,9 @@ entry of a list, and the error of the last typed value.
 """
 mutable struct RunmodeEditor
     cursor::Int
-    text::Union{Nothing, String}
+    text::Union{Nothing,String}
     adding::Bool
-    error::Union{Nothing, String}
+    error::Union{Nothing,String}
 end
 
 RunmodeEditor() = RunmodeEditor(1, nothing, false, nothing)
@@ -29,8 +25,7 @@ RunmodeEditor() = RunmodeEditor(1, nothing, false, nothing)
 # Rows of the editor as `(name, i)`: `i == 0` is the number `local_n` or the heading of a list, and
 # `i > 0` the `i`-th entry of that list.
 function runmode_rows(settings)
-    [(name, i) for (name, _, _) in RUNMODE_SETTINGS
-     for i in 0:(name === :local_n ? 0 : length(getproperty(settings, name)))]
+    return [(name, i) for (name, _, _) in RUNMODE_SETTINGS for i in 0:(name === :local_n ? 0 : length(getproperty(settings, name)))]
 end
 
 """
@@ -56,13 +51,11 @@ function runmode_key!(editor::RunmodeEditor, evt::Tachikoma.KeyEvent, snap, send
             try
                 if name === :local_n
                     n = tryparse(Int, strip(editor.text))
-                    (isnothing(n) || n <= 0) &&
-                        throw(ArgumentError("expected a positive integer, got `$(strip(editor.text))`"))
+                    (isnothing(n) || n <= 0) && throw(ArgumentError("expected a positive integer, got `$(strip(editor.text))`"))
                     send(SetRunmodeSettings(; local_n = n))
                 else
                     entry = String(strip(editor.text))
-                    isempty(entry) &&
-                        throw(ArgumentError("an entry must not be empty (d deletes the entry)"))
+                    isempty(entry) && throw(ArgumentError("an entry must not be empty (d deletes the entry)"))
                     entries = copy(getproperty(settings, name))
                     editor.adding ? push!(entries, entry) : (entries[i] = entry)
                     send(SetRunmodeSettings(; (name => entries,)...))
@@ -108,10 +101,9 @@ with one row per entry; the text being typed and the last error below.
 function render_runmode(editor::RunmodeEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     (isnothing(snap) || isnothing(snap.runmode_settings)) && return nothing
     settings = snap.runmode_settings
-    lines = Tuple{String, Any}[]
+    lines = Tuple{String,Any}[]
     text, dim = Tachikoma.tstyle(:text), Tachikoma.tstyle(:text_dim)
-    highlight, error_style = Tachikoma.tstyle(:accent, bold = true),
-    Tachikoma.tstyle(:error, bold = true)
+    highlight, error_style = Tachikoma.tstyle(:accent, bold = true), Tachikoma.tstyle(:error, bold = true)
     group = nothing
     for (n, (name, i)) in enumerate(runmode_rows(settings))
         _, mode, label = only(filter(s -> first(s) === name, RUNMODE_SETTINGS))
@@ -121,13 +113,11 @@ function render_runmode(editor::RunmodeEditor, snap, area::Tachikoma.Rect, buf::
         end
         entries = name === :local_n ? nothing : getproperty(settings, name)
         line = name === :local_n ? "  $label = $(settings.local_n)" :
-               i == 0 ? "  $label" * (isempty(entries) ? "  (none)" : "") :
-               "    - $(entries[i])"
+               i == 0 ? "  $label" * (isempty(entries) ? "  (none)" : "") : "    - $(entries[i])"
         push!(lines, (line, n == editor.cursor ? highlight : i == 0 ? text : dim))
     end
     push!(lines, ("", text))
-    isnothing(editor.text) || push!(lines, (
-        (editor.adding ? "new entry: " : "new value: ") * editor.text * "▏", highlight))
+    isnothing(editor.text) || push!(lines, ((editor.adding ? "new entry: " : "new value: ") * editor.text * "▏", highlight))
     isnothing(editor.error) || push!(lines, (editor.error, error_style))
     push!(lines, ("Enter: edit   a: add entry   d: delete entry   Esc: back", dim))
 
@@ -138,16 +128,12 @@ function render_runmode(editor::RunmodeEditor, snap, area::Tachikoma.Rect, buf::
 
         Tachikoma.set_char!(buf, x, y, ' ', text)
     end
-    inner = Tachikoma.render(
-        Tachikoma.Block(title = "Run mode settings (this session)",
-            border_style = Tachikoma.tstyle(:border_focus)),
-        box,
-        buf)
+    inner = Tachikoma.render(Tachikoma.Block(title = "Run mode settings (this session)", border_style = Tachikoma.tstyle(:border_focus)),
+                             box, buf)
     for (i, (line, style)) in enumerate(lines)
         y = inner.y + i - 1
         y > Tachikoma.bottom(inner) && break
-        Tachikoma.set_string!(
-            buf, inner.x + 1, y, line, style; max_x = Tachikoma.right(inner))
+        Tachikoma.set_string!(buf, inner.x + 1, y, line, style; max_x = Tachikoma.right(inner))
     end
     return nothing
 end

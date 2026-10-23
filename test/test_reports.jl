@@ -64,8 +64,7 @@ Date of processing: 2026-10-04T00:00:00Z
 
 # every file and folder below `dir`
 function tree(dir)
-    sort!([relpath(joinpath(root, name), dir) for (root, dirs, files) in walkdir(dir)
-           for name in [dirs; files]])
+    return sort!([relpath(joinpath(root, name), dir) for (root, dirs, files) in walkdir(dir) for name in [dirs; files]])
 end
 
 function write_report(jlrep, process, level, period, run, category, text)
@@ -77,16 +76,11 @@ end
 
 @testset "reports" begin
     jlrep = mktempdir()
-    ok = write_report(
-        jlrep, :process_energy_calibration_cal, :run, "p03", "r001", :cal, OK_REPORT)
-    warn = write_report(
-        jlrep, :process_energy_calibration_cal, :run, "p03", "r002", :cal, WARNING_REPORT)
-    failed = write_report(jlrep, :process_energy_calibration_cal, :run,
-        "p03", "r004", :cal, FAILED_FIT_REPORT)
-    dsp = write_report(
-        jlrep, :process_dsp_cal, :run, "p03", "r001", :cal, FAILED_DSP_REPORT)
-    part = write_report(jlrep, :p_process_aoe_cut_cal, :partition,
-        "p03", nothing, :cal, PARTITION_FAILED_REPORT)
+    ok = write_report(jlrep, :process_energy_calibration_cal, :run, "p03", "r001", :cal, OK_REPORT)
+    warn = write_report(jlrep, :process_energy_calibration_cal, :run, "p03", "r002", :cal, WARNING_REPORT)
+    failed = write_report(jlrep, :process_energy_calibration_cal, :run, "p03", "r004", :cal, FAILED_FIT_REPORT)
+    dsp = write_report(jlrep, :process_dsp_cal, :run, "p03", "r001", :cal, FAILED_DSP_REPORT)
+    part = write_report(jlrep, :p_process_aoe_cut_cal, :partition, "p03", nothing, :cal, PARTITION_FAILED_REPORT)
     # not a report of the naming scheme
     stray = joinpath(dirname(ok), "notes.md")
     write(stray, "# notes\n")
@@ -96,14 +90,11 @@ end
     before = tree(jlrep)
 
     @testset "report_path" begin
-        @test Juleana.report_path(
-            "/j", :process_energy_calibration_cal, :run, "p03", "r001", :cal) ==
+        @test Juleana.report_path("/j", :process_energy_calibration_cal, :run, "p03", "r001", :cal) ==
               "/j/rreport/cal/p03/r001/l200-p03-r001-cal-energy_calibration.md"
-        @test Juleana.report_path("/j", :p_process_aoe_cut_cal, :partition,
-            "p03", nothing, :phy; setup = "l201") ==
+        @test Juleana.report_path("/j", :p_process_aoe_cut_cal, :partition, "p03", nothing, :phy; setup = "l201") ==
               "/j/preport/p03/phy/l201-p03-phy-aoe_cut.md"
-        @test_throws "report level must be :run or :partition" Juleana.report_path(
-            "/j", :process_x, :event, "p03", "r001", :cal)
+        @test_throws "report level must be :run or :partition" Juleana.report_path("/j", :process_x, :event, "p03", "r001", :cal)
         @test !ispath("/j")
     end
 
@@ -151,8 +142,8 @@ end
     end
 
     specs = [(; name = :process_energy_calibration_cal, level = :run, category = :cal),
-        (; name = :process_dsp_cal, level = :run, category = :cal),
-        (; name = :p_process_aoe_cut_cal, level = :partition, category = :cal)]
+             (; name = :process_dsp_cal, level = :run, category = :cal),
+             (; name = :p_process_aoe_cut_cal, level = :partition, category = :cal)]
     period_runs = ["p03" => ["r001", "r002", "r003", "r004"], "p04" => ["r001"]]
 
     @testset "report_index" begin
@@ -160,41 +151,34 @@ end
         @test length(rows) == 4 * 2 + 2 + 2
         energy = filter(r -> r.process == :process_energy_calibration_cal, rows)
         @test [(r.period, r.run, r.state) for r in energy] ==
-              [("p03", "r001", :ok), ("p03", "r002", :warning),
-            ("p03", "r003", :missing), ("p03", "r004", :failed), ("p04", "r001", :missing)]
+              [("p03", "r001", :ok), ("p03", "r002", :warning), ("p03", "r003", :missing), ("p03", "r004", :failed),
+               ("p04", "r001", :missing)]
         @test energy[1].path == ok
         @test energy[2].date == DateTime(2026, 10, 2, 8, 30, 15)
         @test energy[4].n_failed == 2
         partition = filter(r -> r.level == :partition, rows)
-        @test [(r.period, r.run, r.state) for r in partition] ==
-              [("p03", nothing, :failed), ("p04", nothing, :missing)]
+        @test [(r.period, r.run, r.state) for r in partition] == [("p03", nothing, :failed), ("p04", nothing, :missing)]
         @test partition[1].path == part
     end
 
     @testset "failure_summary" begin
         rows = Juleana.report_index(jlrep, specs, period_runs)
         summary = Juleana.failure_summary(rows)
-        @test [s.process for s in summary] ==
-              [:process_energy_calibration_cal, :process_dsp_cal, :p_process_aoe_cut_cal]
+        @test [s.process for s in summary] == [:process_energy_calibration_cal, :process_dsp_cal, :p_process_aoe_cut_cal]
         energy = summary[1].detectors
-        @test energy ==
-              [(; detector = "V02", labels = ["p03-r004"], errors = ["fit failed"]),
-            (; detector = "V03", labels = ["p03-r004"], errors = ["fit failed"])]
-        @test summary[2].detectors ==
-              [(; detector = "V03", labels = ["p03-r001"], errors = String[]),
-            (; detector = "V04", labels = ["p03-r001"], errors = String[])]
-        @test summary[3].detectors ==
-              [(; detector = "V02", labels = ["p03"], errors = ["no peaks"])]
-        @test only(Juleana.failure_summary(Juleana.report_index(jlrep, specs[1:1], ["p03" =>
-            ["r001"]]))).detectors == []
+        @test energy == [(; detector = "V02", labels = ["p03-r004"], errors = ["fit failed"]),
+                         (; detector = "V03", labels = ["p03-r004"], errors = ["fit failed"])]
+        @test summary[2].detectors == [(; detector = "V03", labels = ["p03-r001"], errors = String[]),
+                                       (; detector = "V04", labels = ["p03-r001"], errors = String[])]
+        @test summary[3].detectors == [(; detector = "V02", labels = ["p03"], errors = ["no peaks"])]
+        @test only(Juleana.failure_summary(Juleana.report_index(jlrep, specs[1:1], ["p03" => ["r001"]]))).detectors == []
         @test isempty(Juleana.failure_summary([]))
     end
 
     @testset "report_overview" begin
         overview = Juleana.report_overview(jlrep)
         @test [(o.level, o.name, o.category) for o in overview] ==
-              [(:run, "dsp_cal", "cal"), (:run, "energy_calibration", "cal"),
-            (:run, "extra", "cal"), (:partition, "aoe_cut", "cal")]
+              [(:run, "dsp_cal", "cal"), (:run, "energy_calibration", "cal"), (:run, "extra", "cal"), (:partition, "aoe_cut", "cal")]
         energy = overview[2]
         @test energy.nreports == 3
         @test energy.counts == (; ok = 1, warning = 1, failed = 1)
@@ -205,21 +189,17 @@ end
         @test overview[1].counts == (; ok = 0, warning = 0, failed = 1)
         @test overview[3].counts == (; ok = 0, warning = 0, failed = 1)
         @test isnothing(overview[3].last_date) && isnothing(overview[3].latest_path)
-        @test overview[4].reports == [(; period = "p03", run = nothing, path = part,
-            state = :failed, date = DateTime(2026, 10, 4))]
+        @test overview[4].reports == [(; period = "p03", run = nothing, path = part, state = :failed, date = DateTime(2026, 10, 4))]
         @test Juleana.report_overview(mktempdir()) == []
         # ranked processors first, the others by name; the level comes first
-        ranked = [(; name = :process_dsp_cal, level = :run, rank = 5),
-            (; name = :process_energy_calibration_cal, level = :run, rank = 2),
-            (; name = :p_process_aoe_cut_cal, level = :partition, rank = 1)]
+        ranked = [(; name = :process_dsp_cal, level = :run, rank = 5), (; name = :process_energy_calibration_cal, level = :run, rank = 2),
+                  (; name = :p_process_aoe_cut_cal, level = :partition, rank = 1)]
         by_rank = Juleana.report_overview(jlrep; processors = ranked)
         @test [(o.level, o.name) for o in by_rank] ==
-              [(:run, "energy_calibration"), (:run, "dsp_cal"),
-            (:run, "extra"), (:partition, "aoe_cut")]
+              [(:run, "energy_calibration"), (:run, "dsp_cal"), (:run, "extra"), (:partition, "aoe_cut")]
         # a processor of the other level with the same name does not rank the report
         other = [(; name = :p_process_dsp_cal, level = :partition, rank = 1)]
-        @test [o.name for o in Juleana.report_overview(jlrep; processors = other)] ==
-              ["dsp_cal", "energy_calibration", "extra", "aoe_cut"]
+        @test [o.name for o in Juleana.report_overview(jlrep; processors = other)] == ["dsp_cal", "energy_calibration", "extra", "aoe_cut"]
     end
 
     @testset "no file system changes" begin
@@ -237,8 +217,7 @@ end
             source = read(joinpath(dir, "$name.jl"), String)
             # the peak splitting processors write the report named by `report_name` in `split_peaks`
             occursin("split_peaks(", source) && (@test occursin(":$name", source); continue)
-            written = [m.captures[1]
-                       for m in eachmatch(r"get_[rp]reportfilename\([^,]+,[^,]+,\s*:(\w+)\)", source)]
+            written = [m.captures[1] for m in eachmatch(r"get_[rp]reportfilename\([^,]+,[^,]+,\s*:(\w+)\)", source)]
             @test length(written) == 1
             @test Juleana.report_name(name) == only(written)
         end

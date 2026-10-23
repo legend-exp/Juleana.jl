@@ -28,8 +28,7 @@ function setup_refreshed!(m)
 end
 
 function render_setup_page(m, width = 140, height = 30)
-    (tb = TestBackend(width, height);
-        Juleana.render_setup(m.setup, m.snap, Rect(1, 1, width, height), tb.buf); tb)
+    return (tb = TestBackend(width, height); Juleana.render_setup(m.setup, m.snap, Rect(1, 1, width, height), tb.buf); tb)
 end
 
 press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
@@ -48,31 +47,25 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     p2, p3 = DataPeriod.((2, 3))
     r0, r6, r7 = DataRun.((0, 6, 7))
     all_runs = [[(p2, r) for r in DataRun.(0:7)]; [(p3, r) for r in DataRun.(0:5)]]
-    args = Dict{String, Any}("config" =>
-        joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
+    args = Dict{String,Any}("config" => joinpath(dirname(@__DIR__), "config", "processing_config.yaml"))
     cfg = ProcessingConfig(;
-        processors = Dict(
-            :process_energy_calibration_cal =>
-                spec(:process_energy_calibration_cal, :run, 1),
-            :process_dsp_cal => spec(:process_dsp_cal, :run, 2; enabled = false)),
-        p_processors = Dict(:p_process_aoe_cut_cal =>
-            spec(:p_process_aoe_cut_cal, :partition, 1;
-                dependencies = [:process_dsp_cal])))
+                           processors = Dict(:process_energy_calibration_cal => spec(:process_energy_calibration_cal, :run, 1),
+                                             :process_dsp_cal => spec(:process_dsp_cal, :run, 2; enabled = false)),
+                           p_processors = Dict(:p_process_aoe_cut_cal =>
+                                                   spec(:p_process_aoe_cut_cal, :partition, 1; dependencies = [:process_dsp_cal])))
     function new_session()
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(
-            l200, cfg, [p2, p3], nothing, run_steps(cfg), partition_steps(cfg))
-        return DataflowSession(; args, l200, config = cfg, periods,
-            run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
+        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [p2, p3], nothing, run_steps(cfg),
+                                                                               partition_steps(cfg))
+        return DataflowSession(; args, l200, config = cfg, periods, run_steps = run_steps(cfg), partition_steps = partition_steps(cfg),
+                               run_status, partition_status)
     end
     run_stub(cfg, l200, period, run; reprocess = false) = nothing
     part_stub(cfg, l200, period; reprocess = false, only_first_period = false) = false
-    energy_stub(cfg, l200, period, run; reprocess = false,
-        max_wvfs = 10, channels = Symbol[]) = nothing
-    processors = Dict{Symbol, Any}(
-        :process_energy_calibration_cal => energy_stub, :process_dsp_cal => run_stub,
-        :p_process_aoe_cut_cal => part_stub)
-    new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(
-        session; processors, record_software = false, record_metadata = false))
+    energy_stub(cfg, l200, period, run; reprocess = false, max_wvfs = 10, channels = Symbol[]) = nothing
+    processors = Dict{Symbol,Any}(:process_energy_calibration_cal => energy_stub, :process_dsp_cal => run_stub,
+                                  :p_process_aoe_cut_cal => part_stub)
+    new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(session; processors, record_software = false,
+                                                                             record_metadata = false))
 
     @testset "checklists follow the controller" begin
         m = new_tui()
@@ -81,18 +74,15 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test Juleana.checked(page.periods) == all_runs
         @test Juleana.checked(page.run_procs) == [:process_energy_calibration_cal]
         @test Juleana.checked(page.part_procs) == [:p_process_aoe_cut_cal]
-        @test [i.key for i in page.run_procs.groups[1].items] ==
-              [:process_energy_calibration_cal, :process_dsp_cal]
+        @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration_cal, :process_dsp_cal]
         dsp = page.run_procs.groups[1].items[2]
         @test dsp.tags == ["cal", "rank 02"]
         @test page.part_procs.groups[1].items[1].tags == ["cal", "rank 01"]
 
         tb = render_setup_page(m)
-        for text in (
-            "Periods / runs", "Run processors", "Partition processors", "Reprocess: config",
-            "Processor log level: config", "Processor plot level: config",
-            "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 14", "Run steps: 1 × 14 runs",
-            "Partition steps: 1 × 2 periods")
+        for text in ("Periods / runs", "Run processors", "Partition processors", "Reprocess: config", "Processor log level: config",
+                     "Processor plot level: config", "Check dependencies: yes", "Periods: 2 (p02, p03)", "Runs: 14", "Run steps: 1 × 14 runs",
+                     "Partition steps: 1 × 2 periods")
             @test find_text(tb, text) !== nothing
         end
         # the keys are in the key row and the help panel, not in the options pane
@@ -127,14 +117,11 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         page = Juleana.SetupPage()
         page.dataset = m.setup.dataset
         p16, p99 = DataPeriod.((16, 99))
-        page.periods = Juleana.Checklist([
-            Juleana.ChecklistGroup(p16,
-                "p16",
-                [Juleana.ChecklistItem((p16, r6), "r006"),
-                    Juleana.ChecklistItem((p16, DataRun(99)), "r099")]),
-            Juleana.ChecklistGroup(p99, "p99", Juleana.ChecklistItem[])])
-        text(page) = join(join(first.(spans))
-        for spans in Juleana.dataset_lines(page).lines)
+        page.periods = Juleana.Checklist([Juleana.ChecklistGroup(p16, "p16",
+                                                                 [Juleana.ChecklistItem((p16, r6), "r006"),
+                                                                  Juleana.ChecklistItem((p16, DataRun(99)), "r099")]),
+                                          Juleana.ChecklistGroup(p99, "p99", Juleana.ChecklistItem[])])
+        text(page) = join(join(first.(spans)) for spans in Juleana.dataset_lines(page).lines)
         @test occursin("4 runs", text(page)) && occursin("0 analysis", text(page))
         page.periods.cursor = 2
         @test Juleana.dataset_lines(page).title == "Dataset p16-r006"
@@ -145,11 +132,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         page.periods.cursor = 4
         @test occursin("not in the runinfo", text(page))
         # every run and period has a box of the same height
-        @test length(unique(length(Juleana.dataset_lines((page.periods.cursor = i; page)).lines)
-        for i in 1:4)) == 1
+        @test length(unique(length(Juleana.dataset_lines((page.periods.cursor = i; page)).lines) for i in 1:4)) == 1
         page.dataset = "no runinfo file"
-        @test Juleana.dataset_lines(page).lines ==
-              [[("runinfo: no runinfo file", Tachikoma.tstyle(:error))]]
+        @test Juleana.dataset_lines(page).lines == [[("runinfo: no runinfo file", Tachikoma.tstyle(:error))]]
         page.dataset = nothing
         @test occursin("Reading the runinfo", text(page))
     end
@@ -235,9 +220,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     @testset "action keys" begin
         page = Juleana.SetupPage()
         sent = ControllerCommand[]
-        for (key, expected) in (('s', StartProcessing), ('x', StopProcessing), (
-            'X', StopProcessing),
-            ('r', ReloadConfig), ('g', ResetDependencyGraph), ('W', AddWorkers))
+        for (key, expected) in
+            (('s', StartProcessing), ('x', StopProcessing), ('X', StopProcessing), ('r', ReloadConfig), ('g', ResetDependencyGraph),
+             ('W', AddWorkers))
             @test Juleana.setup_key!(page, KeyEvent(key), nothing, cmd -> push!(sent, cmd))
             @test last(sent) isa expected
         end
@@ -267,8 +252,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         # a command was answered after this read had started
         m.answered += 1
         m.refreshing = true
-        Tachikoma.update!(m, Tachikoma.TaskEvent(:refresh, (
-            m.answered - 1, snap, prog, busy, m.step_msgs)))
+        Tachikoma.update!(m, Tachikoma.TaskEvent(:refresh, (m.answered - 1, snap, prog, busy, m.step_msgs)))
         @test Juleana.checked(m.setup.periods) == [(p3, r0)]
         # and the page reads again
         @test m.refreshing
@@ -279,8 +263,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     @testset "selected runs that are not on disk" begin
         session = new_session()
         session.runs = Dict(p2 => [r6, DataRun(9)])
-        m = Juleana.JuleanaTUI(DataflowController(
-            session; processors, record_software = false, record_metadata = false))
+        m = Juleana.JuleanaTUI(DataflowController(session; processors, record_software = false, record_metadata = false))
         @test setup_refreshed!(m)
         @test Juleana.checked(m.setup.periods) == [(p2, r6); all_runs[9:end]]
     end
@@ -311,8 +294,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, :tab)
         # `e` on a processor opens its editor; the editor takes every key
         press!(m, 'e')
-        @test m.setup.editor isa Juleana.KwargsEditor &&
-              m.setup.editor.step === :process_energy_calibration_cal
+        @test m.setup.editor isa Juleana.KwargsEditor && m.setup.editor.step === :process_energy_calibration_cal
         text = join(row_text(render_setup_page(m), r) for r in 1:30)
         @test occursin("Settings of energy_calibration cal", text)
         @test occursin("channels", text) && occursin("max_wvfs", text)
@@ -321,15 +303,12 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
         # the first rows are the log and the plot level; Enter sets the next level
         energy() = only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors))
-        @test occursin("  log level = info", join(row_text(render_setup_page(m), r)
-        for r in 1:30))
+        @test occursin("  log level = info", join(row_text(render_setup_page(m), r) for r in 1:30))
         press!(m, :enter, :down, :enter)
         @test setup_refreshed!(m)
-        @test energy().log_level == Logging.Debug && energy().plot_level === :debug &&
-              energy().overridden == [:log_level, :plot_level]
+        @test energy().log_level == Logging.Debug && energy().plot_level === :debug && energy().overridden == [:log_level, :plot_level]
         text = join(row_text(render_setup_page(m), r) for r in 1:30)
-        @test occursin("* log level = debug   (config: info)", text) &&
-              occursin("* plot level = debug   (config: info)", text)
+        @test occursin("* log level = debug   (config: info)", text) && occursin("* plot level = debug   (config: info)", text)
         # `u` resets the level under the cursor
         press!(m, 'u')
         @test setup_refreshed!(m)
@@ -345,16 +324,14 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test setup_refreshed!(m)
         energy = only(filter(p -> p.name === :process_energy_calibration_cal, m.snap.processors))
         @test energy.kwargs[:max_wvfs] == 5 && energy.overridden == [:max_wvfs]
-        @test occursin("* max_wvfs = 5   (config: not set)",
-            join(row_text(render_setup_page(m), r) for r in 1:30))
+        @test occursin("* max_wvfs = 5   (config: not set)", join(row_text(render_setup_page(m), r) for r in 1:30))
 
         # a set value is edited in its own type
         Juleana.kwargs_key!(m.setup.editor, KeyEvent(:enter), m.snap, cmd -> nothing)
         @test m.setup.editor.text == "5"
         press!(m, :backspace, 'a', :enter)
         @test m.setup.editor.error == "expected an integer, got `a`"
-        @test occursin("expected an integer", join(row_text(render_setup_page(m), r)
-        for r in 1:30))
+        @test occursin("expected an integer", join(row_text(render_setup_page(m), r) for r in 1:30))
         press!(m, :escape)
         @test isnothing(m.setup.editor.text) && isnothing(m.setup.editor.error)
 
@@ -391,8 +368,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             # any key but `y` cancels
             press!(m, 'w')
             @test m.setup.confirm === :write
-            @test occursin("Write the current settings to",
-                join(row_text(render_setup_page(m), r) for r in 1:30))
+            @test occursin("Write the current settings to", join(row_text(render_setup_page(m), r) for r in 1:30))
             press!(m, 'n')
             @test isnothing(m.setup.confirm)
             @test setup_refreshed!(m)
@@ -400,12 +376,10 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
             # the config folder of the data production is created and the session config file becomes the written one
             # the editor rows: log level, plot level, channels, max_wvfs
-            press!(
-                m, :tab, 'e', :down, :down, :down, :enter, '7', :enter, :escape, 'w', 'y')
+            press!(m, :tab, 'e', :down, :down, :down, :enter, '7', :enter, :escape, 'w', 'y')
             @test setup_refreshed!(m)
             @test isnothing(m.command_error)
-            @test ProcessingConfig(written).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] ==
-                  7
+            @test ProcessingConfig(written).processors[:process_energy_calibration_cal].kwargs[:max_wvfs] == 7
             @test m.snap.config_file == written
             @test !isfile(written * ".bak") && !isfile(config_file * ".bak")
             press!(m, 'w', 'y')
@@ -421,9 +395,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         render_setup_page(m)
         # first row of the periods pane: the p02 group
         list = m.setup.periods.list
-        Tachikoma.update!(m,
-            MouseEvent(list.x + 2, list.y, Tachikoma.mouse_left,
-                Tachikoma.mouse_press, false, false, false))
+        Tachikoma.update!(m, MouseEvent(list.x + 2, list.y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test m.setup.focus == 1 && m.setup.periods.focused
         @test setup_refreshed!(m)
         @test m.snap.periods == [p3]
@@ -432,19 +404,14 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         render_setup_page(m)
         options = m.setup.options
         @test m.snap.check_dependencies
-        Tachikoma.update!(m,
-            MouseEvent(options.x + 2, options.y + 3, Tachikoma.mouse_left,
-                Tachikoma.mouse_press, false, false, false))
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 3, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test m.setup.focus == 4 && m.setup.option == 4 && !m.setup.periods.focused
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
         tb = render_setup_page(m)
-        @test find_text(tb, "▶ Options") !== nothing &&
-              find_text(tb, "▶ Periods") === nothing
+        @test find_text(tb, "▶ Options") !== nothing && find_text(tb, "▶ Periods") === nothing
         # below the option rows the click only focuses the pane
-        Tachikoma.update!(m,
-            MouseEvent(options.x + 2, options.y + 6, Tachikoma.mouse_left,
-                Tachikoma.mouse_press, false, false, false))
+        Tachikoma.update!(m, MouseEvent(options.x + 2, options.y + 6, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         @test setup_refreshed!(m)
         @test !m.snap.check_dependencies
     end
@@ -456,33 +423,24 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             name == "no-config" || write(joinpath(parent, name, "config.json"), "{}")
         end
         withenv("LEGEND_DATA_CONFIG" => joinpath(parent, "prod-a", "config.json")) do
-            @test_throws "no production root" Juleana.read_choices(
-                DataflowController(Dict{
-                    String, Any}()), "")
-            ctrl = DataflowController(Dict{String, Any}("config" => nothing); loader = nothing)
-            @test Juleana.read_choices(ctrl, parent) ==
-                  (; productions = ["prod-a", "prod-b"], datasets = ["default"])
+            @test_throws "no production root" Juleana.read_choices(DataflowController(Dict{String,Any}()), "")
+            ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
+            @test Juleana.read_choices(ctrl, parent) == (; productions = ["prod-a", "prod-b"], datasets = ["default"])
 
             m = new_tui()
             @test setup_refreshed!(m)
             page = m.setup
             # the choices are read in the background for the loaded session
-            @test setup_settle!(
-                () -> page.choices isa NamedTuple &&
-                      page.dataset isa AbstractDict, m)
-            @test page.choices.productions == ["prod-a", "prod-b"] &&
-                  "default" in page.choices.datasets
+            @test setup_settle!(() -> page.choices isa NamedTuple && page.dataset isa AbstractDict, m)
+            @test page.choices.productions == ["prod-a", "prod-b"] && "default" in page.choices.datasets
             tb = render_setup_page(m)
-            for text in ("Production", "Root: ", "Production: prod-a",
-                "Dataset: default", "Options", "Dataset p02")
+            for text in ("Production", "Root: ", "Production: prod-a", "Dataset: default", "Options", "Dataset p02")
                 @test find_text(tb, text) !== nothing
             end
             # the Dataset pane is below the Production pane, which is below the Options pane
-            rows = [find_text(tb, t).y
-                    for t in ("Options", "Production: prod-a", "Dataset p02")]
+            rows = [find_text(tb, t).y for t in ("Options", "Production: prod-a", "Dataset p02")]
             @test issorted(rows) && allunique(rows)
-            @test find_text(tb, "Dataset p02").x >
-                  m.setup.periods.list.x + m.setup.periods.list.width
+            @test find_text(tb, "Dataset p02").x > m.setup.periods.list.x + m.setup.periods.list.width
 
             # Tab reaches the pane as the fifth stop, the last before the periods
             page.focus = 4
@@ -498,11 +456,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             key!(k) = Juleana.setup_key!(page, KeyEvent(k), m.snap, send)
             page.focus, page.source = 5, 2
             key!(:enter)
-            @test page.picker.kind === :production &&
-                  page.picker.items == ["prod-a", "prod-b"] && page.picker.cursor == 1
+            @test page.picker.kind === :production && page.picker.items == ["prod-a", "prod-b"] && page.picker.cursor == 1
             tb = render_setup_page(m)
-            @test find_text(tb, "Data production") !== nothing &&
-                  find_text(tb, "▶ prod-a") !== nothing
+            @test find_text(tb, "Data production") !== nothing && find_text(tb, "▶ prod-a") !== nothing
             # choosing the current production sends nothing
             key!(:enter)
             @test isnothing(page.picker) && isempty(sent)
@@ -515,15 +471,13 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             key!(:enter)
             key!(:down)
             key!(:enter)
-            @test only(sent) isa SelectProduction &&
-                  only(sent).path == joinpath(parent, "prod-b")
+            @test only(sent) isa SelectProduction && only(sent).path == joinpath(parent, "prod-b")
             empty!(sent)
 
             # the dataset line opens the picker of the datasets
             key!(:down)
             @test page.source == 3
-            page.choices = (;
-                productions = ["prod-a"], datasets = ["default", "valid", "zzz"])
+            page.choices = (; productions = ["prod-a"], datasets = ["default", "valid", "zzz"])
             key!(' ')
             @test page.picker.kind === :dataset && page.picker.cursor == 1
             key!(:down)
@@ -541,15 +495,11 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             @test isnothing(page.picker)
 
             # a click on a line opens its picker, a click on an item chooses it
-            page.choices = (;
-                productions = ["prod-a", "prod-b"], datasets = ["default", "valid"])
+            page.choices = (; productions = ["prod-a", "prod-b"], datasets = ["default", "valid"])
             render_setup_page(m)
             area = page.production_area
-            click(x, y) = Juleana.setup_mouse!(page,
-                MouseEvent(
-                    x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false),
-                m.snap,
-                send)
+            click(x, y) = Juleana.setup_mouse!(page, MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false),
+                                               m.snap, send)
             @test click(area.x + 2, area.y + 1)
             @test page.focus == 5 && page.source == 2 && page.picker.kind === :production
             render_setup_page(m)
@@ -566,8 +516,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
     @testset "production listing" begin
         tree = realpath(mktempdir())
-        touch_config(path, name = "config.json") = (
-            mkpath(path); write(joinpath(path, name), "{}"))
+        touch_config(path, name = "config.json") = (mkpath(path); write(joinpath(path, name), "{}"))
         touch_config(joinpath(tree, "test"))
         touch_config(joinpath(tree, "jl-v1.0", "prodA"))
         touch_config(joinpath(tree, "jl-v1.0", "prodB"), "config.yaml")
@@ -580,8 +529,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         mkpath(joinpath(tree, "empty"))
         symlink(joinpath(tree, "test"), joinpath(tree, "link"))
         # the folder at depth 4 is listed, deeper ones are not; a production is not searched
-        @test Juleana.find_productions(tree) ==
-              ["a/b/c/d", "jl-v1.0/prodA", "jl-v1.0/prodB", "test"]
+        @test Juleana.find_productions(tree) == ["a/b/c/d", "jl-v1.0/prodA", "jl-v1.0/prodB", "test"]
         @test Juleana.find_productions(joinpath(tree, "jl-v1.0")) == ["prodA", "prodB"]
         # the root itself counts
         @test Juleana.find_productions(joinpath(tree, "test")) == ["."]
@@ -627,14 +575,12 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
                 mkpath(joinpath(tree, "alpha", "d$i"))
             end
             key!(:tab)
-            @test endswith(page.root_hint[1], "and 1 more") &&
-                  count("/", page.root_hint[1]) == 8
+            @test endswith(page.root_hint[1], "and 1 more") && count("/", page.root_hint[1]) == 8
 
             # Enter with a missing folder shows the error and keeps editing
             type!("nope")
             key!(:enter)
-            @test page.root_edit == tree * "/alpha/dnope" && page.root_hint[2] &&
-                  isnothing(page.root)
+            @test page.root_edit == tree * "/alpha/dnope" && page.root_hint[2] && isnothing(page.root)
             Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
             @test find_text(tb, "Not an existing absolute folder") !== nothing
 
@@ -642,8 +588,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             page.choices = (; productions = ["x"], datasets = ["default"])
             foreach(_ -> key!(:backspace), 1:5)
             key!(:enter)
-            @test isnothing(page.root_edit) && page.root == tree * "/alpha" &&
-                  isnothing(page.choices)
+            @test isnothing(page.root_edit) && page.root == tree * "/alpha" && isnothing(page.choices)
             @test Juleana.production_root(page) == tree * "/alpha"
 
             # a relative path is rejected, `~` is expanded, Escape cancels

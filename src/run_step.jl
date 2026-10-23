@@ -2,7 +2,7 @@
 
 # Names of the detectors chosen by `run_step`; `nothing` outside of it. `parallel` sets it
 # again on the workers.
-const DETECTOR_SELECTION = ScopedValue{Union{Nothing, Set{String}}}(nothing)
+const DETECTOR_SELECTION = ScopedValue{Union{Nothing,Set{String}}}(nothing)
 
 # `false` inside `run_step` with `outputs = :temp`: parameters and validity are not written.
 # `parallel` sets it again on the workers.
@@ -37,7 +37,7 @@ an empty vector without that group. The group is looked up by its `String` name:
 `LHDataStore` reports no `Symbol` keys.
 """
 function stored_detectors(outdata, group::AbstractString)
-    haskey(outdata, group) ? String[string(k) for k in keys(outdata[group])] : String[]
+    return haskey(outdata, group) ? String[string(k) for k in keys(outdata[group])] : String[]
 end
 
 """
@@ -55,7 +55,7 @@ Write a validity entry with `LegendDataManagement.LDMUtils.writevalidity`, excep
 [`run_step`](@ref) with `outputs = :temp`, where nothing is written.
 """
 function write_validity(args...; kwargs...)
-    WRITE_PARS[] ? writevalidity(args...; kwargs...) : nothing
+    return WRITE_PARS[] ? writevalidity(args...; kwargs...) : nothing
 end
 
 """
@@ -75,7 +75,7 @@ Write the processor report `report` to `filename` with `writelreport`. Inside
 function write_report(filename, report)
     record = STEP_RECORD[]
     isnothing(record) || push!(record.reports, report)
-    writelreport(filename, report)
+    return writelreport(filename, report)
 end
 
 """
@@ -86,8 +86,7 @@ Properties of the registered processors that [`run_step`](@ref) needs, set by
 `detector_selection`, whether the processor processes the detectors that
 [`redo_detector`](@ref) names again and skips the others.
 """
-const PROCESSOR_TRAITS = Dict{
-    Symbol, NamedTuple{(:output_tiers, :detector_selection), Tuple{Vector{Symbol}, Bool}}}()
+const PROCESSOR_TRAITS = Dict{Symbol,NamedTuple{(:output_tiers, :detector_selection),Tuple{Vector{Symbol},Bool}}}()
 
 const DEFAULT_TRAITS = (output_tiers = Symbol[], detector_selection = true)
 
@@ -112,19 +111,15 @@ Juleana.processors(joinpath(pkgdir(Juleana), "config", "processing_config.yaml")
 function processors(config = default_config_file(); processors::AbstractDict{Symbol} = PROCESSORS)
     cfg = config isa ProcessingConfig ? config : ProcessingConfig(config)
     specs = vcat(sort!(collect(values(cfg.processors)); by = spec -> spec.rank),
-        sort!(collect(values(cfg.p_processors)); by = spec -> spec.rank))
+                 sort!(collect(values(cfg.p_processors)); by = spec -> spec.rank))
     names = vcat([spec.name for spec in specs if haskey(processors, spec.name)],
-        sort!(setdiff(collect(keys(processors)), (spec.name for spec in specs))))
+                 sort!(setdiff(collect(keys(processors)), (spec.name for spec in specs))))
     spec_of = Dict(spec.name => spec for spec in specs)
-    from_spec(name, field) = haskey(spec_of, name) ? getfield(spec_of[name], field) :
-                             missing
+    from_spec(name, field) = haskey(spec_of, name) ? getfield(spec_of[name], field) : missing
     traits(name) = get(PROCESSOR_TRAITS, name, DEFAULT_TRAITS)
-    return Table(Processor = names, Level = [from_spec(n, :level) for n in names],
-        Category = [from_spec(n, :category) for n in names], Rank = [from_spec(n, :rank)
-                                                                     for n in names],
-        Enabled = [from_spec(n, :enabled) for n in names], Detectors = [traits(n).detector_selection
-                                                                        for n in names],
-        OutputTiers = [traits(n).output_tiers for n in names])
+    return Table(Processor = names, Level = [from_spec(n, :level) for n in names], Category = [from_spec(n, :category) for n in names],
+                 Rank = [from_spec(n, :rank) for n in names], Enabled = [from_spec(n, :enabled) for n in names],
+                 Detectors = [traits(n).detector_selection for n in names], OutputTiers = [traits(n).output_tiers for n in names])
 end
 
 """
@@ -231,89 +226,72 @@ step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A], d
 f = Juleana.failure()
 ```
 """
-function run_step(
-        step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp,
-        output_dir = nothing, config = default_config_file(), l200 = nothing,
-        show_report::Bool = isinteractive(), debug::Union{Bool, Symbol} = false, pause = nothing,
-        error_plots::Union{Nothing, Bool} = nothing, log_level::Union{Nothing, Symbol} = nothing,
-        plot_level::Union{Nothing, Symbol} = nothing,
-        processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
-    haskey(processors, step) ||
-        throw(ArgumentError("run_step: unregistered processor `$step`"))
-    isnothing(log_level) || haskey(LOG_LEVELS, string(log_level)) ||
+function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp, output_dir = nothing,
+                  config = default_config_file(), l200 = nothing, show_report::Bool = isinteractive(), debug::Union{Bool,Symbol} = false,
+                  pause = nothing, error_plots::Union{Nothing,Bool} = nothing, log_level::Union{Nothing,Symbol} = nothing,
+                  plot_level::Union{Nothing,Symbol} = nothing, processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
+    haskey(processors, step) || throw(ArgumentError("run_step: unregistered processor `$step`"))
+    isnothing(log_level) ||
+        haskey(LOG_LEVELS, string(log_level)) ||
         throw(ArgumentError("run_step: `log_level` is $(repr(log_level)), expected :debug, :info, :warn or :error"))
     plot_level in (nothing, :info, :debug) ||
         throw(ArgumentError("run_step: `plot_level` is $(repr(plot_level)), expected :info or :debug"))
-    debug in (false, true, :infiltrate) ||
-        throw(ArgumentError("run_step: `debug` is $(repr(debug)), expected false, true or :infiltrate"))
-    isnothing(pause) || pause === :all || pause isa AbstractVector{<:AbstractString} ||
+    debug in (false, true, :infiltrate) || throw(ArgumentError("run_step: `debug` is $(repr(debug)), expected false, true or :infiltrate"))
+    isnothing(pause) ||
+        pause === :all ||
+        pause isa AbstractVector{<:AbstractString} ||
         throw(ArgumentError("run_step: `pause` is $(repr(pause)), expected :all or a vector of step names"))
-    (debug === :infiltrate || !isnothing(pause)) && isnothing(STOP_HOOK[]) &&
+    (debug === :infiltrate || !isnothing(pause)) &&
+        isnothing(STOP_HOOK[]) &&
         throw(ArgumentError("run_step: `debug = :infiltrate` and `pause` stop in an Infiltrator prompt; run `using Infiltrator` first"))
-    outputs in (:temp, :production) ||
-        throw(ArgumentError("run_step: `outputs` is $(repr(outputs)), expected :temp or :production"))
+    outputs in (:temp, :production) || throw(ArgumentError("run_step: `outputs` is $(repr(outputs)), expected :temp or :production"))
     traits = get(PROCESSOR_TRAITS, step, DEFAULT_TRAITS)
-    !isnothing(detectors) && !traits.detector_selection &&
+    !isnothing(detectors) &&
+        !traits.detector_selection &&
         throw(ArgumentError("run_step: processor `$step` cannot select detectors, run it without `detectors`"))
     cfg = config isa ProcessingConfig ? config : ProcessingConfig(config)
-    spec = haskey(cfg.processors, step) ? cfg.processors[step] :
-           get(cfg.p_processors, step, nothing)
-    isnothing(spec) &&
-        throw(ArgumentError("run_step: processor `$step` is not in the config"))
-    spec.level === :run && isnothing(run) &&
-        throw(ArgumentError("run_step: the run-level processor `$step` needs a run"))
-    spec.level === :partition && !isnothing(run) &&
-        throw(ArgumentError("run_step: the partition-level processor `$step` takes no run"))
+    spec = haskey(cfg.processors, step) ? cfg.processors[step] : get(cfg.p_processors, step, nothing)
+    isnothing(spec) && throw(ArgumentError("run_step: processor `$step` is not in the config"))
+    spec.level === :run && isnothing(run) && throw(ArgumentError("run_step: the run-level processor `$step` needs a run"))
+    spec.level === :partition && !isnothing(run) && throw(ArgumentError("run_step: the partition-level processor `$step` takes no run"))
     if isnothing(l200)
         # the environment variables must be set before the metadata is loaded
         foreach(((key, value),) -> ENV[key] = value, cfg.env_variables)
         l200 = LegendData(:l200)
     end
     dir = mkpath(isnothing(output_dir) ? session_output_dir() : output_dir)
-    step_l200 = outputs === :temp ?
-                redirect_outputs(l200, dir, vcat([:jlplt, :jlrep, :jllog], traits.output_tiers)) :
-                l200
+    step_l200 = outputs === :temp ? redirect_outputs(l200, dir, vcat([:jlplt, :jlrep, :jllog], traits.output_tiers)) : l200
     period = DataPeriod(period)
     args = spec.level === :run ? (period, DataRun(run)) : (period,)
-    defaults = merge(spec.level === :partition ? (; only_first_period = false) : (;),
-        isnothing(detectors) ? (; reprocess = true) : (;))
+    defaults = merge(spec.level === :partition ? (; only_first_period = false) : (;), isnothing(detectors) ? (; reprocess = true) : (;))
     selection = isnothing(detectors) ? nothing : Set(string.(detectors))
     record = (reports = Any[], results = Any[])
     failures = LAST_FAILURES[] = Failure[]
     capture = debug === false && isnothing(pause) ? nothing :
-              merge(debug_capture(step, args; infiltrate = debug === :infiltrate, pause), (;
-        failures))
+              merge(debug_capture(step, args; infiltrate = debug === :infiltrate, pause), (; failures))
     level = isnothing(log_level) ? spec.log_level : LOG_LEVELS[string(log_level)]
     started = time()
-    run_processor() = with(DETECTOR_SELECTION => selection,
-        WRITE_PARS => outputs === :production, STEP_RECORD => record,
-        DEBUG_CAPTURE => capture, ERROR_PLOTS => something(error_plots, spec.error_plots),
-        PROCESSOR_LOG_LEVEL => level,
-        PLOT_LEVEL => something(plot_level, spec.plot_level), PLOT_FORMATS =>
-            cfg.plot_formats) do
-        processors[step](cfg, step_l200, args...;
-            merge(NamedTuple(spec.kwargs), defaults, NamedTuple(kwargs))...)
+    run_processor() = with(DETECTOR_SELECTION => selection, WRITE_PARS => outputs === :production, STEP_RECORD => record,
+                           DEBUG_CAPTURE => capture, ERROR_PLOTS => something(error_plots, spec.error_plots), PROCESSOR_LOG_LEVEL => level,
+                           PLOT_LEVEL => something(plot_level, spec.plot_level), PLOT_FORMATS => cfg.plot_formats) do
+        return processors[step](cfg, step_l200, args...; merge(NamedTuple(spec.kwargs), defaults, NamedTuple(kwargs))...)
     end
     # a level given here also applies to the terminal
-    isnothing(log_level) ? run_processor() :
-    Logging.with_logger(run_processor, ProcessorLevelLogger(Logging.current_logger(), level))
+    isnothing(log_level) ? run_processor() : Logging.with_logger(run_processor, ProcessorLevelLogger(Logging.current_logger(), level))
     plot_roots = if spec.level === :run
-        [joinpath(step_l200.tier[:jlplt], "rplt", string(spec.category),
-            string(period), string(DataRun(run)))]
+        [joinpath(step_l200.tier[:jlplt], "rplt", string(spec.category), string(period), string(DataRun(run)))]
     else
         pplt = joinpath(step_l200.tier[:jlplt], "pplt")
         isnothing(selection) ? [pplt] : [joinpath(pplt, det) for det in selection]
     end
-    report = step_report(step, args, spec.level, outputs, dir,
-        selection, record.reports, plot_roots, started)
+    report = step_report(step, args, spec.level, outputs, dir, selection, record.reports, plot_roots, started)
     report_file = joinpath(mkpath(joinpath(dir, "reports")), "$step.md")
     open(io -> (show(io, MIME"text/markdown"(), report); println(io)), report_file, "a")
     @info "run_step: report appended to $report_file"
     # outside of the logger, which shows messages as text only
     show_report && display_report(report)
     isnothing(capture) || print_failures(stdout, failures)
-    return StepOutput(
-        step, args, report, report_file, record.reports, dir, record.results, failures)
+    return StepOutput(step, args, report, report_file, record.reports, dir, record.results, failures)
 end
 
 function print_failures(io::IO, failures)
@@ -321,8 +299,7 @@ function print_failures(io::IO, failures)
         println(io, "run_step: no failed `@process_step` was captured")
         return nothing
     end
-    println(io,
-        "run_step: $(length(failures)) failed `@process_step` captured, see `Juleana.failure()` and `Juleana.failures()`:")
+    println(io, "run_step: $(length(failures)) failed `@process_step` captured, see `Juleana.failure()` and `Juleana.failures()`:")
     for (i, f) in enumerate(failures)
         print(io, i, ". ")
         show(io, MIME"text/plain"(), f)
@@ -355,18 +332,15 @@ struct StepOutput
 end
 
 function Base.show(io::IO, out::StepOutput)
-    print(io, "StepOutput(", out.step, " ", join(string.(out.args), " "), ": ",
-        length(out.results), " results, ", isempty(out.failures) ? "" :
-                                           "$(length(out.failures)) failures, ",
-        "report in ", out.report_file, ")")
+    return print(io, "StepOutput(", out.step, " ", join(string.(out.args), " "), ": ", length(out.results), " results, ",
+                 isempty(out.failures) ? "" : "$(length(out.failures)) failures, ", "report in ", out.report_file, ")")
 end
 
 # The temporary output directory of `run_step` in this Julia session, created on first use.
 const SESSION_OUTPUT_DIR = Ref("")
 
 function session_output_dir()
-    isempty(SESSION_OUTPUT_DIR[]) &&
-        (SESSION_OUTPUT_DIR[] = mktempdir(; prefix = "juleana-run_step-", cleanup = false))
+    isempty(SESSION_OUTPUT_DIR[]) && (SESSION_OUTPUT_DIR[] = mktempdir(; prefix = "juleana-run_step-", cleanup = false))
     return SESSION_OUTPUT_DIR[]
 end
 
@@ -375,16 +349,13 @@ end
 function redirect_outputs(l200::LegendData, dir::AbstractString, tiers)
     setup = getfield(l200, :_config)
     keys_new = [["tier", string(t)] for t in tiers]
-    paths = vcat(filter(p -> !(first(p) in keys_new), setup.paths),
-        [k => mkpath(joinpath(dir, last(k))) for k in keys_new])
-    return LegendData(LegendDataManagement.SetupConfig(sort(paths), setup.dataset),
-        getfield(l200, :_name), getfield(l200, :_dataset))
+    paths = vcat(filter(p -> !(first(p) in keys_new), setup.paths), [k => mkpath(joinpath(dir, last(k))) for k in keys_new])
+    return LegendData(LegendDataManagement.SetupConfig(sort(paths), setup.dataset), getfield(l200, :_name), getfield(l200, :_dataset))
 end
 
 # The report of `run_step`: the processor reports with only the rows of `selection`, then
 # the plots below `plot_roots` saved since `started`, grouped by detector.
-function step_report(
-        step, args, level, outputs, dir, selection, reports, plot_roots, started)
+function step_report(step, args, level, outputs, dir, selection, reports, plot_roots, started)
     report = lreport("# $step: $(join(string.(args), " ")), $(utc_timestamp())")
     lreport!(report, "Detectors: $(isnothing(selection) ? "all" : join(sort!(collect(selection)), ", "))")
     lreport!(report, "Outputs: $outputs, `$dir`")
@@ -392,14 +363,12 @@ function step_report(
 
         lreport!(report, selected_rows(content, selection))
     end
-    plots = [joinpath(root, f) for plot_root in filter(isdir, plot_roots)
-             for (root, _, files) in walkdir(plot_root)
+    plots = [joinpath(root, f) for plot_root in filter(isdir, plot_roots) for (root, _, files) in walkdir(plot_root)
              for f in files if endswith(f, ".png") && mtime(joinpath(root, f)) >= started]
     isempty(plots) && return report
     lreport!(report, "# Plots")
     plot_det(file) = plot_detector(file, level)
-    detectors = isnothing(selection) ? sort!(unique(plot_det.(plots))) :
-                sort!(collect(selection))
+    detectors = isnothing(selection) ? sort!(unique(plot_det.(plots))) : sort!(collect(selection))
     for det in detectors
         det_plots = sort!(filter(p -> plot_det(p) == det, plots); by = p -> (mtime(p), p))
         isempty(det_plots) && continue
@@ -409,9 +378,8 @@ function step_report(
             lreport!(report, "### $name")
             # debug plots of failed steps are linked, so that many failures do not fill the report
             lreport!(report,
-                startswith(split(name, '-')[end], "error_") ?
-                "[$(basename(file))]($(relpath(file, joinpath(dir, "reports"))))" :
-                ReportPlot(file))
+                     startswith(split(name, '-')[end], "error_") ? "[$(basename(file))]($(relpath(file, joinpath(dir, "reports"))))" :
+                     ReportPlot(file))
         end
     end
     return report
@@ -431,7 +399,7 @@ end
 Base.show(io::IO, ::MIME"image/png", p::ReportPlot) = write(io, read(p.file))
 
 function Base.show(io::IO, ::MIME"text/html", p::ReportPlot)
-    print(io, "<img src=\"data:image/png;base64,$(base64encode(read(p.file)))\" width=\"800\">")
+    return print(io, "<img src=\"data:image/png;base64,$(base64encode(read(p.file)))\" width=\"800\">")
 end
 
 Base.show(io::IO, ::MIME"text/plain", p::ReportPlot) = print(io, p.file)
@@ -514,12 +482,11 @@ end
 # a run-level processor or `<setup>-<partition>-<category>-<detector>-<name>.png` of a
 # partition-level one.
 function plot_detector(file, level::Symbol)
-    String(split(basename(file), '-')[level === :run ? 5 : 4])
+    return String(split(basename(file), '-')[level === :run ? 5 : 4])
 end
 
 # `content` with only the rows whose `Detector` is in `selection`.
 function selected_rows(content, selection)
-    (isnothing(selection) || !(content isa StructArray) ||
-     !hasproperty(content, :Detector)) && return content
+    (isnothing(selection) || !(content isa StructArray) || !hasproperty(content, :Detector)) && return content
     return content[[string(det) in selection for det in content.Detector]]
 end
