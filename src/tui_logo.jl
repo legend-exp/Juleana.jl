@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-# The logo of Juleana in text characters: one row per line, each a vector of `(text, color)`
+# The logo of JuLeAna in text characters: one row per line, each a vector of `(text, color)`
 # segments with the color `:outline` (the text color of the theme), `:red`, `:green` or
 # `:purple`.
 const TEXT_LOGO = Vector{Tuple{String,Symbol}}[Tuple{String,Symbol}[("                                  ;=**└└└└²*ª═╓", :outline)],

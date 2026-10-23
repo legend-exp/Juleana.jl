@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 const LOG_LEVELS = Dict("debug" => Logging.Debug, "info" => Logging.Info, "warn" => Logging.Warn, "error" => Logging.Error)
 
@@ -10,7 +10,7 @@ Return the `Logging.LogLevel` named by `level`: `"debug"`, `"info"`, `"warn"` or
 
 # Examples
 ```jldoctest
-julia> Juleana.parse_log_level("warn")
+julia> JuLeAna.parse_log_level("warn")
 Warn
 ```
 """
@@ -69,11 +69,11 @@ end
     DEBUG_LOG_PACKAGES
 
 Name prefixes of the packages whose debug records a processor at log level `debug` writes:
-Juleana, the Legend packages, BAT and the JuliaPhysics packages of the dataflow. A module
+JuLeAna, the Legend packages, BAT and the JuliaPhysics packages of the dataflow. A module
 counts when its name or the name of one of its parent modules starts with one of them, so
 submodules and package extensions such as `LegendMakieExt` are included.
 """
-const DEBUG_LOG_PACKAGES = ("Juleana", "Legend", "BAT", "RadiationDetectorDSP", "RadiationDetectorSignals", "RadiationSpectra",
+const DEBUG_LOG_PACKAGES = ("JuLeAna", "Legend", "BAT", "RadiationDetectorDSP", "RadiationDetectorSignals", "RadiationSpectra",
                             "SolidStateDetectors")
 
 # Whether `mod` or one of its parent modules is named with a prefix of `DEBUG_LOG_PACKAGES`.

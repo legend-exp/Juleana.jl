@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 using LegendTestData: legend_test_data_path
 using Distributed: nprocs
@@ -60,21 +60,21 @@ end
 
     @testset "available periods and runs" begin
         # the runinfo decides, not the data on disk (p13 has no runs on disk)
-        @test Juleana.available_periods(l200) == [p2, p3, p13, p16]
-        @test Juleana.available_runs(l200, p2) == DataRun.(0:7)
-        @test Juleana.available_runs(l200, p16) == DataRun.(6:9)
-        @test Juleana.available_runs(l200, DataPeriod(99)) == DataRun[]
+        @test JuLeAna.available_periods(l200) == [p2, p3, p13, p16]
+        @test JuLeAna.available_runs(l200, p2) == DataRun.(0:7)
+        @test JuLeAna.available_runs(l200, p16) == DataRun.(6:9)
+        @test JuLeAna.available_runs(l200, DataPeriod(99)) == DataRun[]
         # the dataset `valid` lists runs of p02 and p03 only
         valid = withenv(() -> LegendData(:l200; dataset = :valid), "LEGEND_DATA_CONFIG" => data_config)
-        @test Juleana.available_periods(valid) == [p2, p3]
-        @test Juleana.available_runs(valid, p3) == DataRun.(0:5)
-        @test Juleana.available_runs(valid, p16) == DataRun[]
+        @test JuLeAna.available_periods(valid) == [p2, p3]
+        @test JuLeAna.available_runs(valid, p3) == DataRun.(0:5)
+        @test JuLeAna.available_runs(valid, p16) == DataRun[]
     end
 
     @testset "processable_runs" begin
-        @test Juleana.processable_runs(l200, p2, nothing) == DataRun.(0:7)
-        @test Juleana.processable_runs(l200, p2, [DataRun(7)]) == [DataRun(7)]
-        @test (@test_logs (:warn, "Run r008 not found in period p02") Juleana.processable_runs(l200, p2, DataRun.([6, 8]))) == [DataRun(6)]
+        @test JuLeAna.processable_runs(l200, p2, nothing) == DataRun.(0:7)
+        @test JuLeAna.processable_runs(l200, p2, [DataRun(7)]) == [DataRun(7)]
+        @test (@test_logs (:warn, "Run r008 not found in period p02") JuLeAna.processable_runs(l200, p2, DataRun.([6, 8]))) == [DataRun(6)]
     end
 
     cfg = ProcessingConfig(;
@@ -83,7 +83,7 @@ end
                            p_processors = Dict(:p_process_aoe_cut_cal => spec(:p_process_aoe_cut_cal, :partition, 1)))
 
     @testset "setup_dependency_graph" begin
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [p2, p3, DataPeriod(99)], nothing,
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, cfg, [p2, p3, DataPeriod(99)], nothing,
                                                                                [:process_energy_calibration_cal], Symbol[])
         @test periods == [p2, p3]
         @test sort(collect(keys(run_status[p2][:process_energy_calibration_cal]))) == DataRun.(0:7)
@@ -92,7 +92,7 @@ end
         @test all(values(run_status[p2][:process_dsp_cal]))
         @test partition_status[p3][:p_process_aoe_cut_cal]
 
-        periods, run_status, _ = @test_logs (:warn, "Run r007 not found in period p03") Juleana.setup_dependency_graph(l200, cfg, [p2, p3],
+        periods, run_status, _ = @test_logs (:warn, "Run r007 not found in period p03") JuLeAna.setup_dependency_graph(l200, cfg, [p2, p3],
                                                                                                                        [DataRun(7)],
                                                                                                                        Symbol[],
                                                                                                                        [:p_process_aoe_cut_cal])
@@ -101,19 +101,19 @@ end
     end
 
     @testset "DataflowSession" begin
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [p2], nothing, Symbol[], Symbol[])
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, cfg, [p2], nothing, Symbol[], Symbol[])
         session = DataflowSession(; args = Dict{String,Any}(), l200, config = cfg, periods, run_steps = [:process_energy_calibration_cal],
                                   partition_steps = [:p_process_aoe_cut_cal], run_status, partition_status)
         @test isnothing(session.runs)
 
         # resetting marks the session's scheduled steps as unfinished
         @test all(values(session.run_status[p2][:process_energy_calibration_cal]))
-        @test Juleana.reset_dependency_graph!(session) === session
+        @test JuLeAna.reset_dependency_graph!(session) === session
         @test !any(values(session.run_status[p2][:process_energy_calibration_cal]))
         @test !session.partition_status[p2][:p_process_aoe_cut_cal]
 
         session.runs = [DataRun(6)]
-        Juleana.reset_dependency_graph!(session)
+        JuLeAna.reset_dependency_graph!(session)
         @test collect(keys(session.run_status[p2][:process_energy_calibration_cal])) == [DataRun(6)]
 
         shown = sprint(show, session)
@@ -124,14 +124,14 @@ end
         @test occursin("all runs", sprint(show, session))
 
         # p02 is the only period of its default partitions
-        @test Juleana.partition_periods(l200, p2) == [p2]
+        @test JuLeAna.partition_periods(l200, p2) == [p2]
 
         # `run_processing(session)` runs the session's steps and marks them as finished
         calls = Tuple{Symbol,DataPeriod,Any}[]
         calls_lock = ReentrantLock()
         run_stub(cfg, l200, period, run; kwargs...) = (lock(() -> push!(calls, (:run, period, run)), calls_lock); nothing)
         partition_stub(cfg, l200, period; kwargs...) = (lock(() -> push!(calls, (:partition, period, nothing)), calls_lock); false)
-        Juleana.reset_dependency_graph!(session)
+        JuLeAna.reset_dependency_graph!(session)
         run_processing(session;
                        processors = Dict{Symbol,Any}(:process_energy_calibration_cal => run_stub, :p_process_aoe_cut_cal => partition_stub))
         @test sort(calls; by = string) == sort([[(:run, p2, r) for r in DataRun.(0:7)]; (:partition, p2, nothing)]; by = string)
@@ -150,12 +150,12 @@ end
         write(joinpath(overrides, "fixed_tau.yaml"), "tau: 1")
         mkpath(joinpath(dir, "overrides", "rpars", "ml"))
         base = mkpath(joinpath(dir, "par", "ppars"))
-        @test sort(Juleana.mirror_override_folders(joinpath(dir, "overrides"), joinpath(dir, "par"))) ==
+        @test sort(JuLeAna.mirror_override_folders(joinpath(dir, "overrides"), joinpath(dir, "par"))) ==
               sort(joinpath.(dir, "par", ["ppars/pz", "ppars/pz/V01", "rpars", "rpars/ml"]))
         @test isdir(joinpath(base, "pz", "V01")) && isempty(readdir(joinpath(base, "pz", "V01")))
-        @test isempty(Juleana.mirror_override_folders(joinpath(dir, "overrides"), joinpath(dir, "par")))
+        @test isempty(JuLeAna.mirror_override_folders(joinpath(dir, "overrides"), joinpath(dir, "par")))
         # the metadata of LegendTestData has no parameter overrides
-        @test isempty(Juleana.mirror_override_folders(l200))
+        @test isempty(JuLeAna.mirror_override_folders(l200))
     end
 
     @testset "setup_processing" begin
@@ -164,16 +164,16 @@ end
         processing_config = joinpath(root, "processing_config.yaml")
         writelprops(processing_config, props)
         log_path = joinpath(root, "logs")
-        args = Juleana.parse_commandline(["-c", processing_config, "-p", "2", "13", "-p", "3", "-r", "6", "-o", log_path, "--or"])
+        args = JuLeAna.parse_commandline(["-c", processing_config, "-p", "2", "13", "-p", "3", "-r", "6", "-o", log_path, "--or"])
         @test args["dataset"] == "default"
-        @test Juleana.parse_commandline(["-c", processing_config, "--dataset", "valid"])["dataset"] == "valid"
-        bad_args = Juleana.parse_commandline(["-c", processing_config, "--dataset", "no_such_dataset"])
+        @test JuLeAna.parse_commandline(["-c", processing_config, "--dataset", "valid"])["dataset"] == "valid"
+        bad_args = JuLeAna.parse_commandline(["-c", processing_config, "--dataset", "no_such_dataset"])
         withenv("LEGEND_DATA_CONFIG" => nothing) do
-            @test_throws "dataset no_such_dataset is not in the metadata datasets/runlists" Juleana.setup_processing(bad_args)
+            @test_throws "dataset no_such_dataset is not in the metadata datasets/runlists" JuLeAna.setup_processing(bad_args)
         end
         # `setup_processing` sets `ENV` from the config's `env_variables`
         l200_setup, config, periods = withenv("LEGEND_DATA_CONFIG" => nothing) do
-            Juleana.setup_processing(args)
+            JuLeAna.setup_processing(args)
         end
         @test l200_setup isa LegendData
         @test periods == [p2, p13, p3]
@@ -190,7 +190,7 @@ end
         session = try
             cd(workdir) do
                 withenv("LEGEND_DATA_CONFIG" => nothing) do
-                    Juleana.setup_session(args; console = false, start_workers = false)
+                    JuLeAna.setup_session(args; console = false, start_workers = false)
                 end
             end
         finally
@@ -211,7 +211,7 @@ end
         try
             cd(workdir) do
                 withenv("LEGEND_DATA_CONFIG" => nothing, "SLURM_NTASKS" => "2") do
-                    Juleana.setup_session(slurm_args; console = false)
+                    JuLeAna.setup_session(slurm_args; console = false)
                 end
             end
         finally

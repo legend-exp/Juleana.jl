@@ -1,7 +1,7 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
-using Juleana: @process_step, ProcessStepError
+using JuLeAna
+using JuLeAna: @process_step, ProcessStepError
 using Test
 using Logging
 using Base.ScopedValues: with
@@ -20,7 +20,7 @@ function capture_nested(x)
 end
 
 module RerunTarget
-using Juleana: @process_step
+using JuLeAna: @process_step
 # visible only in this module, so a rerun must run in it
 above(values, threshold) = filter(>(threshold), values)
 function mean_above(values, threshold)
@@ -51,7 +51,7 @@ end
 
 rerun_context(fail) = @process_step "context" begin
     fail && error("x")
-    (Juleana.WRITE_PARS[], Juleana.CURRENT_ITEM[])
+    (JuLeAna.WRITE_PARS[], JuLeAna.CURRENT_ITEM[])
 end
 
 const HOOK_CALLS = Ref(0)
@@ -71,30 +71,30 @@ end
 # The stops of `f()` with the debug options `options`, as (variables, line)
 function stops_of(f; options...)
     stops = []
-    Juleana.STOP_HOOK[] = (mod, vars, file, line) -> push!(stops, (; mod, vars, file, line))
+    JuLeAna.STOP_HOOK[] = (mod, vars, file, line) -> push!(stops, (; mod, vars, file, line))
     try
         with_logger(NullLogger()) do
             try
-                with(f, Juleana.DEBUG_CAPTURE => Juleana.debug_capture(:proc, (); options...))
+                with(f, JuLeAna.DEBUG_CAPTURE => JuLeAna.debug_capture(:proc, (); options...))
             catch
             end
         end
     finally
-        Juleana.STOP_HOOK[] = nothing
+        JuLeAna.STOP_HOOK[] = nothing
     end
     return stops
 end
 
 # The single failure that `f()` captures, also as the failures of the last `run_step` call
 function capture_failure(f, item = nothing)
-    capture = Juleana.debug_capture(:proc, ())
+    capture = JuLeAna.debug_capture(:proc, ())
     with_logger(NullLogger()) do
         try
-            with(f, Juleana.DEBUG_CAPTURE => capture, Juleana.CURRENT_ITEM => item)
+            with(f, JuLeAna.DEBUG_CAPTURE => capture, JuLeAna.CURRENT_ITEM => item)
         catch
         end
     end
-    Juleana.LAST_FAILURES[] = capture.failures
+    JuLeAna.LAST_FAILURES[] = capture.failures
     return only(capture.failures)
 end
 
@@ -139,7 +139,7 @@ end
         @test err.item === nothing
         @test err.exception == ErrorException("no peaks")
         @test string(err) == "e_cusp simple calibration: ErrorException(\"no peaks\")"
-        @test Juleana.root_exception(err) === err
+        @test JuLeAna.root_exception(err) === err
         @test truncate_error(err) == "e_cusp simple calibration: ErrorException(\"no peaks\")"
 
         # the root exception of a wrapped failure is reported
@@ -173,7 +173,7 @@ end
     @testset "detector of the item" begin
         row = (detector = DetectorId(:V00048B), usability = :on, channel = 1)
         err = @test_logs (:error, "fit failed for V00048B: ErrorException(\"x\")") try
-            with(Juleana.CURRENT_ITEM => row) do
+            with(JuLeAna.CURRENT_ITEM => row) do
                 @process_step "fit" error("x")
             end
         catch e
@@ -184,7 +184,7 @@ end
         # through `parallel`, the failure reaches the log table as "<name>: <error>"
         DetLog = NamedTuple{(:Detector, :usability, :Status, :X, :Error)}
         result = with_logger(NullLogger()) do
-            Juleana.parallel([row], DetLog) do r
+            JuLeAna.parallel([row], DetLog) do r
                 @process_step "fit" error("x")
             end
         end
@@ -194,19 +194,19 @@ end
         FkLog = NamedTuple{(:Filekey, :Status, :A, :B, :Error)}
         logger = Test.TestLogger()
         with_logger(logger) do
-            Juleana.parallel(k -> (@process_step "load" error("missing file")), [fk], FkLog)
+            JuLeAna.parallel(k -> (@process_step "load" error("missing file")), [fk], FkLog)
         end
         @test only(filter(r -> r.level == Logging.Error, logger.logs)).message == "load failed: ErrorException(\"missing file\")"
     end
 
     @testset "capture" begin
         module_for_locals = Module()
-        capture = Juleana.debug_capture(:proc, (DataPeriod(3), DataRun(1)))
+        capture = JuLeAna.debug_capture(:proc, (DataPeriod(3), DataRun(1)))
         failures = capture.failures
         row = (detector = DetectorId(:V00048B), usability = :on)
         err = with_logger(NullLogger()) do
             try
-                with(() -> capture_nested(5), Juleana.DEBUG_CAPTURE => capture, Juleana.CURRENT_ITEM => row)
+                with(() -> capture_nested(5), JuLeAna.DEBUG_CAPTURE => capture, JuLeAna.CURRENT_ITEM => row)
             catch e
                 e
             end
@@ -217,19 +217,19 @@ end
         @test propertynames(f) == (:mid, :outer, :x)
         @test (f.x, f.outer, f.mid) == (5, 5, 10)
         @test_throws "the failure of \"inner 5\" captured no variable `inner_new`; it captured mid, outer, x" f.inner_new
-        info = Juleana.failure_info(f)
+        info = JuLeAna.failure_info(f)
         @test info.name == "inner 5" && info.step == :proc && info.item === row && info.detector == DetectorId(:V00048B)
         @test info.exception == ErrorException("boom") && !isempty(info.backtrace)
         @test info.block isa Expr && info.file == @__FILE__
-        @test Juleana.failure_variables(f) == Dict(:x => 5, :outer => 5, :mid => 10)
+        @test JuLeAna.failure_variables(f) == Dict(:x => 5, :outer => 5, :mid => 10)
         @test sprint(show, f) == "Failure(\"inner 5\" for V00048B)"
         @test sprint(show, MIME"text/plain"(), f) ==
               "\"inner 5\" failed for V00048B in proc p03 r001 at $(info.file):$(info.line)\n" *
               "  error: ErrorException(\"boom\")\n  variables: mid, outer, x\n  code:\n    inner_new = 3x\n    error(\"boom\")"
-        @test Juleana.define_locals(module_for_locals, f) == [:mid, :outer, :x]
+        @test JuLeAna.define_locals(module_for_locals, f) == [:mid, :outer, :x]
         @test module_for_locals.mid == 10 && module_for_locals.x == 5
-        @test occursin("2 failed `@process_step` captured", sprint(Juleana.print_failures, [f, f]))
-        @test sprint(Juleana.print_failures, Juleana.Failure[]) == "run_step: no failed `@process_step` was captured\n"
+        @test occursin("2 failed `@process_step` captured", sprint(JuLeAna.print_failures, [f, f]))
+        @test sprint(JuLeAna.print_failures, JuLeAna.Failure[]) == "run_step: no failed `@process_step` was captured\n"
 
         # without debug mode nothing is captured
         with_logger(NullLogger()) do
@@ -243,45 +243,45 @@ end
 
     @testset "rerun" begin
         f = capture_failure(() -> RerunTarget.mean_above([1, 2], 5))
-        @test Juleana.failure_info(f).mod === RerunTarget
+        @test JuLeAna.failure_info(f).mod === RerunTarget
         # unchanged, it fails in the same way and replaces the failure
-        @test_throws ErrorException("nothing above 5") with_logger(() -> Juleana.rerun(f), NullLogger())
-        f2 = Juleana.failure()
-        @test f2 !== f && only(Juleana.failures()) === f2 && Juleana.failure_info(f2).name == "mean above 5"
+        @test_throws ErrorException("nothing above 5") with_logger(() -> JuLeAna.rerun(f), NullLogger())
+        f2 = JuLeAna.failure()
+        @test f2 !== f && only(JuLeAna.failures()) === f2 && JuLeAna.failure_info(f2).name == "mean above 5"
         @test f2.values == [1, 2]
         # an override fixes it
-        @test Juleana.rerun(f2; values = [4, 6, 8]) == 7.0
-        @test Juleana.rerun(f2; values = [1, 3], threshold = 0) == 2.0
-        @test_throws "rerun: thresh is not a captured variable of \"mean above 5\"; the captured variables are threshold, values" Juleana.rerun(f2;
+        @test JuLeAna.rerun(f2; values = [4, 6, 8]) == 7.0
+        @test JuLeAna.rerun(f2; values = [1, 3], threshold = 0) == 2.0
+        @test_throws "rerun: thresh is not a captured variable of \"mean above 5\"; the captured variables are threshold, values" JuLeAna.rerun(f2;
                                                                                                                                                 thresh = 0)
 
         # a failed outer step with an inner one
         f = capture_failure(() -> rerun_nested(1))
-        @test Juleana.failure_info(f).name == "outer" && propertynames(f) == (:x,)
-        @test Juleana.rerun(f; x = 9) == 3.0
+        @test JuLeAna.failure_info(f).name == "outer" && propertynames(f) == (:x,)
+        @test JuLeAna.rerun(f; x = 9) == 3.0
 
         # the item of the failure, and no parameters are written
         row = (detector = DetectorId(:V00048B), usability = :on)
         f = capture_failure(() -> rerun_context(true), row)
-        @test Juleana.rerun(f; fail = false) == (false, row)
+        @test JuLeAna.rerun(f; fail = false) == (false, row)
 
         f = capture_failure(rerun_continue)
-        @test_throws "rerun: the block of \"loop step\" contains `continue`, which leaves the block" Juleana.rerun(f)
-        @test Juleana.block_exit(:(return 1)) == "return"
-        @test Juleana.block_exit(:(if a
+        @test_throws "rerun: the block of \"loop step\" contains `continue`, which leaves the block" JuLeAna.rerun(f)
+        @test JuLeAna.block_exit(:(return 1)) == "return"
+        @test JuLeAna.block_exit(:(if a
                                        ;break;
                                    end)) == "break"
-        @test Juleana.block_exit(:(@goto done)) == "@goto"
-        @test Juleana.block_exit(:(for i in 1:2
+        @test JuLeAna.block_exit(:(@goto done)) == "@goto"
+        @test JuLeAna.block_exit(:(for i in 1:2
                                        ;i == 1 && continue;
                                        break;
                                    end)) === nothing
-        @test Juleana.block_exit(:(while true
+        @test JuLeAna.block_exit(:(while true
                                        ;break;
                                    end)) === nothing
-        @test Juleana.block_exit(:(g(x) = return x)) === nothing
-        @test Juleana.block_exit(:(map(x -> return x, 1:2))) === nothing
-        @test Juleana.block_exit(:(function g()
+        @test JuLeAna.block_exit(:(g(x) = return x)) === nothing
+        @test JuLeAna.block_exit(:(map(x -> return x, 1:2))) === nothing
+        @test JuLeAna.block_exit(:(function g()
                                        ;return 1;
                                    end)) === nothing
     end
@@ -290,7 +290,7 @@ end
         # off by default
         @test_throws ProcessStepError with_logger(() -> hooked(false), NullLogger())
         @test HOOK_CALLS[] == 0
-        err = with(Juleana.ERROR_PLOTS => true) do
+        err = with(JuLeAna.ERROR_PLOTS => true) do
             @test_logs (:error, "hooked failed: ErrorException(\"step\")") try
                 hooked(false)
             catch e
@@ -299,7 +299,7 @@ end
         end
         @test HOOK_CALLS[] == 1 && err.exception == ErrorException("step")
         # a failing hook only warns, and the error of the step is thrown unchanged
-        err = with(Juleana.ERROR_PLOTS => true) do
+        err = with(JuLeAna.ERROR_PLOTS => true) do
             @test_logs (:error, "hooked failed: ErrorException(\"step\")") (:warn,
                                                                             "the error plot of hooked failed: ErrorException(\"no plot\")") try
                 hooked(true)
@@ -312,7 +312,7 @@ end
         with(() -> with_logger(() -> try
                                    hooked_outer()
                                catch
-                               end, NullLogger()), Juleana.ERROR_PLOTS => true)
+                               end, NullLogger()), JuLeAna.ERROR_PLOTS => true)
         @test HOOK_CALLS[] == 2
         @test_throws "@process_step: unknown option `plot = 1`, expected `on_error = hook`" macroexpand(@__MODULE__,
                                                                                                         :(@process_step "x" plot = 1 nothing))
@@ -330,27 +330,27 @@ end
         stops = stops_of(() -> paused_steps(1); infiltrate = true)
         @test only(stops).vars == Dict(:x => 1, :a => 2, :b => 4)
         # the stop at a failure logs the code of the step
-        Juleana.STOP_HOOK[] = (args...) -> nothing
+        JuLeAna.STOP_HOOK[] = (args...) -> nothing
         try
-            capture = Juleana.debug_capture(:proc, (); infiltrate = true)
+            capture = JuLeAna.debug_capture(:proc, (); infiltrate = true)
             @test_logs (:error,) (:info, r"^Stopped at the failed fails\. The code of the step:\n```julia\nerror\(\"boom ") try
-                with(() -> paused_steps(1), Juleana.DEBUG_CAPTURE => capture)
+                with(() -> paused_steps(1), JuLeAna.DEBUG_CAPTURE => capture)
             catch
             end
         finally
-            Juleana.STOP_HOOK[] = nothing
+            JuLeAna.STOP_HOOK[] = nothing
         end
         @test isempty(stops_of(() -> paused_steps(1)))
         # a pause logs where it stopped
-        Juleana.STOP_HOOK[] = (args...) -> nothing
+        JuLeAna.STOP_HOOK[] = (args...) -> nothing
         try
-            capture = Juleana.debug_capture(:proc, (); pause = ["second"])
+            capture = JuLeAna.debug_capture(:proc, (); pause = ["second"])
             @test (@test_logs (:info, "Paused after second; its value is `step_value`. The code of the step:\n```julia\n4\n```") with(() -> (@process_step "second" 4),
-                                                                                                                                      Juleana.DEBUG_CAPTURE =>
+                                                                                                                                      JuLeAna.DEBUG_CAPTURE =>
                                                                                                                                           capture)) ==
                   4
         finally
-            Juleana.STOP_HOOK[] = nothing
+            JuLeAna.STOP_HOOK[] = nothing
         end
     end
 

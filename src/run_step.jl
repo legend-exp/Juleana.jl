@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Names of the detectors chosen by `run_step`; `nothing` outside of it. `parallel` sets it
 # again on the workers.
@@ -91,7 +91,7 @@ const PROCESSOR_TRAITS = Dict{Symbol,NamedTuple{(:output_tiers, :detector_select
 const DEFAULT_TRAITS = (output_tiers = Symbol[], detector_selection = true)
 
 """
-    Juleana.processors(config = Juleana.default_config_file(); processors = PROCESSORS)
+    JuLeAna.processors(config = JuLeAna.default_config_file(); processors = PROCESSORS)
 
 Table of the registered processors `processors`: the run-level processors of `config` in
 the order of their rank, then the partition-level ones, then the processors that are not
@@ -104,8 +104,8 @@ for chosen detectors, and `OutputTiers`, the data tiers it writes.
 
 # Examples
 ```julia
-Juleana.processors()
-Juleana.processors(joinpath(pkgdir(Juleana), "config", "processing_config.yaml"))
+JuLeAna.processors()
+JuLeAna.processors(joinpath(pkgdir(JuLeAna), "config", "processing_config.yaml"))
 ```
 """
 function processors(config = default_config_file(); processors::AbstractDict{Symbol} = PROCESSORS)
@@ -124,16 +124,16 @@ end
 
 """
     run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs = :temp,
-        output_dir = nothing, config = Juleana.default_config_file(), l200 = nothing,
+        output_dir = nothing, config = JuLeAna.default_config_file(), l200 = nothing,
         show_report::Bool = isinteractive(), debug = false, pause = nothing, error_plots = nothing, log_level = nothing,
         plot_level = nothing,
         processors::AbstractDict{Symbol} = PROCESSORS, kwargs...)
 
 Run the processor `step` for `period` and, for a run-level processor, `run`, in the
 calling Julia process, for example in the REPL. A partition-level processor takes no
-`run`. `step` is the name of a registered processor, a key of [`Juleana.PROCESSORS`](@ref),
-and [`Juleana.processors`](@ref) lists them with their level, category and rank;
-`?Juleana.<step>`, e.g. `?Juleana.process_energy_calibration_cal`, shows what the
+`run`. `step` is the name of a registered processor, a key of [`JuLeAna.PROCESSORS`](@ref),
+and [`JuLeAna.processors`](@ref) lists them with their level, category and rank;
+`?JuLeAna.<step>`, e.g. `?JuLeAna.process_energy_calibration_cal`, shows what the
 processor does and its keywords.
 
 Only the defaults are needed: by default, nothing is written to the data production, and
@@ -157,7 +157,7 @@ the plots, reports and data files go to a temporary directory.
   this call, in the order they were saved.
 - `config`: a [`ProcessingConfig`](@ref) or the path of a config file; by default the
   config of the data production. The processor must be in it; for a processor that is not,
-  use the config of the package, `joinpath(pkgdir(Juleana), "config", "processing_config.yaml")`.
+  use the config of the package, `joinpath(pkgdir(JuLeAna), "config", "processing_config.yaml")`.
 - `l200`: the `LegendData` to use; by default `LegendData(:l200)`, built after the
   `env_variables` of `config` are set.
 - `show_report`: display the report at the end with [`display_report`](@ref); the default
@@ -165,7 +165,7 @@ the plots, reports and data files go to a temporary directory.
 - `debug`: `true` runs the items one after the other in the calling process, without
   workers and `timeout`, and captures each failed [`@process_step`](@ref) as a
   [`Failure`](@ref) with the variables of the processor at that step; see
-  [`Juleana.failure`](@ref). A summary of the failures is printed at the end.
+  [`JuLeAna.failure`](@ref). A summary of the failures is printed at the end.
   `:infiltrate` does the same and also stops at each failed step in an Infiltrator
   prompt with these variables; leaving the prompt goes on with the error. Needs
   `using Infiltrator`.
@@ -185,7 +185,7 @@ the plots, reports and data files go to a temporary directory.
 - `plot_level`: `:info` or `:debug`; at `:debug` the processor also saves its
   [`@debug_plot`](@ref) plots, which the report shows like the others. `nothing` (the
   default) takes the `plot_level` of the processor in `config`.
-- `processors`: the processors by name, [`Juleana.PROCESSORS`](@ref) by default.
+- `processors`: the processors by name, [`JuLeAna.PROCESSORS`](@ref) by default.
 - `kwargs`: keyword arguments of the processor, e.g. `timeout = 0`. The processor gets the
   keyword arguments of `config`, then `only_first_period = false` for a partition-level
   processor and `reprocess = true` when `detectors` is `nothing`, then `kwargs`.
@@ -193,12 +193,12 @@ the plots, reports and data files go to a temporary directory.
 # Workers
 The items of the processor, e.g. its detectors, go to the workers of the
 ParallelProcessingTools worker pool, or run in the calling process when no workers are
-started. Workers started from the session need Juleana and ParallelProcessingTools in the
+started. Workers started from the session need JuLeAna and ParallelProcessingTools in the
 active environment:
 
 ```julia
-using Juleana
-ParallelProcessingTools.@always_everywhere using Juleana
+using JuLeAna
+ParallelProcessingTools.@always_everywhere using JuLeAna
 ParallelProcessingTools.runworkers(ParallelProcessingTools.OnLocalhost(n = 4))
 ```
 
@@ -215,15 +215,15 @@ a processor that cannot select detectors, or if `outputs` is not `:temp` or `:pr
 
 # Examples
 ```julia
-using Juleana
+using JuLeAna
 # run level: a detector of p03 r000
 step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A])
 # partition level, no run
 step = run_step(:p_process_energy_cal, 3; detectors = [:V01234A])
-Juleana.display_report(step.report)
+JuLeAna.display_report(step.report)
 # capture the failed steps of a detector
 step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A], debug = true)
-f = Juleana.failure()
+f = JuLeAna.failure()
 ```
 """
 function run_step(step::Symbol, period, run = nothing; detectors = nothing, outputs::Symbol = :temp, output_dir = nothing,
@@ -299,7 +299,7 @@ function print_failures(io::IO, failures)
         println(io, "run_step: no failed `@process_step` was captured")
         return nothing
     end
-    println(io, "run_step: $(length(failures)) failed `@process_step` captured, see `Juleana.failure()` and `Juleana.failures()`:")
+    println(io, "run_step: $(length(failures)) failed `@process_step` captured, see `JuLeAna.failure()` and `JuLeAna.failures()`:")
     for (i, f) in enumerate(failures)
         print(io, i, ". ")
         show(io, MIME"text/plain"(), f)
@@ -423,7 +423,7 @@ end
 
 Display the report `report` of [`run_step`](@ref), e.g. `step.report`, or the Markdown
 report file at `path`, e.g. a report of the production found with
-[`Juleana.report_path`](@ref) or `step.report_file`.
+[`JuLeAna.report_path`](@ref) or `step.report_file`.
 
 In VS Code with the plot pane on, the report is shown there as one page, with its tables
 and plots. Otherwise `report` is shown with `display`: the text and tables as usual, and
@@ -436,8 +436,8 @@ Markdown text.
 # Examples
 ```julia
 using KittyTerminalImages
-Juleana.display_report(step.report)
-Juleana.display_report(Juleana.report_path(l200, :process_energy_calibration_cal, :run, DataPeriod(3), DataRun(0), :cal))
+JuLeAna.display_report(step.report)
+JuLeAna.display_report(JuLeAna.report_path(l200, :process_energy_calibration_cal, :run, DataPeriod(3), DataRun(0), :cal))
 ```
 """
 function display_report(report)

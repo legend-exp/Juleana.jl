@@ -9,7 +9,7 @@ emphasis.
 
 # Examples
 ```jldoctest
-julia> Juleana.escape_log_underscores("process_dsp_cal in `p_process_energy_cal`")
+julia> JuLeAna.escape_log_underscores("process_dsp_cal in `p_process_energy_cal`")
 "process\\\\_dsp\\\\_cal in `p_process_energy_cal`"
 ```
 """

@@ -1,5 +1,5 @@
-name = "Juleana"
-uuid = "4ddb2257-c192-4668-99e3-f65b8c22d0e6"
+name = "JuLeAna"
+uuid = "249371f1-448e-4e46-90b5-bb61a033b986"
 version = "0.2.0"
 
 [deps]
@@ -51,7 +51,7 @@ UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 
 [extensions]
-JuleanaInfiltratorExt = "Infiltrator"
+JuLeAnaInfiltratorExt = "Infiltrator"
 
 [compat]
 ArgParse = "1"

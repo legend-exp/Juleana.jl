@@ -1,11 +1,11 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 import Test
 import ExplicitImports
-import Juleana
+import JuLeAna
 
 Test.@testset "ExplicitImports" begin
-    ExplicitImports.test_explicit_imports(Juleana;
+    ExplicitImports.test_explicit_imports(JuLeAna;
                                           ignore = (
                                                     # Logging interface methods: documented extension points, not marked public.
                                                     :catch_exceptions, :handle_message, :min_enabled_level, :shouldlog,

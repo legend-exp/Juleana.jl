@@ -1,7 +1,7 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
-    Juleana.dataset_summary(l200::LegendData)
+    JuLeAna.dataset_summary(l200::LegendData)
 
 Return the runinfo of `l200` per period and run: a `Dict` from `(period, run)` to the
 data categories of the run that have file keys, in the column order of the runinfo. Each
@@ -21,9 +21,9 @@ function dataset_summary(l200::LegendData)
 end
 
 """
-    Juleana.period_summary(summary, period)
+    JuLeAna.period_summary(summary, period)
 
-Return the totals of `period` in `summary`, as returned by [`Juleana.dataset_summary`](@ref),
+Return the totals of `period` in `summary`, as returned by [`JuLeAna.dataset_summary`](@ref),
 per category, in the order the categories first occur in the runs of the period: a vector
 of `NamedTuple`s with `category`, `nruns` (runs with file keys of the category), `nkeys`,
 `livetime` (the sum of the known livetimes in seconds, `NaN` if no run has one), `start`

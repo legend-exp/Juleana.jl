@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # The item that `parallel` is processing in the current task, `nothing` outside of `parallel`
 const CURRENT_ITEM = ScopedValue{Any}(nothing)
@@ -56,7 +56,7 @@ local to it.
 
 Inside [`run_step`](@ref) with `debug = true`, the innermost failing step also captures a
 [`Failure`](@ref) with the local variables of the processor at the step, see
-[`Juleana.failure`](@ref). With `debug = :infiltrate`, it also stops there in an
+[`JuLeAna.failure`](@ref). With `debug = :infiltrate`, it also stops there in an
 Infiltrator prompt. With `pause`, a step whose name is selected stops after it succeeded,
 with the value of `block` as the variable `step_value`.
 
@@ -163,7 +163,7 @@ A failed [`@process_step`](@ref), captured by [`run_step`](@ref) with `debug = t
 local variables of the processor at the step are its properties, e.g. `f.aoe` for a
 variable `aoe`, and `propertynames(f)` lists them. [`failure_info`](@ref) gives the step
 name, processor, item and error, [`failure_variables`](@ref) all variables, and
-[`Juleana.@locals`](@ref) defines them in the REPL.
+[`JuLeAna.@locals`](@ref) defines them in the REPL.
 
 The variables are those visible where the error is caught: the arguments and variables of
 the processor, also those assigned in enclosing blocks, but not the variables first assigned
@@ -237,28 +237,28 @@ end
 const LAST_FAILURES = Ref(Failure[])
 
 """
-    Juleana.failures()::Vector{Failure}
+    JuLeAna.failures()::Vector{Failure}
 
 The [`Failure`](@ref)s captured by the last call of [`run_step`](@ref), in the order they
-happened; empty unless that call had `debug = true`. [`Juleana.failure`](@ref) gives the
+happened; empty unless that call had `debug = true`. [`JuLeAna.failure`](@ref) gives the
 first one.
 """
 failures() = LAST_FAILURES[]
 
 """
-    Juleana.failure()::Failure
+    JuLeAna.failure()::Failure
 
 The first [`Failure`](@ref) captured by the last call of [`run_step`](@ref) with
-`debug = true`, or the last failure of [`Juleana.rerun`](@ref) that replaced it. Throws
+`debug = true`, or the last failure of [`JuLeAna.rerun`](@ref) that replaced it. Throws
 an `ErrorException` if that call captured none.
 
 # Examples
 ```julia
 run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A], debug = true)
-f = Juleana.failure()
+f = JuLeAna.failure()
 f.e_uncal           # a variable of the processor at the failed step
-Juleana.@locals f   # all of them as variables in the REPL
-Juleana.rerun(f; e_uncal = f.e_uncal[f.e_uncal .> 100])   # the step again, with a changed variable
+JuLeAna.@locals f   # all of them as variables in the REPL
+JuLeAna.rerun(f; e_uncal = f.e_uncal[f.e_uncal .> 100])   # the step again, with a changed variable
 ```
 """
 function failure()
@@ -268,7 +268,7 @@ function failure()
 end
 
 """
-    Juleana.@locals f
+    JuLeAna.@locals f
 
 Define the variables captured with the [`Failure`](@ref) `f` as global variables of the
 calling module, e.g. the REPL, and return their names.
@@ -284,7 +284,7 @@ function define_locals(mod::Module, f::Failure)
 end
 
 """
-    Juleana.rerun(f::Failure; overrides...)
+    JuLeAna.rerun(f::Failure; overrides...)
 
 Run the block of the failed step `f` again, with the variables captured in `f` and the
 variables in `overrides` set to the given values, and return the value of the block. The
@@ -292,7 +292,7 @@ block runs in the module of the processor, with the item of `f` as the current i
 writes no parameters or validity, see [`write_pars`](@ref).
 
 If the block fails again, the new [`Failure`](@ref) replaces `f` in
-[`Juleana.failures`](@ref), and the root error is thrown. To check a fix in the
+[`JuLeAna.failures`](@ref), and the root error is thrown. To check a fix in the
 configuration, run [`run_step`](@ref) again, which reads everything anew.
 
 Throws an `ArgumentError`, without running the block, if a name in `overrides` is not a
@@ -301,9 +301,9 @@ of a loop in the block, or a `@goto`, all of which leave the block.
 
 # Examples
 ```julia
-f = Juleana.failure()
-Juleana.rerun(f)                         # fails again in the same way
-Juleana.rerun(f; window = (100, 200))    # with a changed variable
+f = JuLeAna.failure()
+JuLeAna.rerun(f)                         # fails again in the same way
+JuLeAna.rerun(f; window = (100, 200))    # with a changed variable
 ```
 """
 function rerun(f::Failure; overrides...)

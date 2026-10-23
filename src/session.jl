@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Completion flags of the run steps: `status[period][step][run]`. Only the scheduler loop of
 # `run_processing` writes them, so they need no lock.
@@ -9,7 +9,7 @@ const PartitionStatus = Dict{DataPeriod,Dict{Symbol,Bool}}
 """
     mutable struct DataflowSession
 
-State of a dataflow session, as returned by [`Juleana.setup_session`](@ref): the processing
+State of a dataflow session, as returned by [`JuLeAna.setup_session`](@ref): the processing
 config, the LEGEND data and the selection and dependency graph that
 [`run_processing`](@ref) works on. A [`DataflowController`](@ref) holds the session of the
 terminal user interface.
@@ -150,7 +150,7 @@ the config's log directory at the config's `log_level` (`console = false` turns 
 terminal output of this process), and with `start_workers` start the workers of the
 configured run mode: `local` workers are always started; `slurm` workers only with
 `submit_jobs`, otherwise `startjlworkers.sh` is written to the
-[`Juleana.production_config_dir`](@ref) for manual submission. Without `start_workers` the worker pool starts empty. Then check the processor keyword arguments with
+[`JuLeAna.production_config_dir`](@ref) for manual submission. Without `start_workers` the worker pool starts empty. Then check the processor keyword arguments with
 [`check_processor_kwargs`](@ref) and build the dependency graph for the enabled steps.
 
 Return the [`DataflowSession`](@ref), ready for [`run_processing`](@ref). Return `nothing` when `args` asks for `--help` or `--version` in an
@@ -158,8 +158,8 @@ interactive session.
 
 # Examples
 ```julia
-using Juleana
-session = Juleana.setup_session(["--config", "config/processing_config.yaml", "--periods", "3"])
+using JuLeAna
+session = JuLeAna.setup_session(["--config", "config/processing_config.yaml", "--periods", "3"])
 run_processing(session)
 ```
 """
@@ -178,8 +178,8 @@ function setup_session(parsed_args::AbstractDict; console::Bool = true, start_wo
     # runs `init_process` on this process now and on every worker when it starts
     log_path, log_level = config.log_path, config.log_level
     @always_everywhere begin
-        using Juleana: Juleana
-        Juleana.init_process($log_path, $log_level; console = $console)
+        using JuLeAna: JuLeAna
+        JuLeAna.init_process($log_path, $log_level; console = $console)
     end
     @info "Start Data processing with config $(parsed_args["config"]), logging to $log_path"
 
@@ -207,13 +207,13 @@ end
 """
     main(args::AbstractVector{<:AbstractString})
 
-Entry point of the `juleana` app and of `julia -m Juleana`: parse the command line
+Entry point of the `juleana` app and of `julia -m JuLeAna`: parse the command line
 options `args` (see `juleana --help`) and return the process exit code.
 
 With `--no-tui`, run all enabled steps with [`run_no_tui`](@ref) and return its exit
 code. Otherwise open the terminal user interface with [`run_tui`](@ref).
 
-Install the app with `Pkg.Apps.add(path = "<path to Juleana.jl>")`; the `juleana`
+Install the app with `Pkg.Apps.add(path = "<path to JuLeAna.jl>")`; the `juleana`
 command then starts Julia with `--threads=8,1`, `--gcthreads=8,1` and without the user's
 `startup.jl` (`--startup-file=no`): packages loaded there are not in the app's environment. Julia
 options placed before a `--` replace these defaults, e.g. `juleana --threads=16,1 -- -c config.json`.

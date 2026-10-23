@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Tachikoma: Tachikoma, KeyEvent, TestBackend, Rect, find_text, row_text
 using LegendDataManagement: DataPeriod, DataRun
 using Dates: DateTime
@@ -9,12 +9,12 @@ using Test
 # Render the History page of `page` into a `width` x `height` test backend.
 function render_history_page(page, width = 100, height = 20)
     tb = TestBackend(width, height)
-    Juleana.render_history(page, Rect(1, 1, width, height), tb.buf)
+    JuLeAna.render_history(page, Rect(1, 1, width, height), tb.buf)
     return tb
 end
 
 history_text(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
-detail_text(page) = join(first.(Juleana.history_detail(page)))
+detail_text(page) = join(first.(JuLeAna.history_detail(page)))
 
 @testset "History page" begin
     p2, p3 = DataPeriod(2), DataPeriod(3)
@@ -35,7 +35,7 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
                          step(:process_dsp_cal, :run, p2, DataRun(9), :stopped, t(11), t(12)),
                          step(:process_dsp_cal, :run, p3, r0, :cancelled, nothing, nothing),
                          step(:p_process_energy_cal, :partition, p3, nothing, :failed, t(11), t(12))])]
-    grid = Juleana.history_grid(processors, [p2 => runs2, p3 => [r0]], overview, history)
+    grid = JuLeAna.history_grid(processors, [p2 => runs2, p3 => [r0]], overview, history)
 
     # controller snapshot with the given selection; everything is selected by default
     snapshot(; state = :ready, started = nothing, periods = [p2, p3], runs = nothing) = (; state, outcome = nothing, started,
@@ -45,45 +45,45 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
 
     # a page that has read `grid`
     function loaded_page(snap = snapshot())
-        page = Juleana.HistoryPage()
-        Juleana.history_visit!(page, snap)
-        (request,) = Juleana.take_requests!(page)
-        Juleana.history_result!(page, (; request, value = grid))
+        page = JuLeAna.HistoryPage()
+        JuLeAna.history_visit!(page, snap)
+        (request,) = JuLeAna.take_requests!(page)
+        JuLeAna.history_result!(page, (; request, value = grid))
         return page
     end
 
     @testset "reading the grid" begin
-        page = Juleana.HistoryPage()
+        page = JuLeAna.HistoryPage()
         @test find_text(render_history_page(page), "No session loaded.") !== nothing
-        Juleana.history_visit!(page, nothing)
-        Juleana.history_visit!(page, snapshot(state = :loading))
-        @test isempty(Juleana.take_requests!(page))
+        JuLeAna.history_visit!(page, nothing)
+        JuLeAna.history_visit!(page, snapshot(state = :loading))
+        @test isempty(JuLeAna.take_requests!(page))
         ready = snapshot()
-        Juleana.history_visit!(page, ready)
-        Juleana.history_visit!(page, ready)
-        requests = Juleana.take_requests!(page)
+        JuLeAna.history_visit!(page, ready)
+        JuLeAna.history_visit!(page, ready)
+        requests = JuLeAna.take_requests!(page)
         @test length(requests) == 1 && requests[1].kind === :grid
         @test find_text(render_history_page(page), "Reading history…") !== nothing
         # a stale answer is dropped, the current one is taken
-        Juleana.history_result!(page, (; request = (; kind = :grid, generation = requests[1].generation - 1), value = grid))
+        JuLeAna.history_result!(page, (; request = (; kind = :grid, generation = requests[1].generation - 1), value = grid))
         @test isnothing(page.grid)
-        Juleana.history_result!(page, (; request = requests[1], value = grid))
+        JuLeAna.history_result!(page, (; request = requests[1], value = grid))
         @test page.grid === grid && !page.reading
         # a new processing run triggers a new read; an older answer to the first read is dropped
-        Juleana.history_visit!(page, snapshot(state = :running, started = t(14)))
-        Juleana.history_result!(page, (; request = requests[1], value = (; periods = [], rows = [])))
+        JuLeAna.history_visit!(page, snapshot(state = :running, started = t(14)))
+        JuLeAna.history_result!(page, (; request = requests[1], value = (; periods = [], rows = [])))
         @test page.grid === grid
-        (request,) = Juleana.take_requests!(page)
-        Juleana.history_result!(page, (; request, error = "boom"))
+        (request,) = JuLeAna.take_requests!(page)
+        JuLeAna.history_result!(page, (; request, error = "boom"))
         @test find_text(render_history_page(page), "boom") !== nothing
-        Juleana.history_visit!(page, nothing)
-        Juleana.history_result!(page, (; request, value = grid))
+        JuLeAna.history_visit!(page, nothing)
+        JuLeAna.history_result!(page, (; request, value = grid))
         @test isnothing(page.grid) && isnothing(page.error)
         # `r` reads again
         page = loaded_page()
-        @test Juleana.history_key!(page, KeyEvent('r'))
-        @test only(Juleana.take_requests!(page)).kind === :grid
-        @test !Juleana.history_key!(page, KeyEvent('x')) && !Juleana.history_key!(page, KeyEvent('7'))
+        @test JuLeAna.history_key!(page, KeyEvent('r'))
+        @test only(JuLeAna.take_requests!(page)).kind === :grid
+        @test !JuLeAna.history_key!(page, KeyEvent('x')) && !JuLeAna.history_key!(page, KeyEvent('7'))
     end
 
     @testset "selected and all runs" begin
@@ -99,37 +99,37 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         @test detail_text(page) == "energy cal  p02  ok  2026-10-15 10:00 UTC  report"
         @test occursin("[  ✓  ]", history_text(render_history_page(page)))
         # `a` shows all runs and periods, without a new read
-        @test Juleana.history_key!(page, KeyEvent('a'))
-        @test page.all_runs && length(page.columns) == 11 && isempty(Juleana.take_requests!(page))
+        @test JuLeAna.history_key!(page, KeyEvent('a'))
+        @test page.all_runs && length(page.columns) == 11 && isempty(JuLeAna.take_requests!(page))
         text = history_text(render_history_page(page))
         @test occursin("History, all runs", text) && occursin("p03", text)
         @test page.row == 3
-        @test Juleana.history_key!(page, KeyEvent('a'))
+        @test JuLeAna.history_key!(page, KeyEvent('a'))
         @test !page.all_runs && length(page.columns) == 2
         # a changed selection updates the shown columns in the selected mode, without a new read
-        Juleana.history_visit!(page, snapshot(periods = [p3]))
-        @test run_labels(page) == ["p03-r000"] && isempty(Juleana.take_requests!(page))
-        Juleana.history_visit!(page, snapshot(periods = [p2, p3], runs = Dict(p2 => [DataRun(6)])))
+        JuLeAna.history_visit!(page, snapshot(periods = [p3]))
+        @test run_labels(page) == ["p03-r000"] && isempty(JuLeAna.take_requests!(page))
+        JuLeAna.history_visit!(page, snapshot(periods = [p2, p3], runs = Dict(p2 => [DataRun(6)])))
         @test run_labels(page) == ["p02-r006", "p03-r000"]
         # runs given as a vector apply to every selected period
-        Juleana.history_visit!(page, snapshot(runs = DataRun.([6, 0])))
+        JuLeAna.history_visit!(page, snapshot(runs = DataRun.([6, 0])))
         @test run_labels(page) == ["p02-r006", "p03-r000"]
         # all runs ignore the selection
-        Juleana.history_key!(page, KeyEvent('a'))
-        Juleana.history_visit!(page, snapshot(periods = [p3]))
+        JuLeAna.history_key!(page, KeyEvent('a'))
+        JuLeAna.history_visit!(page, snapshot(periods = [p3]))
         @test length(page.columns) == 11
         # an empty selection shows no columns
-        Juleana.history_key!(page, KeyEvent('a'))
-        Juleana.history_visit!(page, snapshot(periods = DataPeriod[]))
+        JuLeAna.history_key!(page, KeyEvent('a'))
+        JuLeAna.history_visit!(page, snapshot(periods = DataPeriod[]))
         @test isempty(page.columns)
         @test find_text(render_history_page(page), "No processors or runs.") !== nothing
         # a grid that arrives later takes the mode and selection of the page
-        page = Juleana.HistoryPage()
-        Juleana.history_key!(page, KeyEvent('a'))
+        page = JuLeAna.HistoryPage()
+        JuLeAna.history_key!(page, KeyEvent('a'))
         @test page.all_runs
-        Juleana.history_visit!(page, snapshot(periods = [p3]))
-        (request,) = Juleana.take_requests!(page)
-        Juleana.history_result!(page, (; request, value = grid))
+        JuLeAna.history_visit!(page, snapshot(periods = [p3]))
+        (request,) = JuLeAna.take_requests!(page)
+        JuLeAna.history_result!(page, (; request, value = grid))
         @test length(page.columns) == 11
     end
 
@@ -137,73 +137,73 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         page = loaded_page()
         @test length(page.columns) == 11
         @test detail_text(page) == "dsp cal  p02-r006  failed  2026-10-15 12:00 UTC  history, log folder /log/a"
-        Juleana.history_key!(page, KeyEvent(:right))
+        JuLeAna.history_key!(page, KeyEvent(:right))
         @test detail_text(page) == "dsp cal  p02-r007  warning  2026-10-15 10:00 UTC  report"
-        Juleana.history_key!(page, KeyEvent(:left))
-        Juleana.history_key!(page, KeyEvent(:left))
+        JuLeAna.history_key!(page, KeyEvent(:left))
+        JuLeAna.history_key!(page, KeyEvent(:left))
         @test page.col == 1
-        Juleana.history_key!(page, KeyEvent(:up))
+        JuLeAna.history_key!(page, KeyEvent(:up))
         @test page.row == 1
-        Juleana.history_key!(page, KeyEvent(:down))
+        JuLeAna.history_key!(page, KeyEvent(:down))
         @test detail_text(page) == "hit cal  p02-r006  never processed"
         # on a partition row, the arrows move by period
-        Juleana.history_key!(page, KeyEvent(:down))
+        JuLeAna.history_key!(page, KeyEvent(:down))
         @test detail_text(page) == "energy cal  p02  ok  2026-10-15 10:00 UTC  report"
-        Juleana.history_key!(page, KeyEvent(:right))
+        JuLeAna.history_key!(page, KeyEvent(:right))
         @test page.col == 11 && detail_text(page) == "energy cal  p03  failed  2026-10-15 12:00 UTC  history, log folder /log/a"
-        Juleana.history_key!(page, KeyEvent(:right))
+        JuLeAna.history_key!(page, KeyEvent(:right))
         @test page.col == 11
-        Juleana.history_key!(page, KeyEvent(:left))
+        JuLeAna.history_key!(page, KeyEvent(:left))
         @test page.col == 1
-        Juleana.history_key!(page, KeyEvent(:down))
+        JuLeAna.history_key!(page, KeyEvent(:down))
         @test page.row == 3
-        Juleana.history_key!(page, KeyEvent(:end_key))
+        JuLeAna.history_key!(page, KeyEvent(:end_key))
         @test page.col == 11
-        Juleana.history_key!(page, KeyEvent(:up))
-        Juleana.history_key!(page, KeyEvent(:up))
+        JuLeAna.history_key!(page, KeyEvent(:up))
+        JuLeAna.history_key!(page, KeyEvent(:up))
         @test detail_text(page) == "dsp cal  p03-r000  cancelled  2026-10-15 13:00 UTC  history, log folder /log/a"
-        Juleana.history_key!(page, KeyEvent(:home))
+        JuLeAna.history_key!(page, KeyEvent(:home))
         @test page.col == 1
         render_history_page(page)
-        Juleana.history_key!(page, KeyEvent(:pagedown))
+        JuLeAna.history_key!(page, KeyEvent(:pagedown))
         @test page.row == 3
-        Juleana.history_key!(page, KeyEvent(:pageup))
+        JuLeAna.history_key!(page, KeyEvent(:pageup))
         @test page.row == 1
     end
 
     @testset "opening reports" begin
         page = loaded_page()
         # a history cell does nothing
-        Juleana.history_key!(page, KeyEvent(:enter))
-        @test isempty(Juleana.take_requests!(page)) && isnothing(page.viewer_path)
+        JuLeAna.history_key!(page, KeyEvent(:enter))
+        @test isempty(JuLeAna.take_requests!(page)) && isnothing(page.viewer_path)
         # a never processed cell does nothing
         page.row = 2
-        Juleana.history_key!(page, KeyEvent(:enter))
-        @test isempty(Juleana.take_requests!(page))
+        JuLeAna.history_key!(page, KeyEvent(:enter))
+        @test isempty(JuLeAna.take_requests!(page))
         page.row, page.col = 1, 2
-        Juleana.history_key!(page, KeyEvent(:enter))
-        @test Juleana.take_requests!(page) == [(; kind = :open, path = "/rep/p02-r007.md")]
+        JuLeAna.history_key!(page, KeyEvent(:enter))
+        @test JuLeAna.take_requests!(page) == [(; kind = :open, path = "/rep/p02-r007.md")]
         @test page.viewer_path == "/rep/p02-r007.md"
         @test find_text(render_history_page(page), "Reading report…") !== nothing
         # an answer for another report is dropped
-        Juleana.history_result!(page,
+        JuLeAna.history_result!(page,
                                 (; request = (; kind = :open, path = "/rep/other.md"),
-                                 value = Juleana.report_viewer("/rep/other.md", "# Other")))
+                                 value = JuLeAna.report_viewer("/rep/other.md", "# Other")))
         @test isnothing(page.viewer)
-        Juleana.history_result!(page,
+        JuLeAna.history_result!(page,
                                 (; request = (; kind = :open, path = page.viewer_path),
-                                 value = Juleana.report_viewer(page.viewer_path, "# Report\n\nbody")))
+                                 value = JuLeAna.report_viewer(page.viewer_path, "# Report\n\nbody")))
         @test page.viewer isa Tachikoma.MarkdownPane
         @test find_text(render_history_page(page), "p02-r007.md") !== nothing
         # the viewer takes the keys; Escape closes it
-        @test Juleana.history_key!(page, KeyEvent(:down)) && page.row == 1
-        @test Juleana.history_key!(page, KeyEvent('x'))
-        @test Juleana.history_key!(page, KeyEvent(:escape)) && isnothing(page.viewer_path)
-        Juleana.history_key!(page, KeyEvent(:enter))
-        Juleana.take_requests!(page)
-        Juleana.history_result!(page, (; request = (; kind = :open, path = page.viewer_path), value = nothing))
+        @test JuLeAna.history_key!(page, KeyEvent(:down)) && page.row == 1
+        @test JuLeAna.history_key!(page, KeyEvent('x'))
+        @test JuLeAna.history_key!(page, KeyEvent(:escape)) && isnothing(page.viewer_path)
+        JuLeAna.history_key!(page, KeyEvent(:enter))
+        JuLeAna.take_requests!(page)
+        JuLeAna.history_result!(page, (; request = (; kind = :open, path = page.viewer_path), value = nothing))
         @test find_text(render_history_page(page), "No report file: /rep/p02-r007.md") !== nothing
-        Juleana.history_key!(page, KeyEvent('q'))
+        JuLeAna.history_key!(page, KeyEvent('q'))
         @test isnothing(page.viewer_path)
     end
 
@@ -220,8 +220,8 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         tb = render_history_page(page)
         # the icon of run 6 in the first row is the middle character of its cell
         @test collect(row_text(tb, page.cells.y))[page.cells.x + 1] == '■'
-        @test Tachikoma.style_at(tb, page.cells.x + 1, page.cells.y).fg == Tachikoma.tstyle(Juleana.HISTORY_COLORS.failed).fg
-        @test Tachikoma.style_at(tb, page.cells.x + 5, page.cells.y).fg == Tachikoma.tstyle(Juleana.REPORT_COLORS.warning).fg
+        @test Tachikoma.style_at(tb, page.cells.x + 1, page.cells.y).fg == Tachikoma.tstyle(JuLeAna.HISTORY_COLORS.failed).fg
+        @test Tachikoma.style_at(tb, page.cells.x + 5, page.cells.y).fg == Tachikoma.tstyle(JuLeAna.REPORT_COLORS.warning).fg
     end
 
     @testset "scrolling" begin
@@ -230,15 +230,15 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         width = 40
         render_history_page(page, width, 12)
         @test page.left == 1
-        Juleana.history_key!(page, KeyEvent(:end_key))
+        JuLeAna.history_key!(page, KeyEvent(:end_key))
         tb = render_history_page(page, width, 12)
         @test page.left > 1
         text = history_text(tb)
         # the cursor column is shown with its run number, the names stay
         @test occursin("dsp cal", text) && occursin("p03", text)
         offsets = page.offsets
-        @test offsets[page.col] - offsets[page.left] + Juleana.HISTORY_CELL_WIDTH <= page.cells.width
-        Juleana.history_key!(page, KeyEvent(:home))
+        @test offsets[page.col] - offsets[page.left] + JuLeAna.HISTORY_CELL_WIDTH <= page.cells.width
+        JuLeAna.history_key!(page, KeyEvent(:home))
         render_history_page(page, width, 12)
         @test page.left == 1
         # rows scroll too
@@ -257,18 +257,18 @@ detail_text(page) = join(first.(Juleana.history_detail(page)))
         press(x, y, button = Tachikoma.mouse_left) = Tachikoma.MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
         cells = page.cells
         # third run column of the second row
-        @test Juleana.history_mouse!(page, press(cells.x + 2 * 4 + 1, cells.y + 1))
+        @test JuLeAna.history_mouse!(page, press(cells.x + 2 * 4 + 1, cells.y + 1))
         @test (page.row, page.col) == (2, 3)
         # the gap between two cells is no cell
-        @test !Juleana.history_mouse!(page, press(cells.x + 3, cells.y))
+        @test !JuLeAna.history_mouse!(page, press(cells.x + 3, cells.y))
         @test (page.row, page.col) == (2, 3)
-        @test Juleana.history_mouse!(page, press(cells.x, cells.y, Tachikoma.mouse_scroll_down))
+        @test JuLeAna.history_mouse!(page, press(cells.x, cells.y, Tachikoma.mouse_scroll_down))
         @test page.row == 3
-        @test Juleana.history_mouse!(page, press(cells.x, cells.y, Tachikoma.mouse_scroll_up))
+        @test JuLeAna.history_mouse!(page, press(cells.x, cells.y, Tachikoma.mouse_scroll_up))
         @test page.row == 2
         # the viewer gets the events while a report is open
         page.row, page.col = 1, 2
-        Juleana.history_key!(page, KeyEvent(:enter))
-        @test !Juleana.history_mouse!(page, press(1, 1))
+        JuLeAna.history_key!(page, KeyEvent(:enter))
+        @test !JuLeAna.history_mouse!(page, press(1, 1))
     end
 end

@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Reports are Markdown files written by the processors, one per run (run level) or one per
 # period (partition level). The functions in this file only read them: no function creates

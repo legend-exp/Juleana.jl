@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 using Logging: Logging, with_logger
 using LegendDataManagement: DataPeriod, DataRun, FileKey, ProcessStatus
@@ -20,7 +20,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
                            p_processors = Dict{Symbol,ProcessorSpec}())
     runs = DataRun.([6, 7])
     function loader(parsed_args)
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [p2], runs, run_steps(cfg), partition_steps(cfg))
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, cfg, [p2], runs, run_steps(cfg), partition_steps(cfg))
         return DataflowSession(; args = parsed_args, l200, config = cfg, periods, runs, run_steps = run_steps(cfg),
                                partition_steps = partition_steps(cfg), run_status, partition_status)
     end
@@ -29,7 +29,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
     function run_logged(step; loader = loader, before_wait = nothing)
         logger = Test.TestLogger(; min_level = Logging.Info)
         code = with_logger(logger) do
-            Juleana.run_no_tui(args; processors = Dict{Symbol,Any}(:process_energy_calibration_cal => step), loader, interval = 0.05,
+            JuLeAna.run_no_tui(args; processors = Dict{Symbol,Any}(:process_energy_calibration_cal => step), loader, interval = 0.05,
                                record_software = false, record_metadata = false)
         end
         return code, [string(r.message) for r in logger.logs if r.message isa AbstractString]
@@ -79,7 +79,7 @@ const NoTuiLog = NamedTuple{(:Filekey, :Status, :Error)}
             waiter(c) = left[] > 0 ? (left[] -= 1; throw(InterruptException())) : wait(c)
             logger = Test.TestLogger(; min_level = Logging.Info)
             t0 = time()
-            with_logger(() -> Juleana.wait_with_interrupts(ctrl; waiter), logger)
+            with_logger(() -> JuLeAna.wait_with_interrupts(ctrl; waiter), logger)
             messages = [string(r.message) for r in logger.logs]
             @test snapshot(ctrl).outcome === :stopped
             @test any(startswith("Stopping: running items finish"), messages)

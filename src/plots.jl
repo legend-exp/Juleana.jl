@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Plot level of the running processor, `:info` or `:debug`, set by `run_processing` and
 # `run_step`. `parallel` sets it again on the workers.

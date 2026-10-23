@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Icon and theme color of a cell that comes from the processing history.
 const HISTORY_ICONS = (failed = "■", stopped = "s", cancelled = "c")
@@ -30,18 +30,18 @@ const HistoryLook = NamedTuple{(:text, :color),Tuple{String,Symbol}}
 
 State of the History page of the terminal user interface: the grid of the processing state
 of every processor (rows) in every run (columns, grouped by period) as
-[`Juleana.history_grid`](@ref) returns it, the cursor cell, the scroll position, the open
+[`JuLeAna.history_grid`](@ref) returns it, the cursor cell, the scroll position, the open
 report and the requests for reading the file system.
 
 The columns are the periods and runs that the session has selected, or, with `all_runs`
 (toggled by `a`), all periods and runs of the data production. Everything the drawing needs
 about the grid (column headers, row labels, the text and color of each cell) is computed
 when the grid, `all_runs` or the selection changes, not when the page is drawn.
-Keys are handled by [`Juleana.history_key!`](@ref) and [`Juleana.history_mouse!`](@ref), the
-page is drawn by [`Juleana.render_history`](@ref).
+Keys are handled by [`JuLeAna.history_key!`](@ref) and [`JuLeAna.history_mouse!`](@ref), the
+page is drawn by [`JuLeAna.render_history`](@ref).
 
-The page never reads the file system. It queues requests (see [`Juleana.take_requests!`](@ref))
-that the interface carries out in the background and answers with [`Juleana.history_result!`](@ref).
+The page never reads the file system. It queues requests (see [`JuLeAna.take_requests!`](@ref))
+that the interface carries out in the background and answers with [`JuLeAna.history_result!`](@ref).
 The cursor is a row and a run column; on a partition-level row the cell is that of the period of the column.
 """
 mutable struct HistoryPage
@@ -89,11 +89,11 @@ function HistoryPage()
 end
 
 """
-    Juleana.take_requests!(page::HistoryPage)
+    JuLeAna.take_requests!(page::HistoryPage)
 
 Return the requests of `page` for reading the file system and clear them. A request is a
 named tuple with `kind` `:grid` (read the grid) or `:open` (read the report file `path`).
-[`Juleana.read_history_page`](@ref) carries a request out and [`Juleana.history_result!`](@ref)
+[`JuLeAna.read_history_page`](@ref) carries a request out and [`JuLeAna.history_result!`](@ref)
 takes its answer.
 """
 function take_requests!(page::HistoryPage)
@@ -103,12 +103,12 @@ function take_requests!(page::HistoryPage)
 end
 
 """
-    Juleana.read_history_page(ctrl::DataflowController, request)
+    JuLeAna.read_history_page(ctrl::DataflowController, request)
 
-Carry out a request of a [`Juleana.HistoryPage`](@ref) (see [`Juleana.take_requests!`](@ref))
+Carry out a request of a [`JuLeAna.HistoryPage`](@ref) (see [`JuLeAna.take_requests!`](@ref))
 and return `(; request, value)`, or `(; request, error)` with the message of the exception
 if the read failed. The value of a `:grid` request is `history_grid(ctrl)` (see
-[`Juleana.history_grid`](@ref)), that of an `:open` request the viewer of the report file's
+[`JuLeAna.history_grid`](@ref)), that of an `:open` request the viewer of the report file's
 text, or `nothing` if there is no such file. The viewer is built here, so that converting the
 text does not hold up the interface.
 """
@@ -183,9 +183,9 @@ function clamp_history_cursor!(page::HistoryPage)
 end
 
 """
-    Juleana.history_result!(page::HistoryPage, answer)
+    JuLeAna.history_result!(page::HistoryPage, answer)
 
-Take the `answer` to a request of `page` as [`Juleana.read_history_page`](@ref) returns it.
+Take the `answer` to a request of `page` as [`JuLeAna.read_history_page`](@ref) returns it.
 The answer to a read of the grid replaces the grid of `page`, or sets its `error`, unless
 the page has read the grid anew since. The viewer of the report file opens if the report is
 still the open one, else it is dropped.
@@ -222,7 +222,7 @@ function request_history!(page::HistoryPage)
 end
 
 """
-    Juleana.history_visit!(page::HistoryPage, snap)
+    JuLeAna.history_visit!(page::HistoryPage, snap)
 
 Queue a read of the grid if the controller snapshot `snap` (or `nothing`) shows a loaded
 session or a processing run that started or finished since the shown grid was read. While
@@ -263,7 +263,7 @@ function open_report!(page::HistoryPage, path::AbstractString)
 end
 
 """
-    Juleana.history_selection(page::HistoryPage)
+    JuLeAna.history_selection(page::HistoryPage)
 
 Return the cell under the cursor of `page` as `(; row, period, run, label, cell)`, where `row` is the
 row of the grid, `run` is `nothing` on a partition-level row, `label` is `p02-r008` or `p02`
@@ -329,7 +329,7 @@ function partition_row(page::HistoryPage)
 end
 
 """
-    Juleana.history_key!(page::HistoryPage, evt::Tachikoma.KeyEvent)::Bool
+    JuLeAna.history_key!(page::HistoryPage, evt::Tachikoma.KeyEvent)::Bool
 
 Apply the key event `evt` to `page`. Return `true` if the key was used and `false`
 otherwise.
@@ -390,7 +390,7 @@ function history_key!(page::HistoryPage, evt::Tachikoma.KeyEvent)::Bool
 end
 
 """
-    Juleana.history_mouse!(page::HistoryPage, evt::Tachikoma.MouseEvent)::Bool
+    JuLeAna.history_mouse!(page::HistoryPage, evt::Tachikoma.MouseEvent)::Bool
 
 Apply the mouse event `evt` to `page`. While a report is open, the viewer gets the event
 (the scroll wheel and the scroll bar). Otherwise a left click on a cell moves the cursor
@@ -505,7 +505,7 @@ function render_history_grid(page::HistoryPage, inner, buf)
 end
 
 """
-    Juleana.render_history(page::HistoryPage, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_history(page::HistoryPage, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the History page into `area` of `buf`. The grid has a row per processor, named after
 the processor and its category (`p ` marks a partition-level processor), and a column per

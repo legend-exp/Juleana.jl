@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-const DOCS_URL = "https://legend-exp.github.io/Juleana.jl/stable/"
+const DOCS_URL = "https://legend-exp.github.io/JuLeAna.jl/stable/"
 
 # Keys listed by the help overlay as `(keys, description)`: Setup page, Graph page, Progress page, Log page, Reports page, History page, all pages.
 const HELP_KEYS = (setup = (("Tab  Shift-Tab", "next, previous pane"), ("↑ ↓ PgUp PgDn Home End", "move in a pane"),
@@ -52,7 +52,7 @@ const HELP_KEYS = (setup = (("Tab  Shift-Tab", "next, previous pane"), ("↑ ↓
 # Version of this package as `v1.2.3`, read once.
 const VERSION_TEXT = Ref("")
 function juleana_version()
-    isempty(VERSION_TEXT[]) && (VERSION_TEXT[] = "v" * string(pkgversion(Juleana)))
+    isempty(VERSION_TEXT[]) && (VERSION_TEXT[] = "v" * string(pkgversion(JuLeAna)))
     return VERSION_TEXT[]
 end
 
@@ -70,17 +70,17 @@ logo_segments(row::AbstractString) = [(row, :outline)]
 logo_segments(row) = row
 
 """
-    Juleana.logo_size(rows)
+    JuLeAna.logo_size(rows)
 
 Width in terminal cells and number of rows of the logo `rows`, as in
-[`Juleana.render_logo`](@ref).
+[`JuLeAna.render_logo`](@ref).
 """
 function logo_size(rows)
     return (maximum(row -> sum(s -> textwidth(s[1]), logo_segments(row); init = 0), rows; init = 0), length(rows))
 end
 
 """
-    Juleana.render_logo(rows, x, y, buf::Tachikoma.Buffer; max_x, max_y)
+    JuLeAna.render_logo(rows, x, y, buf::Tachikoma.Buffer; max_x, max_y)
 
 Draw the logo `rows` with its top left cell at column `x` and row `y` of `buf`, clipped at
 column `max_x` and row `max_y` (default: the edges of `buf`). Each row is a string in the
@@ -129,7 +129,7 @@ end
 
 # Whether the startup screen is shown: from `start!` until the session has loaded and
 # `splash_seconds` have passed.
-function splash_active(m::JuleanaTUI)
+function splash_active(m::JuLeAnaTUI)
     m.splash || return false
     # with the new-production form open and no session to load, the screen ends after `splash_seconds`
     waiting = isnothing(load_outcome(m.snap)) && !(!isnothing(m.production) && !isnothing(m.snap) && m.snap.state === :idle)
@@ -139,7 +139,7 @@ end
 # Draw the startup screen into `area`: the logo, version, docs link and load state, centered.
 # The logo is the full logo or the name in block letters, whichever fits above the text; with
 # neither, the name is a line of text.
-function render_splash(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_splash(m::JuLeAnaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     dim = Tachikoma.tstyle(:text_dim)
     outcome = load_outcome(m.snap)
     spinner = string(Tachikoma.SPINNER_BRAILLE[mod1(m.ticks, length(Tachikoma.SPINNER_BRAILLE))])
@@ -179,7 +179,7 @@ end
 # aligned at the right end of the tab row `area`. Both lines need to fit right of the tabs;
 # the root path of the production is clipped from the left, and nothing is drawn if even the
 # first line does not fit.
-function render_corner_logo(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_corner_logo(m::JuLeAnaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     used = isempty(m.tabs._tab_rects) ? area.x - 1 : maximum(Tachikoma.right, m.tabs._tab_rects)
     right = Tachikoma.right(area)
     available = right - used - 1
@@ -203,7 +203,7 @@ function render_corner_logo(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.
 end
 
 # Draw the key help of the visible page of `m` as a panel centered in `area`.
-function render_help(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_help(m::JuLeAnaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     sections = Tuple{String,Any}[]
     m.page == 1 && push!(sections, ("Setup page", HELP_KEYS.setup))
     m.page == 2 && push!(sections, ("Graph page", HELP_KEYS.graph))

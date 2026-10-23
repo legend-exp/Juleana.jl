@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 const TUI_PAGES = ("Setup", "Graph", "Workers", "Progress", "Log", "Reports", "History")
 
@@ -48,8 +48,8 @@ in its `ProgressStore` (see [`step_messages`](@ref)). The newest warning or erro
 a log record or from an output line containing `Warning:` or `Error:`, is kept as the
 alert of the buffer.
 
-[`Juleana.message_lines`](@ref) returns the kept lines as text and
-[`Juleana.message_entries`](@ref) with their levels and records.
+[`JuLeAna.message_lines`](@ref) returns the kept lines as text and
+[`JuLeAna.message_entries`](@ref) with their levels and records.
 """
 mutable struct MessageBuffer <: AbstractLogger
     const lock::ReentrantLock
@@ -113,7 +113,7 @@ function handle_message(buf::MessageBuffer, level, message, _module, group, id, 
 end
 
 """
-    Juleana.append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString)
+    JuLeAna.append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString)
 
 Add `text` written to the captured output `stream` (`:stdout` or `:stderr`) to `buf`,
 line by line; an unfinished last line waits for the rest of its text.
@@ -135,14 +135,14 @@ function append_output!(buf::MessageBuffer, stream::Symbol, text::AbstractString
 end
 
 """
-    Juleana.message_lines(buf::MessageBuffer)
+    JuLeAna.message_lines(buf::MessageBuffer)
 
 Return a copy of the lines kept in `buf`, oldest first.
 """
 message_lines(buf::MessageBuffer) = @lock buf.lock [e.text for e in buf.entries]
 
 """
-    Juleana.message_entries(buf::MessageBuffer)
+    JuLeAna.message_entries(buf::MessageBuffer)
 
 Return a copy of the entries kept in `buf`, oldest first: named tuples with the fields
 `level` (a `Logging.LogLevel`), `record` (the number of the log message or output line
@@ -151,11 +151,11 @@ the line belongs to) and `text` (the line as shown).
 message_entries(buf::MessageBuffer) = @lock buf.lock copy(buf.entries)
 
 """
-    mutable struct JuleanaTUI <: Tachikoma.Model
+    mutable struct JuLeAnaTUI <: Tachikoma.Model
 
-State of the terminal user interface opened by [`Juleana.run_tui`](@ref).
+State of the terminal user interface opened by [`JuLeAna.run_tui`](@ref).
 
-`JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())` shows
+`JuLeAnaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer())` shows
 the dataflow of `ctrl`. Controller commands run one after another in a background task,
 in the order they were sent, and state reads run in background tasks of the interface's
 `Tachikoma.TaskQueue`, so the interface never waits for the controller; the latest
@@ -164,29 +164,29 @@ messages of the step open on the Progress page, with the step's key).
 
 A left click on a page's tab opens the page; other mouse events go to the visible page.
 
-Keys: the visible page gets each key first (see [`Juleana.setup_key!`](@ref) for the
-Setup page, [`Juleana.graph_key!`](@ref) for the Graph page,
-[`Juleana.progress_key!`](@ref) for the Progress page and [`Juleana.log_key!`](@ref) for the Log page, [`Juleana.reports_key!`](@ref) for the Reports page and [`Juleana.history_key!`](@ref) for the History page and [`Juleana.workers_key!`](@ref) for the Workers page); otherwise `1` to `7` switch pages and `q`
+Keys: the visible page gets each key first (see [`JuLeAna.setup_key!`](@ref) for the
+Setup page, [`JuLeAna.graph_key!`](@ref) for the Graph page,
+[`JuLeAna.progress_key!`](@ref) for the Progress page and [`JuLeAna.log_key!`](@ref) for the Log page, [`JuLeAna.reports_key!`](@ref) for the Reports page and [`JuLeAna.history_key!`](@ref) for the History page and [`JuLeAna.workers_key!`](@ref) for the Workers page); otherwise `1` to `7` switch pages and `q`
 or Ctrl-C quits. While processing runs, quitting asks first: `s` stops processing after
 the running items and quits when the run has ended, `q` quits at once, ending the run and the workers connected to this
 process, and `c` or Escape keeps the interface open.
 
-`JuleanaTUI(ctrl, messages; splash_seconds = 1.5)` shows a startup screen with the logo,
+`JuLeAnaTUI(ctrl, messages; splash_seconds = 1.5)` shows a startup screen with the logo,
 the version and the link to the documentation in place of the page when the interface
 starts, until the session has loaded (or loading failed) and `splash_seconds` have passed; any key
 ends it and is not passed on. `?` opens a panel that lists the keys of the visible page;
 Escape, `?` or `q` closes it. The Setup page's filter and the kwargs editor receive `?` as text.
 
-`N` on the Setup page opens the [`Juleana.ProductionForm`](@ref) for a new data production.
-The form replaces the visible page and takes every key (see [`Juleana.production_key!`](@ref)).
+`N` on the Setup page opens the [`JuLeAna.ProductionForm`](@ref) for a new data production.
+The form replaces the visible page and takes every key (see [`JuLeAna.production_key!`](@ref)).
 It is also open when the interface starts without a session: when the parsed
 options have no `config` or `new_production` is set, `start!` does not load a session.
 
-The field `timing` is the [`Juleana.InterfaceTiming`](@ref) that records the times of the
+The field `timing` is the [`JuLeAna.InterfaceTiming`](@ref) that records the times of the
 `view` and `Tachikoma.update!` calls; once a session is loaded it appends a row every 10
 seconds to `interface_timing.tsv` in the log folder.
 """
-mutable struct JuleanaTUI <: Tachikoma.Model
+mutable struct JuLeAnaTUI <: Tachikoma.Model
     const ctrl::DataflowController
     const messages::MessageBuffer
     const queue::Tachikoma.TaskQueue
@@ -237,8 +237,8 @@ function tab_bar()
                                                               inactive = Tachikoma.tstyle(:text_dim)))
 end
 
-function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
-    m = JuleanaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(),
+function JuLeAnaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageBuffer(); splash_seconds::Real = 1.5)
+    m = JuLeAnaTUI(ctrl, messages, Tachikoma.TaskQueue(), Channel{ControllerCommand}(Inf), SetupPage(), GraphPage(), ProgressPage(),
                    LogPage(), ReportsPage(), HistoryPage(), WorkersPage(), tab_bar(), 0, 0, 1, false, nothing, false, false, nothing,
                    nothing, nothing, BusyItem[], (; key = nothing, messages = StepMessage[]), nothing, 0, false, 0.0, false, nothing,
                    splash_seconds, InterfaceTiming())
@@ -247,7 +247,7 @@ function JuleanaTUI(ctrl::DataflowController, messages::MessageBuffer = MessageB
 end
 
 # Dispatch the commands of `m` in order; each result comes back as a `:command` event.
-function run_commands(m::JuleanaTUI)
+function run_commands(m::JuLeAnaTUI)
     for cmd in m.commands
         result = try
             dispatch!(m.ctrl, cmd)
@@ -259,16 +259,16 @@ function run_commands(m::JuleanaTUI)
     end
 end
 
-Tachikoma.should_quit(m::JuleanaTUI) = m.quit
-Tachikoma.task_queue(m::JuleanaTUI) = m.queue
+Tachikoma.should_quit(m::JuLeAnaTUI) = m.quit
+Tachikoma.task_queue(m::JuLeAnaTUI) = m.queue
 
 """
-    Juleana.send_command!(m::JuleanaTUI, cmd::ControllerCommand)
+    JuLeAna.send_command!(m::JuLeAnaTUI, cmd::ControllerCommand)
 
 Queue `cmd` for the controller of `m`; the commands are dispatched one after another in
 a background task. A rejected command shows its error in the status panel.
 """
-function send_command!(m::JuleanaTUI, cmd::ControllerCommand)
+function send_command!(m::JuLeAnaTUI, cmd::ControllerCommand)
     m.pending += 1
     put!(m.commands, cmd)
     return nothing
@@ -281,7 +281,7 @@ const StepMessages = @NamedTuple{key::Union{Nothing,ProgressKey}, messages::Vect
 # Read the controller state in a background task, one read at a time. The read carries
 # the number of commands answered when it started, so that a read older than an answer
 # is recognized.
-function refresh!(m::JuleanaTUI)
+function refresh!(m::JuLeAnaTUI)
     m.refreshing && return nothing
     m.refreshing = true
     ctrl, answered, key = m.ctrl, m.answered, m.progress_page.open
@@ -298,7 +298,7 @@ end
 # Start the periodic reads of the controller state and show the startup screen. If no
 # session is loaded, load one, or open the new-production form when there is no config to
 # load or `new_production` is set.
-function start!(m::JuleanaTUI)
+function start!(m::JuLeAnaTUI)
     m.splash, m.started_at = true, time()
     m.timer = Tachikoma.spawn_timer!(m.queue, :tick, 0.5; repeat = true)
     if snapshot(m.ctrl).state === :idle
@@ -312,17 +312,17 @@ function start!(m::JuleanaTUI)
     return nothing
 end
 
-Tachikoma.init!(m::JuleanaTUI, ::Tachikoma.Terminal) = start!(m)
+Tachikoma.init!(m::JuLeAnaTUI, ::Tachikoma.Terminal) = start!(m)
 
-function Tachikoma.cleanup!(m::JuleanaTUI)
+function Tachikoma.cleanup!(m::JuLeAnaTUI)
     isnothing(m.timer) || Tachikoma.cancel!(m.timer)
     close(m.commands)
     return nothing
 end
 
-processing(m::JuleanaTUI) = !isnothing(m.snap) && m.snap.state in (:running, :stopping)
+processing(m::JuLeAnaTUI) = !isnothing(m.snap) && m.snap.state in (:running, :stopping)
 
-function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
+function Tachikoma.update!(m::JuLeAnaTUI, evt::Tachikoma.TaskEvent)
     start = timing_update_begin!(m.timing, evt)
     try
         update_task!(m, evt)
@@ -332,7 +332,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     return nothing
 end
 
-function update_task!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
+function update_task!(m::JuLeAnaTUI, evt::Tachikoma.TaskEvent)
     if evt.id === :tick
         m.ticks += 1
         m.splash = splash_active(m)
@@ -386,7 +386,7 @@ function update_task!(m::JuleanaTUI, evt::Tachikoma.TaskEvent)
     return nothing
 end
 
-function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
+function Tachikoma.update!(m::JuLeAnaTUI, evt::Tachikoma.KeyEvent)
     start = timing_update_begin!(m.timing, evt)
     try
         update_key!(m, evt)
@@ -399,7 +399,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     return nothing
 end
 
-function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
+function update_key!(m::JuLeAnaTUI, evt::Tachikoma.KeyEvent)
     ctrl_c = evt.key == :ctrl_c || (evt.key == :ctrl && evt.char == 'c')
     if splash_active(m)
         evt.action == Tachikoma.key_release || (m.splash = false)
@@ -466,7 +466,7 @@ function update_key!(m::JuleanaTUI, evt::Tachikoma.KeyEvent)
     return nothing
 end
 
-function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
+function Tachikoma.update!(m::JuLeAnaTUI, evt::Tachikoma.MouseEvent)
     start = timing_update_begin!(m.timing, evt)
     try
         update_mouse!(m, evt)
@@ -479,7 +479,7 @@ function Tachikoma.update!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
     return nothing
 end
 
-function update_mouse!(m::JuleanaTUI, evt::Tachikoma.MouseEvent)
+function update_mouse!(m::JuLeAnaTUI, evt::Tachikoma.MouseEvent)
     if isnothing(m.dialog) && !m.help && isnothing(m.production) && !splash_active(m)
         if Tachikoma.handle_mouse!(m.tabs, evt) === :changed
             m.page = m.tabs.active
@@ -502,7 +502,7 @@ end
 
 # Queue a read of the reports if the Reports page is visible and its data is out of date,
 # and carry out the queued requests of the page in background tasks.
-function reports_sync!(m::JuleanaTUI)
+function reports_sync!(m::JuLeAnaTUI)
     page, ctrl = m.reports_page, m.ctrl
     m.page == 6 && reports_visit!(page, m.snap)
     for request in take_requests!(page)
@@ -513,7 +513,7 @@ end
 
 # Queue a read of the workers overview if the Workers page is visible and the latest read is
 # older than five seconds, and carry out the queued requests of the page in background tasks.
-function workers_sync!(m::JuleanaTUI)
+function workers_sync!(m::JuLeAnaTUI)
     page, ctrl = m.workers_page, m.ctrl
     m.page == 3 && workers_visit!(page)
     for request in take_requests!(page)
@@ -525,7 +525,7 @@ end
 # Queue a read of the history grid if the History page, or the Graph page with the state on
 # disk, is visible and the grid is out of date, and carry out the queued requests of the
 # History page in background tasks.
-function history_sync!(m::JuleanaTUI)
+function history_sync!(m::JuLeAnaTUI)
     page, ctrl = m.history_page, m.ctrl
     (m.page == 7 || (m.page == 2 && m.graph_page.disk)) && history_visit!(page, m.snap)
     for request in take_requests!(page)
@@ -536,7 +536,7 @@ end
 
 # Read the runinfo of a newly loaded session in a background task; the value is the
 # summary or the message of the read error.
-function dataset_sync!(m::JuleanaTUI)
+function dataset_sync!(m::JuLeAnaTUI)
     page, ctrl = m.setup, m.ctrl
     if m.snap.state in (:idle, :loading)
         page.dataset, page.dataset_requested = nothing, false
@@ -565,7 +565,7 @@ end
 # controller state, the last run, the workers and the countdown to the cancel of idle worker
 # allocations on the left, separated by dots; on the right a rejected command, else the latest
 # alert, else the error of the last load or run.
-function status_spans(m::JuleanaTUI)
+function status_spans(m::JuLeAnaTUI)
     sep = ("  ·  ", Tachikoma.tstyle(:border))
     snap = m.snap
     state = isnothing(snap) ? :starting : snap.state
@@ -609,7 +609,7 @@ end
 # Draw the status panel into `area`: a box with the spans of `status_spans` on the first line
 # and, once a processing run started, a bar over the second line with the progress and the
 # elapsed time of the run.
-function render_status(m::JuleanaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+function render_status(m::JuLeAnaTUI, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
     inner = Tachikoma.render(Tachikoma.Block(; border_style = Tachikoma.tstyle(:border)), area, buf)
     (inner.width < 1 || inner.height < 1) && return nothing
     x_max = Tachikoma.right(inner)
@@ -654,14 +654,14 @@ function render_frame(area, buf)
     return inner
 end
 
-function Tachikoma.view(m::JuleanaTUI, f::Tachikoma.Frame)
+function Tachikoma.view(m::JuLeAnaTUI, f::Tachikoma.Frame)
     timing_view_begin!(m.timing)
     draw_interface!(m, f)
     timing_view_end!(m.timing, m.snap; m.page)
     return nothing
 end
 
-function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
+function draw_interface!(m::JuLeAnaTUI, f::Tachikoma.Frame)
     tabs = m.tabs
     tabs.active = m.page
     tab_h = Tachikoma.tab_height(tabs.tab_style.decoration)
@@ -726,23 +726,23 @@ function draw_interface!(m::JuleanaTUI, f::Tachikoma.Frame)
 end
 
 """
-    Juleana.run_tui(parsed_args::AbstractDict; processors = PROCESSORS, loader)
+    JuLeAna.run_tui(parsed_args::AbstractDict; processors = PROCESSORS, loader)
 
 Open the terminal user interface with the pages Setup, Graph, Workers, Progress, Log, Reports and History on
 a [`DataflowController`](@ref) for the parsed command line options `parsed_args`, as
-returned by [`Juleana.parse_commandline`](@ref). Returns `nothing` when the user quits.
+returned by [`JuLeAna.parse_commandline`](@ref). Returns `nothing` when the user quits.
 
 The interface opens at once and loads the session in the background with
 `loader(parsed_args)`. The default loader is [`setup_session`](@ref) without terminal
 output and without starting workers: it reads the config and the LEGEND data and builds
 the dependency graph. Log
 messages of this process and the output of its workers are kept in a
-[`Juleana.MessageBuffer`](@ref) instead of being printed; the newest warning or error is shown
+[`JuLeAna.MessageBuffer`](@ref) instead of being printed; the newest warning or error is shown
 in the status panel, and the error of a failed load stays there. This process also writes
 its log file as in [`setup_session`](@ref). The previous global logger is restored when
 the interface closes, and every worker allocation started from the interface is
 cancelled (see [`CancelAll`](@ref)). A startup screen with the logo is shown until the session has loaded;
-`?` lists the keys of the visible page. See [`Juleana.JuleanaTUI`](@ref) for the keys.
+`?` lists the keys of the visible page. See [`JuLeAna.JuLeAnaTUI`](@ref) for the keys.
 The log file records the thread setup (`Interface threads`) after the session has loaded.
 """
 function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = PROCESSORS,
@@ -763,7 +763,7 @@ function run_tui(parsed_args::AbstractDict; processors::AbstractDict{Symbol} = P
     # a logger made before the interface writes to the terminal and would garble it
     previous = global_logger(messages)
     try
-        run_app(JuleanaTUI(ctrl, messages), messages; theme)
+        run_app(JuLeAnaTUI(ctrl, messages), messages; theme)
     finally
         global_logger(previous)
         # allocations run in their own process groups and would outlive this process
@@ -774,7 +774,7 @@ end
 
 # Run the interface loop on `m` with `theme`; the output of this process goes to `messages`.
 # `kwargs` are passed on to `Tachikoma.app`.
-function run_app(m::JuleanaTUI, messages::MessageBuffer; theme::Tachikoma.Theme = tui_theme(load_theme_name()), kwargs...)
+function run_app(m::JuLeAnaTUI, messages::MessageBuffer; theme::Tachikoma.Theme = tui_theme(load_theme_name()), kwargs...)
     return with_theme(theme) do
         return Tachikoma.app(m; on_stdout = text -> append_output!(messages, :stdout, text),
                              on_stderr = text -> append_output!(messages, :stderr, text), kwargs...)

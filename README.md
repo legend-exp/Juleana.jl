@@ -1,14 +1,14 @@
 # ![JuLeAna](logo/juleana.png)
 
-[![Documentation for stable version](https://img.shields.io/badge/docs-stable-blue.svg)](https://legend-exp.github.io/Juleana.jl/stable)
-[![Documentation for development version](https://img.shields.io/badge/docs-dev-blue.svg)](https://legend-exp.github.io/Juleana.jl/dev)
-[![Version](https://img.shields.io/github/v/release/legend-exp/Juleana.jl)](https://github.com/legend-exp/Juleana.jl/releases)
+[![Documentation for stable version](https://img.shields.io/badge/docs-stable-blue.svg)](https://legend-exp.github.io/JuLeAna.jl/stable)
+[![Documentation for development version](https://img.shields.io/badge/docs-dev-blue.svg)](https://legend-exp.github.io/JuLeAna.jl/dev)
+[![Version](https://img.shields.io/github/v/release/legend-exp/JuLeAna.jl)](https://github.com/legend-exp/JuLeAna.jl/releases)
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
-[![Build Status](https://github.com/legend-exp/Juleana.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/legend-exp/Juleana.jl/actions/workflows/CI.yml)
-[![Codecov](https://codecov.io/gh/legend-exp/Juleana.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/legend-exp/Juleana.jl)
+[![Build Status](https://github.com/legend-exp/JuLeAna.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/legend-exp/JuLeAna.jl/actions/workflows/CI.yml)
+[![Codecov](https://codecov.io/gh/legend-exp/JuLeAna.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/legend-exp/JuLeAna.jl)
 [![Aqua QA](https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
-Juleana is the Julia dataflow of the LEGEND-200 analysis. It processes LEGEND-200 data
+JuLeAna is the Julia dataflow of the LEGEND-200 analysis. It processes LEGEND-200 data
 from the `raw` tier up to the event level, on a single machine or on a
 [SLURM](https://slurm.schedmd.com) cluster:
 
@@ -20,7 +20,7 @@ from the `raw` tier up to the event level, on a single machine or on a
 
 ## Installation
 
-Juleana and the other LEGEND packages are registered in the
+JuLeAna and the other LEGEND packages are registered in the
 [LegendJuliaRegistry](https://github.com/legend-exp/LegendJuliaRegistry):
 
 ```julia
@@ -29,12 +29,12 @@ Pkg.Registry.add("General")
 Pkg.Registry.add(url = "https://github.com/legend-exp/LegendJuliaRegistry.git")
 ```
 
-To run the dataflow, install Juleana as a Julia app, which creates the `juleana`
+To run the dataflow, install JuLeAna as a Julia app, which creates the `juleana`
 command (add `~/.julia/bin` to the `PATH`):
 
 ```julia
 import Pkg
-Pkg.Apps.add("Juleana")                            # or Pkg.Apps.develop(path = "path/to/Juleana.jl")
+Pkg.Apps.add("JuLeAna")                            # or Pkg.Apps.develop(path = "path/to/JuLeAna.jl")
 ```
 
 ## Quick start
@@ -52,7 +52,7 @@ permissions of a production.
 
 ## Documentation
 
-The [documentation](https://legend-exp.github.io/Juleana.jl/stable) describes the
+The [documentation](https://legend-exp.github.io/JuLeAna.jl/stable) describes the
 concepts, the command line options and the terminal user interface, running on a cluster, the
 processing config, every processor, and the API
-([development version](https://legend-exp.github.io/Juleana.jl/dev)).
+([development version](https://legend-exp.github.io/JuLeAna.jl/dev)).

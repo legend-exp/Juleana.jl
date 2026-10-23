@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
     ProductionForm(; parent = <folder that holds the current production>, shell, home)
@@ -6,11 +6,11 @@
 State of the form of the terminal user interface that collects a [`ProductionSpec`](@ref):
 the text of each field, the yes/no choices, the rows of the lists of extra tier paths and of
 parameter folders, the field under the cursor, the message of the last rejected input and the
-progress of the creation. Keys are handled by [`Juleana.production_key!`](@ref), the form is
-drawn by [`Juleana.render_production`](@ref).
+progress of the creation. Keys are handled by [`JuLeAna.production_key!`](@ref), the form is
+drawn by [`JuLeAna.render_production`](@ref).
 
 `phase` is `:edit` while the form is filled in, `:creating` from the submit until the
-controller has created and loaded the production (see [`Juleana.production_sync!`](@ref)), and
+controller has created and loaded the production (see [`JuLeAna.production_sync!`](@ref)), and
 `:done` once it has. `shell` and `home` select the startup file that `set_default` writes
 (see [`ProductionSpec`](@ref)).
 """
@@ -53,7 +53,7 @@ function ProductionForm(;
 end
 
 """
-    Juleana.production_fields(form::ProductionForm)
+    JuLeAna.production_fields(form::ProductionForm)
 
 Return the fields of `form` in the order of the cursor, as `(kind, row)` pairs: `row` is the
 index into the list of a `:tier_label`, `:tier_path` or `:par` field and 0 for the others.
@@ -150,7 +150,7 @@ function production_branch(checkout, text)
 end
 
 """
-    Juleana.production_spec(form::ProductionForm)
+    JuLeAna.production_spec(form::ProductionForm)
 
 Return the [`ProductionSpec`](@ref) that `form` describes. Surrounding blanks of the text are
 removed; the reference and the branches are `nothing` unless they are checked out and not
@@ -184,21 +184,21 @@ function production_submit!(form::ProductionForm, send)
 end
 
 """
-    Juleana.production_key!(form::ProductionForm, evt::Tachikoma.KeyEvent, send)
+    JuLeAna.production_key!(form::ProductionForm, evt::Tachikoma.KeyEvent, send)
 
 Handle the key `evt` in the new-production form and return `:close` when the form closes,
 `:finished` when a key ends the display of the created production, `true` otherwise: the form
 uses every key. `send(cmd)` sends a controller command.
 
 - Up, Down and Shift-Tab move between the fields. Tab on a path field (parent folder, tier
-  path, parameter folder) completes the text with [`Juleana.complete_path`](@ref) and lists
+  path, parameter folder) completes the text with [`JuLeAna.complete_path`](@ref) and lists
   the folders that remain; when there is nothing left to complete it moves to the next field.
 - Printable characters and Backspace edit the text field under the cursor.
 - Space or Enter flips a yes/no field. Enter on a text field moves to the next field.
 - Ctrl-N, or Enter on a `[+]` field, adds a row to the list under the cursor (extra tier
   paths, parameter folders) and Ctrl-D or Delete removes the row under the cursor.
 - Ctrl-O, or Enter on the `[ Create ]` field, checks the input with
-  [`Juleana.check_production`](@ref) and sends [`CreateProduction`](@ref) for it. A problem is
+  [`JuLeAna.check_production`](@ref) and sends [`CreateProduction`](@ref) for it. A problem is
   shown in the form and nothing is sent.
 - Escape closes the form.
 
@@ -249,7 +249,7 @@ function production_key!(form::ProductionForm, evt::Tachikoma.KeyEvent, send)
 end
 
 """
-    Juleana.complete_path(text; home = homedir())
+    JuLeAna.complete_path(text; home = homedir())
 
 Complete the folder path `text` against the file system: return `(; text, candidates)` where
 `candidates` are the names (with a trailing `/`) of the folders in the parent folder of
@@ -294,7 +294,7 @@ function production_complete!(form::ProductionForm, field)
 end
 
 """
-    Juleana.production_answer!(form::ProductionForm, answered::Integer, error)
+    JuLeAna.production_answer!(form::ProductionForm, answered::Integer, error)
 
 Take the answer to a command: when it is the answer to the [`CreateProduction`](@ref) command
 of `form` (the `answered`-th answer, see the field `answer_at`), a rejection with the
@@ -312,10 +312,10 @@ function production_answer!(form::ProductionForm, answered::Integer, error)
 end
 
 """
-    Juleana.production_sync!(form::ProductionForm, snap, lines)
+    JuLeAna.production_sync!(form::ProductionForm, snap, lines)
 
 Bring `form` in line with the controller snapshot `snap` and the `lines` of the creation log
-(see [`Juleana.production_log`](@ref)). Once the command is accepted and the controller is no
+(see [`JuLeAna.production_log`](@ref)). Once the command is accepted and the controller is no
 longer `:loading`, the form is `:done` or, if the controller kept an error, back in `:edit`
 with that error.
 """
@@ -354,7 +354,7 @@ function production_label(form::ProductionForm, (kind, i)::Tuple{Symbol,Int})
 end
 
 """
-    Juleana.render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer; ticks = 0)
+    JuLeAna.render_production(form::ProductionForm, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer; ticks = 0)
 
 Draw the new-production form as a page filling `area`: one field per row with the label
 at the left and the text or the yes/no value at the right, the field under the cursor

@@ -1,17 +1,17 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
-using Juleana: AddWorkers, CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, SetRunmodeSettings
+using JuLeAna
+using JuLeAna: AddWorkers, CancelAllocation, CancelAll, PostponeIdleCancel, EditStartScript, SetRunmodeSettings
 using Tachikoma: Tachikoma, KeyEvent, TestBackend, Rect, find_text, row_text, style_at
 using LegendDataManagement: DataPeriod, DataRun
 using Dates: DateTime, Minute, Second
 using Test
 
 # Render the Workers page of `page` into a `width` x `height` test backend.
-function render_workers_page(page, snap = nothing, busy = Juleana.BusyItem[], entries = Juleana.MessageEntry[]; width = 120, height = 24,
+function render_workers_page(page, snap = nothing, busy = JuLeAna.BusyItem[], entries = JuLeAna.MessageEntry[]; width = 120, height = 24,
                              at = DateTime(2026, 10, 15, 12, 0, 0))
     tb = TestBackend(width, height)
-    Juleana.render_workers(page, snap, busy, entries, Rect(1, 1, width, height), tb.buf; at)
+    JuLeAna.render_workers(page, snap, busy, entries, Rect(1, 1, width, height), tb.buf; at)
     return tb
 end
 
@@ -39,48 +39,48 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
     overview(; slurm = nothing, script = script) = (; allocations, script,
                                                     workers = [(; pid = 2, host = "cslg4"), (; pid = 3, host = nothing)], slurm)
     snap = (; nworkers = 2, idle_deadline = DateTime(2026, 10, 15, 12, 4, 12))
-    busy = [Juleana.BusyItem((2, "item", DataPeriod(2), DataRun(6), :process_dsp_cal, t0, false))]
+    busy = [JuLeAna.BusyItem((2, "item", DataPeriod(2), DataRun(6), :process_dsp_cal, t0, false))]
 
     # a page that has read `ov`
     function loaded_page(ov = overview())
-        page = Juleana.WorkersPage()
-        Juleana.workers_visit!(page)
-        (request,) = Juleana.take_requests!(page)
-        Juleana.workers_result!(page, (; request, value = ov))
+        page = JuLeAna.WorkersPage()
+        JuLeAna.workers_visit!(page)
+        (request,) = JuLeAna.take_requests!(page)
+        JuLeAna.workers_result!(page, (; request, value = ov))
         return page
     end
     # keys applied to `page`, the commands sent
     function press!(page, keys...)
         sent = Any[]
-        used = [Juleana.workers_key!(page, k, cmd -> push!(sent, cmd)) for k in keys]
+        used = [JuLeAna.workers_key!(page, k, cmd -> push!(sent, cmd)) for k in keys]
         return sent, used
     end
 
     @testset "reading the overview" begin
-        page = Juleana.WorkersPage()
+        page = JuLeAna.WorkersPage()
         @test find_text(render_workers_page(page), "Reading the allocations…") !== nothing
-        Juleana.workers_visit!(page; at = 100.0)
-        Juleana.workers_visit!(page; at = 101.0)
-        requests = Juleana.take_requests!(page)
-        @test length(requests) == 1 && requests[1].kind === :overview && isempty(Juleana.take_requests!(page))
+        JuLeAna.workers_visit!(page; at = 100.0)
+        JuLeAna.workers_visit!(page; at = 101.0)
+        requests = JuLeAna.take_requests!(page)
+        @test length(requests) == 1 && requests[1].kind === :overview && isempty(JuLeAna.take_requests!(page))
         # no new read while one is under way, even when the overview is stale
-        Juleana.workers_stale!(page)
-        Juleana.workers_visit!(page; at = 102.0)
-        @test isempty(Juleana.take_requests!(page))
-        Juleana.workers_result!(page, (; request = requests[1], value = overview()))
+        JuLeAna.workers_stale!(page)
+        JuLeAna.workers_visit!(page; at = 102.0)
+        @test isempty(JuLeAna.take_requests!(page))
+        JuLeAna.workers_result!(page, (; request = requests[1], value = overview()))
         @test !page.reading && page.overview == overview()
         # the stale mark queues a read at once, the age of the last read after five seconds
-        Juleana.workers_visit!(page; at = 102.5)
-        @test length(Juleana.take_requests!(page)) == 1
-        Juleana.workers_result!(page, (; request = requests[1], value = overview()))
-        Juleana.workers_visit!(page; at = 105.0)
-        @test isempty(Juleana.take_requests!(page))
-        Juleana.workers_visit!(page; at = 107.6)
-        @test length(Juleana.take_requests!(page)) == 1
+        JuLeAna.workers_visit!(page; at = 102.5)
+        @test length(JuLeAna.take_requests!(page)) == 1
+        JuLeAna.workers_result!(page, (; request = requests[1], value = overview()))
+        JuLeAna.workers_visit!(page; at = 105.0)
+        @test isempty(JuLeAna.take_requests!(page))
+        JuLeAna.workers_visit!(page; at = 107.6)
+        @test length(JuLeAna.take_requests!(page)) == 1
         # a failed read keeps the shown overview and shows the message
-        Juleana.workers_result!(page, (; request = requests[1], error = "squeue failed"))
+        JuLeAna.workers_result!(page, (; request = requests[1], error = "squeue failed"))
         @test page.overview == overview() && find_text(render_workers_page(page, snap), "squeue failed") !== nothing
-        Juleana.workers_result!(page, (; request = requests[1], value = overview()))
+        JuLeAna.workers_result!(page, (; request = requests[1], value = overview()))
         @test isnothing(page.error)
     end
 
@@ -107,11 +107,11 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         text = workers_screen(render_workers_page(page, snap))
         @test occursin("Output of allocation 3", text) && occursin("boom", text) && !occursin("starting workers", text)
         press!(page, KeyEvent(:down), KeyEvent(:down))
-        @test Juleana.workers_selected_allocation(page).id == 4
+        @test JuLeAna.workers_selected_allocation(page).id == 4
         @test find_text(render_workers_page(page, snap), "No output.") !== nothing
         # an overview with other allocations keeps the selection on its allocation
-        Juleana.workers_result!(page, (; request = (; kind = :overview), value = (; overview()..., allocations = allocations[2:end])))
-        @test Juleana.workers_selected_allocation(page).id == 4
+        JuLeAna.workers_result!(page, (; request = (; kind = :overview), value = (; overview()..., allocations = allocations[2:end])))
+        @test JuLeAna.workers_selected_allocation(page).id == 4
         @test find_text(render_workers_page(loaded_page((; overview()..., allocations = [])), snap), "No allocations") !== nothing
     end
 
@@ -138,14 +138,14 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         @test style_at(tb, hit.x, hit.y).fg == Tachikoma.tstyle(:accent).fg
         # the host of a new worker is not known yet
         @test occursin("3 …", text)
-        abandoned = [Juleana.BusyItem((3, "item", DataPeriod(2), nothing, :p_process_energy_cal, t0, true))]
+        abandoned = [JuLeAna.BusyItem((3, "item", DataPeriod(2), nothing, :p_process_energy_cal, t0, true))]
         @test occursin("busy energy p02  item  00:12:04 (abandoned)",
                        workers_screen(render_workers_page(page, snap, abandoned; width = 160)))
         # the lines relayed from the selected worker, without the prefix
-        buf = Juleana.MessageBuffer()
-        Juleana.append_output!(buf, :stdout,
+        buf = JuLeAna.MessageBuffer()
+        JuLeAna.append_output!(buf, :stdout,
                                "      From worker 2:\thello\n      From worker 3:\tother\n      From worker 2:\tWarning: careful\nhead line\n")
-        entries = Juleana.message_entries(buf)
+        entries = JuLeAna.message_entries(buf)
         tb = render_workers_page(page, snap, busy, entries)
         text = workers_screen(tb)
         @test occursin("Output of worker 2", text) && occursin("hello", text) && occursin("Warning: careful", text)
@@ -154,19 +154,19 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         @test style_at(tb, hit.x, hit.y).fg == Tachikoma.tstyle(:warning).fg
         # the second pane takes the arrow keys after Tab
         press!(page, KeyEvent(:tab), KeyEvent(:down))
-        @test Juleana.workers_selected_worker(page).pid == 3 && Juleana.workers_selected_allocation(page).id == 1
+        @test JuLeAna.workers_selected_worker(page).pid == 3 && JuLeAna.workers_selected_allocation(page).id == 1
         text = workers_screen(render_workers_page(page, snap, busy, entries))
         @test occursin("Output of worker 3", text) && occursin("other", text) && !occursin("hello", text)
         press!(page, KeyEvent(:tab))
         @test page.focus == 1
         # of the progress lines, only the newest one of each description is shown
-        buf = Juleana.MessageBuffer()
-        Juleana.append_output!(buf, :stdout,
+        buf = JuLeAna.MessageBuffer()
+        JuLeAna.append_output!(buf, :stdout,
                                "      From worker 3:\t[ Progress: Filekey: a 1/2\n" *
                                "      From worker 3:\tbetween\n" *
                                "      From worker 3:\t[ Progress: Filekey: b 1/1\n" *
                                "      From worker 3:\t[ Progress: Filekey: a 2/2\n")
-        lines = first.(Juleana.workers_output_lines(Juleana.message_entries(buf), 3))
+        lines = first.(JuLeAna.workers_output_lines(JuLeAna.message_entries(buf), 3))
         @test lines == ["between", "[ Progress: Filekey: b 1/1", "[ Progress: Filekey: a 2/2"]
     end
 
@@ -196,9 +196,9 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         render_workers_page(page, snap; height = 24)
         wheel(x, y, button) = Tachikoma.MouseEvent(x, y, button, Tachikoma.mouse_press, false, false, false)
         out = page.alloc_out
-        @test Juleana.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_up)) && page.alloc_back == Juleana.WORKERS_WHEEL_LINES
-        @test Juleana.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_down)) && page.alloc_back == 0
-        @test !Juleana.workers_mouse!(page, wheel(1, 1, Tachikoma.mouse_scroll_up))
+        @test JuLeAna.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_up)) && page.alloc_back == JuLeAna.WORKERS_WHEEL_LINES
+        @test JuLeAna.workers_mouse!(page, wheel(out.x, out.y, Tachikoma.mouse_scroll_down)) && page.alloc_back == 0
+        @test !JuLeAna.workers_mouse!(page, wheel(1, 1, Tachikoma.mouse_scroll_up))
     end
 
     @testset "mouse selection" begin
@@ -206,12 +206,12 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         render_workers_page(page, snap, busy)
         click(x, y) = Tachikoma.MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false)
         list = page.alloc_list
-        @test Juleana.workers_mouse!(page, click(list.x + 3, list.y + 1))
-        @test Juleana.workers_selected_allocation(page).id == 2 && page.focus == 1
-        @test !Juleana.workers_mouse!(page, click(list.x + 3, list.y + 10))
+        @test JuLeAna.workers_mouse!(page, click(list.x + 3, list.y + 1))
+        @test JuLeAna.workers_selected_allocation(page).id == 2 && page.focus == 1
+        @test !JuLeAna.workers_mouse!(page, click(list.x + 3, list.y + 10))
         list = page.worker_list
-        @test Juleana.workers_mouse!(page, click(list.x + 3, list.y + 1))
-        @test Juleana.workers_selected_worker(page).pid == 3 && page.focus == 2
+        @test JuLeAna.workers_mouse!(page, click(list.x + 3, list.y + 1))
+        @test JuLeAna.workers_selected_worker(page).pid == 3 && page.focus == 2
     end
 
     @testset "SLURM pane" begin
@@ -234,7 +234,7 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         @test occursin("[Workers] │ SLURM", workers_screen(render_workers_page(page, snap)))
         # the pane falls back to the workers when the overview has no SLURM output
         press!(page, KeyEvent('s'))
-        Juleana.workers_result!(page, (; request = (; kind = :overview), value = overview()))
+        JuLeAna.workers_result!(page, (; request = (; kind = :overview), value = overview()))
         @test occursin("Output of worker", workers_screen(render_workers_page(page, snap)))
     end
 
@@ -269,14 +269,14 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         press!(page, KeyEvent('n'))
         # only a running allocation can be cancelled
         press!(page, KeyEvent(:down))
-        @test Juleana.workers_selected_allocation(page).state === :cancelled
+        @test JuLeAna.workers_selected_allocation(page).state === :cancelled
         sent, used = press!(page, KeyEvent('c'))
         @test isempty(sent) && used == [false] && isnothing(page.confirm)
         # keys the page does not use
         sent, used = press!(page, KeyEvent('q'), KeyEvent('5'), KeyEvent('x'))
         @test isempty(sent) && used == [false, false, false]
         # the first read is not in yet: the commands that need no overview work, `c` waits for it
-        fresh = Juleana.WorkersPage()
+        fresh = JuLeAna.WorkersPage()
         sent, used = press!(fresh, KeyEvent('a'), KeyEvent('c'), KeyEvent('p'))
         @test used == [true, false, true] && length(sent) == 2
         # `r` marks the overview as stale
@@ -307,7 +307,7 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         press!(page, KeyEvent('e'))
         sent, used = press!(page, KeyEvent('y', Tachikoma.key_release))
         @test used == [true] && isempty(sent) && !isnothing(page.editor)
-        @test !Juleana.workers_mouse!(page, Tachikoma.MouseEvent(5, 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test !JuLeAna.workers_mouse!(page, Tachikoma.MouseEvent(5, 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         press!(page, KeyEvent(:escape))
         # a script that could not be generated: the message replaces the editor
         page = loaded_page(overview(; script = "start_script!: no processing config is set"))
@@ -317,25 +317,25 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         sent, used = press!(page, KeyEvent('x'))
         @test used == [true] && isempty(sent) && isnothing(page.notice)
         # before the first read there is no script either
-        fresh = Juleana.WorkersPage()
+        fresh = JuLeAna.WorkersPage()
         press!(fresh, KeyEvent('e'))
         @test occursin("has not been read yet", workers_screen(render_workers_page(fresh, snap)))
     end
 
     @testset "SLURM options" begin
         flags = ["--time=01:00:00", "--mem-bind=local", "--nodes=1", "--mem=480GB"]
-        @test Juleana.slurm_option(flags, "time") == "01:00:00" && isnothing(Juleana.slurm_option(flags, "partition"))
+        @test JuLeAna.slurm_option(flags, "time") == "01:00:00" && isnothing(JuLeAna.slurm_option(flags, "partition"))
         # `--mem-bind` is not `--mem`
-        @test Juleana.slurm_option(["--mem-bind=local"], "mem") === nothing
-        @test Juleana.set_slurm_option(flags, "mem", "30GB") == ["--time=01:00:00", "--mem-bind=local", "--nodes=1", "--mem=30GB"]
-        @test Juleana.set_slurm_option(flags, "partition", "interactive")[end] == "--partition=interactive"
-        @test Juleana.set_slurm_option(flags, "nodes", "") == ["--time=01:00:00", "--mem-bind=local", "--mem=480GB"]
-        @test Juleana.set_slurm_option(flags, "partition", "") == flags
-        @test_throws "time limit: expected minutes, hh:mm:ss or d-hh:mm:ss, got `1h`" Juleana.set_slurm_option(flags, "time", "1h")
-        @test_throws "nodes: expected a positive integer, got `0`" Juleana.set_slurm_option(flags, "nodes", "0")
-        @test_throws "the flag `-N4` sets nodes" Juleana.set_slurm_option(["-N4"], "nodes", "2")
-        @test_throws "the flag `--nodes` sets nodes" Juleana.set_slurm_option(["--nodes", "4"], "nodes", "2")
-        @test Juleana.set_slurm_option(flags, "time", "2-00:00:00")[1] == "--time=2-00:00:00"
+        @test JuLeAna.slurm_option(["--mem-bind=local"], "mem") === nothing
+        @test JuLeAna.set_slurm_option(flags, "mem", "30GB") == ["--time=01:00:00", "--mem-bind=local", "--nodes=1", "--mem=30GB"]
+        @test JuLeAna.set_slurm_option(flags, "partition", "interactive")[end] == "--partition=interactive"
+        @test JuLeAna.set_slurm_option(flags, "nodes", "") == ["--time=01:00:00", "--mem-bind=local", "--mem=480GB"]
+        @test JuLeAna.set_slurm_option(flags, "partition", "") == flags
+        @test_throws "time limit: expected minutes, hh:mm:ss or d-hh:mm:ss, got `1h`" JuLeAna.set_slurm_option(flags, "time", "1h")
+        @test_throws "nodes: expected a positive integer, got `0`" JuLeAna.set_slurm_option(flags, "nodes", "0")
+        @test_throws "the flag `-N4` sets nodes" JuLeAna.set_slurm_option(["-N4"], "nodes", "2")
+        @test_throws "the flag `--nodes` sets nodes" JuLeAna.set_slurm_option(["--nodes", "4"], "nodes", "2")
+        @test JuLeAna.set_slurm_option(flags, "time", "2-00:00:00")[1] == "--time=2-00:00:00"
     end
 
     @testset "SLURM form" begin
@@ -344,12 +344,12 @@ workers_screen(tb) = join((row_text(tb, r) for r in 1:tb.height), "\n")
         fsnap = (; snap..., runmode_settings = settings)
         page = loaded_page()
         sent = Any[]
-        press(keys...) = [Juleana.workers_key!(page, k isa Char ? KeyEvent(k) : KeyEvent(k), cmd -> push!(sent, cmd); snap = fsnap)
+        press(keys...) = [JuLeAna.workers_key!(page, k isa Char ? KeyEvent(k) : KeyEvent(k), cmd -> push!(sent, cmd); snap = fsnap)
                           for k in keys]
         # without the run mode settings the form does not open
-        @test !Juleana.workers_key!(page, KeyEvent('o'), cmd -> push!(sent, cmd); snap = (; snap..., runmode_settings = nothing))
-        @test press('o') == [true] && page.form isa Juleana.SlurmForm
-        @test !Juleana.workers_mouse!(page, Tachikoma.MouseEvent(5, 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
+        @test !JuLeAna.workers_key!(page, KeyEvent('o'), cmd -> push!(sent, cmd); snap = (; snap..., runmode_settings = nothing))
+        @test press('o') == [true] && page.form isa JuLeAna.SlurmForm
+        @test !JuLeAna.workers_mouse!(page, Tachikoma.MouseEvent(5, 5, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false))
         tb = render_workers_page(page, fsnap)
         @test find_text(tb, "SLURM settings (this session)") !== nothing
         @test find_text(tb, "not set") !== nothing && find_text(tb, "01:00:00") !== nothing

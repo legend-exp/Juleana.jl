@@ -1,6 +1,6 @@
-# Juleana.jl
+# JuLeAna.jl
 
-Juleana is the Julia dataflow of the LEGEND-200 analysis (JuLeAna, the Julia LEGEND
+JuLeAna is the Julia dataflow of the LEGEND-200 analysis (JuLeAna, the Julia LEGEND
 Analysis). It processes LEGEND-200 data from the `raw` tier up to the event level on a
 single machine or on a [SLURM](https://slurm.schedmd.com) cluster:
 
@@ -23,7 +23,7 @@ statistics; the partitions of each detector are defined in the LEGEND metadata.
 
 **Processors.** A processor is one processing step, such as the DSP of the calibration
 data or the energy calibration. Each processor is a Julia function in
-`src/processors/`, registered under its name in [`Juleana.PROCESSORS`](@ref). There are
+`src/processors/`, registered under its name in [`JuLeAna.PROCESSORS`](@ref). There are
 two levels:
 
 - run-level processors `process_xxx(processing_config, l200, period, run; kwargs...)`
@@ -65,7 +65,7 @@ partition), together with their validity.
 
 ## Installation
 
-Juleana and the other LEGEND packages are registered in the
+JuLeAna and the other LEGEND packages are registered in the
 [LegendJuliaRegistry](https://github.com/legend-exp/LegendJuliaRegistry). Add it once,
 next to the General registry:
 
@@ -75,16 +75,16 @@ Pkg.Registry.add("General")
 Pkg.Registry.add(url = "https://github.com/legend-exp/LegendJuliaRegistry.git")
 ```
 
-To run the dataflow, install Juleana as a Julia app, which creates the `juleana`
+To run the dataflow, install JuLeAna as a Julia app, which creates the `juleana`
 command:
 
 ```julia
 import Pkg
-Pkg.Apps.add("Juleana")
+Pkg.Apps.add("JuLeAna")
 ```
 
 For development, install a clone of the repository instead with
-`Pkg.Apps.develop(path = "path/to/Juleana.jl")`.
+`Pkg.Apps.develop(path = "path/to/JuLeAna.jl")`.
 
 Processing needs access to the LEGEND data and metadata, configured with the
 `LEGEND_DATA_CONFIG` environment variable (see `LegendDataManagement`). The

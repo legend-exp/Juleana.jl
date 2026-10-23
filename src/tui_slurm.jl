@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Options of the SLURM job that the form edits: long name, the short option SLURM also accepts
 # for it (or `nothing`), label, and the pattern a value must match with its description.
@@ -38,7 +38,7 @@ function slurm_flag_conflict(flags, opt)
 end
 
 """
-    Juleana.slurm_option(flags::AbstractVector{<:AbstractString}, name::AbstractString)
+    JuLeAna.slurm_option(flags::AbstractVector{<:AbstractString}, name::AbstractString)
 
 The value of the SLURM option `name` set as `--name=value` among `flags`, or `nothing`.
 """
@@ -49,7 +49,7 @@ function slurm_option(flags::AbstractVector{<:AbstractString}, name::AbstractStr
 end
 
 """
-    Juleana.set_slurm_option(flags::AbstractVector{<:AbstractString}, name::AbstractString, value::AbstractString)
+    JuLeAna.set_slurm_option(flags::AbstractVector{<:AbstractString}, name::AbstractString, value::AbstractString)
 
 Return a copy of `flags` with the SLURM option `name` set to `value` as `--name=value`, in
 place of a flag that set it before or else at the end. An empty `value` removes the option.
@@ -75,7 +75,7 @@ function set_slurm_option(flags::AbstractVector{<:AbstractString}, name::Abstrac
 end
 
 """
-    Juleana.slurm_form_key!(form::SlurmForm, evt::Tachikoma.KeyEvent, snap, send)
+    JuLeAna.slurm_form_key!(form::SlurmForm, evt::Tachikoma.KeyEvent, snap, send)
 
 Handle the key `evt` in the SLURM form and return `:close` when the form closes, `true`
 otherwise; the form uses every key. Up and Down move, Enter edits the option under the
@@ -119,7 +119,7 @@ function slurm_form_key!(form::SlurmForm, evt::Tachikoma.KeyEvent, snap, send)
 end
 
 """
-    Juleana.render_slurm_form(form::SlurmForm, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_slurm_form(form::SlurmForm, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the SLURM form as a box in the middle of `area`: one row per option with its value or
 `not set`, the other SLURM flags, the text being typed and the last error.

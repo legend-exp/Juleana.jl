@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Tachikoma: Tachikoma, KeyEvent, MouseEvent, TestBackend, Rect, find_text, row_text
 using LegendDataManagement: DataPeriod, DataRun
 using Logging: Logging
@@ -23,19 +23,19 @@ end
 # Wait until all commands are answered, then read the controller state anew.
 function setup_refreshed!(m)
     setup_settle!(() -> m.pending == 0 && !m.refreshing, m) || return false
-    Juleana.refresh!(m)
+    JuLeAna.refresh!(m)
     return setup_settle!(() -> !m.refreshing, m)
 end
 
 function render_setup_page(m, width = 140, height = 30)
-    return (tb = TestBackend(width, height); Juleana.render_setup(m.setup, m.snap, Rect(1, 1, width, height), tb.buf); tb)
+    return (tb = TestBackend(width, height); JuLeAna.render_setup(m.setup, m.snap, Rect(1, 1, width, height), tb.buf); tb)
 end
 
 press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
 
 @testset "Setup page" begin
     @testset "tag colors" begin
-        style(tag) = Juleana.setup_tag_style(tag)
+        style(tag) = JuLeAna.setup_tag_style(tag)
         @test style("cal").fg == Tachikoma.tstyle(:primary).fg
         @test style("phy").fg == Tachikoma.tstyle(:secondary).fg
         @test style("rank 3").fg == Tachikoma.tstyle(:text_dim).fg
@@ -54,7 +54,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
                            p_processors = Dict(:p_process_aoe_cut_cal =>
                                                    spec(:p_process_aoe_cut_cal, :partition, 1; dependencies = [:process_dsp_cal])))
     function new_session()
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [p2, p3], nothing, run_steps(cfg),
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, cfg, [p2, p3], nothing, run_steps(cfg),
                                                                                partition_steps(cfg))
         return DataflowSession(; args, l200, config = cfg, periods, run_steps = run_steps(cfg), partition_steps = partition_steps(cfg),
                                run_status, partition_status)
@@ -64,16 +64,16 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     energy_stub(cfg, l200, period, run; reprocess = false, max_wvfs = 10, channels = Symbol[]) = nothing
     processors = Dict{Symbol,Any}(:process_energy_calibration_cal => energy_stub, :process_dsp_cal => run_stub,
                                   :p_process_aoe_cut_cal => part_stub)
-    new_tui(session = new_session()) = Juleana.JuleanaTUI(DataflowController(session; processors, record_software = false,
+    new_tui(session = new_session()) = JuLeAna.JuLeAnaTUI(DataflowController(session; processors, record_software = false,
                                                                              record_metadata = false))
 
     @testset "checklists follow the controller" begin
         m = new_tui()
         @test setup_refreshed!(m)
         page = m.setup
-        @test Juleana.checked(page.periods) == all_runs
-        @test Juleana.checked(page.run_procs) == [:process_energy_calibration_cal]
-        @test Juleana.checked(page.part_procs) == [:p_process_aoe_cut_cal]
+        @test JuLeAna.checked(page.periods) == all_runs
+        @test JuLeAna.checked(page.run_procs) == [:process_energy_calibration_cal]
+        @test JuLeAna.checked(page.part_procs) == [:p_process_aoe_cut_cal]
         @test [i.key for i in page.run_procs.groups[1].items] == [:process_energy_calibration_cal, :process_dsp_cal]
         dsp = page.run_procs.groups[1].items[2]
         @test dsp.tags == ["cal", "rank 02"]
@@ -88,14 +88,14 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         # the keys are in the key row and the help panel, not in the options pane
         @test find_text(tb, "s: start") === nothing
         # the logo is drawn only where the options pane has room for it
-        letters_bottom = strip(Juleana.LOGO_LETTERS[end])
+        letters_bottom = strip(JuLeAna.LOGO_LETTERS[end])
         @test find_text(tb, letters_bottom) === nothing
         @test find_text(render_setup_page(m, 280, 50), letters_bottom) !== nothing
 
         # a change in the controller shows up in the checklists
         dispatch!(m.ctrl, SelectRuns(Dict(2 => [7])))
         @test setup_refreshed!(m)
-        @test Juleana.checked(page.periods) == [(p2, r7)]
+        @test JuLeAna.checked(page.periods) == [(p2, r7)]
     end
 
     @testset "dataset info" begin
@@ -114,17 +114,17 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         end
         @test find_text(tb, "no analysis") === nothing
 
-        page = Juleana.SetupPage()
+        page = JuLeAna.SetupPage()
         page.dataset = m.setup.dataset
         p16, p99 = DataPeriod.((16, 99))
-        page.periods = Juleana.Checklist([Juleana.ChecklistGroup(p16, "p16",
-                                                                 [Juleana.ChecklistItem((p16, r6), "r006"),
-                                                                  Juleana.ChecklistItem((p16, DataRun(99)), "r099")]),
-                                          Juleana.ChecklistGroup(p99, "p99", Juleana.ChecklistItem[])])
-        text(page) = join(join(first.(spans)) for spans in Juleana.dataset_lines(page).lines)
+        page.periods = JuLeAna.Checklist([JuLeAna.ChecklistGroup(p16, "p16",
+                                                                 [JuLeAna.ChecklistItem((p16, r6), "r006"),
+                                                                  JuLeAna.ChecklistItem((p16, DataRun(99)), "r099")]),
+                                          JuLeAna.ChecklistGroup(p99, "p99", JuLeAna.ChecklistItem[])])
+        text(page) = join(join(first.(spans)) for spans in JuLeAna.dataset_lines(page).lines)
         @test occursin("4 runs", text(page)) && occursin("0 analysis", text(page))
         page.periods.cursor = 2
-        @test Juleana.dataset_lines(page).title == "Dataset p16-r006"
+        @test JuLeAna.dataset_lines(page).title == "Dataset p16-r006"
         @test occursin("no analysis", text(page)) && occursin("00:01:09", text(page))
         # a run or period that is not in the runinfo
         page.periods.cursor = 3
@@ -132,9 +132,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         page.periods.cursor = 4
         @test occursin("not in the runinfo", text(page))
         # every run and period has a box of the same height
-        @test length(unique(length(Juleana.dataset_lines((page.periods.cursor = i; page)).lines) for i in 1:4)) == 1
+        @test length(unique(length(JuLeAna.dataset_lines((page.periods.cursor = i; page)).lines) for i in 1:4)) == 1
         page.dataset = "no runinfo file"
-        @test Juleana.dataset_lines(page).lines == [[("runinfo: no runinfo file", Tachikoma.tstyle(:error))]]
+        @test JuLeAna.dataset_lines(page).lines == [[("runinfo: no runinfo file", Tachikoma.tstyle(:error))]]
         page.dataset = nothing
         @test occursin("Reading the runinfo", text(page))
     end
@@ -218,18 +218,18 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
     end
 
     @testset "action keys" begin
-        page = Juleana.SetupPage()
+        page = JuLeAna.SetupPage()
         sent = ControllerCommand[]
         for (key, expected) in
             (('s', StartProcessing), ('x', StopProcessing), ('X', StopProcessing), ('r', ReloadConfig), ('g', ResetDependencyGraph),
              ('W', AddWorkers))
-            @test Juleana.setup_key!(page, KeyEvent(key), nothing, cmd -> push!(sent, cmd))
+            @test JuLeAna.setup_key!(page, KeyEvent(key), nothing, cmd -> push!(sent, cmd))
             @test last(sent) isa expected
         end
         @test !sent[2].force && sent[3].force
         # keys the page does not use go to the interface
-        @test !Juleana.setup_key!(page, KeyEvent('q'), nothing, cmd -> push!(sent, cmd))
-        @test !Juleana.setup_key!(page, KeyEvent('2'), nothing, cmd -> push!(sent, cmd))
+        @test !JuLeAna.setup_key!(page, KeyEvent('q'), nothing, cmd -> push!(sent, cmd))
+        @test !JuLeAna.setup_key!(page, KeyEvent('2'), nothing, cmd -> push!(sent, cmd))
         @test length(sent) == 6
     end
 
@@ -237,55 +237,55 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         m = new_tui()
         @test setup_refreshed!(m)
         snap = m.snap
-        Juleana.set_checked!(m.setup.periods, [(p3, r0)])
-        Juleana.sync_setup!(m.setup, snap; pending = true)
-        @test Juleana.checked(m.setup.periods) == [(p3, r0)]
-        Juleana.sync_setup!(m.setup, snap)
-        @test Juleana.checked(m.setup.periods) == all_runs
+        JuLeAna.set_checked!(m.setup.periods, [(p3, r0)])
+        JuLeAna.sync_setup!(m.setup, snap; pending = true)
+        @test JuLeAna.checked(m.setup.periods) == [(p3, r0)]
+        JuLeAna.sync_setup!(m.setup, snap)
+        @test JuLeAna.checked(m.setup.periods) == all_runs
     end
 
     @testset "a read older than an answered command is not shown" begin
         m = new_tui()
         @test setup_refreshed!(m)
         snap, prog, busy = m.snap, m.progress, m.busy
-        Juleana.set_checked!(m.setup.periods, [(p3, r0)])
+        JuLeAna.set_checked!(m.setup.periods, [(p3, r0)])
         # a command was answered after this read had started
         m.answered += 1
         m.refreshing = true
         Tachikoma.update!(m, Tachikoma.TaskEvent(:refresh, (m.answered - 1, snap, prog, busy, m.step_msgs)))
-        @test Juleana.checked(m.setup.periods) == [(p3, r0)]
+        @test JuLeAna.checked(m.setup.periods) == [(p3, r0)]
         # and the page reads again
         @test m.refreshing
         @test setup_settle!(() -> !m.refreshing, m)
-        @test Juleana.checked(m.setup.periods) == all_runs
+        @test JuLeAna.checked(m.setup.periods) == all_runs
     end
 
     @testset "selected runs that are not on disk" begin
         session = new_session()
         session.runs = Dict(p2 => [r6, DataRun(9)])
-        m = Juleana.JuleanaTUI(DataflowController(session; processors, record_software = false, record_metadata = false))
+        m = JuLeAna.JuLeAnaTUI(DataflowController(session; processors, record_software = false, record_metadata = false))
         @test setup_refreshed!(m)
-        @test Juleana.checked(m.setup.periods) == [(p2, r6); all_runs[9:end]]
+        @test JuLeAna.checked(m.setup.periods) == [(p2, r6); all_runs[9:end]]
     end
 
     @testset "parse_kwarg_value" begin
-        @test Juleana.parse_kwarg_value(" 12 ", 10) === 12
-        @test Juleana.parse_kwarg_value("0.5", 1.0) === 0.5
-        @test Juleana.parse_kwarg_value("3", 1.0) === 3.0
-        @test Juleana.parse_kwarg_value("false", true) === false
-        @test Juleana.parse_kwarg_value("some text", "old") == "some text"
-        @test Juleana.parse_kwarg_value("V01, V02,", [:V00]) == [:V01, :V02]
-        @test Juleana.parse_kwarg_value("", Symbol[]) == Symbol[]
-        @test Juleana.parse_kwarg_value("[1, 2]", nothing) == [1, 2]
-        @test Juleana.parse_kwarg_value("[:a, :b]", nothing) == [:a, :b]
-        @test Juleana.parse_kwarg_value("\"x\"", nothing) == "x"
-        @test Juleana.parse_kwarg_value(":x", nothing) === :x
-        @test Juleana.parse_kwarg_value("[]", nothing) == []
-        @test_throws "expected an integer, got `abc`" Juleana.parse_kwarg_value("abc", 3)
-        @test_throws "expected true or false, got `1`" Juleana.parse_kwarg_value("1", true)
-        @test_throws "expected a Julia literal" Juleana.parse_kwarg_value("rm(\"x\")", nothing)
-        @test_throws "expected a Julia literal" Juleana.parse_kwarg_value("[1,", nothing)
-        @test_throws "expected a Julia literal" Juleana.parse_kwarg_value("x", nothing)
+        @test JuLeAna.parse_kwarg_value(" 12 ", 10) === 12
+        @test JuLeAna.parse_kwarg_value("0.5", 1.0) === 0.5
+        @test JuLeAna.parse_kwarg_value("3", 1.0) === 3.0
+        @test JuLeAna.parse_kwarg_value("false", true) === false
+        @test JuLeAna.parse_kwarg_value("some text", "old") == "some text"
+        @test JuLeAna.parse_kwarg_value("V01, V02,", [:V00]) == [:V01, :V02]
+        @test JuLeAna.parse_kwarg_value("", Symbol[]) == Symbol[]
+        @test JuLeAna.parse_kwarg_value("[1, 2]", nothing) == [1, 2]
+        @test JuLeAna.parse_kwarg_value("[:a, :b]", nothing) == [:a, :b]
+        @test JuLeAna.parse_kwarg_value("\"x\"", nothing) == "x"
+        @test JuLeAna.parse_kwarg_value(":x", nothing) === :x
+        @test JuLeAna.parse_kwarg_value("[]", nothing) == []
+        @test_throws "expected an integer, got `abc`" JuLeAna.parse_kwarg_value("abc", 3)
+        @test_throws "expected true or false, got `1`" JuLeAna.parse_kwarg_value("1", true)
+        @test_throws "expected a Julia literal" JuLeAna.parse_kwarg_value("rm(\"x\")", nothing)
+        @test_throws "expected a Julia literal" JuLeAna.parse_kwarg_value("[1,", nothing)
+        @test_throws "expected a Julia literal" JuLeAna.parse_kwarg_value("x", nothing)
     end
 
     @testset "kwargs editor" begin
@@ -294,7 +294,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         press!(m, :tab)
         # `e` on a processor opens its editor; the editor takes every key
         press!(m, 'e')
-        @test m.setup.editor isa Juleana.KwargsEditor && m.setup.editor.step === :process_energy_calibration_cal
+        @test m.setup.editor isa JuLeAna.KwargsEditor && m.setup.editor.step === :process_energy_calibration_cal
         text = join(row_text(render_setup_page(m), r) for r in 1:30)
         @test occursin("Settings of energy_calibration cal", text)
         @test occursin("channels", text) && occursin("max_wvfs", text)
@@ -327,7 +327,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         @test occursin("* max_wvfs = 5   (config: not set)", join(row_text(render_setup_page(m), r) for r in 1:30))
 
         # a set value is edited in its own type
-        Juleana.kwargs_key!(m.setup.editor, KeyEvent(:enter), m.snap, cmd -> nothing)
+        JuLeAna.kwargs_key!(m.setup.editor, KeyEvent(:enter), m.snap, cmd -> nothing)
         @test m.setup.editor.text == "5"
         press!(m, :backspace, 'a', :enter)
         @test m.setup.editor.error == "expected an integer, got `a`"
@@ -423,9 +423,9 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             name == "no-config" || write(joinpath(parent, name, "config.json"), "{}")
         end
         withenv("LEGEND_DATA_CONFIG" => joinpath(parent, "prod-a", "config.json")) do
-            @test_throws "no production root" Juleana.read_choices(DataflowController(Dict{String,Any}()), "")
+            @test_throws "no production root" JuLeAna.read_choices(DataflowController(Dict{String,Any}()), "")
             ctrl = DataflowController(Dict{String,Any}("config" => nothing); loader = nothing)
-            @test Juleana.read_choices(ctrl, parent) == (; productions = ["prod-a", "prod-b"], datasets = ["default"])
+            @test JuLeAna.read_choices(ctrl, parent) == (; productions = ["prod-a", "prod-b"], datasets = ["default"])
 
             m = new_tui()
             @test setup_refreshed!(m)
@@ -445,7 +445,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             # Tab reaches the pane as the fifth stop, the last before the periods
             page.focus = 4
             press!(m, :tab)
-            @test page.focus == 5 && !any(list -> list.focused, Juleana.setup_panes(page))
+            @test page.focus == 5 && !any(list -> list.focused, JuLeAna.setup_panes(page))
             @test find_text(render_setup_page(m), "▶ Production") !== nothing
             press!(m, :tab)
             @test page.focus == 1 && page.periods.focused
@@ -453,7 +453,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             # the production picker lists the productions next to the current one
             sent = ControllerCommand[]
             send = cmd -> push!(sent, cmd)
-            key!(k) = Juleana.setup_key!(page, KeyEvent(k), m.snap, send)
+            key!(k) = JuLeAna.setup_key!(page, KeyEvent(k), m.snap, send)
             page.focus, page.source = 5, 2
             key!(:enter)
             @test page.picker.kind === :production && page.picker.items == ["prod-a", "prod-b"] && page.picker.cursor == 1
@@ -498,7 +498,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             page.choices = (; productions = ["prod-a", "prod-b"], datasets = ["default", "valid"])
             render_setup_page(m)
             area = page.production_area
-            click(x, y) = Juleana.setup_mouse!(page, MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false),
+            click(x, y) = JuLeAna.setup_mouse!(page, MouseEvent(x, y, Tachikoma.mouse_left, Tachikoma.mouse_press, false, false, false),
                                                m.snap, send)
             @test click(area.x + 2, area.y + 1)
             @test page.focus == 5 && page.source == 2 && page.picker.kind === :production
@@ -529,11 +529,11 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         mkpath(joinpath(tree, "empty"))
         symlink(joinpath(tree, "test"), joinpath(tree, "link"))
         # the folder at depth 4 is listed, deeper ones are not; a production is not searched
-        @test Juleana.find_productions(tree) == ["a/b/c/d", "jl-v1.0/prodA", "jl-v1.0/prodB", "test"]
-        @test Juleana.find_productions(joinpath(tree, "jl-v1.0")) == ["prodA", "prodB"]
+        @test JuLeAna.find_productions(tree) == ["a/b/c/d", "jl-v1.0/prodA", "jl-v1.0/prodB", "test"]
+        @test JuLeAna.find_productions(joinpath(tree, "jl-v1.0")) == ["prodA", "prodB"]
         # the root itself counts
-        @test Juleana.find_productions(joinpath(tree, "test")) == ["."]
-        @test Juleana.find_productions(joinpath(tree, "missing")) == String[]
+        @test JuLeAna.find_productions(joinpath(tree, "test")) == ["."]
+        @test JuLeAna.find_productions(joinpath(tree, "missing")) == String[]
     end
 
     @testset "production root" begin
@@ -541,14 +541,14 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         mkpath.(joinpath.(tree, ("alpha", "alpine", "beta", "prod")))
         write(joinpath(tree, "prod", "config.json"), "{}")
         withenv("LEGEND_DATA_CONFIG" => joinpath(tree, "prod", "config.json")) do
-            page = Juleana.SetupPage()
+            page = JuLeAna.SetupPage()
             send = cmd -> error("no command expected")
-            key!(k) = Juleana.setup_key!(page, KeyEvent(k), nothing, send)
+            key!(k) = JuLeAna.setup_key!(page, KeyEvent(k), nothing, send)
             type!(text) = foreach(key!, text)
-            @test Juleana.production_root(page) == tree
+            @test JuLeAna.production_root(page) == tree
             page.focus = 5
             tb = TestBackend(140, 30)
-            Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
+            JuLeAna.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
             @test find_text(tb, "Root: ") !== nothing
             @test find_text(tb, "Root: ").y < find_text(tb, "Production: ").y
 
@@ -561,7 +561,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             key!(:backspace)
             key!(:backspace)
             @test page.root_edit == tree * "/al"
-            Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
+            JuLeAna.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
             @test find_text(tb, "█") !== nothing
 
             # Tab extends to the common prefix and lists several candidates
@@ -581,7 +581,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             type!("nope")
             key!(:enter)
             @test page.root_edit == tree * "/alpha/dnope" && page.root_hint[2] && isnothing(page.root)
-            Juleana.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
+            JuLeAna.render_setup(page, nothing, Rect(1, 1, 140, 30), tb.buf)
             @test find_text(tb, "Not an existing absolute folder") !== nothing
 
             # Enter with an existing folder sets the root and re-reads the productions
@@ -589,7 +589,7 @@ press!(m, keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
             foreach(_ -> key!(:backspace), 1:5)
             key!(:enter)
             @test isnothing(page.root_edit) && page.root == tree * "/alpha" && isnothing(page.choices)
-            @test Juleana.production_root(page) == tree * "/alpha"
+            @test JuLeAna.production_root(page) == tree * "/alpha"
 
             # a relative path is rejected, `~` is expanded, Escape cancels
             key!(:enter)

@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Lines scrolled per notch of the mouse wheel.
 const LOG_WHEEL_LINES = 3
@@ -11,9 +11,9 @@ const LOG_PAGE_LEVELS = (("all", Logging.Info), ("warnings", Logging.Warn), ("er
 
 State of the Log page of the terminal user interface: whether the view follows the newest
 line, the index of the first displayed line, the level filter and the text filter. The page
-lists the entries of a [`Juleana.MessageBuffer`](@ref) (see [`Juleana.message_entries`](@ref)).
-Keys are handled by [`Juleana.log_key!`](@ref) and [`Juleana.log_mouse!`](@ref), the page
-is drawn by [`Juleana.render_log`](@ref).
+lists the entries of a [`JuLeAna.MessageBuffer`](@ref) (see [`JuLeAna.message_entries`](@ref)).
+Keys are handled by [`JuLeAna.log_key!`](@ref) and [`JuLeAna.log_mouse!`](@ref), the page
+is drawn by [`JuLeAna.render_log`](@ref).
 
 The level filter shows the records of at least the level `min_level`. The text filter
 `filter` shows the records with a line that contains it, ignoring case. A record is
@@ -82,10 +82,10 @@ function handle_log_filter_key!(page::LogPage, evt::Tachikoma.KeyEvent)
 end
 
 """
-    Juleana.log_key!(page::LogPage, evt::Tachikoma.KeyEvent, entries)::Bool
+    JuLeAna.log_key!(page::LogPage, evt::Tachikoma.KeyEvent, entries)::Bool
 
 Apply the key event `evt` to `page` for the message entries `entries` (see
-[`Juleana.message_entries`](@ref)). Return `true` if the key was used and `false`
+[`JuLeAna.message_entries`](@ref)). Return `true` if the key was used and `false`
 otherwise.
 
   - Up, Down, PageUp, PageDown and Home scroll and turn following off.
@@ -129,7 +129,7 @@ function log_key!(page::LogPage, evt::Tachikoma.KeyEvent, entries)::Bool
 end
 
 """
-    Juleana.log_mouse!(page::LogPage, evt::Tachikoma.MouseEvent, entries)::Bool
+    JuLeAna.log_mouse!(page::LogPage, evt::Tachikoma.MouseEvent, entries)::Bool
 
 Apply the mouse event `evt` to `page`: the scroll wheel scrolls by three lines and turns
 following off while the pointer is inside the block of the last render. Return `true` if
@@ -169,11 +169,11 @@ function log_line_spans(text::AbstractString, level::LogLevel, needle::AbstractS
 end
 
 """
-    Juleana.render_log(page::LogPage, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
+    JuLeAna.render_log(page::LogPage, entries, area::Tachikoma.Rect, buf::Tachikoma.Buffer;
         capacity = typemax(Int), log_path = nothing)
 
 Draw the Log page into `area` of `buf` from the message entries `entries` (see
-[`Juleana.message_entries`](@ref)): a block that lists the lines passing the filters of
+[`JuLeAna.message_entries`](@ref)): a block that lists the lines passing the filters of
 `page`, colored by level, and a line with the number of lines shown. The title shows the
 level filter, the text filter and whether the view follows the newest line. While `page`
 follows, the last lines are displayed. Long lines are cut at the edge of the block.

@@ -1,14 +1,14 @@
 # Configuration
 
 ```@meta
-DocTestSetup = :(using Juleana)
+DocTestSetup = :(using JuLeAna)
 ```
 
-The processing config file sets up the analysis chain. The config shipped with Juleana
+The processing config file sets up the analysis chain. The config shipped with JuLeAna
 is `config/processing_config.yaml`. Without
 `--config`, `juleana` reads `config/processing_config.yaml` in the data production (the
 folder `config` next to the file named by `LEGEND_DATA_CONFIG`). If that file does not
-exist, Juleana first copies the config shipped with Juleana there; a `processing_config.json` in that folder is ignored with a warning. `w` on the Setup page of the interface writes the
+exist, JuLeAna first copies the config shipped with JuLeAna there; a `processing_config.json` in that folder is ignored with a warning. `w` on the Setup page of the interface writes the
 current settings to that file and keeps the previous file as `processing_config.yaml.bak`.
 See [Running the dataflow](running.md). The
 file is loaded into a [`ProcessingConfig`](@ref); all keys of the `config` and
@@ -137,7 +137,7 @@ All fields are required:
    cycle, and processor names must be unique across `processors` and `p_processors`.
 
 6. **`log_level`**: `"debug"`, `"info"`, `"warn"` or `"error"`, the level of the
-   processor's records in the log files. With `"debug"`, the debug records of Juleana,
+   processor's records in the log files. With `"debug"`, the debug records of JuLeAna,
    the Legend* packages, BAT*, RadiationDetectorDSP, RadiationDetectorSignals,
    RadiationSpectra, SolidStateDetectors and their extensions are written as well while
    the processor runs. `config.processor_log_level`, when set, replaces this value for
@@ -149,11 +149,11 @@ All fields are required:
 One field is optional:
 
 - **`error_plots`**: `true` or `false` (the default). With `true`, a failed step of the
-  processor saves the debug plot of its `on_error` hook, see [`Juleana.@process_step`](@ref).
+  processor saves the debug plot of its `on_error` hook, see [`JuLeAna.@process_step`](@ref).
   The plot is saved with the other plots of the detector, with a name starting with
   `error_`.
 
-A key or dependency that uses a former processor name from `Juleana.RENAMED_PROCESSORS`
+A key or dependency that uses a former processor name from `JuLeAna.RENAMED_PROCESSORS`
 (for example `process_decay_time` for `process_decay_time_cal`) is read as the current
 name, and a warning names both once when the config is loaded. A config that contains
 both names of one processor is an error.

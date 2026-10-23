@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Dates: DateTime
 using LegendDataManagement: DataPeriod, DataRun
 using Test
@@ -11,7 +11,7 @@ using Test
                                                                      finished, done = counts[1], failed = counts[2], notrun = counts[3])
     first_run = (; started = DateTime(2026, 10, 15, 12, 0, 2), finished = DateTime(2026, 10, 15, 13, 1, 5), user = "someone",
                  host = "node1", outcome = :stopped, log_path = "/data/jllog/20261015T115958Z",
-                 software = "Juleana 0.2.0 (abc1234, modified), Julia 1.12.7", metadata = "setup/metadata/2026-10-15T120000Z-def5678",
+                 software = "JuLeAna 0.2.0 (abc1234, modified), Julia 1.12.7", metadata = "setup/metadata/2026-10-15T120000Z-def5678",
                  steps = [step(:process_dsp_cal, :run, DataRun(6), :done, DateTime(2026, 10, 15, 12, 0, 2),
                                DateTime(2026, 10, 15, 12, 3, 11), (12, 0, 0)),
                           step(:p_process_energy_cal, :partition, nothing, :stopped, nothing, nothing, (0, 0, 0))])
@@ -21,26 +21,26 @@ using Test
                                 DateTime(2026, 10, 16, 8, 30, 0), (3, 1, 2))])
 
     path = joinpath(mktempdir(), "jllog", "history.md")
-    @test Juleana.read_history(path) == []
-    Juleana.append_history(path, first_run)
-    Juleana.append_history(path, second_run)
+    @test JuLeAna.read_history(path) == []
+    JuLeAna.append_history(path, first_run)
+    JuLeAna.append_history(path, second_run)
     text = read(path, String)
     @test startswith(text, "# Processing history\n\n## 2026-10-15 12:00:02 UTC, someone@node1: stopped\n")
     @test count("# Processing history", text) == 1
-    @test occursin("Log folder: /data/jllog/20261015T115958Z  \nSoftware: Juleana 0.2.0 (abc1234, modified), Julia 1.12.7  \n" *
+    @test occursin("Log folder: /data/jllog/20261015T115958Z  \nSoftware: JuLeAna 0.2.0 (abc1234, modified), Julia 1.12.7  \n" *
                    "Metadata: setup/metadata/2026-10-15T120000Z-def5678\n", text)
     @test occursin("Log folder: /data/jllog/20261016T080000Z\n\n", text)
     @test occursin("| process_dsp_cal | run | cal | p02 | r006 | done | 2026-10-15 12:00:02 | 2026-10-15 12:03:11 | 12/0/0 |", text)
     @test occursin("| p_process_energy_cal | partition | cal | p02 | – | stopped | – | – | 0/0/0 |", text)
     # the file reads back as written
-    @test Juleana.read_history(path) == [first_run, second_run]
+    @test JuLeAna.read_history(path) == [first_run, second_run]
 
     # a line that does not follow the format names the file and the line
     bad = joinpath(mktempdir(), "history.md")
     write(bad, replace(text, "| 12/0/0 |" => "| 12/0 |"))
-    @test_throws "line 12 of $bad does not follow the history format" Juleana.read_history(bad)
+    @test_throws "line 12 of $bad does not follow the history format" JuLeAna.read_history(bad)
     write(bad, "some text\n")
-    @test_throws "line 1 of $bad" Juleana.read_history(bad)
+    @test_throws "line 1 of $bad" JuLeAna.read_history(bad)
 end
 
 @testset "history grid" begin
@@ -66,7 +66,7 @@ end
                (; started = t(14), finished = t(15), user = "u", host = "h", outcome = :finished, log_path = "/log/b", software = nothing,
                 steps = [step(:process_dsp_cal, :run, p3, r0, :done, t(14), t(15))])]
 
-    grid = Juleana.history_grid(processors, period_runs, overview, history)
+    grid = JuLeAna.history_grid(processors, period_runs, overview, history)
     @test grid.periods == [(; period = p2, runs = [r6, r7]), (; period = p3, runs = [r0])]
     @test [(r.process, r.level, r.category) for r in grid.rows] ==
           [(:process_dsp_cal, :run, :cal), (:p_process_energy_cal, :partition, :cal)]
@@ -82,15 +82,15 @@ end
     # a step that never started keeps the report and fills a cell without one
     @test energy.cells[(p2, nothing)].source == :report
     @test energy.cells[(p3, nothing)] == (; state = :stopped, date = t(13), source = :history, path = "/log/a")
-    @test Juleana.history_grid(processors, period_runs, [], []).rows[1].cells == Dict()
+    @test JuLeAna.history_grid(processors, period_runs, [], []).rows[1].cells == Dict()
 
     # the state on disk of a processor over a selection of runs
-    @test Juleana.disk_counts(dsp, period_runs) == (; ok = 0, warning = 1, failed = 1, missing = 1, total = 3)
-    @test Juleana.disk_counts(dsp, [p2 => [r7]]) == (; ok = 0, warning = 1, failed = 0, missing = 0, total = 1)
-    @test Juleana.disk_counts(energy, Dict(p2 => [r6, r7], p3 => [r0])) == (; ok = 1, warning = 0, failed = 0, missing = 1, total = 2)
-    @test Juleana.disk_state(Juleana.disk_counts(dsp, period_runs)) === :failed
-    @test Juleana.disk_state(Juleana.disk_counts(dsp, [p2 => [r7], p3 => [r0]])) === :missing
-    @test Juleana.disk_state(Juleana.disk_counts(dsp, [p2 => [r7]])) === :warning
-    @test Juleana.disk_state(Juleana.disk_counts(energy, [p2 => [r6]])) === :ok
-    @test isnothing(Juleana.disk_state(Juleana.disk_counts(dsp, [p2 => DataRun[]])))
+    @test JuLeAna.disk_counts(dsp, period_runs) == (; ok = 0, warning = 1, failed = 1, missing = 1, total = 3)
+    @test JuLeAna.disk_counts(dsp, [p2 => [r7]]) == (; ok = 0, warning = 1, failed = 0, missing = 0, total = 1)
+    @test JuLeAna.disk_counts(energy, Dict(p2 => [r6, r7], p3 => [r0])) == (; ok = 1, warning = 0, failed = 0, missing = 1, total = 2)
+    @test JuLeAna.disk_state(JuLeAna.disk_counts(dsp, period_runs)) === :failed
+    @test JuLeAna.disk_state(JuLeAna.disk_counts(dsp, [p2 => [r7], p3 => [r0]])) === :missing
+    @test JuLeAna.disk_state(JuLeAna.disk_counts(dsp, [p2 => [r7]])) === :warning
+    @test JuLeAna.disk_state(JuLeAna.disk_counts(energy, [p2 => [r6]])) === :ok
+    @test isnothing(JuLeAna.disk_state(JuLeAna.disk_counts(dsp, [p2 => DataRun[]])))
 end

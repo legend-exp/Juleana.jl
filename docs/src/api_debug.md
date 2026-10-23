@@ -6,34 +6,34 @@ for the log files.
 ## Steps and failures
 
 ```@docs
-Juleana.root_exception
-Juleana.@process_step
-Juleana.ProcessStepError
-Juleana.Failure
-Juleana.failure
-Juleana.failures
-Juleana.failure_info
-Juleana.failure_variables
-Juleana.@locals
-Juleana.rerun
+JuLeAna.root_exception
+JuLeAna.@process_step
+JuLeAna.ProcessStepError
+JuLeAna.Failure
+JuLeAna.failure
+JuLeAna.failures
+JuLeAna.failure_info
+JuLeAna.failure_variables
+JuLeAna.@locals
+JuLeAna.rerun
 ```
 
 ## Plots
 
 ```@docs
-Juleana.save_plot
-Juleana.@debug_plot
+JuLeAna.save_plot
+JuLeAna.@debug_plot
 ```
 
 ## Logging
 
 ```@docs
-Juleana.processing_logger
-Juleana.ProcessorLevelLogger
-Juleana.@debug_progress
-Juleana.DEBUG_LOG_PACKAGES
-Juleana.process_log_file
-Juleana.parse_log_level
+JuLeAna.processing_logger
+JuLeAna.ProcessorLevelLogger
+JuLeAna.@debug_progress
+JuLeAna.DEBUG_LOG_PACKAGES
+JuLeAna.process_log_file
+JuLeAna.parse_log_level
 UnderscoreSafeLogger
-Juleana.escape_log_underscores
+JuLeAna.escape_log_underscores
 ```

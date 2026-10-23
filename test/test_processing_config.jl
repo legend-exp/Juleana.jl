@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 using Logging
 using LegendDataManagement: DataPeriod, DataRun, readlprops
@@ -28,7 +28,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test shipped.local_julia_settings == String[]
         @test "--nodes=1" in shipped.slurm_flags && "--time=01:00:00" in shipped.slurm_flags
         @test shipped.env_variables["JULIA_WORKER_TIMEOUT"] == "240"
-        @test shipped.log_level == Juleana.parse_log_level("info")
+        @test shipped.log_level == JuLeAna.parse_log_level("info")
         @test shipped.periods == DataPeriod.([16, 18, 19, 20, 21, 22])
         @test isnothing(shipped.runs)
         @test !shipped.analysis_runs_only && !shipped.only_partitions && !shipped.only_runs
@@ -194,7 +194,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
 
         # equal ranks are ordered by name; a dependency on the predecessor is not repeated
         spec(name, rank, deps = Symbol[]) = ProcessorSpec(; name, level = :run, category = :cal, rank, dependencies = deps)
-        chained = Juleana.rank_order_dependencies(Dict(:b => spec(:b, 1), :a => spec(:a, 1), :c => spec(:c, 2, [:b])))
+        chained = JuLeAna.rank_order_dependencies(Dict(:b => spec(:b, 1), :a => spec(:a, 1), :c => spec(:c, 2, [:b])))
         @test [chained[n].dependencies for n in (:a, :b, :c)] == [Symbol[], [:a], [:b]]
 
         @test declared.max_parallel_steps == 0
@@ -288,12 +288,12 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
     @testset "registered processors" begin
         @test isnothing(check_processor_kwargs(shipped))
         processors = run_steps(shipped; enabled_only = false) ∪ partition_steps(shipped; enabled_only = false)
-        @test isempty(setdiff(processors, keys(Juleana.PROCESSORS)))
+        @test isempty(setdiff(processors, keys(JuLeAna.PROCESSORS)))
 
         # Every processor entry in the shipped config, enabled or not, should match its function's keywords.
         all_enabled = deepcopy(base)
         for (name, entry) in (all_enabled["processors"]..., all_enabled["p_processors"]...)
-            entry["enabled"] = haskey(Juleana.PROCESSORS, Symbol(name))
+            entry["enabled"] = haskey(JuLeAna.PROCESSORS, Symbol(name))
         end
         @test isnothing(check_processor_kwargs(ProcessingConfig(all_enabled)))
         dsp = deepcopy(base)
@@ -304,12 +304,12 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
     end
 
     @testset "display_name" begin
-        @test Juleana.display_name(:process_decay_time_cal) == "decay_time"
-        @test Juleana.display_name(:p_process_sipm_calibration_phy) == "sipm_calibration"
-        @test Juleana.display_name(:process_dsp_aux_phy) == "dsp_aux"
-        @test Juleana.display_name(:dsp_cal) == "dsp"
-        for name in keys(Juleana.PROCESSORS)
-            display = Juleana.display_name(name)
+        @test JuLeAna.display_name(:process_decay_time_cal) == "decay_time"
+        @test JuLeAna.display_name(:p_process_sipm_calibration_phy) == "sipm_calibration"
+        @test JuLeAna.display_name(:process_dsp_aux_phy) == "dsp_aux"
+        @test JuLeAna.display_name(:dsp_cal) == "dsp"
+        for name in keys(JuLeAna.PROCESSORS)
+            display = JuLeAna.display_name(name)
             @test !startswith(display, "process_") && !startswith(display, "p_process_")
             @test !endswith(display, "_cal") && !endswith(display, "_phy")
             @test occursin(display, string(name))
@@ -320,7 +320,7 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
             specs = [s
                      for s in vcat(collect(values(shipped.processors)), collect(values(shipped.p_processors)))
                      if s.level === level && s.category === category]
-            names = Juleana.display_name.(getfield.(specs, :name))
+            names = JuLeAna.display_name.(getfield.(specs, :name))
             @test allunique(names)
         end
     end
@@ -346,6 +346,6 @@ const STUB_PROCESSORS = Dict{Symbol,Any}(:process_a => process_a, :p_process_b =
         @test_throws "has both `process_decay_time` and `process_decay_time_cal`" ProcessingConfig(both)
 
         @test_logs ProcessingConfig(base)
-        @test all(((old, new),) -> haskey(Juleana.PROCESSORS, new) && !haskey(Juleana.PROCESSORS, old), Juleana.RENAMED_PROCESSORS)
+        @test all(((old, new),) -> haskey(JuLeAna.PROCESSORS, new) && !haskey(JuLeAna.PROCESSORS, old), JuLeAna.RENAMED_PROCESSORS)
     end
 end

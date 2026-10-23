@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Theme color and icon of each report state.
 const REPORT_COLORS = (ok = :success, warning = :warning, failed = :error, missing = :text_dim)
@@ -21,11 +21,11 @@ requests for reading the file system. The page lists all reports on disk (`sourc
 `:all`, [`report_overview`](@ref)), which it starts with, or the reports of the steps of the
 current or last processing run (`:run`, rows of [`report_index`](@ref)), and the failures
 of the processor under the cursor.
-Keys are handled by [`Juleana.reports_key!`](@ref) and [`Juleana.reports_mouse!`](@ref), the
-page is drawn by [`Juleana.render_reports`](@ref).
+Keys are handled by [`JuLeAna.reports_key!`](@ref) and [`JuLeAna.reports_mouse!`](@ref), the
+page is drawn by [`JuLeAna.render_reports`](@ref).
 
-The page never reads the file system. It queues requests (see [`Juleana.take_requests!`](@ref))
-that the interface carries out in the background and answers with [`Juleana.reports_result!`](@ref).
+The page never reads the file system. It queues requests (see [`JuLeAna.take_requests!`](@ref))
+that the interface carries out in the background and answers with [`JuLeAna.reports_result!`](@ref).
 A row is identified by its key, `(group,)` for a group and `(group, period, run)` for a
 report, where `group` is `(name, level, category)`, so that the cursor stays on its row
 when the list is read anew. `expanded` holds the group keys the user folded (`false`) or
@@ -83,7 +83,7 @@ function ReportsPage()
 end
 
 """
-    Juleana.strip_span_tags(text::AbstractString)
+    JuLeAna.strip_span_tags(text::AbstractString)
 
 Return `text` without the HTML `<span …>` and `</span>` tags that the processors put around
 the colored status words of their reports, so that the words remain.
@@ -118,13 +118,13 @@ function wrap_cell(cell::AbstractString, width::Int)
 end
 
 """
-    Juleana.tables_as_code(text::AbstractString; width = Juleana.REPORT_TABLE_WIDTH)
+    JuLeAna.tables_as_code(text::AbstractString; width = JuLeAna.REPORT_TABLE_WIDTH)
 
 Return `text` with each Markdown table (consecutive lines that start with `|`) replaced by a
 fenced code block that holds the table as aligned text, the header followed by a rule. The
 Markdown renderer of Tachikoma leaves tables out; a code block shows their cells. HTML tags
 in the cells are removed and their text is kept. A table wider than `width` characters is
-narrowed by limiting its widest columns, down to at least `Juleana.REPORT_MIN_COLUMN_WIDTH`
+narrowed by limiting its widest columns, down to at least `JuLeAna.REPORT_MIN_COLUMN_WIDTH`
 characters each, and a cell longer than its column continues on the following lines of its row.
 """
 function tables_as_code(text::AbstractString; width::Integer = REPORT_TABLE_WIDTH)
@@ -257,12 +257,12 @@ function request_failures!(page::ReportsPage)
 end
 
 """
-    Juleana.take_requests!(page::ReportsPage)
+    JuLeAna.take_requests!(page::ReportsPage)
 
 Return the requests of `page` for reading the file system and clear them. A request is a
 named tuple with `kind` `:index` (read the reports of `source`), `:failures` (read the failures
 of the reports `reports` of the processor `group`) or `:open` (read the report file `path`).
-[`Juleana.read_reports`](@ref) carries a request out and [`Juleana.reports_result!`](@ref)
+[`JuLeAna.read_reports`](@ref) carries a request out and [`JuLeAna.reports_result!`](@ref)
 takes its answer.
 """
 function take_requests!(page::ReportsPage)
@@ -272,16 +272,16 @@ function take_requests!(page::ReportsPage)
 end
 
 """
-    Juleana.read_reports(ctrl::DataflowController, request)
+    JuLeAna.read_reports(ctrl::DataflowController, request)
 
-Carry out a request of a [`Juleana.ReportsPage`](@ref) (see [`Juleana.take_requests!`](@ref))
+Carry out a request of a [`JuLeAna.ReportsPage`](@ref) (see [`JuLeAna.take_requests!`](@ref))
 and return `(; request, value)`, or `(; request, error)` with the message of the exception
 if the read failed. The value of an `:index` request is the rows of
 `report_index(ctrl)` or the entries of `report_overview(ctrl)` (see [`report_index`](@ref)), that of a `:failures`
 request the rows `(; process, period, run, failures)` of its reports, and that of an `:open`
 request the viewer of the file's text, or `nothing` if there is no such file. The answer to an
 `:index` request also has the field `history`, the path of the processing history file
-([`Juleana.history_path`](@ref)) or `nothing` if the file does not exist. The viewer is built here,
+([`JuLeAna.history_path`](@ref)) or `nothing` if the file does not exist. The viewer is built here,
 so that converting the text does not hold up the interface.
 """
 function read_reports(ctrl::DataflowController, request)
@@ -318,9 +318,9 @@ function report_viewer(path::AbstractString, text::AbstractString)
 end
 
 """
-    Juleana.reports_result!(page::ReportsPage, answer)
+    JuLeAna.reports_result!(page::ReportsPage, answer)
 
-Take the `answer` to a request of `page` as [`Juleana.read_reports`](@ref) returns it. The
+Take the `answer` to a request of `page` as [`JuLeAna.read_reports`](@ref) returns it. The
 answer to a read of the reports replaces the groups of `page`, or sets its `error`, unless
 the page has read the reports anew since; likewise an answer with failures is dropped if the
 groups changed. The viewer of the report file opens if the report is still the open one, else
@@ -366,7 +366,7 @@ function reports_mark(snap)
 end
 
 """
-    Juleana.reports_visit!(page::ReportsPage, snap)
+    JuLeAna.reports_visit!(page::ReportsPage, snap)
 
 Queue a read of the reports if the page is visible for the first time or the controller
 snapshot `snap` (or `nothing`) shows a loaded session or a processing run that started or
@@ -396,7 +396,7 @@ function open_report!(page::ReportsPage, path::AbstractString)
 end
 
 """
-    Juleana.reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)::Bool
+    JuLeAna.reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)::Bool
 
 Apply the key event `evt` to `page`. Return `true` if the key was used and `false`
 otherwise.
@@ -478,7 +478,7 @@ function handle_reports_key!(page::ReportsPage, evt::Tachikoma.KeyEvent)
 end
 
 """
-    Juleana.reports_mouse!(page::ReportsPage, evt::Tachikoma.MouseEvent)::Bool
+    JuLeAna.reports_mouse!(page::ReportsPage, evt::Tachikoma.MouseEvent)::Bool
 
 Apply the mouse event `evt` to `page`. While a report is open, the viewer gets the event
 (the scroll wheel and the scroll bar). Otherwise the scroll wheel moves the cursor by one
@@ -667,7 +667,7 @@ function render_viewer(page, area, buf)
 end
 
 """
-    Juleana.render_reports(page::ReportsPage, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_reports(page::ReportsPage, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the Reports page into `area` of `buf`. The left block, about 45% of the width, lists the
 reports grouped by processor: a group row shows the fold arrow, the name, the level, the

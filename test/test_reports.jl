@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 using Dates: DateTime
 
@@ -68,7 +68,7 @@ function tree(dir)
 end
 
 function write_report(jlrep, process, level, period, run, category, text)
-    path = Juleana.report_path(jlrep, process, level, period, run, category)
+    path = JuLeAna.report_path(jlrep, process, level, period, run, category)
     mkpath(dirname(path))
     write(path, text)
     return path
@@ -90,55 +90,55 @@ end
     before = tree(jlrep)
 
     @testset "report_path" begin
-        @test Juleana.report_path("/j", :process_energy_calibration_cal, :run, "p03", "r001", :cal) ==
+        @test JuLeAna.report_path("/j", :process_energy_calibration_cal, :run, "p03", "r001", :cal) ==
               "/j/rreport/cal/p03/r001/l200-p03-r001-cal-energy_calibration.md"
-        @test Juleana.report_path("/j", :p_process_aoe_cut_cal, :partition, "p03", nothing, :phy; setup = "l201") ==
+        @test JuLeAna.report_path("/j", :p_process_aoe_cut_cal, :partition, "p03", nothing, :phy; setup = "l201") ==
               "/j/preport/p03/phy/l201-p03-phy-aoe_cut.md"
-        @test_throws "report level must be :run or :partition" Juleana.report_path("/j", :process_x, :event, "p03", "r001", :cal)
+        @test_throws "report level must be :run or :partition" JuLeAna.report_path("/j", :process_x, :event, "p03", "r001", :cal)
         @test !ispath("/j")
     end
 
     @testset "read_report" begin
-        r = Juleana.read_report(ok)
+        r = JuLeAna.read_report(ok)
         @test r.path == ok
         @test r.state == :ok
         @test r.date == DateTime(2026, 9, 29, 16, 13, 0, 147)
         @test (r.n_entries, r.n_failed, r.n_warnings) == (2, 0, 0)
         @test isempty(r.failures)
 
-        r = Juleana.read_report(warn)
+        r = JuLeAna.read_report(warn)
         @test r.state == :warning
         @test r.date == DateTime(2026, 10, 2, 8, 30, 15)
         @test (r.n_entries, r.n_failed, r.n_warnings) == (2, 0, 1)
 
-        r = Juleana.read_report(failed)
+        r = JuLeAna.read_report(failed)
         @test r.state == :failed
         @test (r.n_entries, r.n_failed) == (3, 2)
         @test r.failures == [("V02 (trap)", "fit failed"), ("V03 (cusp)", "fit failed")]
 
-        r = Juleana.read_report(dsp)
+        r = JuLeAna.read_report(dsp)
         @test r.state == :failed
         @test (r.n_entries, r.n_failed) == (2, 1)
         @test r.failures == [("V03", ""), ("V04", "")]
 
-        r = Juleana.read_report(part)
+        r = JuLeAna.read_report(part)
         @test r.failures == [("V02 (1)", "no peaks")]
 
-        r = Juleana.read_report(joinpath(jlrep, "absent.md"))
+        r = JuLeAna.read_report(joinpath(jlrep, "absent.md"))
         @test r.state == :missing
         @test isnothing(r.date)
         @test (r.n_entries, r.n_failed, r.n_warnings) == (0, 0, 0)
 
         # state from the entries when a file has no header or no tables
-        r = Juleana.read_report(stray)
+        r = JuLeAna.read_report(stray)
         @test r.state == :ok
         @test isnothing(r.date)
-        r = Juleana.read_report(stray_other)
+        r = JuLeAna.read_report(stray_other)
         @test r.state == :failed
 
         bad = joinpath(mktempdir(), "bad.md")
         write(bad, "| Processor Status |\n|:---|\n| Unknown |\n")
-        @test_throws "unknown processor status \"Unknown\"" Juleana.read_report(bad)
+        @test_throws "unknown processor status \"Unknown\"" JuLeAna.read_report(bad)
     end
 
     specs = [(; name = :process_energy_calibration_cal, level = :run, category = :cal),
@@ -147,7 +147,7 @@ end
     period_runs = ["p03" => ["r001", "r002", "r003", "r004"], "p04" => ["r001"]]
 
     @testset "report_index" begin
-        rows = Juleana.report_index(jlrep, specs, period_runs)
+        rows = JuLeAna.report_index(jlrep, specs, period_runs)
         @test length(rows) == 4 * 2 + 2 + 2
         energy = filter(r -> r.process == :process_energy_calibration_cal, rows)
         @test [(r.period, r.run, r.state) for r in energy] ==
@@ -162,8 +162,8 @@ end
     end
 
     @testset "failure_summary" begin
-        rows = Juleana.report_index(jlrep, specs, period_runs)
-        summary = Juleana.failure_summary(rows)
+        rows = JuLeAna.report_index(jlrep, specs, period_runs)
+        summary = JuLeAna.failure_summary(rows)
         @test [s.process for s in summary] == [:process_energy_calibration_cal, :process_dsp_cal, :p_process_aoe_cut_cal]
         energy = summary[1].detectors
         @test energy == [(; detector = "V02", labels = ["p03-r004"], errors = ["fit failed"]),
@@ -171,12 +171,12 @@ end
         @test summary[2].detectors == [(; detector = "V03", labels = ["p03-r001"], errors = String[]),
                                        (; detector = "V04", labels = ["p03-r001"], errors = String[])]
         @test summary[3].detectors == [(; detector = "V02", labels = ["p03"], errors = ["no peaks"])]
-        @test only(Juleana.failure_summary(Juleana.report_index(jlrep, specs[1:1], ["p03" => ["r001"]]))).detectors == []
-        @test isempty(Juleana.failure_summary([]))
+        @test only(JuLeAna.failure_summary(JuLeAna.report_index(jlrep, specs[1:1], ["p03" => ["r001"]]))).detectors == []
+        @test isempty(JuLeAna.failure_summary([]))
     end
 
     @testset "report_overview" begin
-        overview = Juleana.report_overview(jlrep)
+        overview = JuLeAna.report_overview(jlrep)
         @test [(o.level, o.name, o.category) for o in overview] ==
               [(:run, "dsp_cal", "cal"), (:run, "energy_calibration", "cal"), (:run, "extra", "cal"), (:partition, "aoe_cut", "cal")]
         energy = overview[2]
@@ -190,41 +190,41 @@ end
         @test overview[3].counts == (; ok = 0, warning = 0, failed = 1)
         @test isnothing(overview[3].last_date) && isnothing(overview[3].latest_path)
         @test overview[4].reports == [(; period = "p03", run = nothing, path = part, state = :failed, date = DateTime(2026, 10, 4))]
-        @test Juleana.report_overview(mktempdir()) == []
+        @test JuLeAna.report_overview(mktempdir()) == []
         # ranked processors first, the others by name; the level comes first
         ranked = [(; name = :process_dsp_cal, level = :run, rank = 5), (; name = :process_energy_calibration_cal, level = :run, rank = 2),
                   (; name = :p_process_aoe_cut_cal, level = :partition, rank = 1)]
-        by_rank = Juleana.report_overview(jlrep; processors = ranked)
+        by_rank = JuLeAna.report_overview(jlrep; processors = ranked)
         @test [(o.level, o.name) for o in by_rank] ==
               [(:run, "energy_calibration"), (:run, "dsp_cal"), (:run, "extra"), (:partition, "aoe_cut")]
         # a processor of the other level with the same name does not rank the report
         other = [(; name = :p_process_dsp_cal, level = :partition, rank = 1)]
-        @test [o.name for o in Juleana.report_overview(jlrep; processors = other)] == ["dsp_cal", "energy_calibration", "extra", "aoe_cut"]
+        @test [o.name for o in JuLeAna.report_overview(jlrep; processors = other)] == ["dsp_cal", "energy_calibration", "extra", "aoe_cut"]
     end
 
     @testset "no file system changes" begin
         @test tree(jlrep) == before
         empty = mktempdir()
-        Juleana.report_index(empty, specs, ["p09" => ["r001", "r002"]])
-        Juleana.report_overview(empty)
-        Juleana.report_path(empty, :process_dsp_cal, :run, "p09", "r001", :cal)
+        JuLeAna.report_index(empty, specs, ["p09" => ["r001", "r002"]])
+        JuLeAna.report_overview(empty)
+        JuLeAna.report_path(empty, :process_dsp_cal, :run, "p09", "r001", :cal)
         @test isempty(tree(empty))
     end
 
     @testset "report_name matches the report each processor writes" begin
-        dir = joinpath(dirname(pathof(Juleana)), "processors")
-        for name in keys(Juleana.PROCESSORS)
+        dir = joinpath(dirname(pathof(JuLeAna)), "processors")
+        for name in keys(JuLeAna.PROCESSORS)
             source = read(joinpath(dir, "$name.jl"), String)
             # the peak splitting processors write the report named by `report_name` in `split_peaks`
             occursin("split_peaks(", source) && (@test occursin(":$name", source); continue)
             written = [m.captures[1] for m in eachmatch(r"get_[rp]reportfilename\([^,]+,[^,]+,\s*:(\w+)\)", source)]
             @test length(written) == 1
-            @test Juleana.report_name(name) == only(written)
+            @test JuLeAna.report_name(name) == only(written)
         end
-        @test Juleana.report_name(:process_dsp_cal) == "dsp_cal"
-        @test Juleana.report_name(:p_process_energy_cal) == "energy"
-        @test Juleana.report_name(:process_peak_split_cal) == "peak_split"
-        @test Juleana.report_name(:process_peak_split_phy) == "peak_split_phy"
+        @test JuLeAna.report_name(:process_dsp_cal) == "dsp_cal"
+        @test JuLeAna.report_name(:p_process_energy_cal) == "energy"
+        @test JuLeAna.report_name(:process_peak_split_cal) == "peak_split"
+        @test JuLeAna.report_name(:process_peak_split_phy) == "peak_split_phy"
         @test occursin("Symbol(report_name(process_name))", read(joinpath(dir, "peak_split.jl"), String))
     end
 end

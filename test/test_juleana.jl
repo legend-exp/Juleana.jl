@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Test
 using Markdown
 using Logging
@@ -13,14 +13,14 @@ using Distributed: RemoteException, myid, remotecall_fetch
 using LegendDataManagement: FileKey, DetectorId, ProcessStatus, DataPeriod, DataRun, process_succeeded, process_warning, process_failed
 
 module UsingPackagesTest
-using Juleana
-Juleana.@using_packages
+using JuLeAna
+JuLeAna.@using_packages
 end
 
 @testset "juleana" begin
     @testset "package names" begin
-        @test ParallelProcessingTools === Juleana.ParallelProcessingTools
-        @test LDMUtils === Juleana.LegendDataManagement.LDMUtils
+        @test ParallelProcessingTools === JuLeAna.ParallelProcessingTools
+        @test LDMUtils === JuLeAna.LegendDataManagement.LDMUtils
         @test all(m -> m isa Module, (CairoMakie, LegendHDF5IO, LegendSpecFits, Measurements, PropDicts, Unitful))
         @test UsingPackagesTest.channelinfo === LegendDataManagement.channelinfo
         @test UsingPackagesTest.create_logtbl === LDMUtils.create_logtbl
@@ -29,11 +29,11 @@ end
     end
 
     @testset "log underscores" begin
-        message = Juleana.escape_log_underscores("process_dsp_cal and e_cusp_ctc; `already_quoted`")
+        message = JuLeAna.escape_log_underscores("process_dsp_cal and e_cusp_ctc; `already_quoted`")
         @test message == "process\\_dsp\\_cal and e\\_cusp\\_ctc; `already_quoted`"
         @test !any(x -> x isa Markdown.Italic, Markdown.parse(message).content[1].content)
-        @test Juleana.escape_log_underscores("already\\_escaped") == "already\\_escaped"
-        @test Juleana.escape_log_underscores("``code_with_underscores`` and a_b") == "``code_with_underscores`` and a\\_b"
+        @test JuLeAna.escape_log_underscores("already\\_escaped") == "already\\_escaped"
+        @test JuLeAna.escape_log_underscores("``code_with_underscores`` and a_b") == "``code_with_underscores`` and a\\_b"
 
         output = IOBuffer()
         with_logger(UnderscoreSafeLogger(TerminalLogger(output))) do
@@ -81,15 +81,15 @@ end
         end
         @test remote isa RemoteException
         captured = CapturedException(root, catch_backtrace())
-        @test Juleana.root_exception(root) === root
-        @test Juleana.root_exception(42) === 42
+        @test JuLeAna.root_exception(root) === root
+        @test JuLeAna.root_exception(42) === 42
         for wrapped in
             (task_failed, remote, captured, CompositeException([captured, ErrorException("second")]), CompositeException([task_failed]),
              CapturedException(CompositeException([remote]), []))
-            @test Juleana.root_exception(wrapped) == root
+            @test JuLeAna.root_exception(wrapped) == root
         end
         nested = Threads.@spawn throw(CompositeException([remote]))
-        @test Juleana.root_exception(try
+        @test JuLeAna.root_exception(try
                                          wait(nested)
                                      catch e
                                          e
@@ -99,20 +99,20 @@ end
     end
 
     @testset "utc_timestamp" begin
-        @test occursin(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", Juleana.utc_timestamp())
+        @test occursin(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", JuLeAna.utc_timestamp())
     end
 
     @testset "legend_dsp_function" begin
-        @test Juleana.legend_dsp_function("dsp_icpc_compressed", "dsp.x") === Juleana.LegendDSP.dsp_icpc_compressed
-        @test_throws "dataprod config key `dsp.additional_detectors.V1` selects `dsp_nonexistent`, which LegendDSP does not define" Juleana.legend_dsp_function("dsp_nonexistent",
+        @test JuLeAna.legend_dsp_function("dsp_icpc_compressed", "dsp.x") === JuLeAna.LegendDSP.dsp_icpc_compressed
+        @test_throws "dataprod config key `dsp.additional_detectors.V1` selects `dsp_nonexistent`, which LegendDSP does not define" JuLeAna.legend_dsp_function("dsp_nonexistent",
                                                                                                                                                                 "dsp.additional_detectors.V1")
     end
 
     @testset "report texts are internal" begin
-        texts = filter(n -> endswith(string(n), "_log_text"), names(Juleana; all = true))
+        texts = filter(n -> endswith(string(n), "_log_text"), names(JuLeAna; all = true))
         @test length(texts) == 19
-        @test all(n -> getfield(Juleana, n) isa String, texts)
-        @test !any(n -> Base.isexported(Juleana, n) || Base.ispublic(Juleana, n), texts)
+        @test all(n -> getfield(JuLeAna, n) isa String, texts)
+        @test !any(n -> Base.isexported(JuLeAna, n) || Base.ispublic(JuLeAna, n), texts)
     end
 
     @testset "detector_status" begin
@@ -131,7 +131,7 @@ end
         @test master_status([det(:off) => row(process_failed)]) == process_warning
         @test master_status([det(:on) => row(process_warning)]) == process_failed
         @test master_status([det(:ac) => row(process_failed)]) == process_failed
-        @test master_status([det(:on) => row(Juleana.process_skipped), det(:ac) => row(process_succeeded)]) == process_succeeded
+        @test master_status([det(:on) => row(JuLeAna.process_skipped), det(:ac) => row(process_succeeded)]) == process_succeeded
         @test master_status(nothing, [det(:on) => row(process_succeeded)]) == process_succeeded
         @test master_status(Pair[]) == process_failed
     end
@@ -180,33 +180,33 @@ end
         # The busy-worker label of a channel row is its detector, that of other items the item itself.
         DetLog = NamedTuple{(:Detector, :usability, :Status, :X, :Error)}
         row = (detector = DetectorId(:V00048B), usability = :on, channel = 1)
-        store, key = Juleana.ProgressStore(), (DataPeriod(3), DataRun(0), :label_test)
-        Juleana.reset_progress!(store, [key])
+        store, key = JuLeAna.ProgressStore(), (DataPeriod(3), DataRun(0), :label_test)
+        JuLeAna.reset_progress!(store, [key])
         labels = String[]
         # a stop flag makes the items go through the stoppable pool, which reports the busy worker
-        with(Juleana.PROGRESS_STEP => (store, key), Juleana.PROCESSING_STOP => Threads.Atomic{Bool}(false)) do
+        with(JuLeAna.PROGRESS_STEP => (store, key), JuLeAna.PROCESSING_STOP => Threads.Atomic{Bool}(false)) do
             parallel([row], DetLog) do r
-                push!(labels, only(Juleana.busy_workers(store)).item)
+                push!(labels, only(JuLeAna.busy_workers(store)).item)
                 (processed = true, log = DetLog((r.detector, r.usability, ProcessStatus(1), "-", "")))
             end
             parallel([fk], FkLog) do k
-                push!(labels, only(Juleana.busy_workers(store)).item)
+                push!(labels, only(JuLeAna.busy_workers(store)).item)
                 (processed = true, log = FkLog((k, ProcessStatus(1), "a", "b", "")))
             end
         end
         @test labels == ["V00048B", string(fk)]
 
         # an item left to the step of an earlier period counts as not run
-        store, key = Juleana.ProgressStore(), (DataPeriod(3), nothing, :skip_test)
-        Juleana.reset_progress!(store, [key])
-        with(Juleana.PROGRESS_STEP => (store, key)) do
+        store, key = JuLeAna.ProgressStore(), (DataPeriod(3), nothing, :skip_test)
+        JuLeAna.reset_progress!(store, [key])
+        with(JuLeAna.PROGRESS_STEP => (store, key)) do
             parallel([row, merge(row, (detector = DetectorId(:V00048A),))], DetLog) do r
                 skipped = r.detector == DetectorId(:V00048A)
-                status = skipped ? Juleana.process_skipped : ProcessStatus(1)
+                status = skipped ? JuLeAna.process_skipped : ProcessStatus(1)
                 (processed = !skipped, skipped, log = DetLog((r.detector, r.usability, status, "-", "")))
             end
         end
-        e = only(Juleana.progress(store).steps)
+        e = only(JuLeAna.progress(store).steps)
         @test (e.done, e.failed, e.notrun) == (1, 0, 1)
 
         # Without workers the item runs on the main process, which onworker does not terminate.
@@ -216,7 +216,7 @@ end
 
         finished = Threads.Atomic{Int}(0)
         staggered = [Threads.@spawn sleep(0.05 * k) for k in 1:4]
-        watcher = Threads.@spawn Juleana.watch_tasks(() -> Threads.atomic_add!(finished, 1), staggered; poll = 0.01)
+        watcher = Threads.@spawn JuLeAna.watch_tasks(() -> Threads.atomic_add!(finished, 1), staggered; poll = 0.01)
         @test timedwait(() -> istaskdone(watcher), 10) === :ok
         @test finished[] == length(staggered)
 

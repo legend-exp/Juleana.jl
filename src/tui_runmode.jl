@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Settings of the run modes that the editor shows: name in `SetRunmodeSettings` and
 # `ControllerSnapshot.runmode_settings`, run mode and label. `local_n` is a number, the others
@@ -29,7 +29,7 @@ function runmode_rows(settings)
 end
 
 """
-    Juleana.runmode_key!(editor::RunmodeEditor, evt::Tachikoma.KeyEvent, snap, send)
+    JuLeAna.runmode_key!(editor::RunmodeEditor, evt::Tachikoma.KeyEvent, snap, send)
 
 Handle the key `evt` in the run mode editor and return `:close` when the editor closes,
 `true` otherwise; the editor uses every key. Up and Down move. Enter edits the value or
@@ -92,7 +92,7 @@ function runmode_key!(editor::RunmodeEditor, evt::Tachikoma.KeyEvent, snap, send
 end
 
 """
-    Juleana.render_runmode(editor::RunmodeEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
+    JuLeAna.render_runmode(editor::RunmodeEditor, snap, area::Tachikoma.Rect, buf::Tachikoma.Buffer)
 
 Draw the run mode editor as a box in the middle of `area`: the settings of the `local` and
 the `slurm` run mode, with the number of workers on one row and each list as a heading

@@ -1,6 +1,6 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
-using Juleana
+using JuLeAna
 using Tachikoma: Tachikoma, KeyEvent, TestBackend, Rect, find_text
 using LegendDataManagement: DataPeriod, readlprops
 using Test
@@ -18,7 +18,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
                            local_julia_settings = ["--threads=2"], slurm_flags = ["--nodes=1", "--mem=8GB"],
                            slurm_julia_settings = String[])
     function new_session()
-        periods, run_status, partition_status = Juleana.setup_dependency_graph(l200, cfg, [p2, p3], nothing, run_steps(cfg),
+        periods, run_status, partition_status = JuLeAna.setup_dependency_graph(l200, cfg, [p2, p3], nothing, run_steps(cfg),
                                                                                partition_steps(cfg))
         return DataflowSession(; args = Dict{String,Any}("config" => shipped_config), l200, config = cfg, periods,
                                run_steps = run_steps(cfg), partition_steps = partition_steps(cfg), run_status, partition_status)
@@ -35,7 +35,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         @test snap.runmode_settings == (; local_n = 3, local_julia_settings = ["--threads=2"], slurm_flags = ["--nodes=1", "--mem=8GB"],
                                         slurm_julia_settings = String[])
         dispatch!(ctrl, SetRunmodeSettings(; local_n = 5, slurm_flags = ["--nodes=4"]))
-        eff = Juleana.effective_config(ctrl)
+        eff = JuLeAna.effective_config(ctrl)
         # settings that are `nothing` keep their value
         @test eff.local_n == 5 && eff.slurm_flags == ["--nodes=4"]
         @test eff.local_julia_settings == ["--threads=2"] && isempty(eff.slurm_julia_settings)
@@ -77,7 +77,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
 
     @testset "editor" begin
         ctrl = new_ctrl()
-        m = Juleana.JuleanaTUI(ctrl)
+        m = JuLeAna.JuLeAnaTUI(ctrl)
         settle(cond) = (t_end = time() + 60; while time() < t_end
                             Tachikoma.drain_tasks!(evt -> Tachikoma.update!(m, evt), m.queue)
                             cond() && return true
@@ -85,12 +85,12 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
                         end; false)
         function refreshed()
             settle(() -> m.pending == 0 && !m.refreshing) || return false
-            Juleana.refresh!(m)
+            JuLeAna.refresh!(m)
             return settle(() -> !m.refreshing)
         end
         press(keys...) = foreach(k -> Tachikoma.update!(m, KeyEvent(k)), keys)
         typed(text) = foreach(c -> Tachikoma.update!(m, KeyEvent(c)), text)
-        render() = (tb = TestBackend(140, 30); Juleana.render_setup(m.setup, m.snap, Rect(1, 1, 140, 30), tb.buf); tb)
+        render() = (tb = TestBackend(140, 30); JuLeAna.render_setup(m.setup, m.snap, Rect(1, 1, 140, 30), tb.buf); tb)
         settings() = m.snap.runmode_settings
         @test refreshed()
 
@@ -103,9 +103,9 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         press('e')
         @test isnothing(m.setup.editor)
         press(:down)
-        @test Juleana.SETUP_OPTIONS[m.setup.option][1] === :runmode
+        @test JuLeAna.SETUP_OPTIONS[m.setup.option][1] === :runmode
         press('e')
-        @test m.setup.editor isa Juleana.RunmodeEditor
+        @test m.setup.editor isa JuLeAna.RunmodeEditor
         tb = render()
         for text in ("Run mode settings", "local", "slurm", "workers (n) = 3", "--threads=2", "--nodes=1", "--mem=8GB", "(none)")
             @test find_text(tb, text) !== nothing
@@ -125,7 +125,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         press(:backspace, '6', :enter)
         @test isnothing(m.setup.editor.text) && isnothing(m.setup.editor.error)
         @test refreshed()
-        @test settings().local_n == 6 && Juleana.effective_config(ctrl).local_n == 6
+        @test settings().local_n == 6 && JuLeAna.effective_config(ctrl).local_n == 6
 
         # change an entry
         press(:down, :down)
@@ -144,7 +144,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         press(:enter)
         @test occursin("must not be empty", m.setup.editor.error)
         press(:escape)
-        @test isnothing(m.setup.editor.text) && isnothing(m.setup.editor.error) && m.setup.editor isa Juleana.RunmodeEditor
+        @test isnothing(m.setup.editor.text) && isnothing(m.setup.editor.error) && m.setup.editor isa JuLeAna.RunmodeEditor
         @test settings().local_julia_settings == ["--threads=8"]
 
         # add an entry with `a` and with Enter on the heading of the slurm julia_settings list
@@ -178,7 +178,7 @@ isdefined(@__MODULE__, :legend_test_setup) || include("test_config.jl")
         # Escape closes the editor
         press(:escape)
         @test isnothing(m.setup.editor)
-        @test Juleana.effective_config(ctrl).slurm_flags == ["--nodes=1", "--time=01:00:00"]
+        @test JuLeAna.effective_config(ctrl).slurm_flags == ["--nodes=1", "--time=01:00:00"]
         @test ctrl.workers.config.slurm_flags == ["--nodes=1", "--time=01:00:00"]
     end
 end

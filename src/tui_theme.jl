@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Colors of btop's night-owl theme as the nearest colors of the 256-color palette: text
 # `#d6deeb`, title and bright text white, borders and dim text gray, the focused border
@@ -40,7 +40,7 @@ const JULEANA_THEME = Tachikoma.Theme("juleana", Tachikoma.Color256(234),  # bg
                                       )
 
 """
-    Juleana.TUI_THEMES
+    JuLeAna.TUI_THEMES
 
 The themes of the interface, in the order in which `T` cycles through them: `night-owl`
 (the default), `juleana` and the themes of Tachikoma.
@@ -50,9 +50,9 @@ const TUI_THEMES = (NIGHT_OWL_THEME, JULEANA_THEME, Tachikoma.ALL_THEMES...)
 const DEFAULT_THEME_NAME = "night-owl"
 
 """
-    Juleana.tui_theme(name::AbstractString)
+    JuLeAna.tui_theme(name::AbstractString)
 
-The theme of [`Juleana.TUI_THEMES`](@ref) called `name`. Throws an `ArgumentError` that
+The theme of [`JuLeAna.TUI_THEMES`](@ref) called `name`. Throws an `ArgumentError` that
 lists the names for an unknown one.
 """
 function tui_theme(name::AbstractString)
@@ -62,18 +62,18 @@ function tui_theme(name::AbstractString)
 end
 
 """
-    Juleana.theme_preference_path()
+    JuLeAna.theme_preference_path()
 
-The file that keeps the name of the theme chosen with `T`: `prefs/Juleana/theme` in the
+The file that keeps the name of the theme chosen with `T`: `prefs/JuLeAna/theme` in the
 first Julia depot.
 """
-theme_preference_path() = joinpath(first(DEPOT_PATH), "prefs", "Juleana", "theme")
+theme_preference_path() = joinpath(first(DEPOT_PATH), "prefs", "JuLeAna", "theme")
 
 """
-    Juleana.load_theme_name(path::AbstractString = Juleana.theme_preference_path())
+    JuLeAna.load_theme_name(path::AbstractString = JuLeAna.theme_preference_path())
 
 The name of the theme saved in `path`, or `night-owl` when nothing is saved. A saved name
-that is not a theme of [`Juleana.TUI_THEMES`](@ref) is logged as a warning and replaced by
+that is not a theme of [`JuLeAna.TUI_THEMES`](@ref) is logged as a warning and replaced by
 `night-owl`.
 """
 function load_theme_name(path::AbstractString = theme_preference_path())
@@ -85,9 +85,9 @@ function load_theme_name(path::AbstractString = theme_preference_path())
 end
 
 """
-    Juleana.next_theme!(path::AbstractString = Juleana.theme_preference_path())
+    JuLeAna.next_theme!(path::AbstractString = JuLeAna.theme_preference_path())
 
-Switch the interface to the theme after the active one in [`Juleana.TUI_THEMES`](@ref) and
+Switch the interface to the theme after the active one in [`JuLeAna.TUI_THEMES`](@ref) and
 save its name in `path` for the next start. Returns the new theme. A failed save is logged
 as a warning; the theme is switched anyway.
 """

@@ -2,13 +2,13 @@
 
 ## Installing the app
 
-Juleana is a Julia app. [`Pkg.Apps`](https://pkgdocs.julialang.org/v1/apps/) installs it
+JuLeAna is a Julia app. [`Pkg.Apps`](https://pkgdocs.julialang.org/v1/apps/) installs it
 in its own environment and creates the command `juleana`:
 
 ```julia
 import Pkg
-Pkg.Apps.add("Juleana")                              # from the registry
-Pkg.Apps.develop(path = "path/to/Juleana.jl")        # or from a checkout
+Pkg.Apps.add("JuLeAna")                              # from the registry
+Pkg.Apps.develop(path = "path/to/JuLeAna.jl")        # or from a checkout
 ```
 
 The `juleana` command is placed in the `bin` folder of the first Julia depot (`~/.julia/bin`
@@ -33,7 +33,7 @@ that apply to every production:
 export LEGEND_DATA_CONFIG=/ptmp/legend/config_viper.yaml:/ptmp/legend/ref/jl-v0.8.1/config.json
 ```
 
-Selecting or creating a production in Juleana replaces only the last file and keeps the
+Selecting or creating a production in JuLeAna replaces only the last file and keeps the
 overrides.
 
 ## Starting
@@ -60,8 +60,8 @@ for submission by hand.
 The same session is available from any Julia session:
 
 ```julia
-using Juleana
-session = Juleana.setup_session(["-c", "config/processing_config.yaml"])
+using JuLeAna
+session = JuLeAna.setup_session(["-c", "config/processing_config.yaml"])
 ```
 
 ## Running one processor for chosen detectors
@@ -97,14 +97,14 @@ new directory in the `jllog` tier, named by the current UTC time.
 
 ## Config folder of the data production
 
-Juleana keeps what it manages in the folder `setup` next to the file named by
+JuLeAna keeps what it manages in the folder `setup` next to the file named by
 `LEGEND_DATA_CONFIG`: the subfolders `config`, `software` and `metadata`. A production with a
 top-level `config`, `software` or `metadata-records` folder is refused with an error that
 names the folders to move to `setup/config`, `setup/software` and `setup/metadata`.
 
-The `config` folder of the data production is `setup/config`. Without `--config`, Juleana
-reads `setup/config/processing_config.yaml` from it. If that file does not exist, Juleana creates the
-folder and copies the `config/processing_config.yaml` shipped with Juleana there first. The folder also holds the worker start script `startjlworkers.sh`.
+The `config` folder of the data production is `setup/config`. Without `--config`, JuLeAna
+reads `setup/config/processing_config.yaml` from it. If that file does not exist, JuLeAna creates the
+folder and copies the `config/processing_config.yaml` shipped with JuLeAna there first. The folder also holds the worker start script `startjlworkers.sh`.
 
 The "Processor log level" row of the Setup page cycles through "config" (each processor's
 own `log_level`), `debug`, `info`, `warn` and `error`. It starts as the level given by
@@ -130,7 +130,7 @@ started, a bar below shows its progress and elapsed time. The bottom row lists t
 
 `T` switches to the next color theme: `night-owl` (the default, after the btop theme of
 that name), `juleana` (the colors of the logo) and the themes of Tachikoma. The chosen
-theme is saved in `prefs/Juleana/theme` in the Julia depot and used at the next start;
+theme is saved in `prefs/JuLeAna/theme` in the Julia depot and used at the next start;
 `--theme` selects one for a single start. The themes use the 256-color palette and leave
 the background of the terminal unchanged.
 
@@ -187,7 +187,7 @@ page and the `v` view of the Graph page show the state on disk, also from earlie
 Processing runs on worker processes, which connect to the running `juleana` process.
 The interface starts workers only on request: `a` on the Workers page, or `W` on the
 Setup page, starts a worker allocation by running the start script `startjlworkers.sh`
-in the `setup/config` folder of the data production. Juleana regenerates the script for every
+in the `setup/config` folder of the data production. JuLeAna regenerates the script for every
 session from the processing config; it holds the cookie and the address of the running
 process. The Workers page shows and edits the script (`e`, `Ctrl+S` saves); edits apply to
 the session.
@@ -264,11 +264,11 @@ The production folder `<parent>/<name>` then holds
 - the folders `generated/{tier,jllog,jlplt,jlreport,jlpar/rpars,jlpar/ppars}`,
 - `config.yaml`, the data config with one `tier/<label>` entry per extra tier path,
 - the copied parameters in `generated/jlpar`,
-- `setup/software`, with one subfolder per recorded state of the software: a copy of the Juleana
+- `setup/software`, with one subfolder per recorded state of the software: a copy of the JuLeAna
   checkout and of the other developed packages of the running environment, each a git
   repository with one commit, a manifest that refers to the copies, `SNAPSHOT.toml` and
   `PROVENANCE.md` with the source folder, commit and uncommitted changes of each package
-  (see [`Juleana.record_software`](@ref) and [`Juleana.snapshot_software`](@ref)), and
+  (see [`JuLeAna.record_software`](@ref) and [`JuLeAna.snapshot_software`](@ref)), and
 - optionally the line `export LEGEND_DATA_CONFIG=<production>/config.yaml` in the shell
   startup file, replacing earlier lines that export the variable.
 
@@ -279,30 +279,30 @@ it cancels its worker allocations, sets `LEGEND_DATA_CONFIG` and loads a session
 
 Every processing run first records the software of the process in the `setup/software` folder
 of the production (the folder that holds the data config), see
-[`Juleana.record_software`](@ref). A new snapshot is kept if its `fingerprint` in
+[`JuLeAna.record_software`](@ref). A new snapshot is kept if its `fingerprint` in
 `SNAPSHOT.toml`, computed from the Julia version and the git trees of all copied packages,
 differs from that of every existing snapshot; otherwise the existing snapshot is reused.
 The run fails if the recording fails. The subfolder is named
-`<date>-<Juleana commit>`, with `-modified` if Juleana had uncommitted changes. The
+`<date>-<JuLeAna commit>`, with `-modified` if JuLeAna had uncommitted changes. The
 processing history names it in the software line of the run, for example
-`Software: Juleana 0.2.0 (bab9df2), Julia 1.12.7, snapshot setup/software/2026-10-22T100704Z-bab9df2`.
+`Software: JuLeAna 0.2.0 (bab9df2), Julia 1.12.7, snapshot setup/software/2026-10-22T100704Z-bab9df2`.
 
 To run the software of a run again, use that snapshot:
 
 ```sh
-cd <production>/setup/software/<snapshot>/Juleana.jl
+cd <production>/setup/software/<snapshot>/JuLeAna.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 export LEGEND_DATA_CONFIG=<production>/config.yaml
-julia --project=. -m Juleana --no-tui ...
+julia --project=. -m JuLeAna --no-tui ...
 ```
 
-`Pkg.develop(path = "<snapshot>/Juleana.jl")` and `Pkg.add(path = "<snapshot>/Juleana.jl")`
+`Pkg.develop(path = "<snapshot>/JuLeAna.jl")` and `Pkg.add(path = "<snapshot>/JuLeAna.jl")`
 install the snapshot into another environment; `add` installs the committed tree.
-`Pkg.Apps.develop(path = "<snapshot>/Juleana.jl")` replaces the globally installed
+`Pkg.Apps.develop(path = "<snapshot>/JuLeAna.jl")` replaces the globally installed
 `juleana` app.
 
 Every run also records the metadata in the `setup/metadata` folder of the production, see
-[`Juleana.record_metadata`](@ref): the commit of `legend-metadata` and of each of its
+[`JuLeAna.record_metadata`](@ref): the commit of `legend-metadata` and of each of its
 submodules, the uncommitted changes of each as a patch, its untracked files (copied up to
 1 MB, larger ones by their git hash only) and copies of the data config files and the
 processing config. The metadata is only read with git. As for the software, a record with
@@ -315,11 +315,11 @@ apply the patches and copy the untracked files back.
 
 ## Updating
 
-Update Juleana and the LEGEND packages in the environment of the app with
+Update JuLeAna and the LEGEND packages in the environment of the app with
 
 ```julia
 import Pkg
-Pkg.Apps.update("Juleana")
+Pkg.Apps.update("JuLeAna")
 ```
 
 For an app installed with `Pkg.Apps.develop`, pull the checkout first. The update also

@@ -1,4 +1,4 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 """
     abstract type ControllerCommand
@@ -239,7 +239,7 @@ Run the selected steps over the selected periods and runs in the background with
 controller is `:running` until the run ends; the outcome is `:finished`, `:failed` or
 `:stopped`. [`progress`](@ref) shows the progress of the run. When the run ends, its
 steps are added to the processing history of the data production (see
-[`Juleana.append_history`](@ref) and [`Juleana.history_path`](@ref)). Throws an `ArgumentError` when no step is selected or a selected processor
+[`JuLeAna.append_history`](@ref) and [`JuLeAna.history_path`](@ref)). Throws an `ArgumentError` when no step is selected or a selected processor
 does not accept its keyword arguments.
 """
 struct StartProcessing <: ControllerCommand end
@@ -266,7 +266,7 @@ Write the processing config file of the session to `path` with the current setti
 the session: the kwarg overrides are applied to the processor entries, every processor
 is `enabled` exactly when it is selected, and `processing.analysis_runs_only` is the
 setting in effect. Without `path`, the file is `processing_config.yaml` in the
-[`Juleana.production_config_dir`](@ref), which is created if needed. An existing file
+[`JuLeAna.production_config_dir`](@ref), which is created if needed. An existing file
 at the path is first copied to `path * ".bak"`. The file is written as YAML. The written file becomes the config file of the session, which
 [`ReloadConfig`](@ref) reads.
 """
@@ -280,7 +280,7 @@ WriteConfig() = WriteConfig(nothing)
     AddWorkers()
 
 Start a worker allocation: run the worker start script of the session in the background
-(see [`Juleana.add_workers!`](@ref)). The workers join the worker pool when they have
+(see [`JuLeAna.add_workers!`](@ref)). The workers join the worker pool when they have
 started.
 """
 struct AddWorkers <: ControllerCommand end
@@ -288,7 +288,7 @@ struct AddWorkers <: ControllerCommand end
 """
     CancelAllocation(id::Integer)
 
-Cancel the worker allocation `id` (see [`Juleana.cancel_allocation!`](@ref)): its workers end
+Cancel the worker allocation `id` (see [`JuLeAna.cancel_allocation!`](@ref)): its workers end
 and items running on them fail.
 """
 struct CancelAllocation <: ControllerCommand
@@ -298,19 +298,19 @@ end
 """
     CancelAll()
 
-Cancel every running worker allocation of the session (see [`Juleana.cancel_all!`](@ref)).
+Cancel every running worker allocation of the session (see [`JuLeAna.cancel_all!`](@ref)).
 """
 struct CancelAll <: ControllerCommand end
 
 """
     CreateProduction(spec::ProductionSpec)
 
-Create the data production `spec` describes with [`Juleana.create_production`](@ref) in the
+Create the data production `spec` describes with [`JuLeAna.create_production`](@ref) in the
 background and switch the session to it: cancel all worker allocations (their workers use
 the data of the previous production), set `LEGEND_DATA_CONFIG` of this process to the new
-`config.yaml`, and load a session with the [`Juleana.install_default_config`](@ref) file of the new
+`config.yaml`, and load a session with the [`JuLeAna.install_default_config`](@ref) file of the new
 production and a new log folder. The lines of the creation are kept for
-[`production_log`](@ref Juleana.production_log). Possible while no session is loaded or
+[`production_log`](@ref JuLeAna.production_log). Possible while no session is loaded or
 no processing runs; the controller is `:loading` meanwhile and returns to its previous
 state if the creation or the load fails.
 """
@@ -324,7 +324,7 @@ end
 Switch the session to the existing data production in the folder `path`, which must hold a
 `config.json` or `config.yaml` (`config.json` if both exist): cancel all worker allocations,
 set `LEGEND_DATA_CONFIG` of this process to that file, reset the dataset to `default`, and load a session with the
-[`Juleana.install_default_config`](@ref) file of the production and a new log folder.
+[`JuLeAna.install_default_config`](@ref) file of the production and a new log folder.
 Possible while no session is loaded or no processing runs; the controller is `:loading`
 meanwhile and is `:idle` without a session if the load fails.
 """
@@ -350,7 +350,7 @@ end
     PostponeIdleCancel()
 
 Restart the idle time after which the worker allocations are cancelled (see
-[`Juleana.check_idle!`](@ref)) from now.
+[`JuLeAna.check_idle!`](@ref)) from now.
 """
 struct PostponeIdleCancel <: ControllerCommand end
 
@@ -358,7 +358,7 @@ struct PostponeIdleCancel <: ControllerCommand end
     EditStartScript(text::AbstractString)
 
 Replace the worker start script of the session by `text` for the next allocations (see
-[`Juleana.edit_start_script!`](@ref)).
+[`JuLeAna.edit_start_script!`](@ref)).
 """
 struct EditStartScript <: ControllerCommand
     text::String
@@ -388,12 +388,12 @@ Constructors:
   `:ready` with an existing session.
 
 `processors` maps processor names to their functions. Both constructors take the keyword
-`workers`, the [`Juleana.WorkerManager`](@ref) of the worker allocations, and
+`workers`, the [`JuLeAna.WorkerManager`](@ref) of the worker allocations, and
 `record_software`: whether each processing run first records the software of this process
-in the `setup/software` folder of the production (see [`Juleana.record_software`](@ref)), and
+in the `setup/software` folder of the production (see [`JuLeAna.record_software`](@ref)), and
 `record_metadata`: whether it records the metadata and the config files (the data config
 files and the processing config `args["config"]`) in its `setup/metadata` folder (see
-[`Juleana.record_metadata`](@ref)). A run fails if a record fails.
+[`JuLeAna.record_metadata`](@ref)). A run fails if a record fails.
 """
 mutable struct DataflowController
     const args::Dict{String,Any}
@@ -932,7 +932,7 @@ function apply!(ctrl::DataflowController, cmd::SelectDataset)
 end
 
 """
-    Juleana.production_log(ctrl::DataflowController)
+    JuLeAna.production_log(ctrl::DataflowController)
 
 Return a copy of the lines of the last [`CreateProduction`](@ref) of `ctrl`.
 """
@@ -943,10 +943,10 @@ function apply!(ctrl::DataflowController, ::PostponeIdleCancel)
 end
 
 """
-    Juleana.check_idle!(ctrl::DataflowController)
+    JuLeAna.check_idle!(ctrl::DataflowController)
 
 Cancel the worker allocations of `ctrl` if they have been idle for the `idle_timeout_minutes`
-of the config (see [`Juleana.check_idle!`](@ref)); allocations are never idle while processing
+of the config (see [`JuLeAna.check_idle!`](@ref)); allocations are never idle while processing
 runs or is stopping. Return whether they were cancelled. The terminal user interface calls it
 with every read of the controller state.
 """
@@ -994,7 +994,7 @@ const ControllerSnapshot = @NamedTuple{state::Symbol, outcome::Union{Nothing,Sym
 """
     snapshot(ctrl::DataflowController)
 
-Return a `Juleana.ControllerSnapshot`, a `NamedTuple` with fixed field types, with a copy of
+Return a `JuLeAna.ControllerSnapshot`, a `NamedTuple` with fixed field types, with a copy of
 the controller state:
 
 - `state`, `outcome` (`:finished`, `:failed`, `:stopped` or `nothing` of the last
@@ -1018,8 +1018,8 @@ the controller state:
   (`local_n`, `local_julia_settings`, `slurm_flags` and `slurm_julia_settings` in effect, or
   `nothing` without a session), `check_dependencies`,
   `nworkers` (workers in the pool), `allocations` (the worker allocations, see
-  [`Juleana.allocations`](@ref), without their output), `idle_deadline` (UTC time at which
-  idle allocations are cancelled, or `nothing`, see [`Juleana.idle_deadline`](@ref)).
+  [`JuLeAna.allocations`](@ref), without their output), `idle_deadline` (UTC time at which
+  idle allocations are cancelled, or `nothing`, see [`JuLeAna.idle_deadline`](@ref)).
 """
 function snapshot(ctrl::DataflowController)
     @lock ctrl.lock begin
@@ -1111,7 +1111,7 @@ end
 """
     dataset_summary(ctrl::DataflowController)
 
-Return the [`Juleana.dataset_summary`](@ref) of the runinfo of the session of `ctrl`.
+Return the [`JuLeAna.dataset_summary`](@ref) of the runinfo of the session of `ctrl`.
 Throws an `ArgumentError` when no session is loaded.
 """
 function dataset_summary(ctrl::DataflowController)
@@ -1123,7 +1123,7 @@ end
 """
     history_grid(ctrl::DataflowController)
 
-Return the [`Juleana.history_grid`](@ref) of the session of `ctrl`: every processor of the
+Return the [`JuLeAna.history_grid`](@ref) of the session of `ctrl`: every processor of the
 processing config (run level, then partition level, each in rank order) against every
 period and run of the runinfo, from all reports on disk and the processing history of the
 data production. Throws an `ArgumentError` when no session is loaded.

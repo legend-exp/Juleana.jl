@@ -6,12 +6,12 @@ Julia session. This page describes that workflow.
 
 ## Setting up
 
-Use an environment in which Juleana is under development, plus ParallelProcessingTools if
+Use an environment in which JuLeAna is under development, plus ParallelProcessingTools if
 the session starts its own workers:
 
 ```julia
 import Pkg
-Pkg.develop(path = "path/to/Juleana.jl")
+Pkg.develop(path = "path/to/JuLeAna.jl")
 Pkg.add("ParallelProcessingTools")
 ```
 
@@ -21,39 +21,39 @@ session before the first call of `run_step`:
 
 ```julia
 ENV["LEGEND_DATA_CONFIG"] = "/path/to/production/config.json"
-using Juleana
+using JuLeAna
 ```
 
-`using Juleana` makes the names of the packages Juleana works with available, such as
+`using JuLeAna` makes the names of the packages JuLeAna works with available, such as
 `LegendDataManagement`, `LegendSpecFits`, `ParallelProcessingTools` and `CairoMakie` (see the
-`export` list in `src/Juleana.jl`), so `LegendDataManagement.FileKey` works without loading
-the package in the environment of the session. [`Juleana.@using_packages`](@ref) also loads
+`export` list in `src/JuLeAna.jl`), so `LegendDataManagement.FileKey` works without loading
+the package in the environment of the session. [`JuLeAna.@using_packages`](@ref) also loads
 the names these packages export, e.g. `channelinfo` or `fit_peaks`, as `using` each package
 would:
 
 ```julia
-Juleana.@using_packages
+JuLeAna.@using_packages
 ```
 
 `run_step` reads the processing config of the data production by default. The config shipped
-with Juleana, or any other file, is given with `config`:
+with JuLeAna, or any other file, is given with `config`:
 
 ```julia
-config = joinpath(pkgdir(Juleana), "config", "processing_config.yaml")
+config = joinpath(pkgdir(JuLeAna), "config", "processing_config.yaml")
 ```
 
-[`Juleana.processors`](@ref)`(config)` lists the registered processors with their level,
+[`JuLeAna.processors`](@ref)`(config)` lists the registered processors with their level,
 category and rank.
 
 ## Workers in the REPL
 
 The items of a processor, e.g. its detectors, run in the calling process when no workers are
-started. To run them on workers, start workers from the session. They need Juleana, so load
+started. To run them on workers, start workers from the session. They need JuLeAna, so load
 it on all of them before they start:
 
 ```julia
-using Juleana
-ParallelProcessingTools.@always_everywhere using Juleana
+using JuLeAna
+ParallelProcessingTools.@always_everywhere using JuLeAna
 ParallelProcessingTools.runworkers(ParallelProcessingTools.OnLocalhost(n = 4))
 ```
 
@@ -92,7 +92,7 @@ when they already have parameters. The other keywords are
 
 Each call appends its report to `reports/<step>.md` in the output directory: the report rows
 of the chosen detectors and, below them, the plots of each detector in the order they were
-saved. The returned [`Juleana.StepOutput`](@ref) holds
+saved. The returned [`JuLeAna.StepOutput`](@ref) holds
 
 - `step.report`: the report of this call, with the plots by file name,
 - `step.report_file`, `step.output_dir`,
@@ -108,30 +108,30 @@ The processors that do not support chosen detectors (`process_evt_phy`,
 ## Debugging a failed detector
 
 The work of a processor is divided into named steps, written as
-[`Juleana.@process_step`](@ref) blocks. When a step fails, the processor logs which step failed for
+[`JuLeAna.@process_step`](@ref) blocks. When a step fails, the processor logs which step failed for
 which detector and goes on with the next item. With `debug = true`, `run_step` runs the
 items one after the other in the calling process and keeps each failed step as a
-[`Juleana.Failure`](@ref) with the variables of the processor at that step:
+[`JuLeAna.Failure`](@ref) with the variables of the processor at that step:
 
 ```julia
 step = run_step(:process_energy_calibration_cal, 3, 0; detectors = [:V01234A], debug = true)
-Juleana.failures()      # all failed steps of the last run_step call
-f = Juleana.failure()   # the first one; shows the step name, the error and the code of the step
+JuLeAna.failures()      # all failed steps of the last run_step call
+f = JuLeAna.failure()   # the first one; shows the step name, the error and the code of the step
 f.e_cal                 # a variable of the processor, as a property
 propertynames(f)        # all captured variables
-Juleana.@locals f       # define all of them as variables in Main
+JuLeAna.@locals f       # define all of them as variables in Main
 ```
 
-[`Juleana.rerun`](@ref) runs the code of the failed step again with the captured variables,
+[`JuLeAna.rerun`](@ref) runs the code of the failed step again with the captured variables,
 optionally with some of them replaced, and returns the value of the step. It writes no
 parameters or validity. If the step fails again, the new failure replaces `f`:
 
 ```julia
-Juleana.rerun(f)                          # fails in the same way
-Juleana.rerun(f; window = (100, 200))     # with a changed variable
+JuLeAna.rerun(f)                          # fails in the same way
+JuLeAna.rerun(f; window = (100, 200))     # with a changed variable
 ```
 
-`rerun` tries a change of a variable or of the code of the step. A change in the Juleana
+`rerun` tries a change of a variable or of the code of the step. A change in the JuLeAna
 sources is checked with another `run_step` call, which reads everything anew.
 
 The captured variables are those visible where the error is caught: the arguments and
@@ -156,7 +156,7 @@ that succeeds, with the value of the step as `step_value`. The names are the ste
 their interpolations done, as the log messages show them. The code of the step is logged at
 each stop. `pause` implies `debug = true`.
 
-Infiltrator stops only in code that the REPL started. Juleana's extension for Infiltrator
+Infiltrator stops only in code that the REPL started. JuLeAna's extension for Infiltrator
 turns this check off for the session, so the stops also work when `run_step` is run from a
 file in the VS Code editor.
 
@@ -178,9 +178,9 @@ run_step(...; log_level = :debug, plot_level = :debug)
 ```
 
 - `log_level` is `:debug`, `:info`, `:warn` or `:error`. The processor logs at this level
-  also to the terminal. At `:debug` this includes the debug records of Juleana, the Legend
+  also to the terminal. At `:debug` this includes the debug records of JuLeAna, the Legend
   packages, BAT and the JuliaPhysics packages of the dataflow, see
-  [`Juleana.DEBUG_LOG_PACKAGES`](@ref). Without the keyword, the level of the config applies
+  [`JuLeAna.DEBUG_LOG_PACKAGES`](@ref). Without the keyword, the level of the config applies
   to the log files only. Items on workers log to the log files of the workers.
 - `plot_level` is `:info` or `:debug`. At `:debug` the processor also saves the plots made
   with `@debug_plot`, which the report shows like the others.
@@ -188,35 +188,35 @@ run_step(...; log_level = :debug, plot_level = :debug)
 ## Reports in the REPL
 
 The report of a `run_step` call is `step.report`; `step.report_file` is the file it was
-appended to. [`Juleana.display_report`](@ref) shows both, with the plots as images where the
+appended to. [`JuLeAna.display_report`](@ref) shows both, with the plots as images where the
 display allows it, see [below](@ref "Plots and reports in terminals"):
 
 ```julia
-Juleana.display_report(step.report)
-Juleana.display_report(step.report_file)
+JuLeAna.display_report(step.report)
+JuLeAna.display_report(step.report_file)
 ```
 
 The reports that production runs wrote are Markdown files in the `jlrep` tier.
-[`Juleana.report_path`](@ref) builds the path of the report of a processor, and
-[`Juleana.read_report`](@ref) reads its state, the number of entries, warnings and failures
+[`JuLeAna.report_path`](@ref) builds the path of the report of a processor, and
+[`JuLeAna.read_report`](@ref) reads its state, the number of entries, warnings and failures
 and the failed entries:
 
 ```julia
 l200 = LegendData(:l200)
-path = Juleana.report_path(l200, :process_energy_calibration_cal, :run, DataPeriod(3), DataRun(0), :cal)
-Juleana.read_report(path).failures
-Juleana.display_report(path)
+path = JuLeAna.report_path(l200, :process_energy_calibration_cal, :run, DataPeriod(3), DataRun(0), :cal)
+JuLeAna.read_report(path).failures
+JuLeAna.display_report(path)
 ```
 
-[`Juleana.report_index`](@ref) reads the reports of several processors and runs into a
-table of rows, and [`Juleana.failure_summary`](@ref) groups the failed entries of such rows
+[`JuLeAna.report_index`](@ref) reads the reports of several processors and runs into a
+table of rows, and [`JuLeAna.failure_summary`](@ref) groups the failed entries of such rows
 by processor and detector. The `processors` argument takes the processor entries of the
 config:
 
 ```julia
-cfg = Juleana.ProcessingConfig(config)
-rows = Juleana.report_index(l200, [cfg.processors[:process_energy_calibration_cal]], [DataPeriod(3)], [DataRun(0)])
-Juleana.failure_summary(rows)
+cfg = JuLeAna.ProcessingConfig(config)
+rows = JuLeAna.report_index(l200, [cfg.processors[:process_energy_calibration_cal]], [DataPeriod(3)], [DataRun(0)])
+JuLeAna.failure_summary(rows)
 ```
 
 ## Plots and reports in terminals

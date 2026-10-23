@@ -1,9 +1,9 @@
-# This file is a part of Juleana.jl, licensed under the MIT License (MIT).
+# This file is a part of JuLeAna.jl, licensed under the MIT License (MIT).
 
 # Functions taking `AbstractArray` arguments must give the same values for offset and
 # lazily wrapped inputs, and an index-matched result must carry the input axes.
 
-using Juleana
+using JuLeAna
 using Test
 using OffsetArrays: OffsetArray
 using LegendDataManagement: LegendDataManagement, FileKey, DataPeriod, DataRun, ProcessStatus
@@ -34,14 +34,14 @@ LegendDataManagement.is_lrun(::AxesFakeData, key) = true
     @testset "watch_tasks: $name" for (name, wrap) in (("offset", x -> OffsetArray(x, -3)), ("view", x -> view(x, :)))
         finished = Threads.Atomic{Int}(0)
         tasks = wrap([Threads.@spawn sleep(0.02 * k) for k in 1:4])
-        watcher = Threads.@spawn Juleana.watch_tasks(() -> Threads.atomic_add!(finished, 1), tasks; poll = 0.01)
+        watcher = Threads.@spawn JuLeAna.watch_tasks(() -> Threads.atomic_add!(finished, 1), tasks; poll = 0.01)
         @test timedwait(() -> istaskdone(watcher), 10) === :ok
         @test finished[] == length(tasks)
     end
 
     @testset "parse_commandline" begin
         args = ["-c", "x.json", "-p", "3", "4", "-r", "1", "2", "--reprocess"]
-        @test Juleana.parse_commandline(OffsetArray(args, -5)) == Juleana.parse_commandline(args)
+        @test JuLeAna.parse_commandline(OffsetArray(args, -5)) == JuLeAna.parse_commandline(args)
     end
 
     # Periods and step lists are consumed as collections: offset axes must not change
@@ -59,7 +59,7 @@ LegendDataManagement.is_lrun(::AxesFakeData, key) = true
                                                        ProcessorSpec(; name = :p_part_b, level = :partition, category = :cal, rank = 1,
                                                                      dependencies = [:run_a])))
         stubs = Dict{Symbol,Any}(:run_a => run_a, :p_part_b => p_part_b)
-        run_status, partition_status = Juleana.RunStatus(), Juleana.PartitionStatus()
+        run_status, partition_status = JuLeAna.RunStatus(), JuLeAna.PartitionStatus()
         run_status[p3] = Dict{Symbol,Dict{DataRun,Bool}}([:run_a => Dict{DataRun,Bool}(runs .=> false)])
         partition_status[p3] = Dict{Symbol,Bool}([:p_part_b => false])
 
