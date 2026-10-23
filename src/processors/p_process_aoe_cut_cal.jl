@@ -165,11 +165,13 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
                     getproperty(hit_cal, aoe_classifier)
                 end
 
-                h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
-                p = LegendMakie.lhist(h_aoe_ctc, figsize = (670, 400), rasterize = true,
-                                      title = get_plottitle(filekey_det, part, det, ""; additional_type = string(aoe_classifier)),
-                                      xlabel = "Energy ($e_unit)", ylabel = "A/E", xticks = 0:500:3000, yticks = -20:10:10)
-                save_plot(p, l200, part, filekey_det, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
+                @process_step "$aoe_classifier normalized A/E plot" begin
+                    h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
+                    p = LegendMakie.lhist(h_aoe_ctc, figsize = (670, 400), rasterize = true,
+                                          title = get_plottitle(filekey_det, part, det, ""; additional_type = string(aoe_classifier)),
+                                          xlabel = "Energy ($e_unit)", ylabel = "A/E", xticks = 0:500:3000, yticks = -20:10:10)
+                    save_plot(p, l200, part, filekey_det, det, Symbol("aoe_normalized_runcal_$aoe_classifier"))
+                end
 
                 plot_dep_window() = begin
                     dep = aoe_config_det.dep
@@ -201,7 +203,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
                 # plot spectrum before and after cut
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_classifier A/E performance plot" begin
                     p = LegendMakie.lplot(report_cut, figsize = (750, 400),
                                           title = get_plottitle(filekey_det, part, det, "A/E Performance";
                                                                 additional_type = string(aoe_classifier)))
@@ -264,7 +266,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_classifier DS survival fractions plot" begin
                     p = LegendMakie.lplot(report_peaks_ds, figsize = (600, 400*length(report_peaks_ds)),
                                           title = get_plottitle(filekey_det, part, det, "A/E Performance";
                                                                 additional_type = string(aoe_classifier)))

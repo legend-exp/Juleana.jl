@@ -246,13 +246,13 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 end
 
                 # create and save plots
-                @debug_plot begin
+                @debug_plot @process_step "$lq_type DEP drift time correlation plot" begin
                     p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :DEP,
                                           title = "Drift Time vs LQ in DEP for Detector: $det", figsize = (620, 400))
                     save_plot(p, l200, part, filekey_det, det, Symbol("lq_ctc_DEP_$lq_type"))
                 end
 
-                @debug_plot begin
+                @debug_plot @process_step "$lq_type drift time correlation plot" begin
                     p = LegendMakie.lplot(drift_report, e_cal, dt_eff, lq_e_corr, :whole, title = "Drift Time vs LQ for Detector: $det",
                                           figsize = (620, 400))
                     save_plot(p, l200, part, filekey_det, det, Symbol("lq_ctc_$lq_type"))
@@ -291,7 +291,7 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 end
 
                 # create and save plots
-                @debug_plot begin
+                @debug_plot @process_step "$lq_type DEP normalization plot" begin
                     p = LegendMakie.lplot(report.fit_report, xlabel = Makie.rich("LQ", Makie.subscript(" ctc")), digits = 3,
                                           figsize = (600, 450), legend_position = :none,
                                           title = get_plottitle(filekey_det, part, det, "LQ DEP fit", additional_type = string(lq_type)))
@@ -299,14 +299,14 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                     save_plot(p, l200, part, filekey_det, det, Symbol("lq_dep_normalization_$lq_type"))
                 end
 
-                @debug_plot begin
+                @debug_plot @process_step "$lq_type sidebands plot" begin
                     p = LegendMakie.lplot(report.temp_hists,
                                           title = get_plottitle(filekey_det, part, det, "LQ sidebands", additional_type = string(lq_type)),
                                           xlims = (StatsBase.quantile.(Ref(filter(isfinite, lq_ctc)), (0.05, 0.95))))
                     save_plot(p, l200, part, filekey_det, det, Symbol("lq_sidebands_$lq_type"))
                 end
 
-                @debug_plot begin
+                @debug_plot @process_step "$lq_type sideband position plot" begin
                     p = LegendMakie.lplot((; e_cal, edges = report.edges, dep_σ = report.dep_σ),
                                           title = get_plottitle(filekey_det, part, det, "LQ side bands", additional_type = string(lq_type)))
                     save_plot(p, l200, part, filekey_det, det, Symbol("lq_sideband_position_$lq_type"))
@@ -358,18 +358,20 @@ function p_process_lq_calibration_cut_cal(processing_config, l200::LegendData, p
                 end
 
                 # create and save plots
-                sel = isfinite.(e_cal)
-                p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_class[sel]),
-                                                    (0:1:3000, range(-5.5, 9.5, length = 200))),
-                                      title = get_plottitle(filekey_det, part, det, "LQ"), figsize = (620, 400), watermark = false,
-                                      xlabel = "Energy (keV)", ylabel = Makie.rich("LQ", Makie.subscript(" norm")),
-                                      limits = (0, 3000, -5.5, 9.5))
-                Makie.hlines!([high_cut_sigma], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
-                Makie.axislegend(position = :rb)
-                LegendMakie.add_watermarks!(position = "outer top", final = true)
-                save_plot(p, l200, part, filekey_det, det, Symbol("lq_classalized_$lq_classifier"))
+                @process_step "$lq_classifier classified LQ plot" begin
+                    sel = isfinite.(e_cal)
+                    p = LegendMakie.lhist(StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(e_cal)[sel], lq_class[sel]),
+                                                        (0:1:3000, range(-5.5, 9.5, length = 200))),
+                                          title = get_plottitle(filekey_det, part, det, "LQ"), figsize = (620, 400), watermark = false,
+                                          xlabel = "Energy (keV)", ylabel = Makie.rich("LQ", Makie.subscript(" norm")),
+                                          limits = (0, 3000, -5.5, 9.5))
+                    Makie.hlines!([high_cut_sigma], color = LegendMakie.CoaxGreen, label = "LQ cut", linewidth = 4)
+                    Makie.axislegend(position = :rb)
+                    LegendMakie.add_watermarks!(position = "outer top", final = true)
+                    save_plot(p, l200, part, filekey_det, det, Symbol("lq_classalized_$lq_classifier"))
+                end
 
-                @debug_plot begin
+                @debug_plot @process_step "$lq_classifier performance plot" begin
                     p = LegendMakie.lplot((; e_cal, lq_class, cut_value = high_cut_sigma), figsize = (750, 400),
                                           title = get_plottitle(filekey_det, part, det, "LQ Performance",
                                                                 additional_type = string(lq_classifier)))

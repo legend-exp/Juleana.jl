@@ -176,13 +176,13 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
 
                 @debug "Found optimal window length at $(result_wl.wl) for detector $det ($ch)"
 
-                @debug_plot begin
+                @debug_plot @process_step "$filter_type window length sweep plot" begin
                     p = LegendMakie.lplot(report_wl,
                                           title = get_plottitle(filekey, det, "Filter Optimization"; additional_type = string(filter_type)))
                     save_plot(p, l200, filekey, det, Symbol("wl_sweep_$(filter_type)"))
                 end
 
-                @debug_plot begin
+                @debug_plot @process_step "$filter_type window length sweep calibration plot" begin
                     p = LegendMakie.lplot(report_wl.report_simple, cal = true,
                                           title = get_plottitle(filekey, det, "Opt. Calibration"; additional_type = string(filter_type)))
                     save_plot(p, l200, filekey, det, Symbol("wl_sweep_calibration_$(filter_type)"))
@@ -220,7 +220,7 @@ function process_sipm_optimization_phy(processing_config, l200::LegendData, peri
 
                     @debug "Found 1-σ $thres trigger threshold at $(round(result_thres.σ, digits=2)) for detector $det ($ch)"
 
-                    @debug_plot begin
+                    @debug_plot @process_step "$filter_type trigger threshold plot for $thres" begin
                         p = LegendMakie.lplot(report_thres,
                                               title = get_plottitle(filekey, det, "Baseline distribution"; additional_type = string(thres)))
                         save_plot(p, l200, filekey, det, Symbol("trigger_threshold_$(thres)"))

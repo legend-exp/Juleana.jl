@@ -207,7 +207,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                 end
                 GC.gc()
 
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_type uncalibrated A/E plot" begin
                     h_aoe_uncal = fit(Histogram, (ustrip.(e_unit, e_cal[isfinite.(aoe)]), aoe[isfinite.(aoe)]), (0:0.5:3000, 0.1:5e-3:1.8))
                     p = LegendMakie.lhist(h_aoe_uncal, figsize = (670, 400), rasterize = true,
                                           title = get_plottitle(filekey_det, part, det, "uncalibrated A/E";
@@ -220,7 +220,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                 # cut around CC to get only compton band for stability plotting
                 cc_min, cc_max = 0.9, 1.1
                 aoe_cut = findall(cc_min .< aoe .< cc_max)
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_type A/E stability plot" begin
                     # plot CC A/E over time
                     h_aoe_stability = StatsBase.fit(StatsBase.Histogram, (Unitful.ustrip.(u"hr", ts[aoe_cut]), aoe[aoe_cut]),
                                                     (0:0.01:ustrip(maximum(ts)), cc_min:5e-3:cc_max))
@@ -278,13 +278,17 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     end
 
                     # create plots
-                    @debug_plot begin
+                    @debug_plot @process_step "$aoe_type compton bands mu plot" begin
                         p_μ = LegendMakie.lplot(report_fit_single.report_μ, report_fit_combined.report_µ, legend_position = :lb,
                                                 figsize = (600, 420),
                                                 title = get_plottitle(filekey_det, part, det, "A/E μ"; additional_type = string(aoe_type)))
+                        save_plot(p_μ, l200, part, filekey_det, det, Symbol("compton_bands_mu_$aoe_type"))
+                    end
+                    @debug_plot @process_step "$aoe_type compton bands sigma plot" begin
                         p_σ = LegendMakie.lplot(report_fit_single.report_σ, report_fit_combined.report_σ, legend_position = :rt,
                                                 figsize = (600, 420),
                                                 title = get_plottitle(filekey_det, part, det, "A/E σ"; additional_type = string(aoe_type)))
+                        save_plot(p_σ, l200, part, filekey_det, det, Symbol("compton_bands_sigma_$aoe_type"))
                     end
 
                     # create corrected A/E values
@@ -294,11 +298,15 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     result_correction = result_fit_combined
                 else
                     # create plots
-                    @debug_plot begin
+                    @debug_plot @process_step "$aoe_type compton bands mu plot" begin
                         p_μ = LegendMakie.lplot(report_fit_single.report_μ, legend_position = :lb, figsize = (600, 420),
                                                 title = get_plottitle(filekey_det, part, det, "A/E µ"; additional_type = string(aoe_type)))
+                        save_plot(p_μ, l200, part, filekey_det, det, Symbol("compton_bands_mu_$aoe_type"))
+                    end
+                    @debug_plot @process_step "$aoe_type compton bands sigma plot" begin
                         p_σ = LegendMakie.lplot(report_fit_single.report_σ, legend_position = :rt, figsize = (600, 420),
                                                 title = get_plottitle(filekey_det, part, det, "A/E σ"; additional_type = string(aoe_type)))
+                        save_plot(p_σ, l200, part, filekey_det, det, Symbol("compton_bands_sigma_$aoe_type"))
                     end
 
                     # create corrected A/E values
@@ -312,11 +320,6 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                                                       std_residuals = std(single_fit_residuals)),))
                 end
 
-                @debug_plot begin
-                    save_plot(p_μ, l200, part, filekey_det, det, Symbol("compton_bands_mu_$aoe_type"))
-                    save_plot(p_σ, l200, part, filekey_det, det, Symbol("compton_bands_sigma_$aoe_type"))
-                end
-
                 # charge trapping correction
                 result_aoe_ctc, report_aoe_ctc = NamedTuple(), NamedTuple()
                 if aoe_config_det.apply_ctc
@@ -326,7 +329,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                                                qdrift_expression = qdrift_expression)
                     end
 
-                    @debug_plot begin
+                    @debug_plot @process_step "$aoe_type charge trapping correction plot" begin
                         # plot A/E ctc correlation plot
                         p = LegendMakie.lplot(report_aoe_ctc, figsize = (600, 600),
                                               title = get_plottitle(filekey_det, part, det, "A/E CT Correction";
@@ -334,7 +337,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                         save_plot(p, l200, part, filekey_det, det, Symbol("aoe_ctc_$aoe_type"))
                     end
 
-                    @debug_plot begin
+                    @debug_plot @process_step "$aoe_type compton band after CTC plot" begin
                         # plot A/E normalization after CTC
                         p = LegendMakie.lplot(report_aoe_ctc.report_after, xlims = (-20, 12),
                                               title = get_plottitle(filekey_det, part, det,
@@ -348,7 +351,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     aoe_corr = ljl_propfunc(result_aoe_ctc.func).(hit_cal)
                 end
 
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_type normalized A/E plot" begin
                     # plot corrected A/E 2D histogram
                     h_aoe_ec = fit(Histogram, (ustrip.(u"keV", e_cal), aoe_corr), (0:0.5:3000, -30:0.1:10))
                     p = LegendMakie.lhist(h_aoe_ec, figsize = (670, 400), rasterize = true,
@@ -400,12 +403,15 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                     ljl_propfunc(pars_db_det[det][Symbol(first(split(string(aoe_classifier), "_classifier")))].func).(hit_cal)
                 end
 
-                h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
-                p = LegendMakie.lhist(h_aoe_ctc, figsize = (670, 400), rasterize = true,
-                                      title = get_plottitle(filekey_det, part, det, ""; additional_type = string(aoe_classifier)),
-                                      xlabel = "Energy ($e_unit)", ylabel = Makie.rich("A/E", Makie.subscript(" ctc")), xticks = 0:500:3000,
-                                      yticks = -20:10:10)
-                save_plot(p, l200, part, filekey_det, det, Symbol("aoe_normalized_$aoe_classifier"))
+                @process_step "$aoe_classifier normalized A/E plot" begin
+                    h_aoe_ctc = fit(Histogram, (ustrip.(e_unit, e_cal), aoe), (0:0.5:3000, -20:0.1:10))
+                    p = LegendMakie.lhist(h_aoe_ctc, figsize = (670, 400), rasterize = true,
+                                          title = get_plottitle(filekey_det, part, det, ""; additional_type = string(aoe_classifier)),
+                                          xlabel = "Energy ($e_unit)", ylabel = Makie.rich("A/E", Makie.subscript(" ctc")),
+                                          xticks = 0:500:3000,
+                                          yticks = -20:10:10)
+                    save_plot(p, l200, part, filekey_det, det, Symbol("aoe_normalized_$aoe_classifier"))
+                end
 
                 plot_dep_window() = begin
                     dep = aoe_config_det.dep
@@ -436,7 +442,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
 
                 @debug "Found low A/E cut at $(round(result_cut.lowcut, digits=2)) and high A/E cut at $(round(result_cut.highcut, digits=2))"
 
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_classifier A/E performance plot" begin
                     # plot spectrum before and after cut
                     p = LegendMakie.lplot(report_cut, figsize = (750, 400),
                                           title = get_plottitle(filekey_det, part, det, "A/E Performance";
@@ -480,7 +486,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
 
                 @debug "Found DS Qbb Survival Fraction at $(round(u"percent", qbb_result_ds.sf, digits=2))"
 
-                @debug_plot begin
+                @debug_plot @process_step "$aoe_classifier DS survival fractions plot" begin
                     p = LegendMakie.lplot(report_peaks_ds, titlesize = 17, figsize = (600, 400*length(report_peaks_ds)),
                                           title = get_plottitle(filekey_det, part, det, "A/E Performance";
                                                                 additional_type = string(aoe_classifier)))
