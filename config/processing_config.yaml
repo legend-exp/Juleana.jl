@@ -280,6 +280,7 @@ processors:
       - p_process_energy_cal
       - process_aoe_calibration_cut_cal
       - p_process_aoe_calibration_cut_cal
+      - p_process_aoe_cut_cal
       - process_lq_calibration_cut_cal
       - p_process_lq_calibration_cut_cal
       - p_process_sipm_calibration_phy
