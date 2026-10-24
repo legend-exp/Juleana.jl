@@ -101,11 +101,10 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
         compton_window = aoe_config_det.compton_window
         p_value_cut = aoe_config_det.p_value # what is this? p values threshold 
         e_type = Symbol(aoe_config_det.e_type)
-        aoe_types = collect(keys(aoe_config_det.aoe_funcs))
         aoe_funcs = aoe_config_det.aoe_funcs
+        aoe_types = collect(keys(aoe_funcs))
+        aoe_classifiers = [Symbol("$(aoe_type)_classifier") for aoe_type in aoe_types]
         qdrift_expression = aoe_config_det.qdrift_expression
-
-        aoe_classifiers = Symbol.(aoe_config_det.aoe_classifiers)
 
         # sigma_high_sided = ifelse(chinfo_det.high_aoe_status == :valid, aoe_config_det.sigma_high_sided, Inf)
         sigma_high_sided = aoe_config_det.sigma_high_sided
