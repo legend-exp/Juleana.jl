@@ -146,7 +146,7 @@ function p_process_aoe_cut_cal(processing_config, l200::LegendData, period::Data
                                                                         aoe_cut_pars_cat = :aoe)
                                         end
                                         for pinfo in partinfo_det])
-                e_cal = getproperty(hit_cal, e_type)
+                e_cal = collect(getproperty(hit_cal, e_type))
                 e_unit = unit(first(e_cal))
                 e_cal, hit_cal, e_unit
             else

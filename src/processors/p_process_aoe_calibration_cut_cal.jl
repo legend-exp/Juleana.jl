@@ -182,7 +182,7 @@ function p_process_aoe_calibration_cut_cal(processing_config, l200::LegendData, 
                                             Table(merge(columns(dsp), NamedTuple{(e_type,)}((cal_func.(dsp),))))
                                         end
                                         for (pinfo, cal_func) in zip(partinfo_det, cal_funcs)])
-                e_cal = getproperty(hit_cal, e_type)
+                e_cal = collect(getproperty(hit_cal, e_type))
                 e_unit = unit(eltype(e_cal))
 
                 # get timestamps for stability plots
